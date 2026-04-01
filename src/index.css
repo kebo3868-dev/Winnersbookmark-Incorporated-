@@ -1,0 +1,106 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-wb-black text-wb-white font-sans antialiased;
+    min-height: 100vh;
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-wb-dark;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-wb-border rounded-full;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-wb-blue-muted;
+  }
+}
+
+@layer components {
+  .wb-card {
+    @apply bg-wb-card border border-wb-border rounded-2xl shadow-card;
+  }
+
+  .wb-btn-primary {
+    @apply bg-wb-blue hover:bg-wb-blue-light text-white font-semibold px-6 py-3 rounded-xl
+           transition-all duration-200 shadow-blue-glow hover:shadow-blue-glow-lg
+           active:scale-95 inline-flex items-center gap-2;
+  }
+
+  .wb-btn-secondary {
+    @apply bg-wb-card hover:bg-wb-border text-wb-white font-semibold px-6 py-3 rounded-xl
+           border border-wb-border hover:border-wb-blue transition-all duration-200
+           active:scale-95 inline-flex items-center gap-2;
+  }
+
+  .wb-btn-ghost {
+    @apply text-wb-muted hover:text-wb-white px-4 py-2 rounded-lg
+           transition-all duration-200 inline-flex items-center gap-2;
+  }
+
+  .wb-input {
+    @apply bg-wb-dark border border-wb-border rounded-xl px-4 py-3 text-wb-white
+           placeholder-wb-muted focus:outline-none focus:border-wb-blue focus:ring-1
+           focus:ring-wb-blue transition-all duration-200 w-full;
+  }
+
+  .wb-badge {
+    @apply inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium;
+  }
+
+  .streak-fire {
+    background: linear-gradient(135deg, #f59e0b, #ef4444);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+}
+
+@layer utilities {
+  .text-gradient-blue {
+    background: linear-gradient(135deg, #3b82f6, #60a5fa);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .text-gradient-gold {
+    background: linear-gradient(135deg, #f59e0b, #fbbf24);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .border-gradient {
+    border: 1px solid transparent;
+    background-clip: padding-box;
+  }
+
+  .glow-blue {
+    box-shadow: 0 0 20px rgba(37, 99, 235, 0.25);
+  }
+
+  .habit-complete {
+    @apply bg-wb-blue border-wb-blue-light shadow-blue-glow;
+  }
+
+  .habit-incomplete {
+    @apply bg-wb-card border-wb-border hover:border-wb-blue-muted;
+  }
+}
