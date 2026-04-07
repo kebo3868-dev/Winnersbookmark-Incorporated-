@@ -1,122 +1,70 @@
-// localStorage helpers for persisting habit data
+const STORAGE_KEYS = {
+  PROFILE: 'wbd_profile',
+  ONBOARDED: 'wbd_onboarded',
+  ENTRIES: 'wbd_entries',
+  GOALS: 'wbd_goals',
+  SYSTEMS: 'wbd_systems',
+  BRAINSTORMS: 'wbd_brainstorms',
+  THOUGHTS: 'wbd_thoughts',
+  REVIEWS: 'wbd_reviews',
+};
 
-const STORAGE_KEY = 'wb_habits_v1';
-const CUSTOM_HABITS_KEY = 'wb_custom_habits_v1';
-const TRIAL_KEY = 'wb_trial_start';
-
-export function getTodayKey() {
-  return new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-}
-
-export function getHabitData() {
+function get(key) {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : {};
+    const data = localStorage.getItem(key);
+    return data ? JSON.parse(data) : null;
   } catch {
-    return {};
+    return null;
   }
 }
 
-export function saveHabitData(data) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-}
-
-export function toggleHabitForDate(habitId, date) {
-  const data = getHabitData();
-  if (!data[habitId]) data[habitId] = { completedDates: [] };
-  const dates = data[habitId].completedDates;
-  const idx = dates.indexOf(date);
-  if (idx >= 0) {
-    dates.splice(idx, 1);
-  } else {
-    dates.push(date);
-  }
-  saveHabitData(data);
-  return data;
-}
-
-export function isHabitCompleted(habitId, date, data) {
-  return !!(data[habitId]?.completedDates?.includes(date));
-}
-
-export function calculateStreak(completedDates) {
-  if (!completedDates || completedDates.length === 0) return 0;
-  const sorted = [...completedDates].sort((a, b) => b.localeCompare(a));
-  const today = getTodayKey();
-
-  let streak = 0;
-  let checkDate = new Date(today);
-
-  for (let i = 0; i < 365; i++) {
-    const dateStr = checkDate.toISOString().split('T')[0];
-    if (sorted.includes(dateStr)) {
-      streak++;
-    } else if (i === 0) {
-      // Today not done yet — check yesterday to keep streak alive
-      checkDate.setDate(checkDate.getDate() - 1);
-      continue;
-    } else {
-      break;
-    }
-    checkDate.setDate(checkDate.getDate() - 1);
-  }
-
-  return streak;
-}
-
-export function getLongestStreak(completedDates) {
-  if (!completedDates || completedDates.length === 0) return 0;
-  const sorted = [...completedDates].sort((a, b) => a.localeCompare(b));
-  let longest = 1;
-  let current = 1;
-
-  for (let i = 1; i < sorted.length; i++) {
-    const prev = new Date(sorted[i - 1]);
-    const curr = new Date(sorted[i]);
-    const diff = (curr - prev) / (1000 * 60 * 60 * 24);
-    if (diff === 1) {
-      current++;
-      if (current > longest) longest = current;
-    } else {
-      current = 1;
-    }
-  }
-  return longest;
-}
-
-export function getCustomHabits() {
+function set(key, value) {
   try {
-    const raw = localStorage.getItem(CUSTOM_HABITS_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch (e) {
+    console.error('Storage error:', e);
   }
 }
 
-export function saveCustomHabits(habits) {
-  localStorage.setItem(CUSTOM_HABITS_KEY, JSON.stringify(habits));
-}
+export const storage = {
+  getProfile: () => get(STORAGE_KEYS.PROFILE),
+  setProfile: (profile) => set(STORAGE_KEYS.PROFILE, profile),
 
-export function getTrialStart() {
-  const raw = localStorage.getItem(TRIAL_KEY);
-  if (!raw) return null;
-  return new Date(raw);
-}
+  isOnboarded: () => get(STORAGE_KEYS.ONBOARDED) === true,
+  setOnboarded: (val) => set(STORAGE_KEYS.ONBOARDED, val),
 
-export function startTrial() {
-  if (!localStorage.getItem(TRIAL_KEY)) {
-    localStorage.setItem(TRIAL_KEY, new Date().toISOString());
+  getEntries: () => get(STORAGE_KEYS.ENTRIES) || {},
+  getEntry: (dateKey) => {
+    const entries = get(STORAGE_KEYS.ENTRIES) || {};
+    return entries[dateKey] || null;
+  },
+  setEntry: (dateKey, entry) => {
+    const entries = get(STORAGE_KEYS.ENTRIES) || {};
+    entries[dateKey] = { ...entries[dateKey], ...entry };
+    set(STORAGE_KEYS.ENTRIES, entries);
+  },
+
+  getGoals: () => get(STORAGE_KEYS.GOALS) || {
+    ninetyDay: '', twoYear: '', fiveYear: '', tenYear: '', twentyYear: '',
+    monthlyTarget: '', weeklyWin: '',
+  },
+  setGoals: (goals) => set(STORAGE_KEYS.GOALS, goals),
+
+  getSystems: () => get(STORAGE_KEYS.SYSTEMS) || [],
+  setSystems: (systems) => set(STORAGE_KEYS.SYSTEMS, systems),
+
+  getBrainstorms: () => get(STORAGE_KEYS.BRAINSTORMS) || [],
+  setBrainstorms: (items) => set(STORAGE_KEYS.BRAINSTORMS, items),
+
+  getThoughts: () => get(STORAGE_KEYS.THOUGHTS) || [],
+  setThoughts: (thoughts) => set(STORAGE_KEYS.THOUGHTS, thoughts),
+
+  getReviews: () => get(STORAGE_KEYS.REVIEWS) || [],
+  setReviews: (reviews) => set(STORAGE_KEYS.REVIEWS, reviews),
+
+  clearAll: () => {
+    Object.values(STORAGE_KEYS).forEach(key => localStorage.removeItem(key));
   }
-}
+};
 
-export function getTrialDaysRemaining() {
-  const start = getTrialStart();
-  if (!start) return 30;
-  const now = new Date();
-  const diff = Math.floor((now - start) / (1000 * 60 * 60 * 24));
-  return Math.max(0, 30 - diff);
-}
-
-export function isTrialActive() {
-  return getTrialDaysRemaining() > 0;
-}
+export default storage;
