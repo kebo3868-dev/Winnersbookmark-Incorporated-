@@ -37,6 +37,14 @@ I'm a creator, consultant, and builder in my early 50s operating at the intersec
 
 ---
 
+
+## 🧭 Build Playbooks
+
+- [`docs/codex-mvp-prompt.md`](docs/codex-mvp-prompt.md) — execution-focused Codex prompt for shipping the Winner's Bookmark Daily MVP.
+- [`docs/winnersbookmark-virtual-secretary-spec.md`](docs/winnersbookmark-virtual-secretary-spec.md) — modular product spec for the Winnersbookmark Virtual Secretary AI.
+
+---
+
 ## 🚀 Currently Building
 
 - 🤖 **AI Agent Suite** — Custom agents for small business automation, starting with restaurant front desk
