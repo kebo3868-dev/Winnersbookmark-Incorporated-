@@ -1,106 +1,56 @@
-import { useState, useCallback, useEffect } from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import Navbar from './components/Navbar';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AppProvider, useApp } from './context/AppContext';
+import Onboarding from './pages/Onboarding';
 import Dashboard from './pages/Dashboard';
-import Tracker from './pages/Tracker';
-import GoalSetter from './pages/GoalSetter';
-import Library from './pages/Library';
-import Pricing from './pages/Pricing';
-import {
-  getHabitData,
-  toggleHabitForDate,
-  getTodayKey,
-  getTrialDaysRemaining,
-  isTrialActive,
-  startTrial,
-} from './data/storage';
+import DailyEntry from './pages/DailyEntry';
+import GoalsVision from './pages/GoalsVision';
+import SystemBuilder from './pages/SystemBuilder';
+import BrainstormVault from './pages/BrainstormVault';
+import Reviews from './pages/Reviews';
+import Insights from './pages/Insights';
 
-export default function App() {
-  const [habitData, setHabitData] = useState(() => getHabitData());
-  const [trialDays, setTrialDays] = useState(() =>
-    isTrialActive() ? getTrialDaysRemaining() : null
-  );
+function AppRoutes() {
+  const { onboarded, loading } = useApp();
 
-  // Auto-start trial on first visit
-  useEffect(() => {
-    startTrial();
-    setTrialDays(getTrialDaysRemaining());
-  }, []);
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-wb-black flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-10 h-10 border-2 border-wb-blue border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-wb-muted text-sm">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
-  const handleToggleHabit = useCallback((habitId) => {
-    const today = getTodayKey();
-    const updated = toggleHabitForDate(habitId, today);
-    setHabitData({ ...updated });
-  }, []);
-
-  const handleStartTrial = useCallback(() => {
-    startTrial();
-    setTrialDays(getTrialDaysRemaining());
-  }, []);
+  if (!onboarded) {
+    return (
+      <Routes>
+        <Route path="*" element={<Onboarding />} />
+      </Routes>
+    );
+  }
 
   return (
-    <BrowserRouter>
-      <div className="min-h-screen bg-wb-black">
-        <Navbar trialDays={trialDays} />
-        <main className="max-w-6xl mx-auto px-4 pt-24 pb-16">
-          <Routes>
-            <Route
-              path="/"
-              element={
-                <Dashboard
-                  habitData={habitData}
-                  onToggleHabit={handleToggleHabit}
-                />
-              }
-            />
-            <Route
-              path="/tracker"
-              element={
-                <Tracker
-                  habitData={habitData}
-                  onToggleHabit={handleToggleHabit}
-                />
-              }
-            />
-            <Route path="/goals"   element={<GoalSetter />} />
-            <Route path="/library" element={<Library />} />
-            <Route
-              path="/pricing"
-              element={<Pricing onStartTrial={handleStartTrial} />}
-            />
-          </Routes>
-        </main>
+    <Routes>
+      <Route path="/" element={<Dashboard />} />
+      <Route path="/daily" element={<DailyEntry />} />
+      <Route path="/goals" element={<GoalsVision />} />
+      <Route path="/systems" element={<SystemBuilder />} />
+      <Route path="/vault" element={<BrainstormVault />} />
+      <Route path="/reviews" element={<Reviews />} />
+      <Route path="/insights" element={<Insights />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  );
+}
 
-        {/* Footer */}
-        <footer className="border-t border-wb-border py-8 mt-8">
-          <div className="max-w-6xl mx-auto px-4 flex flex-col md:flex-row items-center justify-between gap-4 text-wb-muted text-sm">
-            <div className="flex items-center gap-2">
-              <span>🏆</span>
-              <span className="font-semibold text-wb-white">Winners Bookmark Incorporated</span>
-            </div>
-            <p className="text-center italic text-xs">
-              "Discipline is the foundation. Everything else is built on top of it."
-            </p>
-            <div className="flex items-center gap-4">
-              <a
-                href="https://winnersbookmark.com"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="hover:text-wb-white transition-colors"
-              >
-                winnersbookmark.com
-              </a>
-              <span>•</span>
-              <a
-                href="mailto:kebo3868@gmail.com"
-                className="hover:text-wb-white transition-colors"
-              >
-                Contact
-              </a>
-            </div>
-          </div>
-        </footer>
-      </div>
+export default function App() {
+  return (
+    <BrowserRouter>
+      <AppProvider>
+        <AppRoutes />
+      </AppProvider>
     </BrowserRouter>
   );
 }

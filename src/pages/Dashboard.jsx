@@ -1,183 +1,170 @@
-import { useMemo } from 'react';
-import { Link } from 'react-router-dom';
-import { ArrowRight, Flame, Trophy, Target, BookOpen, TrendingUp } from 'lucide-react';
-import QuoteCard from '../components/QuoteCard';
-import HabitCard from '../components/HabitCard';
-import { StreakMilestoneBar } from '../components/StreakBadge';
-import { atomicQuotes, habitCategories } from '../data/quotes';
+import { useNavigate } from 'react-router-dom';
+import { useApp } from '../context/AppContext';
+import { getDailyCroak } from '../data/croaks';
+import { getDailyAdvice } from '../data/advice';
+import { todayKey, formatDate } from '../lib/dates';
+import ScoreRing from '../components/ScoreRing';
+import Layout from '../components/Layout';
 import {
-  getTodayKey,
-  getHabitData,
-  toggleHabitForDate,
-  isHabitCompleted,
-  calculateStreak,
-  getLongestStreak,
-} from '../data/storage';
+  Flame, PenSquare, Target, Skull, Lightbulb,
+  ChevronRight, Bookmark, Sun, Moon
+} from 'lucide-react';
 
-function StatCard({ icon: Icon, value, label, color = 'blue' }) {
-  const colors = {
-    blue:   'text-wb-blue-glow bg-wb-blue/10 border-wb-blue/20',
-    gold:   'text-yellow-400 bg-yellow-400/10 border-yellow-400/20',
-    green:  'text-green-400 bg-green-400/10 border-green-400/20',
-    purple: 'text-purple-400 bg-purple-400/10 border-purple-400/20',
-  };
-  return (
-    <div className="wb-card p-5 flex items-center gap-4">
-      <div className={`w-12 h-12 rounded-xl flex items-center justify-center border ${colors[color]}`}>
-        <Icon className="w-5 h-5" />
-      </div>
-      <div>
-        <div className="text-2xl font-bold text-wb-white">{value}</div>
-        <div className="text-xs text-wb-muted">{label}</div>
-      </div>
-    </div>
-  );
-}
+export default function Dashboard() {
+  const { profile, todayEntry, streak, todayScore, goals, brainstorms, systems, entries } = useApp();
+  const navigate = useNavigate();
+  const today = todayKey();
+  const croak = getDailyCroak(today);
+  const advice = getDailyAdvice(today);
+  const hasMorning = todayEntry?.morning?.completed;
+  const hasEvening = todayEntry?.evening?.completed;
 
-export default function Dashboard({ habitData, onToggleHabit }) {
-  const today = getTodayKey();
-  const todayDate = new Date().toLocaleDateString('en-US', {
-    weekday: 'long', month: 'long', day: 'numeric',
-  });
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
 
-  // Daily quote (cycles based on day of year)
-  const dayOfYear = Math.floor(
-    (new Date() - new Date(new Date().getFullYear(), 0, 0)) / 86400000
-  );
-  const dailyQuote = atomicQuotes[dayOfYear % atomicQuotes.length];
-
-  const coreHabits = Object.values(habitCategories);
-
-  const completedToday = coreHabits.filter(h =>
-    isHabitCompleted(h.id, today, habitData)
-  ).length;
-
-  const stats = useMemo(() => {
-    let totalStreak = 0;
-    let totalLongest = 0;
-    let totalDays = 0;
-
-    coreHabits.forEach(h => {
-      const dates = habitData[h.id]?.completedDates || [];
-      totalStreak += calculateStreak(dates);
-      totalLongest = Math.max(totalLongest, getLongestStreak(dates));
-      totalDays += dates.length;
-    });
-
-    return { totalStreak, totalLongest, totalDays };
-  }, [habitData]);
-
-  // Progress ring
-  const progressPct = (completedToday / coreHabits.length) * 100;
-  const circumference = 2 * Math.PI * 36;
-  const strokeDashoffset = circumference - (progressPct / 100) * circumference;
+  const recentBrainstorms = brainstorms.slice(-3).reverse();
+  const activeSystems = systems.filter(s => s.active).length;
 
   return (
-    <div className="space-y-8 animate-slide-up">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <p className="text-wb-muted text-sm">{todayDate}</p>
-          <h1 className="text-3xl font-bold text-wb-white mt-1">
-            Welcome back, <span className="text-gradient-blue">Keith</span> 🏆
-          </h1>
-          <p className="text-wb-muted mt-1">
-            {completedToday === coreHabits.length
-              ? "All habits done today. You're unstoppable."
-              : `${coreHabits.length - completedToday} habit${coreHabits.length - completedToday !== 1 ? 's' : ''} left today.`}
-          </p>
-        </div>
-        {/* Progress ring */}
-        <div className="flex items-center gap-4 wb-card p-5">
-          <svg width="88" height="88" viewBox="0 0 88 88">
-            <circle cx="44" cy="44" r="36" fill="none" stroke="#1e2d4a" strokeWidth="8" />
-            <circle
-              cx="44" cy="44" r="36"
-              fill="none"
-              stroke="#2563eb"
-              strokeWidth="8"
-              strokeLinecap="round"
-              strokeDasharray={circumference}
-              strokeDashoffset={strokeDashoffset}
-              transform="rotate(-90 44 44)"
-              style={{ transition: 'stroke-dashoffset 0.6s ease' }}
-            />
-            <text x="44" y="48" textAnchor="middle" fill="white" fontSize="18" fontWeight="bold">
-              {completedToday}/{coreHabits.length}
-            </text>
-          </svg>
+    <Layout>
+      <div className="page-container space-y-5">
+        {/* Header */}
+        <div className="flex items-center justify-between">
           <div>
-            <div className="text-wb-white font-semibold">Today</div>
-            <div className="text-wb-muted text-sm">{Math.round(progressPct)}% done</div>
+            <div className="flex items-center gap-2 mb-1">
+              <Bookmark size={20} className="text-wb-blue-light" />
+              <span className="text-xs font-medium text-wb-muted uppercase tracking-wider">Winner's Bookmark Daily</span>
+            </div>
+            <h1 className="text-xl font-bold">{greeting}, {profile?.name || 'Champion'}</h1>
+            <p className="text-sm text-wb-muted">{formatDate(today)}</p>
+          </div>
+          {streak > 0 && (
+            <div className="flex items-center gap-1.5 bg-wb-gold/10 border border-wb-gold/20 px-3 py-1.5 rounded-full">
+              <Flame size={16} className="text-wb-gold" />
+              <span className="text-sm font-bold text-wb-gold">{streak}</span>
+            </div>
+          )}
+        </div>
+
+        {/* Entry Status */}
+        <div className="card space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="section-title">Today's Entry</span>
+            <button onClick={() => navigate('/daily')} className="text-wb-blue-light text-sm font-medium flex items-center gap-1">
+              Open <ChevronRight size={14} />
+            </button>
+          </div>
+          <div className="flex gap-3">
+            <button
+              onClick={() => navigate('/daily')}
+              className={`flex-1 p-3 rounded-xl border transition-colors flex items-center gap-2 ${
+                hasMorning ? 'bg-wb-blue/10 border-wb-blue/30 text-wb-blue-light' : 'bg-wb-card border-wb-border text-wb-muted'
+              }`}
+            >
+              <Sun size={16} />
+              <span className="text-sm font-medium">Morning {hasMorning ? '✓' : ''}</span>
+            </button>
+            <button
+              onClick={() => navigate('/daily')}
+              className={`flex-1 p-3 rounded-xl border transition-colors flex items-center gap-2 ${
+                hasEvening ? 'bg-wb-blue/10 border-wb-blue/30 text-wb-blue-light' : 'bg-wb-card border-wb-border text-wb-muted'
+              }`}
+            >
+              <Moon size={16} />
+              <span className="text-sm font-medium">Evening {hasEvening ? '✓' : ''}</span>
+            </button>
           </div>
         </div>
-      </div>
 
-      {/* Stats row */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard icon={Flame}     value={stats.totalStreak}  label="Combined Streak"  color="blue"   />
-        <StatCard icon={Trophy}    value={stats.totalLongest} label="Longest Streak"   color="gold"   />
-        <StatCard icon={Target}    value={completedToday}     label="Done Today"       color="green"  />
-        <StatCard icon={TrendingUp} value={stats.totalDays}   label="Total Check-ins"  color="purple" />
-      </div>
-
-      {/* Daily quote */}
-      <div>
-        <h2 className="text-sm font-semibold text-wb-muted uppercase tracking-wider mb-3">
-          Today's Quote
-        </h2>
-        <QuoteCard {...dailyQuote} variant="hero" />
-      </div>
-
-      {/* Today's habits quick-check */}
-      <div>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-bold text-wb-white">Today's Habits</h2>
-          <Link to="/tracker" className="wb-btn-ghost text-sm">
-            Full tracker <ArrowRight className="w-4 h-4" />
-          </Link>
-        </div>
-        <div className="grid md:grid-cols-2 gap-4">
-          {coreHabits.map(habit => {
-            const dates = habitData[habit.id]?.completedDates || [];
-            return (
-              <HabitCard
-                key={habit.id}
-                habit={habit}
-                isCompleted={isHabitCompleted(habit.id, today, habitData)}
-                streak={calculateStreak(dates)}
-                longestStreak={getLongestStreak(dates)}
-                onToggle={() => onToggleHabit(habit.id)}
-                showDetails={false}
-              />
-            );
-          })}
-        </div>
-      </div>
-
-      {/* CTA row */}
-      <div className="grid md:grid-cols-2 gap-4">
-        <Link to="/goals" className="wb-card p-6 group hover:border-wb-blue/40 transition-all duration-300">
-          <Target className="w-8 h-8 text-wb-blue mb-3" />
-          <h3 className="text-wb-white font-bold text-lg mb-1">Set a New Goal</h3>
-          <p className="text-wb-muted text-sm">
-            Tell us what you want to achieve. Get an Atomic Habits plan to make it happen.
-          </p>
-          <div className="flex items-center gap-1 text-wb-blue-glow text-sm mt-3 group-hover:gap-2 transition-all">
-            Build your plan <ArrowRight className="w-4 h-4" />
+        {/* Score + 90-Day Mission */}
+        <div className="grid grid-cols-2 gap-3">
+          <div className="card flex flex-col items-center justify-center py-5">
+            <ScoreRing score={todayScore} size={72} />
+            <span className="text-xs text-wb-muted mt-2">Alignment</span>
           </div>
-        </Link>
-        <Link to="/library" className="wb-card p-6 group hover:border-wb-blue/40 transition-all duration-300">
-          <BookOpen className="w-8 h-8 text-wb-blue mb-3" />
-          <h3 className="text-wb-white font-bold text-lg mb-1">Atomic Habits Library</h3>
-          <p className="text-wb-muted text-sm">
-            Master the four laws. Explore quotes, tactics, and principles from James Clear.
-          </p>
-          <div className="flex items-center gap-1 text-wb-blue-glow text-sm mt-3 group-hover:gap-2 transition-all">
-            Explore library <ArrowRight className="w-4 h-4" />
+          <div className="card flex flex-col justify-center">
+            <span className="label">90-Day Mission</span>
+            <p className="text-sm text-wb-white leading-relaxed line-clamp-3">
+              {goals.ninetyDay || 'Not set yet'}
+            </p>
+            <button onClick={() => navigate('/goals')} className="text-xs text-wb-blue-light mt-2 flex items-center gap-1">
+              View goals <ChevronRight size={12} />
+            </button>
           </div>
-        </Link>
+        </div>
+
+        {/* Top 3 Priorities */}
+        {todayEntry?.morning?.priorities?.some(p => p) && (
+          <div className="card space-y-2">
+            <span className="section-title">Today's Priorities</span>
+            {todayEntry.morning.priorities.filter(Boolean).map((p, i) => (
+              <div key={i} className="flex items-start gap-2.5 py-1">
+                <span className="w-5 h-5 rounded-full bg-wb-blue/20 text-wb-blue-light text-xs flex items-center justify-center flex-shrink-0 mt-0.5 font-bold">
+                  {i + 1}
+                </span>
+                <span className="text-sm text-wb-white">{p}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Daily Croak */}
+        <div className="card border-wb-border/50 space-y-2">
+          <div className="flex items-center gap-2">
+            <Skull size={16} className="text-wb-muted" />
+            <span className="section-title">Daily Croak</span>
+          </div>
+          <p className="text-sm text-wb-gold italic leading-relaxed">"{croak.prompt}"</p>
+          <p className="text-xs text-wb-muted">{croak.hardTruth}</p>
+        </div>
+
+        {/* Daily Advice */}
+        <div className="card space-y-2">
+          <div className="flex items-center gap-2">
+            <Lightbulb size={16} className="text-wb-blue-light" />
+            <span className="section-title">{advice.title}</span>
+          </div>
+          <p className="text-sm text-wb-muted leading-relaxed">{advice.lesson}</p>
+          <div className="pt-1">
+            <span className="text-xs text-wb-blue-light font-medium">Apply today: </span>
+            <span className="text-xs text-wb-muted">{advice.howToApply}</span>
+          </div>
+        </div>
+
+        {/* Quick Stats */}
+        <div className="grid grid-cols-3 gap-3">
+          <div className="card text-center py-3">
+            <span className="text-lg font-bold text-wb-white">{activeSystems}</span>
+            <span className="text-xs text-wb-muted block mt-0.5">Systems</span>
+          </div>
+          <div className="card text-center py-3">
+            <span className="text-lg font-bold text-wb-white">{brainstorms.length}</span>
+            <span className="text-xs text-wb-muted block mt-0.5">Ideas</span>
+          </div>
+          <div className="card text-center py-3">
+            <span className="text-lg font-bold text-wb-white">{Object.keys(entries).length}</span>
+            <span className="text-xs text-wb-muted block mt-0.5">Entries</span>
+          </div>
+        </div>
+
+        {/* Recent Brainstorms */}
+        {recentBrainstorms.length > 0 && (
+          <div className="card space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="section-title">Recent Ideas</span>
+              <button onClick={() => navigate('/vault')} className="text-wb-blue-light text-sm flex items-center gap-1">
+                All <ChevronRight size={14} />
+              </button>
+            </div>
+            {recentBrainstorms.map(b => (
+              <div key={b.id} className="flex items-center justify-between py-1.5 border-b border-wb-border/50 last:border-0">
+                <span className="text-sm text-wb-white">{b.title}</span>
+                <span className="text-xs text-wb-muted capitalize">{b.category}</span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
-    </div>
+    </Layout>
   );
 }
