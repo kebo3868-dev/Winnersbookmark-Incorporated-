@@ -19,6 +19,16 @@ export default {
           white:    '#f9fafb',
           muted:    '#94a3b8',
           gold:     '#f59e0b',
+          green:    '#10b981',
+          'green-light': '#34d399',
+          'green-muted': '#064e3b',
+          red:      '#ef4444',
+          'red-light': '#f87171',
+          'red-muted': '#450a0a',
+          amber:    '#f59e0b',
+          'amber-muted': '#451a03',
+          purple:   '#8b5cf6',
+          'card2':  '#141926',
         },
       },
       fontFamily: {
@@ -28,7 +38,9 @@ export default {
       boxShadow: {
         'blue-glow': '0 0 20px rgba(37, 99, 235, 0.3)',
         'blue-glow-lg': '0 0 40px rgba(37, 99, 235, 0.4)',
+        'green-glow': '0 0 20px rgba(16, 185, 129, 0.25)',
         'card': '0 4px 24px rgba(0,0,0,0.4)',
+        'card-lg': '0 8px 40px rgba(0,0,0,0.6)',
       },
       animation: {
         'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
