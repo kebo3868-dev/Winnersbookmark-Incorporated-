@@ -1,7 +1,8 @@
 {
-  "name": "winners-bookmark-daily",
+  "name": "winnersbookmark-cinecomic-studio",
   "private": true,
   "version": "1.0.0",
+  "description": "Winnersbookmark CineComic Studio — a premium AI-powered comic book, graphic novel, and storyboard creation app.",
   "type": "module",
   "scripts": {
     "dev": "vite",

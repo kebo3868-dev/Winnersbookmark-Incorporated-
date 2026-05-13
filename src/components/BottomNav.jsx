@@ -1,40 +1,36 @@
-import { useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Wallet, BarChart3, RefreshCcw, Target } from 'lucide-react';
+import { NavLink } from 'react-router-dom';
+import { LayoutDashboard, FolderKanban, Users, Layers, Sparkles } from 'lucide-react';
 
-const NAV = [
-  { path: '/',              icon: LayoutDashboard, label: 'Home' },
-  { path: '/accounts',      icon: Wallet,          label: 'Money' },
-  { path: '/budget',        icon: BarChart3,        label: 'Budget' },
-  { path: '/subscriptions', icon: RefreshCcw,       label: 'Recurring' },
-  { path: '/goals',         icon: Target,           label: 'Goals' },
+const ITEMS = [
+  { to: '/',             label: 'Studio',   icon: LayoutDashboard, end: true },
+  { to: '/projects',     label: 'Projects', icon: FolderKanban },
+  { to: '/templates',    label: 'Spark',    icon: Sparkles },
+  { to: '/master',       label: 'Prompts',  icon: Layers },
+  { to: '/settings',     label: 'Settings', icon: Users },
 ];
 
 export default function BottomNav() {
-  const location = useLocation();
-  const navigate = useNavigate();
-
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-wb-dark/95 backdrop-blur-lg border-t border-wb-border z-50 safe-area-pb">
-      <div className="max-w-lg mx-auto flex items-center justify-around px-1 py-2">
-        {NAV.map(({ path, icon: Icon, label }) => {
-          const active = location.pathname === path;
-          return (
-            <button
-              key={path}
-              onClick={() => navigate(path)}
-              className={`flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl transition-all min-w-0 ${
-                active ? 'text-wb-blue-light' : 'text-wb-muted hover:text-wb-white'
-              }`}
-            >
-              <div className={`p-1 rounded-lg transition-colors ${active ? 'bg-wb-blue/15' : ''}`}>
-                <Icon size={18} strokeWidth={active ? 2.5 : 1.8} />
-              </div>
-              <span className={`text-[10px] font-medium tracking-wide ${active ? 'text-wb-blue-light' : ''}`}>
-                {label}
-              </span>
-            </button>
-          );
-        })}
+    <nav className="sm:hidden fixed bottom-0 inset-x-0 z-40 border-t border-ink-line bg-ink-black/85 backdrop-blur-md safe-bottom">
+      <div className="max-w-3xl mx-auto px-2 py-1.5 grid grid-cols-5 gap-1">
+        {ITEMS.map(({ to, label, icon: Icon, end }) => (
+          <NavLink
+            key={to} to={to} end={end}
+            className={({ isActive }) =>
+              `flex flex-col items-center justify-center py-1.5 rounded-lg text-[10.5px] font-medium ${
+                isActive ? 'text-gold-light' : 'text-mist'
+              }`
+            }
+          >
+            {({ isActive }) => (
+              <>
+                <Icon size={20} strokeWidth={isActive ? 2.2 : 1.8}
+                  className={isActive ? 'drop-shadow-[0_0_8px_rgba(212,175,55,0.55)]' : ''} />
+                <span className="mt-0.5">{label}</span>
+              </>
+            )}
+          </NavLink>
+        ))}
       </div>
     </nav>
   );

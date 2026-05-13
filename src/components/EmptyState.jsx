@@ -1,14 +1,14 @@
-export default function EmptyState({ icon: Icon, title, description, action, onAction }) {
+export default function EmptyState({ icon: Icon, title, body, action }) {
   return (
-    <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
-      {Icon && <Icon size={48} className="text-wb-muted/40 mb-4" />}
-      <h3 className="text-lg font-semibold text-wb-white mb-2">{title}</h3>
-      {description && <p className="text-sm text-wb-muted mb-6 max-w-xs">{description}</p>}
-      {action && onAction && (
-        <button onClick={onAction} className="btn-primary">
-          {action}
-        </button>
+    <div className="empty">
+      {Icon && (
+        <div className="w-12 h-12 mx-auto rounded-2xl border border-gold/40 bg-gold/10 flex items-center justify-center mb-3 text-gold-light">
+          <Icon size={20} />
+        </div>
       )}
+      <div className="font-display text-xl font-semibold text-paper">{title}</div>
+      {body && <p className="text-mist text-sm mt-1.5 max-w-md mx-auto">{body}</p>}
+      {action && <div className="mt-4 flex justify-center">{action}</div>}
     </div>
   );
 }
