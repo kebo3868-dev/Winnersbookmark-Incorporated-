@@ -1,73 +1,70 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { FinanceProvider, useFinance } from './context/FinanceContext';
 import { lazy, Suspense } from 'react';
+import { StudioProvider } from './context/StudioContext';
+import Logo from './components/Logo';
 
-const Onboarding       = lazy(() => import('./pages/Onboarding'));
-const Dashboard        = lazy(() => import('./pages/Dashboard'));
-const Accounts         = lazy(() => import('./pages/Accounts'));
-const Income           = lazy(() => import('./pages/Income'));
-const Expenses         = lazy(() => import('./pages/Expenses'));
-const Budget           = lazy(() => import('./pages/Budget'));
-const Subscriptions    = lazy(() => import('./pages/Subscriptions'));
-const Bills            = lazy(() => import('./pages/Bills'));
-const CashFlow         = lazy(() => import('./pages/CashFlow'));
-const Goals            = lazy(() => import('./pages/Goals'));
-const Calendar         = lazy(() => import('./pages/Calendar'));
-const Insights         = lazy(() => import('./pages/Insights'));
-const Notifications    = lazy(() => import('./pages/Notifications'));
-const Settings         = lazy(() => import('./pages/Settings'));
+const Dashboard         = lazy(() => import('./pages/Dashboard'));
+const NewProject        = lazy(() => import('./pages/NewProject'));
+const Projects          = lazy(() => import('./pages/Projects'));
+const ProjectDetail     = lazy(() => import('./pages/ProjectDetail'));
+const StoryEngine       = lazy(() => import('./pages/StoryEngine'));
+const CharacterVault    = lazy(() => import('./pages/CharacterVault'));
+const WorldBuilder      = lazy(() => import('./pages/WorldBuilder'));
+const PageBuilder       = lazy(() => import('./pages/PageBuilder'));
+const PanelPrompts      = lazy(() => import('./pages/PanelPrompts'));
+const CoverCreator      = lazy(() => import('./pages/CoverCreator'));
+const DialogueWriter    = lazy(() => import('./pages/DialogueWriter'));
+const Storyboard        = lazy(() => import('./pages/Storyboard'));
+const ContinuityChecker = lazy(() => import('./pages/ContinuityChecker'));
+const ExportCenter      = lazy(() => import('./pages/ExportCenter'));
+const SocialMedia       = lazy(() => import('./pages/SocialMedia'));
+const Monetization      = lazy(() => import('./pages/Monetization'));
+const Templates         = lazy(() => import('./pages/Templates'));
+const MasterPrompts     = lazy(() => import('./pages/MasterPrompts'));
+const Settings          = lazy(() => import('./pages/Settings'));
 
 function Loader() {
   return (
-    <div className="min-h-screen bg-wb-black flex items-center justify-center">
+    <div className="min-h-screen flex items-center justify-center">
       <div className="text-center">
-        <div className="w-10 h-10 border-2 border-wb-blue border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-        <p className="text-wb-muted text-sm">Loading…</p>
+        <div className="mx-auto mb-4 animate-pulse"><Logo size={56} /></div>
+        <div className="eyebrow">Loading Studio…</div>
       </div>
     </div>
-  );
-}
-
-function AppRoutes() {
-  const { onboarded, loading } = useFinance();
-  if (loading) return <Loader />;
-  if (!onboarded) {
-    return (
-      <Suspense fallback={<Loader />}>
-        <Routes>
-          <Route path="*" element={<Onboarding />} />
-        </Routes>
-      </Suspense>
-    );
-  }
-  return (
-    <Suspense fallback={<Loader />}>
-      <Routes>
-        <Route path="/"              element={<Dashboard />} />
-        <Route path="/accounts"      element={<Accounts />} />
-        <Route path="/income"        element={<Income />} />
-        <Route path="/expenses"      element={<Expenses />} />
-        <Route path="/budget"        element={<Budget />} />
-        <Route path="/subscriptions" element={<Subscriptions />} />
-        <Route path="/bills"         element={<Bills />} />
-        <Route path="/cashflow"      element={<CashFlow />} />
-        <Route path="/goals"         element={<Goals />} />
-        <Route path="/calendar"      element={<Calendar />} />
-        <Route path="/insights"      element={<Insights />} />
-        <Route path="/notifications" element={<Notifications />} />
-        <Route path="/settings"      element={<Settings />} />
-        <Route path="*"              element={<Navigate to="/" replace />} />
-      </Routes>
-    </Suspense>
   );
 }
 
 export default function App() {
   return (
     <BrowserRouter>
-      <FinanceProvider>
-        <AppRoutes />
-      </FinanceProvider>
+      <StudioProvider>
+        <Suspense fallback={<Loader />}>
+          <Routes>
+            <Route path="/"           element={<Dashboard />} />
+            <Route path="/new"        element={<NewProject />} />
+            <Route path="/projects"   element={<Projects />} />
+            <Route path="/templates"  element={<Templates />} />
+            <Route path="/master"     element={<MasterPrompts />} />
+            <Route path="/settings"   element={<Settings />} />
+
+            <Route path="/project/:id"             element={<ProjectDetail />} />
+            <Route path="/project/:id/story"       element={<StoryEngine />} />
+            <Route path="/project/:id/characters"  element={<CharacterVault />} />
+            <Route path="/project/:id/world"       element={<WorldBuilder />} />
+            <Route path="/project/:id/pages"       element={<PageBuilder />} />
+            <Route path="/project/:id/prompts"     element={<PanelPrompts />} />
+            <Route path="/project/:id/cover"       element={<CoverCreator />} />
+            <Route path="/project/:id/dialogue"    element={<DialogueWriter />} />
+            <Route path="/project/:id/storyboard"  element={<Storyboard />} />
+            <Route path="/project/:id/continuity"  element={<ContinuityChecker />} />
+            <Route path="/project/:id/social"      element={<SocialMedia />} />
+            <Route path="/project/:id/monetize"    element={<Monetization />} />
+            <Route path="/project/:id/export"      element={<ExportCenter />} />
+
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </Suspense>
+      </StudioProvider>
     </BrowserRouter>
   );
 }

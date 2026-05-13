@@ -1,3 +1,49 @@
+# Winnersbookmark CineComic Studio
+
+> **Build the story. Design the world. Generate the panels. Publish the legend.**
+
+A premium AI-powered comic book, graphic novel, manga, and storyboard creation studio. Take a raw idea from logline to publish-ready outline — characters, panels, cover, prompts, social kit, and monetization plays — all in a mobile-first dark luxury interface.
+
+## What it does
+
+- **Dashboard** — project progress, recent projects, quick start templates, AI builders.
+- **Project Wizard** — 6-step concept → genre → style → format → cast → goal.
+- **Story Engine** — three-act, hero’s journey, Save the Cat, or comic-issue pacing; logline, premise, twist, cliffhanger.
+- **Character Vault** — full character bible with reference-sheet prompts locked to your visual style.
+- **World Builder** — location, rules, mood, palette, hidden danger; environment prompt generated.
+- **Page Builder** — every page broken into editable panels with camera angle, lighting, action, dialogue, captions, SFX, continuity notes, and per-panel image prompts (with negative prompt defaults: *no distorted hands, no misspelled text, no extra limbs, no blurry faces, no inconsistent costume*).
+- **Panel Prompt Generator** — every panel’s ready-to-paste image prompt; one-click copy-all.
+- **Cover Creator** — 8 cover styles from Marvel-action to luxury graphic novel, with full cover prompt and back blurb.
+- **Dialogue Writer** — 8 line types, 6 dialogue rules, AI prompt that returns 5 candidates + best pick.
+- **Storyboard View** — pages at a glance with thumbnail panels, pacing, dialogue preview.
+- **Continuity Checker** — auto-flags character, costume, dialogue, pacing, and cliffhanger risks.
+- **Export Center** — script (Markdown), character bible (Markdown), prompts (TXT), outline (TXT), cover prompt, publishing checklist, social kit, and full JSON project file. Import/export backups.
+- **Social Kit** — TikTok / Instagram / hashtags / YouTube Shorts / trailer voiceover / character reveal / behind-the-scenes / launch / carousel — pre-filled from your project.
+- **Monetization** — 10 income plays: PDF, Kindle, Gumroad, Patreon, Shorts, merch, email list, newsletter, publisher pitches, paid templates.
+- **Template Library** — 12 prebuilt story starters (superhero origin, villain revenge, werewolf, vampire hunter, street warrior, motivational, kids bedtime, food adventure, AI robot future, kingdom fantasy, noir mystery, martial arts tournament).
+- **Master Prompt Builder** — one brief, platform-optimized prompt for ChatGPT, Claude, Gemini, Midjourney, Leonardo, Ideogram, DALL·E, Runway, Pika, Kling, Veo, Canva, Photoshop.
+- **Settings** — creator identity, full library backup/import, reset.
+
+## Tech
+
+- **React 18** + **Vite 5** + **Tailwind CSS 3**
+- **React Router 6** with lazy-loaded routes
+- **localStorage** persistence with JSON-serializable project schema (Supabase/Stripe/Claude/OpenAI/Gemini integrations are designed-in but stubbed)
+- Mobile-first with bottom navigation, sticky top bar, glassmorphism cards, gold accent lines, electric-blue CTAs, and a luxury editorial typographic system (Playfair Display / Inter / Bebas Neue)
+
+## Run
+
+```bash
+npm install
+npm run dev     # local development
+npm run build   # production build
+npm run preview # preview the build
+```
+
+The footer on every screen reads: **Designed by Winnersbookmark Incorporated**.
+
+---
+
 # Keith | Winners Bookmark Incorporated 🏆
 
 > *"Discipline is the foundation. Everything else is built on top of it."*

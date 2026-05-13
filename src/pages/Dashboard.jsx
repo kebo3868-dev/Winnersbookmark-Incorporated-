@@ -1,285 +1,180 @@
-import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import {
-  LayoutDashboard, TrendingUp, TrendingDown, AlertTriangle,
-  ArrowRight, Bell, RefreshCw, Receipt, Target, Calendar,
-  Zap, ChevronRight, Activity, Shield,
+  Sparkles, BookOpen, Users, Globe2, Layers, BookCopy, Wand2, Image as ImageIcon,
+  Download, MessageSquare, ListChecks, Share2, DollarSign, ArrowRight, PlayCircle,
+  PenTool, Clapperboard,
 } from 'lucide-react';
 import Layout from '../components/Layout';
-import ProgressBar from '../components/ProgressBar';
-import AmountDisplay from '../components/AmountDisplay';
-import { useFinance } from '../context/FinanceContext';
-import {
-  formatCurrency, daysUntil,
-  budgetProgress, totalBudgetStats,
-} from '../lib/finance';
+import PageHeader from '../components/PageHeader';
+import ProgressRing from '../components/ProgressRing';
+import { useStudio, projectProgress } from '../context/StudioContext';
+import { formatDate } from '../lib/ids';
+import { TEMPLATES } from '../data/templates';
 
-function AlertBanner({ alerts, onView }) {
-  if (!alerts.length) return null;
-  const top = alerts[0];
-  const colors = {
-    high:   'border-wb-red/40 bg-wb-red/5 text-wb-red-light',
-    medium: 'border-wb-amber/40 bg-wb-amber/5 text-wb-amber',
-    low:    'border-wb-blue/30 bg-wb-blue/5 text-wb-blue-light',
-  };
-  return (
-    <button
-      onClick={onView}
-      className={`w-full flex items-center gap-3 border rounded-xl px-4 py-3 text-left hover:opacity-80 ${colors[top.priority] || colors.low}`}
-    >
-      <AlertTriangle size={16} className="shrink-0" />
-      <div className="flex-1 min-w-0">
-        <p className="text-xs font-semibold">{top.title}</p>
-        <p className="text-xs opacity-80 truncate">{top.body}</p>
-      </div>
-      {alerts.length > 1 && <span className="text-xs font-bold opacity-60">+{alerts.length - 1}</span>}
-      <ChevronRight size={14} className="shrink-0 opacity-60" />
-    </button>
-  );
-}
+const QUICK_TILES = [
+  { to: '/new',             label: 'AI Comic Builder',  desc: 'Wizard-guided new project',     icon: Sparkles, accent: 'gold' },
+  { to: '/templates',       label: 'Quick Templates',   desc: '12 prebuilt story starters',    icon: BookCopy, accent: 'blue' },
+  { to: '/master',          label: 'Master Prompts',    desc: 'Per-tool platform prompts',     icon: Wand2,    accent: 'gold' },
+];
 
-function StatPill({ label, value, color = 'blue', onClick }) {
-  const colorMap = {
-    blue:  'bg-wb-blue/10 border-wb-blue/20 text-wb-blue-light',
-    green: 'bg-wb-green/10 border-wb-green/20 text-wb-green-light',
-    red:   'bg-wb-red/10 border-wb-red/20 text-wb-red-light',
-    amber: 'bg-wb-amber/10 border-wb-amber/20 text-wb-amber',
-  };
-  return (
-    <button
-      onClick={onClick}
-      className={`flex-1 border rounded-xl px-3 py-3 text-center hover:opacity-80 ${colorMap[color]}`}
-    >
-      <p className="text-[10px] uppercase tracking-wide opacity-70 mb-0.5">{label}</p>
-      <p className="text-sm font-bold">{value}</p>
-    </button>
-  );
-}
-
-function UpcomingRow({ item }) {
-  const days = item._daysUntil ?? daysUntil(item.due_date ?? item.next_due_date);
-  const isOverdue = days < 0;
-  const isSoon = days >= 0 && days <= 3;
-  const isSub = !!item.billing_cycle;
-  return (
-    <div className="flex items-center gap-3 py-2.5">
-      <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-        isOverdue ? 'bg-wb-red/10 text-wb-red-light' :
-        isSoon    ? 'bg-wb-amber/10 text-wb-amber' :
-                    'bg-wb-blue/10 text-wb-blue-light'}`}>
-        {isSub ? <RefreshCw size={14} /> : <Receipt size={14} />}
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-wb-white truncate">{item.name}</p>
-        <p className="text-xs text-wb-muted">{isSub ? 'Subscription' : 'Bill'}</p>
-      </div>
-      <div className="text-right shrink-0">
-        <p className="text-sm font-semibold text-wb-white">{formatCurrency(item.amount)}</p>
-        <p className={`text-[11px] font-medium ${isOverdue ? 'text-wb-red' : isSoon ? 'text-wb-amber' : 'text-wb-muted'}`}>
-          {isOverdue ? `${Math.abs(days)}d late` : days === 0 ? 'Today' : `${days}d`}
-        </p>
-      </div>
-    </div>
-  );
-}
+const PROJECT_MODULES = (id) => ([
+  { to: `/project/${id}/story`,      icon: BookOpen,    label: 'Story Engine' },
+  { to: `/project/${id}/characters`, icon: Users,       label: 'Character Vault' },
+  { to: `/project/${id}/world`,      icon: Globe2,      label: 'World Builder' },
+  { to: `/project/${id}/pages`,      icon: Layers,      label: 'Page Builder' },
+  { to: `/project/${id}/prompts`,    icon: ImageIcon,   label: 'Panel Prompts' },
+  { to: `/project/${id}/cover`,      icon: BookCopy,    label: 'Cover Creator' },
+  { to: `/project/${id}/dialogue`,   icon: MessageSquare, label: 'Dialogue Writer' },
+  { to: `/project/${id}/storyboard`, icon: Clapperboard, label: 'Storyboard View' },
+  { to: `/project/${id}/continuity`, icon: ListChecks,  label: 'Continuity Check' },
+  { to: `/project/${id}/social`,     icon: Share2,      label: 'Social Kit' },
+  { to: `/project/${id}/monetize`,   icon: DollarSign,  label: 'Monetization' },
+  { to: `/project/${id}/export`,     icon: Download,    label: 'Export Center' },
+]);
 
 export default function Dashboard() {
-  const navigate = useNavigate();
-  const {
-    profile, balance, accounts,
-    thisMonthIncome, thisMonthExpenses, netFlow,
-    upcoming, alerts, subMonthlyTotal,
-    forecast, unreadNotifs,
-    budgets, expenses, month,
-  } = useFinance();
+  const { projects, activeProject, createProject } = useStudio();
 
-  const currentBudget = budgets.find(b => b.month === month);
-  const budgetCats = currentBudget?.categories || [];
-  const budgetStats = totalBudgetStats(budgetCats, expenses, month);
-  const topBudgetCats = budgetProgress(budgetCats, expenses, month)
-    .sort((a, b) => b.pct - a.pct)
-    .slice(0, 3);
-
-  const hour = new Date().getHours();
-  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
-  const firstName = profile?.name?.split(' ')[0] || 'there';
+  const recents = [...projects].sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || '')).slice(0, 4);
+  const active = activeProject || recents[0];
 
   return (
     <Layout>
-      <div className="page-container space-y-4">
-
-        {/* Header */}
-        <div className="flex items-center justify-between pt-1">
-          <div>
-            <p className="text-[10px] text-wb-muted font-medium tracking-widest uppercase mb-0.5">
-              Winnersbookmark Financial
+      <div className="page">
+        {/* Hero */}
+        <section className="glass-strong card-pad-lg accent-top relative overflow-hidden mb-7">
+          <div className="absolute -top-24 -right-24 w-72 h-72 rounded-full bg-gold/10 blur-3xl pointer-events-none" />
+          <div className="absolute -bottom-24 -left-24 w-72 h-72 rounded-full bg-electric/15 blur-3xl pointer-events-none" />
+          <div className="relative">
+            <div className="eyebrow mb-3">Winnersbookmark CineComic Studio</div>
+            <h1 className="hero-title">
+              Build the story.<br/>
+              <span className="text-gradient-gold">Design the world.</span><br/>
+              <span className="text-gradient-electric">Publish the legend.</span>
+            </h1>
+            <p className="text-chalk mt-4 max-w-prose text-sm sm:text-base">
+              A premium AI-assisted comic book, graphic novel, manga, and storyboard studio.
+              Take a raw idea from logline to publish-ready outline — characters, panels, cover, and prompts.
             </p>
-            <h1 className="text-xl font-bold tracking-tight">{greeting}, {firstName}</h1>
-          </div>
-          <button
-            onClick={() => navigate('/notifications')}
-            className="relative w-10 h-10 rounded-xl bg-wb-card border border-wb-border flex items-center justify-center text-wb-muted hover:text-wb-white transition-colors"
-          >
-            <Bell size={18} />
-            {unreadNotifs > 0 && (
-              <span className="absolute -top-1 -right-1 w-4 h-4 bg-wb-red text-white text-[9px] font-bold rounded-full flex items-center justify-center">
-                {unreadNotifs > 9 ? '9+' : unreadNotifs}
-              </span>
-            )}
-          </button>
-        </div>
-
-        {/* Alerts */}
-        {alerts.length > 0 && (
-          <AlertBanner alerts={alerts} onView={() => navigate('/notifications')} />
-        )}
-
-        {/* Balance Hero */}
-        <div
-          className="rounded-2xl p-5 cursor-pointer hover:opacity-95 transition-opacity"
-          style={{ background: 'linear-gradient(135deg,#1e3a5f 0%,#0f1f3a 60%,#0a0a0f 100%)', border: '1px solid rgba(59,130,246,0.25)' }}
-          onClick={() => navigate('/accounts')}
-        >
-          <div className="flex items-start justify-between mb-4">
-            <div>
-              <p className="text-[10px] font-medium text-wb-blue-glow/70 uppercase tracking-widest mb-1">Total Balance</p>
-              <AmountDisplay amount={balance} size="xl" />
-            </div>
-            <div className="w-10 h-10 rounded-xl bg-wb-blue/20 border border-wb-blue/30 flex items-center justify-center">
-              <Shield size={18} className="text-wb-blue-glow" />
+            <div className="mt-5 flex flex-wrap gap-2.5">
+              <Link to="/new" className="btn-gold"><Sparkles size={16} /> Start a Comic</Link>
+              <Link to="/templates" className="btn-ghost"><BookCopy size={16} /> Browse Templates</Link>
+              <Link to="/master" className="btn-ghost"><Wand2 size={16} /> Master Prompts</Link>
             </div>
           </div>
-          <div className="flex items-center gap-5 pt-3 border-t border-wb-blue/15">
-            <div>
-              <p className="text-[9px] text-wb-muted uppercase tracking-wide">Accounts</p>
-              <p className="text-sm font-semibold text-wb-white">{accounts.length}</p>
-            </div>
-            <div className="w-px h-5 bg-wb-border" />
-            <div>
-              <p className="text-[9px] text-wb-muted uppercase tracking-wide">Safe to Spend</p>
-              <p className={`text-sm font-semibold ${forecast.safeToSpend > 0 ? 'text-wb-green-light' : 'text-wb-red-light'}`}>
-                {formatCurrency(forecast.safeToSpend)}
-              </p>
-            </div>
-            <div className="ml-auto"><ArrowRight size={14} className="text-wb-blue-light" /></div>
-          </div>
-        </div>
+        </section>
 
-        {/* Month Stats */}
-        <div className="flex gap-2.5">
-          <StatPill label="Income"  value={formatCurrency(thisMonthIncome,   'USD', true)} color="green" onClick={() => navigate('/income')} />
-          <StatPill label="Spent"   value={formatCurrency(thisMonthExpenses, 'USD', true)} color={thisMonthExpenses > thisMonthIncome ? 'red' : 'blue'} onClick={() => navigate('/expenses')} />
-          <StatPill label={netFlow >= 0 ? 'Surplus' : 'Deficit'} value={formatCurrency(Math.abs(netFlow), 'USD', true)} color={netFlow >= 0 ? 'green' : 'red'} onClick={() => navigate('/cashflow')} />
-        </div>
+        {/* Quick start tiles */}
+        <section className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-7">
+          {QUICK_TILES.map(t => (
+            <Link
+              key={t.to} to={t.to}
+              className={`glass card-pad accent-top group hover:shadow-panel-lg transition-all border-${t.accent === 'gold' ? 'gold' : 'electric'}/30`}
+            >
+              <div className="flex items-center gap-3">
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${t.accent === 'gold' ? 'bg-gold/10 text-gold-light border border-gold/30' : 'bg-electric/10 text-electric-glow border border-electric/30'}`}>
+                  <t.icon size={18} />
+                </div>
+                <div className="min-w-0">
+                  <div className="font-display font-semibold text-paper">{t.label}</div>
+                  <div className="text-[12px] text-mist">{t.desc}</div>
+                </div>
+                <ArrowRight size={16} className="ml-auto text-mist group-hover:text-paper transition-colors" />
+              </div>
+            </Link>
+          ))}
+        </section>
 
-        {/* Upcoming */}
-        <div className="card">
-          <div className="flex items-center justify-between mb-1">
-            <h2 className="section-title flex items-center gap-2">
-              <Calendar size={15} className="text-wb-blue-light" />Due Soon
-            </h2>
-            <button onClick={() => navigate('/calendar')} className="text-xs text-wb-blue-light flex items-center gap-0.5">
-              Calendar <ChevronRight size={12} />
-            </button>
-          </div>
-          {upcoming.length === 0
-            ? <p className="text-sm text-wb-muted py-4 text-center">Nothing due in the next 14 days</p>
-            : <div className="divide-y divide-wb-border/40">{upcoming.slice(0, 5).map(item => <UpcomingRow key={item.id} item={item} />)}</div>
-          }
-          {upcoming.length > 5 && (
-            <button onClick={() => navigate('/calendar')} className="w-full text-xs text-wb-blue-light pt-2 text-center">
-              +{upcoming.length - 5} more upcoming
-            </button>
-          )}
-        </div>
-
-        {/* Budget */}
-        {budgetCats.length > 0 && (
-          <div className="card space-y-3">
-            <div className="flex items-center justify-between">
-              <h2 className="section-title flex items-center gap-2">
-                <LayoutDashboard size={15} className="text-wb-gold" />Budget
-              </h2>
-              <button onClick={() => navigate('/budget')} className="text-xs text-wb-blue-light flex items-center gap-0.5">
-                Details <ChevronRight size={12} />
-              </button>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-wb-muted">{formatCurrency(budgetStats.spent, 'USD', true)} spent</span>
-              <span className={`font-semibold ${budgetStats.overBudget ? 'text-wb-red-light' : 'text-wb-green-light'}`}>
-                {budgetStats.overBudget
-                  ? `${formatCurrency(budgetStats.spent - budgetStats.allocated, 'USD', true)} over`
-                  : `${formatCurrency(budgetStats.remaining, 'USD', true)} left`}
-              </span>
-            </div>
-            <ProgressBar pct={budgetStats.pct} color={budgetStats.overBudget ? 'red' : budgetStats.pct > 80 ? 'amber' : 'blue'} size="md" />
-            {topBudgetCats.length > 0 && (
-              <div className="pt-2 space-y-3 border-t border-wb-border/40">
-                {topBudgetCats.map(cat => (
-                  <div key={cat.id} className="space-y-1">
-                    <div className="flex justify-between text-xs">
-                      <span className="text-wb-white truncate max-w-[140px]">{cat.category_name}</span>
-                      <span className={cat.overspent ? 'text-wb-red-light font-semibold' : 'text-wb-muted'}>
-                        {formatCurrency(cat.spent, 'USD', true)} / {formatCurrency(cat.allocated_amount, 'USD', true)}
-                      </span>
-                    </div>
-                    <ProgressBar pct={cat.pct} color={cat.overspent ? 'red' : cat.pct >= 80 ? 'amber' : 'blue'} size="sm" />
+        {/* Active project + progress */}
+        {active && (
+          <section className="mb-7">
+            <PageHeader eyebrow="Now in production" title="Project Progress Tracker" />
+            <div className="glass card-pad-lg accent-top">
+              <div className="flex items-start justify-between gap-4 flex-wrap">
+                <div className="min-w-0">
+                  <div className="eyebrow mb-1">{active.genre || 'Untitled genre'} · {active.style || 'no style'}</div>
+                  <h2 className="font-display font-bold text-2xl text-paper truncate">{active.title}</h2>
+                  <p className="text-mist text-sm mt-1 line-clamp-2">{active.logline || 'No logline yet — start in Story Engine.'}</p>
+                  <div className="flex gap-2 mt-3 flex-wrap">
+                    <span className="chip-gold">{active.pages || 0} pages</span>
+                    <span className="chip">{(active.characters || []).length} characters</span>
+                    <span className="chip">{(active.pagesList || []).reduce((s,p) => s + (p.panels?.length || 0), 0)} panels</span>
+                    <span className="chip">Updated {formatDate(active.updatedAt)}</span>
                   </div>
+                </div>
+                <div className="flex flex-col items-end gap-2">
+                  <ProgressRing value={projectProgress(active)} label="ready" />
+                  <Link to={`/project/${active.id}`} className="btn-primary text-sm h-9 px-3"><PlayCircle size={14} /> Open</Link>
+                </div>
+              </div>
+              <div className="divider" />
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                {PROJECT_MODULES(active.id).map(m => (
+                  <Link key={m.to} to={m.to} className="glass card-pad hover:border-gold/40 transition-colors">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-lg bg-ink-card2 border border-ink-line flex items-center justify-center text-chalk"><m.icon size={15} /></div>
+                      <div className="text-sm font-medium text-paper truncate">{m.label}</div>
+                    </div>
+                  </Link>
                 ))}
               </div>
-            )}
-          </div>
+            </div>
+          </section>
         )}
 
-        {/* Recurring + Forecast */}
-        <div className="grid grid-cols-2 gap-3">
-          <div className="card cursor-pointer hover:border-wb-purple/30 transition-colors" onClick={() => navigate('/subscriptions')}>
-            <div className="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center mb-2">
-              <RefreshCw size={15} className="text-wb-purple" />
+        {/* Recent projects */}
+        <section className="mb-7">
+          <PageHeader eyebrow="Library" title="Recent Projects"
+            right={<Link to="/projects" className="btn-ghost text-sm">View all <ArrowRight size={14} /></Link>}
+          />
+          {recents.length === 0 ? (
+            <div className="empty">
+              <div className="font-display text-xl font-semibold text-paper">No projects yet</div>
+              <p className="text-mist text-sm mt-1.5">Start your first cinematic comic in under a minute.</p>
+              <div className="mt-4 flex justify-center gap-2">
+                <Link to="/new" className="btn-gold"><Sparkles size={16} /> New Comic</Link>
+                <button className="btn-ghost" onClick={() => {
+                  const p = createProject({ title: 'My First Comic', genre: 'superhero', style: 'us-superhero', audience: 'Teen (13–17)' });
+                  window.location.href = `/project/${p.id}`;
+                }}><PenTool size={16} /> Quick start</button>
+              </div>
             </div>
-            <p className="text-xs text-wb-muted mb-0.5">Subscriptions/mo</p>
-            <p className="text-base font-bold text-wb-purple">{formatCurrency(subMonthlyTotal)}</p>
-            <p className="text-[10px] text-wb-muted mt-0.5">{formatCurrency(subMonthlyTotal * 12, 'USD', true)}/yr</p>
-          </div>
-          <div className="card cursor-pointer hover:border-wb-green/30 transition-colors" onClick={() => navigate('/cashflow')}>
-            <div className="w-8 h-8 rounded-lg bg-wb-green/10 flex items-center justify-center mb-2">
-              <Zap size={15} className="text-wb-green-light" />
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {recents.map(p => (
+                <Link key={p.id} to={`/project/${p.id}`} className="glass card-pad hover:border-gold/40 transition-colors">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="eyebrow mb-1">{p.genre || '—'} · {p.style || '—'}</div>
+                      <div className="font-display font-semibold text-paper text-lg truncate">{p.title}</div>
+                      <div className="text-mist text-xs mt-1 line-clamp-2">{p.logline || 'No logline yet.'}</div>
+                    </div>
+                    <ProgressRing value={projectProgress(p)} size={52} stroke={5} />
+                  </div>
+                  <div className="flex gap-2 mt-3 flex-wrap">
+                    <span className="chip">{(p.characters || []).length} chars</span>
+                    <span className="chip">{(p.pagesList || []).length} pages</span>
+                    <span className="chip">{formatDate(p.updatedAt)}</span>
+                  </div>
+                </Link>
+              ))}
             </div>
-            <p className="text-xs text-wb-muted mb-0.5">30d Projected</p>
-            <p className={`text-base font-bold ${forecast.projectedBalance >= 0 ? 'text-wb-green-light' : 'text-wb-red-light'}`}>
-              {formatCurrency(forecast.projectedBalance, 'USD', true)}
-            </p>
-            {forecast.lowRisk && <p className="text-[10px] text-wb-amber mt-0.5">⚠ Low risk</p>}
+          )}
+        </section>
+
+        {/* Spark / Templates */}
+        <section className="mb-7">
+          <PageHeader eyebrow="Spark" title="Quick Start Templates" subtitle="Pre-built starters to spawn your next legend." />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {TEMPLATES.slice(0, 4).map(t => (
+              <Link key={t.id} to={`/templates?spawn=${t.id}`} className="glass card-pad hover:border-electric/40 transition-colors">
+                <div className="eyebrow mb-1">{t.genre} · {t.tone}</div>
+                <div className="font-display font-semibold text-paper">{t.title}</div>
+                <p className="text-mist text-[12.5px] mt-1 line-clamp-2">{t.logline}</p>
+              </Link>
+            ))}
           </div>
-        </div>
-
-        {/* Quick Nav */}
-        <div className="grid grid-cols-3 gap-3">
-          {[
-            { label: 'Bills',    icon: Receipt,  path: '/bills',    color: 'text-wb-amber'       },
-            { label: 'Goals',    icon: Target,   path: '/goals',    color: 'text-wb-green-light' },
-            { label: 'Insights', icon: Activity, path: '/insights', color: 'text-wb-purple'      },
-          ].map(({ label, icon: Icon, path, color }) => (
-            <button key={path} onClick={() => navigate(path)}
-              className="card flex flex-col items-center gap-2 py-4 hover:border-wb-blue/30 transition-colors active:scale-95">
-              <Icon size={20} className={color} />
-              <span className="text-xs font-medium text-wb-muted">{label}</span>
-            </button>
-          ))}
-        </div>
-
-        {/* Empty state */}
-        {accounts.length === 0 && (
-          <div className="card border-dashed text-center py-8">
-            <Shield size={32} className="text-wb-blue-light mx-auto mb-3" />
-            <p className="text-sm font-semibold text-wb-white mb-1">Start tracking your money</p>
-            <p className="text-xs text-wb-muted mb-4">Add accounts to see your full financial picture</p>
-            <button onClick={() => navigate('/accounts')} className="btn-primary text-sm py-2.5 px-5">
-              Add Account
-            </button>
-          </div>
-        )}
-
-        <div className="h-2" />
+        </section>
       </div>
     </Layout>
   );
