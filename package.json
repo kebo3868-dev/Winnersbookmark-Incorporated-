@@ -1,19 +1,20 @@
 {
-  "name": "winnersbookmark-cinecomic-studio",
+  "name": "winners-bookmark-fitness",
   "private": true,
   "version": "1.0.0",
-  "description": "Winnersbookmark CineComic Studio — a premium AI-powered comic book, graphic novel, and storyboard creation app.",
+  "description": "Winners Bookmark Fitness For Men — Premium Men's Fitness App",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "lucide-react": "^0.344.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "react-router-dom": "^6.22.0",
-    "lucide-react": "^0.344.0"
+    "react-router-dom": "^6.22.0"
   },
   "devDependencies": {
     "@types/react": "^18.2.55",
@@ -22,6 +23,7 @@
     "autoprefixer": "^10.4.18",
     "postcss": "^8.4.35",
     "tailwindcss": "^3.4.1",
+    "typescript": "^5.9.3",
     "vite": "^5.1.4"
   }
 }
