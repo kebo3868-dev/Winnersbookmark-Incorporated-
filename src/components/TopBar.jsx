@@ -1,5 +1,5 @@
 import { Link, useNavigate } from 'react-router-dom';
-import { Menu, Plus, BookOpenCheck } from 'lucide-react';
+import { Menu, Bot, BookOpenCheck } from 'lucide-react';
 import Logo from './Logo';
 import { useStudio } from '../context/StudioContext';
 
@@ -17,10 +17,10 @@ export default function TopBar({ onMenu }) {
           <Logo size={30} />
           <div className="min-w-0 leading-tight">
             <div className="font-display font-bold text-paper tracking-tight text-[15px] truncate">
-              Winnersbookmark <span className="text-gradient-gold">CineComic Studio</span>
+              Winnersbookmark <span className="text-gradient-gold">Agency</span>
             </div>
             <div className="text-[10px] uppercase tracking-[0.22em] text-mist hidden sm:block">
-              Build the story. Design the world. Generate the panels.
+              Virtual Secretary AI for executive operators.
             </div>
           </div>
         </Link>
@@ -31,9 +31,9 @@ export default function TopBar({ onMenu }) {
               <span className="truncate">{activeProject.title}</span>
             </Link>
           )}
-          <button onClick={() => nav('/new')} className="btn-primary h-10 px-3.5 sm:px-5 text-sm">
-            <Plus size={16} /> <span className="hidden sm:inline">New Comic</span>
-            <span className="sm:hidden">New</span>
+          <button onClick={() => nav('/master')} className="btn-primary h-10 px-3.5 sm:px-5 text-sm">
+            <Bot size={16} /> <span className="hidden sm:inline">Build Prompts</span>
+            <span className="sm:hidden">AI</span>
           </button>
         </div>
       </div>
