@@ -97,6 +97,8 @@
   .chip-blue { @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border border-electric/40 bg-electric/10 text-electric-glow; }
 
   .page { @apply max-w-3xl mx-auto px-4 sm:px-6 pb-32 pt-5; }
+  .agency-page { @apply mx-auto max-w-5xl px-4 pb-28 pt-6 sm:px-6 sm:pt-8; }
+  .section-block { @apply mt-16; }
 
   .accent-top::before {
     content: ''; position: absolute; left: 0; right: 0; top: 0; height: 1px;

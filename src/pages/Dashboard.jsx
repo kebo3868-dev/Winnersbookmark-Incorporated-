@@ -1,181 +1,201 @@
 import { Link } from 'react-router-dom';
 import {
-  Sparkles, BookOpen, Users, Globe2, Layers, BookCopy, Wand2, Image as ImageIcon,
-  Download, MessageSquare, ListChecks, Share2, DollarSign, ArrowRight, PlayCircle,
-  PenTool, Clapperboard,
+  ArrowRight,
+  Bot,
+  BrainCircuit,
+  CalendarCheck,
+  CheckCircle2,
+  Clock3,
+  FileText,
+  MailCheck,
+  Network,
+  ShieldCheck,
+  Sparkles,
+  Target,
 } from 'lucide-react';
 import Layout from '../components/Layout';
-import PageHeader from '../components/PageHeader';
-import ProgressRing from '../components/ProgressRing';
-import { useStudio, projectProgress } from '../context/StudioContext';
-import { formatDate } from '../lib/ids';
-import { TEMPLATES } from '../data/templates';
 
-const QUICK_TILES = [
-  { to: '/new',             label: 'AI Comic Builder',  desc: 'Wizard-guided new project',     icon: Sparkles, accent: 'gold' },
-  { to: '/templates',       label: 'Quick Templates',   desc: '12 prebuilt story starters',    icon: BookCopy, accent: 'blue' },
-  { to: '/master',          label: 'Master Prompts',    desc: 'Per-tool platform prompts',     icon: Wand2,    accent: 'gold' },
+const agentCards = [
+  {
+    icon: CalendarCheck,
+    title: 'Scheduler AI',
+    text: 'Optimizes calendars, protects deep-work blocks, detects conflicts, and recommends smarter meeting windows.',
+  },
+  {
+    icon: MailCheck,
+    title: 'Communication AI',
+    text: 'Summarizes email, drafts executive replies, identifies urgent messages, and turns threads into tasks.',
+  },
+  {
+    icon: BrainCircuit,
+    title: 'Strategy AI',
+    text: 'Ranks priorities, spots delegation opportunities, creates daily briefings, and keeps operators focused.',
+  },
 ];
 
-const PROJECT_MODULES = (id) => ([
-  { to: `/project/${id}/story`,      icon: BookOpen,    label: 'Story Engine' },
-  { to: `/project/${id}/characters`, icon: Users,       label: 'Character Vault' },
-  { to: `/project/${id}/world`,      icon: Globe2,      label: 'World Builder' },
-  { to: `/project/${id}/pages`,      icon: Layers,      label: 'Page Builder' },
-  { to: `/project/${id}/prompts`,    icon: ImageIcon,   label: 'Panel Prompts' },
-  { to: `/project/${id}/cover`,      icon: BookCopy,    label: 'Cover Creator' },
-  { to: `/project/${id}/dialogue`,   icon: MessageSquare, label: 'Dialogue Writer' },
-  { to: `/project/${id}/storyboard`, icon: Clapperboard, label: 'Storyboard View' },
-  { to: `/project/${id}/continuity`, icon: ListChecks,  label: 'Continuity Check' },
-  { to: `/project/${id}/social`,     icon: Share2,      label: 'Social Kit' },
-  { to: `/project/${id}/monetize`,   icon: DollarSign,  label: 'Monetization' },
-  { to: `/project/${id}/export`,     icon: Download,    label: 'Export Center' },
-]);
+const capabilities = [
+  'Google Calendar scheduling and conflict detection',
+  'Gmail summaries, reply drafts, and task extraction',
+  'Smart priority system for high, medium, low, and delegatable work',
+  'Daily briefings with schedule, top priorities, urgent emails, and deadlines',
+  'Meeting prep briefs with participants, talking points, and previous notes',
+  'Voice-command interface for hands-free executive operations',
+];
+
+const process = [
+  { step: '01', title: 'Map the operation', text: 'We document your calendar flow, email load, decision points, tools, and weekly bottlenecks.' },
+  { step: '02', title: 'Design the secretary brain', text: 'We configure Winnersbookmark into modular Scheduler, Communication, and Strategy AI workflows.' },
+  { step: '03', title: 'Connect the stack', text: 'We prepare integrations for Google Calendar, Gmail, Slack, Notion, and automation platforms.' },
+  { step: '04', title: 'Launch with guardrails', text: 'We deploy dashboards, approvals, reporting, and escalation rules so the assistant operates professionally.' },
+];
+
+const integrations = ['Google Calendar', 'Gmail', 'Slack', 'Notion', 'Zapier', 'Voice Commands'];
 
 export default function Dashboard() {
-  const { projects, activeProject, createProject } = useStudio();
-
-  const recents = [...projects].sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || '')).slice(0, 4);
-  const active = activeProject || recents[0];
-
   return (
     <Layout>
-      <div className="page">
-        {/* Hero */}
-        <section className="glass-strong card-pad-lg accent-top relative overflow-hidden mb-7">
-          <div className="absolute -top-24 -right-24 w-72 h-72 rounded-full bg-gold/10 blur-3xl pointer-events-none" />
-          <div className="absolute -bottom-24 -left-24 w-72 h-72 rounded-full bg-electric/15 blur-3xl pointer-events-none" />
-          <div className="relative">
-            <div className="eyebrow mb-3">Winnersbookmark CineComic Studio</div>
-            <h1 className="hero-title">
-              Build the story.<br/>
-              <span className="text-gradient-gold">Design the world.</span><br/>
-              <span className="text-gradient-electric">Publish the legend.</span>
-            </h1>
-            <p className="text-chalk mt-4 max-w-prose text-sm sm:text-base">
-              A premium AI-assisted comic book, graphic novel, manga, and storyboard studio.
-              Take a raw idea from logline to publish-ready outline — characters, panels, cover, and prompts.
-            </p>
-            <div className="mt-5 flex flex-wrap gap-2.5">
-              <Link to="/new" className="btn-gold"><Sparkles size={16} /> Start a Comic</Link>
-              <Link to="/templates" className="btn-ghost"><BookCopy size={16} /> Browse Templates</Link>
-              <Link to="/master" className="btn-ghost"><Wand2 size={16} /> Master Prompts</Link>
+      <main className="agency-page">
+        <section className="relative overflow-hidden rounded-[2rem] border border-ink-edge bg-gradient-to-br from-white/[0.08] via-white/[0.03] to-electric/10 px-5 py-10 shadow-panel-lg sm:px-10 sm:py-14">
+          <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-electric/25 blur-3xl" />
+          <div className="absolute -bottom-28 left-10 h-72 w-72 rounded-full bg-gold/15 blur-3xl" />
+          <div className="relative grid gap-10 lg:grid-cols-[1.08fr_.92fr] lg:items-center">
+            <div>
+              <div className="eyebrow mb-4">Winnersbookmark Agency</div>
+              <h1 className="font-display text-5xl font-black leading-[0.95] tracking-tight text-paper sm:text-6xl lg:text-7xl">
+                Your AI chief-of-staff for
+                <span className="text-gradient-gold"> founders, creators,</span> and operators.
+              </h1>
+              <p className="mt-6 max-w-2xl text-base leading-8 text-chalk sm:text-lg">
+                Winnersbookmark Agency builds premium virtual secretary systems that protect your time, organize your work, and automate the administrative weight that slows high-performance businesses down.
+              </p>
+              <div className="mt-8 flex flex-wrap gap-3">
+                <a href="#contact" className="btn-gold">
+                  Build my AI Secretary <ArrowRight size={18} />
+                </a>
+                <a href="#system" className="btn-ghost">
+                  Explore the system <Bot size={18} />
+                </a>
+              </div>
+              <div className="mt-8 grid max-w-xl grid-cols-3 gap-3">
+                <Metric value="3" label="Core AI agents" />
+                <Metric value="24/7" label="Ops support vision" />
+                <Metric value="6+" label="Key integrations" />
+              </div>
+            </div>
+
+            <div className="glass-strong card-pad-lg accent-top">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <div className="eyebrow">Today’s briefing</div>
+                  <h2 className="mt-1 font-display text-2xl font-bold text-paper">Executive Control Center</h2>
+                </div>
+                <div className="rounded-2xl border border-gold/30 bg-gold/10 p-3 text-gold-light">
+                  <Sparkles size={24} />
+                </div>
+              </div>
+              <div className="mt-6 space-y-3">
+                <BriefingRow icon={Clock3} title="Focus protection" text="Move two low-priority calls to preserve a 2-hour strategy block." />
+                <BriefingRow icon={MailCheck} title="Urgent inbox" text="Three client messages need approval-ready replies before noon." />
+                <BriefingRow icon={Target} title="Top priority" text="Finalize launch assets and delegate recurring admin tasks." />
+              </div>
+              <div className="divider" />
+              <div className="rounded-2xl border border-electric/30 bg-electric/10 p-4">
+                <p className="text-sm leading-6 text-chalk">
+                  “Your calendar is overbooked on Thursday. Would you like me to move two meetings to Friday to preserve focus time?”
+                </p>
+              </div>
             </div>
           </div>
         </section>
 
-        {/* Quick start tiles */}
-        <section className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-7">
-          {QUICK_TILES.map(t => (
-            <Link
-              key={t.to} to={t.to}
-              className={`glass card-pad accent-top group hover:shadow-panel-lg transition-all border-${t.accent === 'gold' ? 'gold' : 'electric'}/30`}
-            >
-              <div className="flex items-center gap-3">
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${t.accent === 'gold' ? 'bg-gold/10 text-gold-light border border-gold/30' : 'bg-electric/10 text-electric-glow border border-electric/30'}`}>
-                  <t.icon size={18} />
-                </div>
-                <div className="min-w-0">
-                  <div className="font-display font-semibold text-paper">{t.label}</div>
-                  <div className="text-[12px] text-mist">{t.desc}</div>
-                </div>
-                <ArrowRight size={16} className="ml-auto text-mist group-hover:text-paper transition-colors" />
-              </div>
-            </Link>
-          ))}
-        </section>
-
-        {/* Active project + progress */}
-        {active && (
-          <section className="mb-7">
-            <PageHeader eyebrow="Now in production" title="Project Progress Tracker" />
-            <div className="glass card-pad-lg accent-top">
-              <div className="flex items-start justify-between gap-4 flex-wrap">
-                <div className="min-w-0">
-                  <div className="eyebrow mb-1">{active.genre || 'Untitled genre'} · {active.style || 'no style'}</div>
-                  <h2 className="font-display font-bold text-2xl text-paper truncate">{active.title}</h2>
-                  <p className="text-mist text-sm mt-1 line-clamp-2">{active.logline || 'No logline yet — start in Story Engine.'}</p>
-                  <div className="flex gap-2 mt-3 flex-wrap">
-                    <span className="chip-gold">{active.pages || 0} pages</span>
-                    <span className="chip">{(active.characters || []).length} characters</span>
-                    <span className="chip">{(active.pagesList || []).reduce((s,p) => s + (p.panels?.length || 0), 0)} panels</span>
-                    <span className="chip">Updated {formatDate(active.updatedAt)}</span>
-                  </div>
-                </div>
-                <div className="flex flex-col items-end gap-2">
-                  <ProgressRing value={projectProgress(active)} label="ready" />
-                  <Link to={`/project/${active.id}`} className="btn-primary text-sm h-9 px-3"><PlayCircle size={14} /> Open</Link>
-                </div>
-              </div>
-              <div className="divider" />
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                {PROJECT_MODULES(active.id).map(m => (
-                  <Link key={m.to} to={m.to} className="glass card-pad hover:border-gold/40 transition-colors">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-lg bg-ink-card2 border border-ink-line flex items-center justify-center text-chalk"><m.icon size={15} /></div>
-                      <div className="text-sm font-medium text-paper truncate">{m.label}</div>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            </div>
-          </section>
-        )}
-
-        {/* Recent projects */}
-        <section className="mb-7">
-          <PageHeader eyebrow="Library" title="Recent Projects"
-            right={<Link to="/projects" className="btn-ghost text-sm">View all <ArrowRight size={14} /></Link>}
-          />
-          {recents.length === 0 ? (
-            <div className="empty">
-              <div className="font-display text-xl font-semibold text-paper">No projects yet</div>
-              <p className="text-mist text-sm mt-1.5">Start your first cinematic comic in under a minute.</p>
-              <div className="mt-4 flex justify-center gap-2">
-                <Link to="/new" className="btn-gold"><Sparkles size={16} /> New Comic</Link>
-                <button className="btn-ghost" onClick={() => {
-                  const p = createProject({ title: 'My First Comic', genre: 'superhero', style: 'us-superhero', audience: 'Teen (13–17)' });
-                  window.location.href = `/project/${p.id}`;
-                }}><PenTool size={16} /> Quick start</button>
-              </div>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {recents.map(p => (
-                <Link key={p.id} to={`/project/${p.id}`} className="glass card-pad hover:border-gold/40 transition-colors">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="eyebrow mb-1">{p.genre || '—'} · {p.style || '—'}</div>
-                      <div className="font-display font-semibold text-paper text-lg truncate">{p.title}</div>
-                      <div className="text-mist text-xs mt-1 line-clamp-2">{p.logline || 'No logline yet.'}</div>
-                    </div>
-                    <ProgressRing value={projectProgress(p)} size={52} stroke={5} />
-                  </div>
-                  <div className="flex gap-2 mt-3 flex-wrap">
-                    <span className="chip">{(p.characters || []).length} chars</span>
-                    <span className="chip">{(p.pagesList || []).length} pages</span>
-                    <span className="chip">{formatDate(p.updatedAt)}</span>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          )}
-        </section>
-
-        {/* Spark / Templates */}
-        <section className="mb-7">
-          <PageHeader eyebrow="Spark" title="Quick Start Templates" subtitle="Pre-built starters to spawn your next legend." />
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {TEMPLATES.slice(0, 4).map(t => (
-              <Link key={t.id} to={`/templates?spawn=${t.id}`} className="glass card-pad hover:border-electric/40 transition-colors">
-                <div className="eyebrow mb-1">{t.genre} · {t.tone}</div>
-                <div className="font-display font-semibold text-paper">{t.title}</div>
-                <p className="text-mist text-[12.5px] mt-1 line-clamp-2">{t.logline}</p>
-              </Link>
+        <section id="system" className="section-block">
+          <SectionIntro eyebrow="The system" title="A modular AI operator, not just another chatbot." text="Winnersbookmark functions across information, decision, and execution layers so your assistant can understand context, recommend priorities, and trigger the work." />
+          <div className="grid gap-4 md:grid-cols-3">
+            {agentCards.map(({ icon: Icon, title, text }) => (
+              <article key={title} className="glass card-pad accent-top">
+                <div className="mb-5 inline-flex rounded-2xl border border-gold/30 bg-gold/10 p-3 text-gold-light"><Icon size={24} /></div>
+                <h3 className="font-display text-xl font-bold text-paper">{title}</h3>
+                <p className="mt-3 text-sm leading-6 text-mist">{text}</p>
+              </article>
             ))}
           </div>
         </section>
-      </div>
+
+        <section className="section-block grid gap-6 lg:grid-cols-[.9fr_1.1fr] lg:items-start">
+          <SectionIntro eyebrow="Capabilities" title="Built around the exact workflows busy executives need daily." text="The agency implementation focuses on practical automation: scheduling, email, task prioritization, meeting preparation, notes, and voice-driven commands." />
+          <div className="grid gap-3 sm:grid-cols-2">
+            {capabilities.map((item) => (
+              <div key={item} className="flex gap-3 rounded-2xl border border-ink-line bg-ink-card/50 p-4">
+                <CheckCircle2 className="mt-0.5 shrink-0 text-gold-light" size={18} />
+                <p className="text-sm leading-6 text-chalk">{item}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="section-block">
+          <SectionIntro eyebrow="Agency method" title="From raw operations to a working AI secretary stack." text="We turn the Winnersbookmark vision into a clean, professional dashboard and automation plan that can grow into a fully operational executive assistant." />
+          <div className="grid gap-4 md:grid-cols-4">
+            {process.map((item) => (
+              <article key={item.step} className="glass card-pad">
+                <div className="text-gradient-electric font-display text-3xl font-black">{item.step}</div>
+                <h3 className="mt-3 font-display text-lg font-bold text-paper">{item.title}</h3>
+                <p className="mt-2 text-sm leading-6 text-mist">{item.text}</p>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section className="section-block grid gap-6 lg:grid-cols-2">
+          <div className="glass-strong card-pad-lg accent-top">
+            <Network className="mb-4 text-electric-glow" size={28} />
+            <h2 className="font-display text-3xl font-bold text-paper">Connected to your business tools.</h2>
+            <p className="mt-3 text-sm leading-6 text-mist">Winnersbookmark Agency designs the assistant around the tools entrepreneurs already use, then layers approvals and automations on top.</p>
+            <div className="mt-5 flex flex-wrap gap-2">
+              {integrations.map((item) => <span key={item} className="chip-blue">{item}</span>)}
+            </div>
+          </div>
+          <div id="contact" className="glass-strong card-pad-lg accent-top">
+            <ShieldCheck className="mb-4 text-gold-light" size={28} />
+            <h2 className="font-display text-3xl font-bold text-paper">Ready to build Bill Opal as Winnersbookmark?</h2>
+            <p className="mt-3 text-sm leading-6 text-mist">Start with an AI secretary blueprint, then expand into phone answering, travel booking, expense tracking, meeting summaries, and business-wide automation.</p>
+            <Link to="/master" className="btn-primary mt-6">
+              View build prompts <FileText size={18} />
+            </Link>
+          </div>
+        </section>
+      </main>
     </Layout>
+  );
+}
+
+function Metric({ value, label }) {
+  return (
+    <div className="rounded-2xl border border-ink-line bg-ink-card/50 p-4">
+      <div className="font-display text-2xl font-black text-paper">{value}</div>
+      <div className="mt-1 text-[11px] uppercase tracking-[0.18em] text-mist">{label}</div>
+    </div>
+  );
+}
+
+function BriefingRow({ icon: Icon, title, text }) {
+  return (
+    <div className="flex gap-3 rounded-2xl border border-ink-line bg-ink-card/50 p-4">
+      <div className="rounded-xl border border-electric/30 bg-electric/10 p-2 text-electric-glow"><Icon size={18} /></div>
+      <div>
+        <div className="font-semibold text-paper">{title}</div>
+        <p className="mt-1 text-sm leading-6 text-mist">{text}</p>
+      </div>
+    </div>
+  );
+}
+
+function SectionIntro({ eyebrow, title, text }) {
+  return (
+    <div className="mb-6 max-w-3xl">
+      <div className="eyebrow mb-3">{eyebrow}</div>
+      <h2 className="font-display text-3xl font-bold leading-tight text-paper sm:text-4xl">{title}</h2>
+      <p className="mt-3 text-sm leading-7 text-mist sm:text-base">{text}</p>
+    </div>
   );
 }

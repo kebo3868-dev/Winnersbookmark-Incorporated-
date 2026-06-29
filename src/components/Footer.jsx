@@ -7,12 +7,12 @@ export default function Footer() {
         <div className="flex items-center gap-3">
           <Logo size={28} />
           <div className="leading-tight">
-            <div className="font-display font-semibold text-paper text-sm">Winnersbookmark CineComic Studio</div>
+            <div className="font-display font-semibold text-paper text-sm">Winnersbookmark Agency</div>
             <div className="text-[11px] uppercase tracking-[0.22em] text-mist">Designed by Winnersbookmark Incorporated</div>
           </div>
         </div>
         <div className="text-[11px] text-ghost">
-          Build the story. Design the world. Generate the panels. Publish the legend.
+          Protect your time. Automate the admin. Scale the operation.
         </div>
       </div>
     </footer>
