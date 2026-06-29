@@ -74,16 +74,6 @@
   .card-pad    { @apply p-4 sm:p-5; }
   .card-pad-lg { @apply p-5 sm:p-7; }
 
-  .comic-panel {
-    @apply relative rounded-lg overflow-hidden;
-    background: linear-gradient(180deg, #0c1226 0%, #080b18 100%);
-    box-shadow:
-      0 0 0 1px #d4af37,
-      0 0 0 4px #05060d,
-      0 0 0 5px rgba(212,175,55,0.4),
-      0 12px 32px rgba(0,0,0,0.55);
-  }
-
   .eyebrow       { @apply uppercase tracking-[0.22em] text-[10px] sm:text-[11px] font-semibold text-gold/90; }
   .label         { @apply uppercase tracking-[0.18em] text-[10px] font-semibold text-mist mb-1.5 block; }
   .section-title { @apply text-lg font-bold text-paper tracking-tight; }
