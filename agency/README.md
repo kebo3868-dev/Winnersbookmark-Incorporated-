@@ -70,4 +70,11 @@ Operating model: **Claude does the research, drafting, organizing, and templatin
 ## 🗓️ 12-week themes
 1 Foundation · 2 Lead List · 3 Outreach · 4 Audit System · 5 Demo System · 6 Sales Calls · 7 Closing · 8 Delivery · 9 Proof · 10 Referrals · 11 Scale · 12 Optimization
 
-**Current: Week 1 — Foundation.** Next move after this: research the first 10 restaurants.
+**Current: Week 1 — Foundation.**
+
+### Locked decisions
+- **Target market:** Downtown St. Pete independents (Central Ave + Beach Drive corridor) first.
+- **Outreach voice:** Alex Hormozi style — name the cost in dollars, free value first, risk reversed, one-word CTA. See `outreach/cold-email-restaurants.md`.
+- **CRM:** seeded with 12 real downtown leads (contact fields marked VERIFY — confirm before any send).
+
+**Next move:** verify contact details for the top-priority leads (Brick & Mortar, Bodega), then draft personalized Hormozi openers for approval.

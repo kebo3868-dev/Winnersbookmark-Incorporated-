@@ -1,44 +1,48 @@
-# Restaurant Outreach — Draft Library
-**Tone: local, respectful, clear, specific. Not hype. Not pushy. Short.**
+# Restaurant Outreach — Draft Library (Hormozi Voice)
+**Style: direct, specific, value-first. Lead with the problem in dollars. Make the free offer so good it's dumb to say no. One frictionless CTA. No hype words.**
 
-> APPROVAL GATE: Nothing here gets sent without Keith's explicit OK. Before any send, Claude shows: (1) who it's going to, (2) why, (3) the message, (4) the goal, (5) the next step if they reply.
+> APPROVAL GATE: Nothing here sends without Keith's explicit OK. Before any send, Claude shows: (1) who it's going to, (2) why, (3) the message, (4) the goal, (5) the next step if they reply.
+
+> Hormozi rules baked in: (1) name the cost of the problem, not the feature; (2) give value before asking for anything; (3) stack the offer + reverse the risk; (4) make the CTA a one-word reply; (5) be specific — specificity is believability.
 
 ---
 
-## Cold Email v1 — the draft for Day 1
+## Cold Email v1 — THE DAY-1 DRAFT (missed-money angle)
 
-**Subject:** Quick idea for [Restaurant Name]
+**Subject:** [Restaurant Name] is probably losing 5–15 orders a week to a ringing phone
 
 Hi [Name],
 
-I'm local to the St. Pete / Tampa Bay area and spent 20+ years working in kitchens, so I notice restaurant stuff most people miss.
+I spent 20+ years in kitchens, so I'll be blunt: during your dinner rush, nobody can stop to answer the phone. Every missed call is usually a missed order — and a $30–$60 ticket walks out the door.
 
-I was looking at [Restaurant Name] and noticed [specific observation — e.g., the online menu is tough to use on a phone / no quick way to ask a question without calling during a rush].
+Here's my offer: I'll build you a free 1-page breakdown showing exactly where [Restaurant Name] is leaking orders — missed calls, the online-order flow, reviews, and repeat customers — with the dollar amount attached to each leak.
 
-I help restaurants set up a simple AI front desk that catches missed calls, answers common questions, collects customer info, and helps bring people back after they order.
+If it's useful, we talk about fixing it. If it's not, you keep the breakdown and we never speak again. Zero cost, zero pitch on the page.
 
-I can put together a quick 1-page audit showing where [Restaurant Name] might be losing orders or repeat customers. Worth me sending it over?
+Want me to send it? Just reply "send it."
 
 Keith Warren
-Winners Bookmark Incorporated
+Winners Bookmark Incorporated · St. Pete
 
-*— Goal: get a yes to receive the free 1-page audit. Next step if they reply yes → deliver audit within 48h, then offer a 15-min call.*
+*— Goal: yes to the free 1-page audit. Next step if yes → deliver within 48h, then offer a 15-min call.*
 
 ---
 
-## Cold Email v2 — the missed-call angle
+## Cold Email v2 — THE PROOF/GUARANTEE angle
 
-**Subject:** The Friday-rush phone problem
+**Subject:** A test for [Restaurant Name]
 
 Hi [Name],
 
-I worked kitchens for two decades, so I know the Friday rush — nobody can stop to grab the phone. Every one of those missed calls is usually a missed order.
+Quick test: call your own restaurant right now during a busy hour. Did a human pick up? If not, that's a customer who just called your competitor instead.
 
-I set up simple AI front desk systems for [city] restaurants that text back missed calls automatically, answer the common questions, and capture the customer's info so the order doesn't walk.
+I install a simple AI front desk for St. Pete restaurants. When a call gets missed, it instantly texts the customer back, answers the common questions, and saves their info so the order doesn't vanish. Owners usually recover several orders the first week.
 
-Could I send you a quick 1-page breakdown of what this could look like for [Restaurant Name]?
+I'll map out exactly what this looks like for [Restaurant Name] on one page — free. If you don't think it's worth at least one saved order a week, throw it out.
 
-Keith Warren · Winners Bookmark Incorporated
+Reply "map" and I'll send it over.
+
+Keith Warren · Winners Bookmark · St. Pete
 
 *— Goal: same. Next step → audit, then call.*
 
@@ -46,34 +50,40 @@ Keith Warren · Winners Bookmark Incorporated
 
 ## Instagram DM v1
 
-Hey [Name], I'm Keith with Winners Bookmark here in the St. Pete / Tampa Bay area.
+Hey [Name] — Keith here, Winners Bookmark, St. Pete. 20 years in kitchens before this.
 
-I was looking at [Restaurant Name] and noticed [specific issue/opportunity].
+Straight up: [Restaurant Name] is probably losing orders every week to missed calls and no follow-up after people order. I install a simple AI front desk that catches both.
 
-I help restaurants set up a simple AI front desk for missed calls, customer questions, reviews, and repeat orders. Okay if I send you a quick 1-page idea for your customer flow?
+I'll build you a free 1-page breakdown of where the money's leaking — no charge, no pitch on the page. Want it? Just say "yes."
 
 ---
 
-## Follow-Up #1 (3–4 days after first touch)
+## Follow-Up #1 (3–4 days later)
 
-Hi [Name], just following up.
+Hi [Name] — following up once.
 
-Restaurants often lose customers through small friction points — missed calls, confusing menus, slow replies, broken online ordering, or no follow-up after the visit.
+The offer still stands: a free 1-page breakdown of where [Restaurant Name] is leaking orders (missed calls, online-order friction, reviews, repeat customers), with a dollar figure on each.
 
-I had a quick idea for [Restaurant Name] that might help. Want me to send the 1-page version?
+It costs you one word to get it. Reply "send" and it's yours.
 
 ---
 
 ## Breakup Message (after 2–3 unanswered touches)
 
-Hi [Name], I don't want to crowd your inbox.
+Hi [Name] — last one, I won't crowd you.
 
-I reached out because I noticed a possible customer-flow opportunity for [Restaurant Name]. If improving missed calls, reviews, online orders, or follow-up ever becomes a priority, I'd be glad to send the idea over.
+The free breakdown for [Restaurant Name] is sitting ready whenever missed calls, reviews, online orders, or customer follow-up become worth fixing. Reply any time and it's yours, no charge.
 
 Respectfully,
 Keith
 
 ---
 
-## Personalization rule
-The first line must prove you actually looked. Generic = deleted. Always swap [specific observation] for something real from the research checklist.
+## Why this voice works
+- **Cost before feature:** "$30–$60 ticket walks out the door" beats "AI receptionist."
+- **Free value, risk reversed:** they keep the audit even if they say no.
+- **One-word CTA:** "send it" / "map" / "yes" removes all friction.
+- **Specificity = believability:** real numbers, real rush, real test.
+
+## Personalization rule (still mandatory)
+The first line must prove you looked. Swap in a real detail from the CRM (the friction hypothesis for that business). Generic = deleted, even in Hormozi voice.
