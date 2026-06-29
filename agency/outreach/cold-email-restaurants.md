@@ -5,6 +5,28 @@
 
 > Hormozi rules baked in: (1) name the cost of the problem, not the feature; (2) give value before asking for anything; (3) stack the offer + reverse the risk; (4) make the CTA a one-word reply; (5) be specific — specificity is believability.
 
+> **ACTIVE VOICE (Keith's pick): STORY-LED.** Open with the kitchen background as the hook, then the problem, then the free offer, then a one-word CTA. Keep the Hormozi structure underneath. Keith's 20+ years on the line is the credibility — lead with it.
+
+---
+
+## ⭐ FINALIZED OPENERS — ready to send via Instagram DM (pending Keith's go)
+
+### Brick & Mortar → DM @brickandmortarkitchen
+> Hi Jason & Hope — I ran kitchens for two decades before I started Winners Bookmark, so the 7:30 Friday rush is in my bones. The phone rings, you're in the weeds, nobody grabs it — and that's a $150–$300 table gone.
+>
+> Resy books your tables, but the phone and DMs mid-service are a different story. That exact moment is what I help St. Pete restaurants fix now — I'll map where Brick & Mortar is losing those calls on one free page. No charge, no pitch.
+>
+> Want it? Reply "send it."
+> — Keith, Winners Bookmark, St. Pete
+
+### Bodega → DM @eatatbodega
+> Hey George & Debbie — I came up through kitchens for 20+ years before starting Winners Bookmark, so I know the noon rush in my bones: line out the door, phone ringing, DMs stacking up, and nobody free to grab any of it.
+>
+> You've built something real on Central since 2012 — 12K followers, two locations. But every missed call or unanswered DM at that rush is a $200–$500 catering order quietly walking. That's the exact moment I help St. Pete spots fix.
+>
+> I'll map where Bodega's losing those orders on one free page — no charge, no pitch. Reply "send" and it's on the way.
+> — Keith, Winners Bookmark, St. Pete
+
 ---
 
 ## Cold Email v1 — THE DAY-1 DRAFT (missed-money angle)
