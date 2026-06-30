@@ -179,7 +179,7 @@ a `publishAt` field and a scheduled build at 06:55 AM so the 7:00 drop is hands-
 - [ ] Wire the **contact form** (`pages/Contact.jsx`) to an email service
 - [ ] Replace `<ImagePlaceholder>` slots with real hero/cover/portrait imagery
 - [ ] Point a domain at the deployed `dist/` and set OG/social images
-- [ ] Load the first 9 articles (done) + queue 10–30 for the daily calendar
+- [x] Load the launch articles — all 30 are written into `src/data/posts.js` (#1–9 recent dates, #10–30 backfilled as the archive)
 - [ ] Turn on the 7:00 AM scheduled build/deploy
 
 ---

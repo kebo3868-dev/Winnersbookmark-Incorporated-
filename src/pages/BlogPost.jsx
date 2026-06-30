@@ -8,6 +8,7 @@ import MembershipCTA from '../components/MembershipCTA';
 import ArticleCard from '../components/ArticleCard';
 import CheckoutButtons from '../components/CheckoutButtons';
 import { useMeta } from '../lib/useMeta';
+import { useEntitlement } from '../lib/useEntitlement';
 import { postBySlug, posts } from '../data/posts';
 import { categoryBySlug } from '../data/categories';
 import { formatDate, accent } from '../lib/format';
@@ -35,19 +36,26 @@ export default function BlogPost() {
 
   const cat = categoryBySlug(post.category);
   const a = accent(cat?.accent);
-  const isLocked = post.tier === 'member';
 
-  // For member posts, show only the opening blocks as a teaser.
+  // Gate member content on real entitlement state. A member post is only
+  // *locked* when the viewer is not entitled; once `isMember` is true (wired to
+  // checkout/auth via useEntitlement) the full article renders.
+  const isMemberPost = post.tier === 'member';
+  const { isMember } = useEntitlement();
+  const locked = isMemberPost && !isMember;
+
+  // For locked posts, show only the opening blocks as a teaser.
   const teaserCount = 5;
-  const visibleBlocks = isLocked ? post.body.slice(0, teaserCount) : post.body;
+  const visibleBlocks = locked ? post.body.slice(0, teaserCount) : post.body;
 
   const related = (post.related || [])
     .map((s) => postBySlug(s))
     .filter(Boolean)
     .slice(0, 3);
 
-  // Section headings for the table of contents.
-  const toc = post.body
+  // Build the table of contents from the blocks actually rendered for this
+  // viewer, so every anchor resolves to a heading present in the DOM.
+  const toc = visibleBlocks
     .filter((b) => b.type === 'h2')
     .map((b) => ({ text: b.text, id: slugify(b.text) }));
 
@@ -72,7 +80,7 @@ export default function BlogPost() {
             <Link to={`/categories/${cat?.slug}`} className={a.chip}>
               {cat?.name}
             </Link>
-            {isLocked && (
+            {isMemberPost && (
               <span className="chip-gold">
                 <Lock size={12} /> Members
               </span>
@@ -142,8 +150,8 @@ export default function BlogPost() {
             <ArticleBodyWithAnchors blocks={visibleBlocks} />
           </div>
 
-          {/* Paywall for member content */}
-          {isLocked ? (
+          {/* Paywall for gated member content */}
+          {locked ? (
             <Paywall />
           ) : (
             <>
