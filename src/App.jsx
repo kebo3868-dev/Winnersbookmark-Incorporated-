@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { lazy, Suspense } from 'react';
 import { LogoMark } from './components/Logo';
 
@@ -13,6 +13,7 @@ const MentorDetail  = lazy(() => import('./pages/MentorDetail'));
 const Membership    = lazy(() => import('./pages/Membership'));
 const About         = lazy(() => import('./pages/About'));
 const Contact       = lazy(() => import('./pages/Contact'));
+const VirtualSecretary = lazy(() => import('./pages/VirtualSecretary'));
 const NotFound      = lazy(() => import('./pages/NotFound'));
 
 function Loader() {
@@ -42,6 +43,7 @@ export default function App() {
           <Route path="/membership"          element={<Membership />} />
           <Route path="/about"               element={<About />} />
           <Route path="/contact"             element={<Contact />} />
+          <Route path="/virtual-secretary"   element={<VirtualSecretary />} />
           <Route path="*"                    element={<NotFound />} />
         </Routes>
       </Suspense>
