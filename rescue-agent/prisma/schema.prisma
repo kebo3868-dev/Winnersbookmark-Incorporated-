@@ -1,0 +1,217 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum AuditStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  PARTIALLY_COMPLETED
+  FAILED
+}
+
+enum AuditStage {
+  INITIALIZING
+  VALIDATING_WEBSITE
+  DISCOVERING_PAGES
+  COLLECTING_EVIDENCE
+  ANALYZING_CUSTOMER_JOURNEY
+  DETECTING_REVENUE_LEAKS
+  SCORING_OPPORTUNITIES
+  CALCULATING_RESCUE_SCORE
+  GENERATING_OWNER_REPORT
+  GENERATING_SALES_BRIEF
+  COMPLETED
+  FAILED
+}
+
+enum SourceStatus {
+  COLLECTED
+  UNAVAILABLE
+  BLOCKED
+  TIMEOUT
+  ERROR
+}
+
+enum ReportType {
+  OWNER_AUDIT
+  INTERNAL_SALES
+}
+
+enum SalesPriority {
+  HOT
+  WARM
+  NURTURE
+  LOW_PRIORITY
+}
+
+model Restaurant {
+  id         String   @id @default(cuid())
+  name       String
+  websiteUrl String
+  city       String?
+  state      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  audits     Audit[]
+
+  @@unique([websiteUrl])
+}
+
+model Audit {
+  id              String      @id @default(cuid())
+  restaurantId    String
+  restaurant      Restaurant  @relation(fields: [restaurantId], references: [id])
+  status          AuditStatus @default(PENDING)
+  demoMode        Boolean     @default(false)
+  aiEnabled       Boolean     @default(false)
+  knownConcern    String?
+  overallScore    Int?
+  coverageScore   Int?
+  confidenceLevel String?
+  startedAt       DateTime?
+  completedAt     DateTime?
+  failureReason   String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  sources           AuditSource[]
+  evidence          Evidence[]
+  opportunities     Opportunity[]
+  scores            AuditScore[]
+  reports           Report[]
+  salesIntelligence SalesIntelligence?
+  job               AuditJob?
+  journeyStages     JourneyStage[]
+}
+
+model AuditSource {
+  id          String       @id @default(cuid())
+  auditId     String
+  audit       Audit        @relation(fields: [auditId], references: [id], onDelete: Cascade)
+  url         String
+  pageTitle   String?
+  sourceType  String
+  status      SourceStatus
+  httpStatus  Int?
+  note        String?
+  collectedAt DateTime?
+  createdAt   DateTime     @default(now())
+  evidence    Evidence[]
+}
+
+model Evidence {
+  id                String       @id @default(cuid())
+  auditId           String
+  audit             Audit        @relation(fields: [auditId], references: [id], onDelete: Cascade)
+  auditSourceId     String?
+  auditSource       AuditSource? @relation(fields: [auditSourceId], references: [id])
+  evidenceType      String
+  fact              String
+  supportingContext String?
+  confidence        Int
+  createdAt         DateTime     @default(now())
+}
+
+model JourneyStage {
+  id                       String  @id @default(cuid())
+  auditId                  String
+  audit                    Audit   @relation(fields: [auditId], references: [id], onDelete: Cascade)
+  stage                    String
+  status                   String
+  finding                  String
+  confidence               Int
+  manualValidationRequired Boolean @default(false)
+  evidenceIds              String[]
+}
+
+model Opportunity {
+  id                       String   @id @default(cuid())
+  auditId                  String
+  audit                    Audit    @relation(fields: [auditId], references: [id], onDelete: Cascade)
+  category                 String
+  title                    String
+  problem                  String
+  businessImpact           String
+  customerJourneyStage     String
+  evidenceIds              String[]
+  impactScore              Int
+  urgencyScore             Int
+  confidenceScore          Int
+  aiFitScore               Int
+  rescuePriorityScore      Int
+  recommendedSolution      String
+  manualValidationRequired Boolean  @default(false)
+  createdAt                DateTime @default(now())
+}
+
+model AuditScore {
+  id               String  @id @default(cuid())
+  auditId          String
+  audit            Audit   @relation(fields: [auditId], references: [id], onDelete: Cascade)
+  category         String
+  weight           Int
+  score            Int?
+  confidence       Int
+  insufficientData Boolean @default(false)
+  explanation      String
+}
+
+model Report {
+  id         String     @id @default(cuid())
+  auditId    String
+  audit      Audit      @relation(fields: [auditId], references: [id], onDelete: Cascade)
+  reportType ReportType
+  content    Json
+  createdAt  DateTime   @default(now())
+
+  @@unique([auditId, reportType])
+}
+
+model SalesIntelligence {
+  id                    String        @id @default(cuid())
+  auditId               String        @unique
+  audit                 Audit         @relation(fields: [auditId], references: [id], onDelete: Cascade)
+  leadQualityScore      Int
+  salesOpportunityScore Int
+  painLevel             String
+  buyerPersona          String
+  bestSalesAngle        String
+  topDiscoveryQuestion  String
+  discoveryQuestions    String[]
+  likelyObjection       String
+  objectionStrategy     String
+  recommendedOffer      String
+  outreachAngle         String
+  emailOpener           String
+  callOpener            String
+  talkTrack             String
+  followUpAngle         String
+  priority              SalesPriority
+  createdAt             DateTime      @default(now())
+}
+
+model AuditJob {
+  id           String      @id @default(cuid())
+  auditId      String      @unique
+  audit        Audit       @relation(fields: [auditId], references: [id], onDelete: Cascade)
+  status       AuditStatus @default(PENDING)
+  currentStage AuditStage  @default(INITIALIZING)
+  errorMessage String?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+}
+
+model SystemLog {
+  id        String   @id @default(cuid())
+  auditId   String?
+  level     String
+  message   String
+  detail    String?
+  createdAt DateTime @default(now())
+}
