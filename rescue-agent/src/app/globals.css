@@ -1,0 +1,36 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  @apply bg-obsidian text-ivory font-body antialiased;
+  background-image: radial-gradient(ellipse 80% 50% at 50% -20%, rgba(201, 162, 75, 0.08), transparent);
+}
+
+.card {
+  @apply bg-obsidian-card border border-obsidian-line rounded-lg;
+}
+
+.gold-rule {
+  @apply border-t border-gold-dim/40;
+}
+
+.label {
+  @apply text-[11px] uppercase tracking-[0.18em] text-ivory-faint;
+}
+
+.btn-gold {
+  @apply inline-block bg-gold text-obsidian font-semibold px-6 py-3 rounded-md tracking-wide uppercase text-sm hover:bg-gold-bright transition-colors;
+}
+
+.btn-outline {
+  @apply inline-block border border-obsidian-line text-ivory-dim px-5 py-2.5 rounded-md tracking-wide uppercase text-xs hover:border-gold-dim hover:text-ivory transition-colors;
+}
+
+input, textarea, select {
+  @apply bg-obsidian-soft border border-obsidian-line rounded-md px-4 py-3 text-ivory placeholder:text-ivory-faint focus:outline-none focus:border-gold-dim w-full;
+}
