@@ -25,7 +25,27 @@ let baseUrl: string;
 
 beforeAll(async () => {
   server = http.createServer((req, res) => {
-    const body = SITE[req.url ?? '/'];
+    const url = req.url ?? '/';
+    if (url === '/huge') {
+      // ~8MB chunked HTML page — must not be fully buffered by the collector.
+      res.writeHead(200, { 'content-type': 'text/html' });
+      res.write('<html><head><title>Huge Page</title></head><body>');
+      const chunk = '<p>' + 'x'.repeat(65_000) + '</p>';
+      for (let i = 0; i < 128; i++) res.write(chunk);
+      res.end('</body></html>');
+      return;
+    }
+    if (url === '/redirect-broken') {
+      res.writeHead(302, { location: '/order' });
+      res.end();
+      return;
+    }
+    if (url === '/redirect-loop') {
+      res.writeHead(302, { location: '/redirect-loop' });
+      res.end();
+      return;
+    }
+    const body = SITE[url];
     if (body === undefined || body === null) {
       res.writeHead(404, { 'content-type': 'text/html' });
       res.end('<html><body>Not found</body></html>');
@@ -101,5 +121,29 @@ describe('collection engine against a live fixture site', () => {
     const outcome = await fetchPage('http://127.0.0.1:59999/');
     expect(outcome.status).not.toBe('COLLECTED');
     expect(['UNAVAILABLE', 'TIMEOUT', 'ERROR']).toContain(outcome.status);
+  }, 30_000);
+
+  it('caps body size for huge chunked responses instead of buffering them fully', async () => {
+    const { fetchPage } = await import('@/lib/web/collector');
+    const outcome = await fetchPage(`${baseUrl}/huge`);
+    expect(outcome.status).toBe('COLLECTED');
+    if (outcome.status !== 'COLLECTED') return;
+    expect(outcome.page.title).toBe('Huge Page');
+    // 2.5MB cap: raw text sample bounded, page still usable.
+    expect(outcome.page.textSample.length).toBeLessThanOrEqual(4000);
+  }, 30_000);
+
+  it('follows probe redirects manually and reports the final broken destination', async () => {
+    const { probeLink } = await import('@/lib/web/collector');
+    const probe = await probeLink(`${baseUrl}/redirect-broken`);
+    expect(probe.ok).toBe(false);
+    expect(probe.httpStatus).toBe(404);
+  }, 30_000);
+
+  it('aborts redirect loops at the hop limit', async () => {
+    const { probeLink } = await import('@/lib/web/collector');
+    const probe = await probeLink(`${baseUrl}/redirect-loop`);
+    expect(probe.ok).toBe(false);
+    expect(probe.note).toMatch(/redirects/i);
   }, 30_000);
 });

@@ -1,5 +1,7 @@
 import * as cheerio from 'cheerio';
+import type { Response as UndiciResponse } from 'undici';
 import { validateUrlTarget, normalizeUrl } from '@/lib/validation/url';
+import { safeFetchHop, readBodyCapped } from '@/lib/web/safeFetch';
 
 export type LinkCategory =
   | 'menu'
@@ -76,67 +78,110 @@ const CATEGORY_PATTERNS: Record<LinkCategory, RegExp> = {
 const SOCIAL_HOSTS = /facebook\.com|instagram\.com|twitter\.com|x\.com|tiktok\.com|youtube\.com|yelp\.com|linkedin\.com|threads\.net/i;
 
 const PHONE_REGEX = /(?:\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]\d{3}[-.\s]\d{4}\b/g;
-const EMAIL_REGEX = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
+// Quantifiers are bounded so backtracking stays linear even on pathological
+// multi-megabyte unbroken text runs (extraction regexes run on untrusted HTML).
+const EMAIL_REGEX = /\b[a-zA-Z0-9._%+-]{1,64}@[a-zA-Z0-9-]{1,63}(?:\.[a-zA-Z0-9-]{1,63}){1,4}/g;
+// Entity extraction scans at most this much visible text; contact details on
+// real restaurant pages appear far earlier, and this bounds regex work.
+const MAX_SCAN_TEXT = 300_000;
 const HOURS_REGEX =
   /((mon|tue|wed|thu|fri|sat|sun)[a-z]*\.?\s*(–|-|to|through|thru)?\s*(mon|tue|wed|thu|fri|sat|sun)?[a-z]*\.?[:\s]*\d{1,2}(:\d{2})?\s*(am|pm)\s*(–|-|to)\s*\d{1,2}(:\d{2})?\s*(am|pm))/i;
 const ADDRESS_REGEX = /\d{1,6}\s+[A-Za-z0-9.'\- ]{3,40}\s(street|st\.?|avenue|ave\.?|boulevard|blvd\.?|road|rd\.?|drive|dr\.?|lane|ln\.?|way|highway|hwy\.?|parkway|pkwy\.?|court|ct\.?|place|pl\.?)\b[^\n]{0,60}/i;
 
+type HopResult =
+  | { kind: 'response'; response: UndiciResponse; finalUrl: string }
+  | { kind: 'failure'; status: 'UNAVAILABLE' | 'BLOCKED' | 'TIMEOUT' | 'ERROR'; httpStatus?: number; note: string };
+
+function classifyFetchError(error: unknown, timeoutMs: number): HopResult {
+  const chain: string[] = [];
+  let current: unknown = error;
+  for (let depth = 0; depth < 5 && current instanceof Error; depth++) {
+    chain.push(`${(current as NodeJS.ErrnoException).code ?? ''} ${current.name} ${current.message}`);
+    current = current.cause;
+  }
+  const joined = chain.join(' | ');
+  if (/EUNSAFEDEST|UNSAFE URL DESTINATION/.test(joined)) {
+    return { kind: 'failure', status: 'BLOCKED', note: 'Destination rejected by safety policy: UNSAFE URL DESTINATION' };
+  }
+  if (/TimeoutError|UND_ERR_CONNECT_TIMEOUT|timeout/i.test(joined)) {
+    return { kind: 'failure', status: 'TIMEOUT', note: `Request timed out after ${timeoutMs / 1000}s` };
+  }
+  return { kind: 'failure', status: 'UNAVAILABLE', note: `Network failure: ${joined.slice(0, 200)}` };
+}
+
 /**
- * Fetch a single URL with manual redirect following so every hop is re-validated
- * against the SSRF policy. Never bypasses auth, captchas, or bot protection —
- * a 401/403/429 is recorded as BLOCKED, not worked around.
+ * Follow redirects manually so EVERY hop — including redirect targets from
+ * untrusted sites — is re-validated against the SSRF policy before being
+ * fetched. The underlying transport additionally re-checks resolved addresses
+ * at connection time (see safeFetch.ts), closing DNS-rebinding gaps.
+ * Never bypasses auth, captchas, or bot protection — a 401/403/429 is
+ * recorded as BLOCKED, not worked around.
  */
-export async function fetchPage(rawUrl: string): Promise<FetchOutcome> {
+async function followRedirectsSafely(rawUrl: string, timeoutMs: number): Promise<HopResult> {
   let currentUrl = rawUrl;
   for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
     const validation = await validateUrlTarget(currentUrl);
     if (!validation.ok) {
-      return { status: 'BLOCKED', note: `Destination rejected by safety policy: ${validation.reason}` };
+      return { kind: 'failure', status: 'BLOCKED', note: `Destination rejected by safety policy: ${validation.reason}` };
     }
     const target = validation.url.toString();
-    let response: Response;
+    let response: UndiciResponse;
     try {
-      response = await fetch(target, {
-        redirect: 'manual',
-        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+      response = await safeFetchHop(target, {
+        timeoutMs,
         headers: { 'user-agent': USER_AGENT, accept: 'text/html,application/xhtml+xml' },
       });
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      if (message.includes('timeout') || (error as Error)?.name === 'TimeoutError') {
-        return { status: 'TIMEOUT', note: `Request timed out after ${FETCH_TIMEOUT_MS / 1000}s` };
-      }
-      return { status: 'UNAVAILABLE', note: `Network failure: ${message.slice(0, 200)}` };
+      return classifyFetchError(error, timeoutMs);
     }
 
     if (response.status >= 300 && response.status < 400) {
       const location = response.headers.get('location');
-      if (!location) return { status: 'ERROR', httpStatus: response.status, note: 'Redirect without location header' };
+      await response.body?.cancel().catch(() => {});
+      if (!location) return { kind: 'failure', status: 'ERROR', httpStatus: response.status, note: 'Redirect without location header' };
       currentUrl = new URL(location, target).toString();
       continue;
     }
-    if (response.status === 401 || response.status === 403 || response.status === 429 || response.status === 503) {
-      return {
-        status: 'BLOCKED',
-        httpStatus: response.status,
-        note: `Access restricted (HTTP ${response.status}). Bot protection or access control not bypassed.`,
-      };
-    }
-    if (response.status >= 400) {
-      return { status: 'ERROR', httpStatus: response.status, note: `HTTP ${response.status}` };
-    }
-    const contentType = response.headers.get('content-type');
-    if (contentType && !/text\/html|application\/xhtml/i.test(contentType)) {
-      return { status: 'ERROR', httpStatus: response.status, note: `Unsupported content type: ${contentType.slice(0, 80)}` };
-    }
-    const buffer = await response.arrayBuffer();
-    const html = new TextDecoder('utf-8', { fatal: false }).decode(buffer.slice(0, MAX_BODY_BYTES));
+    return { kind: 'response', response, finalUrl: target };
+  }
+  return { kind: 'failure', status: 'ERROR', note: `Exceeded ${MAX_REDIRECTS} redirects` };
+}
+
+export async function fetchPage(rawUrl: string): Promise<FetchOutcome> {
+  const hop = await followRedirectsSafely(rawUrl, FETCH_TIMEOUT_MS);
+  if (hop.kind === 'failure') {
+    const { kind: _kind, ...failure } = hop;
+    return failure;
+  }
+  const { response, finalUrl } = hop;
+  if (response.status === 401 || response.status === 403 || response.status === 429 || response.status === 503) {
+    await response.body?.cancel().catch(() => {});
     return {
-      status: 'COLLECTED',
-      page: extractPage(rawUrl, target, response.status, contentType, html),
+      status: 'BLOCKED',
+      httpStatus: response.status,
+      note: `Access restricted (HTTP ${response.status}). Bot protection or access control not bypassed.`,
     };
   }
-  return { status: 'ERROR', note: `Exceeded ${MAX_REDIRECTS} redirects` };
+  if (response.status >= 400) {
+    await response.body?.cancel().catch(() => {});
+    return { status: 'ERROR', httpStatus: response.status, note: `HTTP ${response.status}` };
+  }
+  const contentType = response.headers.get('content-type');
+  if (contentType && !/text\/html|application\/xhtml/i.test(contentType)) {
+    await response.body?.cancel().catch(() => {});
+    return { status: 'ERROR', httpStatus: response.status, note: `Unsupported content type: ${contentType.slice(0, 80)}` };
+  }
+  let body: Uint8Array;
+  try {
+    body = await readBodyCapped(response, MAX_BODY_BYTES);
+  } catch (error) {
+    return { status: 'ERROR', httpStatus: response.status, note: `Body read failed: ${String((error as Error)?.message ?? error).slice(0, 120)}` };
+  }
+  const html = new TextDecoder('utf-8', { fatal: false }).decode(body);
+  return {
+    status: 'COLLECTED',
+    page: extractPage(rawUrl, finalUrl, response.status, contentType, html),
+  };
 }
 
 export function extractPage(
@@ -161,7 +206,7 @@ export function extractPage(
     if (t && t.length <= 140 && headings.length < 40) headings.push(t);
   });
 
-  const bodyText = $('body').text().replace(/\s+/g, ' ').trim();
+  const bodyText = $('body').text().replace(/\s+/g, ' ').trim().slice(0, MAX_SCAN_TEXT);
 
   const internalLinks: { href: string; text: string }[] = [];
   const socialLinks = new Set<string>();
@@ -255,31 +300,25 @@ export function extractPage(
   };
 }
 
-/** Probe a link (GET, no body parse) to verify it is not broken. Re-validates target for SSRF. */
+/**
+ * Probe a link (GET, body discarded) to verify it is not broken. Uses the same
+ * manual redirect loop as fetchPage so every redirect hop is re-validated
+ * against the SSRF policy — a public link that 302s to a private or
+ * link-local address is rejected, not followed.
+ */
 export async function probeLink(url: string): Promise<{ ok: boolean; httpStatus?: number; note: string }> {
-  const validation = await validateUrlTarget(url);
-  if (!validation.ok) return { ok: false, note: `Rejected by safety policy: ${validation.reason}` };
-  try {
-    const response = await fetch(validation.url.toString(), {
-      method: 'GET',
-      redirect: 'follow',
-      signal: AbortSignal.timeout(10_000),
-      headers: { 'user-agent': USER_AGENT },
-    });
-    if (response.body) {
-      try {
-        await response.body.cancel();
-      } catch {
-        /* ignore */
-      }
+  const hop = await followRedirectsSafely(url, 10_000);
+  if (hop.kind === 'failure') {
+    if (hop.status === 'BLOCKED' && /safety policy/.test(hop.note)) {
+      return { ok: false, httpStatus: hop.httpStatus, note: hop.note };
     }
-    if (response.status === 401 || response.status === 403 || response.status === 429) {
-      return { ok: true, httpStatus: response.status, note: 'Access-restricted destination (treated as reachable, not verified)' };
-    }
-    return { ok: response.status < 400, httpStatus: response.status, note: `HTTP ${response.status}` };
-  } catch (error) {
-    const name = (error as Error)?.name ?? '';
-    if (name === 'TimeoutError') return { ok: false, note: 'Timed out' };
-    return { ok: false, note: `Network failure: ${String((error as Error)?.message ?? error).slice(0, 120)}` };
+    if (hop.status === 'TIMEOUT') return { ok: false, note: 'Timed out' };
+    return { ok: false, httpStatus: hop.httpStatus, note: hop.note };
   }
+  const { response } = hop;
+  await response.body?.cancel().catch(() => {});
+  if (response.status === 401 || response.status === 403 || response.status === 429) {
+    return { ok: true, httpStatus: response.status, note: 'Access-restricted destination (treated as reachable, not verified)' };
+  }
+  return { ok: response.status < 400, httpStatus: response.status, note: `HTTP ${response.status}` };
 }
