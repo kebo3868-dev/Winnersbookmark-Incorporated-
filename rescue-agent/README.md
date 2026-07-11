@@ -31,6 +31,11 @@ npm run dev        # http://localhost:3000
 Try it immediately with **Demo Mode** (`Run Demo` on the New Audit page) — a
 clearly labeled fictional restaurant run through the real analysis pipeline.
 
+**Deploying?** See `docs/DEPLOYMENT.md`. Production requires `BASIC_AUTH_USER`
+and `BASIC_AUTH_PASSWORD` — the app fails closed (503) without them because it
+serves confidential sales intelligence. A `Dockerfile` (migrate-on-start) and
+`docker-compose.yml` (app + PostgreSQL) are provided.
+
 ## Commands
 
 | Command | Purpose |
