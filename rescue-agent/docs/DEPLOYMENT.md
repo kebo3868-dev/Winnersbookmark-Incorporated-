@@ -1,27 +1,46 @@
 # Production Deployment Guide — Restaurant Rescue Agent
 
-## Chosen path: Vercel + Prisma Postgres (Vercel integration)
+## Chosen path: Vercel + Neon Postgres (Vercel integration)
 
 The app is adapted for this target:
 
-- `vercel-build` script applies Prisma migrations (`prisma migrate deploy`) during every deploy, then builds.
-- The audit API route sets `maxDuration = 300` so the background pipeline (which continues via `after()` once the response is sent) can finish; worst case is ~3–4 minutes. **Fluid Compute must be enabled** (it is the default for new Vercel projects) — without it, Hobby caps functions at 60s and long audits will be cut off.
+- **Two connection strings, used correctly.** Neon's integration injects a
+  pooled (PgBouncer) URL and an unpooled (direct) URL. The runtime client
+  prefers `POSTGRES_PRISMA_URL` (Neon's Prisma-specific pooled URL with
+  `pgbouncer=true`), falling back to `DATABASE_URL` / `POSTGRES_URL`.
+  Migrations (`prisma migrate deploy`, run by `vercel-build` on every deploy)
+  use the **unpooled** URL (`DATABASE_URL_UNPOOLED` / `POSTGRES_URL_NON_POOLING`)
+  because DDL through PgBouncer transaction mode is unreliable. The build
+  warns if it has to fall back to a pooled URL and fails fast with
+  instructions on `prisma+postgres://` (Accelerate) URLs.
+- The audit API route sets `maxDuration = 300` so the background pipeline (which continues via `after()` once the response is sent) can finish; worst case is ~3–4 minutes. **Fluid Compute must be enabled** (default for new Vercel projects) — without it, Hobby caps functions at 60s and long audits are cut off.
 - Audits interrupted anyway (platform limits, redeploys) are detected by a stale-job sweep and marked FAILED with an honest explanation — they never hang in RUNNING.
-- The database URL is accepted from `DATABASE_URL`, `POSTGRES_URL`, or `PRISMA_DATABASE_URL` (integrations differ in naming). It must be the **direct** `postgres://` connection string — the build fails fast with instructions if it receives a `prisma+postgres://` (Accelerate) URL, because migrations and the standard client need the direct one.
+- **`/api/health` is the diagnostic endpoint** (no auth needed). It reports DB reachability, which env var supplied the runtime connection, whether an unpooled migration URL exists, and whether basic auth is configured — names and states only, never secret values.
 
-### Exact steps
+### Exact steps (Neon database already created and connected)
 
-1. **Import the repo into Vercel** (Add New → Project → import `kebo3868-dev/Winnersbookmark-Incorporated-`).
-2. **Set Root Directory to `rescue-agent`** in the project configuration screen (Framework: Next.js is auto-detected; leave build command as default — Vercel picks up the `vercel-build` script automatically).
-3. **Add Prisma Postgres**: project → Storage → Create Database → Prisma Postgres, and connect it to the project. Then check the injected env vars: if the integration set only a `prisma+postgres://` URL, open the Prisma Postgres dashboard, copy the **direct connection string** (`postgres://…db.prisma.io…sslmode=require`) and set it as `DATABASE_URL` for Production (and Preview if wanted).
-4. **Set the auth env vars** (Settings → Environment Variables, Production): `BASIC_AUTH_USER`, `BASIC_AUTH_PASSWORD` — the app refuses all requests (503) until these exist. Optionally `AI_PROVIDER=anthropic`, `AI_MODEL`, `ANTHROPIC_API_KEY`.
-5. **Verify Fluid Compute is on** (Settings → Functions) and deploy.
-6. Post-deploy: open `/api/health` (should return `{"status":"ok","database":"up"}` without auth), sign in with the basic-auth credentials, run the Demo audit, then a real audit.
+1. **Root Directory must be `rescue-agent`** (project → Settings → General → Root Directory). If it isn't, Vercel builds the unrelated Vite site at the repo root — this alone explains a broken first deployment.
+2. **Confirm the Neon env vars** (Settings → Environment Variables): the integration should have added `DATABASE_URL`, `DATABASE_URL_UNPOOLED`, `POSTGRES_PRISMA_URL`, `POSTGRES_URL_NON_POOLING`, etc. for Production and Preview. Nothing to copy manually.
+3. **Set the auth env vars** (Production): `BASIC_AUTH_USER`, `BASIC_AUTH_PASSWORD`. **Until these exist, every route returns 503 "ACCESS NOT CONFIGURED" by design** — if the previous deploy showed that message, this is the cause and the fix. Optionally add `AI_PROVIDER=anthropic`, `AI_MODEL`, `ANTHROPIC_API_KEY`.
+4. **Check Fluid Compute is on** (Settings → Functions) and **redeploy** (Deployments → ⋯ → Redeploy, or push to main).
+5. Post-deploy verification, in order:
+   - `https://<app>/api/health` → expect `{"status":"ok","database":"up","config":{"auth":"configured",...}}`. If `auth` says MISSING, set the vars from step 3. If `database` is down, check the Neon integration's env vars are attached to Production.
+   - Open the app → browser prompts for the basic-auth credentials → Command Center loads.
+   - Run the Demo audit, then a real restaurant audit.
+
+### Distinguish the three "auth walls"
+
+| Symptom | Layer | Fix |
+| --- | --- | --- |
+| 503 "ACCESS NOT CONFIGURED" | This app (fail-closed) | Set `BASIC_AUTH_USER`/`BASIC_AUTH_PASSWORD` |
+| Browser username/password prompt | This app (working as intended) | Sign in with those credentials |
+| Vercel-branded login page | Vercel Deployment Protection | Project → Settings → Deployment Protection (separate from app auth; default-on for previews) |
 
 ### Vercel-specific caveats
 
 - Background audit work lives inside the request function's lifetime (`after()` + `maxDuration: 300`). A pathologically slow site could still hit the ceiling; the stale sweep converts that into an honest FAILED audit.
 - The in-memory rate limiter is per-function-instance on serverless — effectively advisory. Acceptable behind basic auth; move to a durable limiter if the app is ever opened up.
+- Neon free-tier databases can cold-start after idling; the first request may be slow or briefly report `database: down` on `/api/health`.
 - If you later prefer a persistent server, the Docker path below remains fully supported.
 
 ## Alternative: any Docker host (Railway, Render, Fly.io, VPS)
