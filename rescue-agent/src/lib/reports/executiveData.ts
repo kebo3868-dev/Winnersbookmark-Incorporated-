@@ -10,6 +10,26 @@ export type ExecutiveReportResult =
 const AUDIT_ID_PATTERN = /^[a-z0-9]{10,40}$/i;
 
 /**
+ * Derive the display source URL for an evidence record. Probe evidence
+ * (broken/tested links, PDF menu links) stores the exact tested URL in
+ * supportingContext, while its auditSourceId falls back to the homepage —
+ * citing that fallback would misattribute the most important findings.
+ * When the supporting context is itself a single URL, it is the true source.
+ */
+export function deriveEvidenceSourceUrl(supportingContext: string | null, sourceRecordUrl: string | null): string | null {
+  const trimmed = supportingContext?.trim() ?? '';
+  if (/^https?:\/\/\S+$/.test(trimmed)) {
+    try {
+      new URL(trimmed);
+      return trimmed;
+    } catch {
+      /* fall through to the source record URL */
+    }
+  }
+  return sourceRecordUrl;
+}
+
+/**
  * Load a completed audit and derive the Executive Report DTO. Read-only,
  * explicit field picking throughout — nothing outside these fields (no env,
  * no internal sales intelligence, no infrastructure detail) can reach the DTO.
@@ -64,7 +84,7 @@ export async function loadExecutiveReport(auditId: string): Promise<ExecutiveRep
       fact: e.fact,
       supportingContext: e.supportingContext,
       confidence: e.confidence,
-      sourceUrl: e.auditSourceId ? sourceUrlById.get(e.auditSourceId) ?? null : null,
+      sourceUrl: deriveEvidenceSourceUrl(e.supportingContext, e.auditSourceId ? sourceUrlById.get(e.auditSourceId) ?? null : null),
     })),
     opportunities: audit.opportunities,
     journey: audit.journeyStages,

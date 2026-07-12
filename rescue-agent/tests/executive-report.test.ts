@@ -213,3 +213,20 @@ describe('sanitizeFilename', () => {
     expect(sanitizeFilename('a'.repeat(200)).length).toBeLessThanOrEqual(60);
   });
 });
+
+describe('deriveEvidenceSourceUrl (evidence chain cites the tested URL, not the homepage fallback)', () => {
+  it('prefers a URL-only supporting context (probe evidence) over the source record URL', async () => {
+    const { deriveEvidenceSourceUrl } = await import('@/lib/reports/executiveData');
+    expect(deriveEvidenceSourceUrl('https://restaurant.example/order', 'https://restaurant.example')).toBe('https://restaurant.example/order');
+    expect(deriveEvidenceSourceUrl('  https://order.platform.example/r/slug?x=1 ', 'https://restaurant.example')).toBe('https://order.platform.example/r/slug?x=1');
+  });
+
+  it('keeps the source record URL for sentence-style contexts and missing context', async () => {
+    const { deriveEvidenceSourceUrl } = await import('@/lib/reports/executiveData');
+    expect(deriveEvidenceSourceUrl('Based on 7 analyzed page(s).', 'https://restaurant.example/menu')).toBe('https://restaurant.example/menu');
+    expect(deriveEvidenceSourceUrl('Example link text: "Reserve" → https://resy.example/x', 'https://restaurant.example')).toBe('https://restaurant.example');
+    expect(deriveEvidenceSourceUrl(null, 'https://restaurant.example')).toBe('https://restaurant.example');
+    expect(deriveEvidenceSourceUrl('https://bad url with spaces', 'https://restaurant.example')).toBe('https://restaurant.example');
+    expect(deriveEvidenceSourceUrl(null, null)).toBeNull();
+  });
+});
