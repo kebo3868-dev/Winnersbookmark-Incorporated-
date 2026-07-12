@@ -7,7 +7,7 @@ if [ -z "$DATABASE_URL" ]; then
 fi
 
 echo "Applying database migrations (prisma migrate deploy)..."
-./node_modules/.bin/prisma migrate deploy --schema ./prisma/schema.prisma
+/app/migrator/node_modules/.bin/prisma migrate deploy --schema ./prisma/schema.prisma
 
 echo "Starting Restaurant Rescue Agent on port ${PORT:-3000}..."
 exec node server.js
