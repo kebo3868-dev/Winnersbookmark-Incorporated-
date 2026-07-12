@@ -45,8 +45,11 @@ export default async function AuditDetailPage({ params }: { params: Promise<{ au
           )}
         </div>
         {!running && (
-          <div className="flex gap-3">
-            <Link href={`/audits/${audit.id}/report`} className="btn-gold">Owner Report</Link>
+          <div className="flex flex-wrap gap-3">
+            <Link href={`/audits/${audit.id}/report`} className="btn-gold">Executive Report</Link>
+            {(audit.status === 'COMPLETED' || audit.status === 'PARTIALLY_COMPLETED') && (
+              <a href={`/api/audits/${audit.id}/report/pdf`} className="btn-outline">Export Executive PDF</a>
+            )}
             <Link href={`/audits/${audit.id}/sales`} className="btn-outline">Internal Sales Brief</Link>
           </div>
         )}
