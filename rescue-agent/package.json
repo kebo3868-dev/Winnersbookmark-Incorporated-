@@ -10,8 +10,14 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "vercel-build": "node scripts/vercel-build.mjs",
+    "postinstall": "prisma generate",
     "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
     "db:generate": "prisma generate"
+  },
+  "engines": {
+    "node": ">=20.9"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",

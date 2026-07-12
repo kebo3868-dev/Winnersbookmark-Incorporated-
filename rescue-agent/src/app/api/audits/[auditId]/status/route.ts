@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { failStaleAudits } from '@/lib/audit/stale';
 
 export async function GET(_request: Request, { params }: { params: Promise<{ auditId: string }> }) {
   const { auditId } = await params;
+  await failStaleAudits(auditId);
   const audit = await prisma.audit.findUnique({
     where: { id: auditId },
     select: { id: true, status: true, overallScore: true, coverageScore: true, failureReason: true, job: { select: { currentStage: true } } },
