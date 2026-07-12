@@ -1,18 +1,34 @@
 # Production Deployment Guide — Restaurant Rescue Agent
 
-## Recommended path (in order)
+## Chosen path: Vercel + Prisma Postgres (Vercel integration)
 
-**Recommended: a single Docker container on a persistent-server host (Railway, Render, Fly.io, or any VPS), with a managed PostgreSQL database (the host's own Postgres offering, or Neon/Supabase).**
+The app is adapted for this target:
 
-Why this shape and not serverless:
+- `vercel-build` script applies Prisma migrations (`prisma migrate deploy`) during every deploy, then builds.
+- The audit API route sets `maxDuration = 300` so the background pipeline (which continues via `after()` once the response is sent) can finish; worst case is ~3–4 minutes. **Fluid Compute must be enabled** (it is the default for new Vercel projects) — without it, Hobby caps functions at 60s and long audits will be cut off.
+- Audits interrupted anyway (platform limits, redeploys) are detected by a stale-job sweep and marked FAILED with an honest explanation — they never hang in RUNNING.
+- The database URL is accepted from `DATABASE_URL`, `POSTGRES_URL`, or `PRISMA_DATABASE_URL` (integrations differ in naming). It must be the **direct** `postgres://` connection string — the build fails fast with instructions if it receives a `prisma+postgres://` (Accelerate) URL, because migrations and the standard client need the direct one.
 
-1. **Audit jobs run for minutes.** The pipeline continues after the HTTP response (page fetches with 15s timeouts × up to 10 pages, plus link probes). Worst case is 3–4 minutes per audit. Serverless function lifetimes can kill audits mid-run; a persistent Node process cannot be interrupted that way.
-2. **Outbound egress.** The collector needs unrestricted outbound HTTPS to arbitrary restaurant websites. Persistent hosts allow this by default.
-3. **In-memory rate limiting** assumes a single instance. One container is the intended topology for the MVP.
+### Exact steps
 
-Vercel is workable (Next-native, `after()` is supported) but requires configuring `maxDuration` generously and accepting platform time limits on background work — use it only if you already live on Vercel.
+1. **Import the repo into Vercel** (Add New → Project → import `kebo3868-dev/Winnersbookmark-Incorporated-`).
+2. **Set Root Directory to `rescue-agent`** in the project configuration screen (Framework: Next.js is auto-detected; leave build command as default — Vercel picks up the `vercel-build` script automatically).
+3. **Add Prisma Postgres**: project → Storage → Create Database → Prisma Postgres, and connect it to the project. Then check the injected env vars: if the integration set only a `prisma+postgres://` URL, open the Prisma Postgres dashboard, copy the **direct connection string** (`postgres://…db.prisma.io…sslmode=require`) and set it as `DATABASE_URL` for Production (and Preview if wanted).
+4. **Set the auth env vars** (Settings → Environment Variables, Production): `BASIC_AUTH_USER`, `BASIC_AUTH_PASSWORD` — the app refuses all requests (503) until these exist. Optionally `AI_PROVIDER=anthropic`, `AI_MODEL`, `ANTHROPIC_API_KEY`.
+5. **Verify Fluid Compute is on** (Settings → Functions) and deploy.
+6. Post-deploy: open `/api/health` (should return `{"status":"ok","database":"up"}` without auth), sign in with the basic-auth credentials, run the Demo audit, then a real audit.
 
-## Exact steps (any Docker host)
+### Vercel-specific caveats
+
+- Background audit work lives inside the request function's lifetime (`after()` + `maxDuration: 300`). A pathologically slow site could still hit the ceiling; the stale sweep converts that into an honest FAILED audit.
+- The in-memory rate limiter is per-function-instance on serverless — effectively advisory. Acceptable behind basic auth; move to a durable limiter if the app is ever opened up.
+- If you later prefer a persistent server, the Docker path below remains fully supported.
+
+## Alternative: any Docker host (Railway, Render, Fly.io, VPS)
+
+A persistent server avoids serverless time limits entirely (audits run in an
+uninterruptible Node process). Use this path if audit truncation ever becomes
+a problem on Vercel.
 
 1. Provision a PostgreSQL 16 database; note its connection string.
 2. Build and deploy the container from `rescue-agent/` (the provided `Dockerfile`). The entrypoint runs `prisma migrate deploy` automatically on every start, then boots the server on `$PORT`.
@@ -34,7 +50,7 @@ This brings up the app plus a persistent PostgreSQL with migrations applied.
 
 | Variable | Required | Purpose |
 | --- | --- | --- |
-| `DATABASE_URL` | yes | PostgreSQL connection string (Prisma) |
+| `DATABASE_URL` | yes | Direct PostgreSQL connection string (`POSTGRES_URL` / `PRISMA_DATABASE_URL` accepted as fallbacks) |
 | `BASIC_AUTH_USER` / `BASIC_AUTH_PASSWORD` | yes in production | App-wide HTTP Basic Auth; production fails closed without them |
 | `POSTGRES_PASSWORD` | compose only | Provisions the bundled Postgres |
 | `AI_PROVIDER` / `AI_MODEL` / `ANTHROPIC_API_KEY` | no | Optional AI narrative layer; deterministic fallback when unset |

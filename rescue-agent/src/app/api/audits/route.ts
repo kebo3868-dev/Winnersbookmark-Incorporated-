@@ -2,6 +2,12 @@ import { NextResponse, after } from 'next/server';
 import { z } from 'zod';
 import { createAudit, runAudit } from '@/lib/audit/orchestrator';
 
+// The audit pipeline continues via after() once the response is sent; on
+// serverless hosting the function must be allowed to live long enough for the
+// slowest audit (page collection + probes ≈ up to ~4 minutes worst case).
+// On Vercel this requires Fluid Compute (default on new projects).
+export const maxDuration = 300;
+
 const bodySchema = z.object({
   websiteUrl: z.string().min(4).max(2000),
   restaurantName: z.string().max(200).optional(),
