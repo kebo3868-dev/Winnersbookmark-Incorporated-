@@ -25,11 +25,15 @@ ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0
 
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
-# Prisma CLI + engines for `migrate deploy` on startup.
 COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/prisma ./node_modules/prisma
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma ./node_modules/@prisma
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.bin/prisma ./node_modules/.bin/prisma
+# Prisma CLI for `migrate deploy` on startup, installed with its FULL
+# dependency closure into a dedicated directory. Copying node_modules/prisma
+# + @prisma subtrees is not enough — the CLI's transitive deps (e.g.
+# @prisma/config → c12, effect) live outside them and standalone tracing
+# never includes dev-only CLI packages. Keep the version in sync with
+# devDependencies.prisma in package.json.
+RUN mkdir -p /app/migrator && cd /app/migrator && npm install --no-save --no-audit --no-fund prisma@6.19.3 \
+  && chown -R nextjs:nodejs /app/migrator
 COPY --chown=nextjs:nodejs docker-entrypoint.sh ./docker-entrypoint.sh
 RUN chmod +x docker-entrypoint.sh
 

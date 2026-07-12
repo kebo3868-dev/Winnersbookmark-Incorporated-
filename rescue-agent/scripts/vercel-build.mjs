@@ -15,7 +15,7 @@ import { execSync } from 'node:child_process';
 const env = process.env;
 
 // Migration URL: unpooled/direct names first, pooled names as fallback.
-const MIGRATION_URL_SOURCES = ['DATABASE_URL_UNPOOLED', 'POSTGRES_URL_NON_POOLING', 'DIRECT_DATABASE_URL', 'DATABASE_URL', 'POSTGRES_URL'];
+const MIGRATION_URL_SOURCES = ['DATABASE_URL_UNPOOLED', 'POSTGRES_URL_NON_POOLING', 'DIRECT_DATABASE_URL', 'DATABASE_URL', 'POSTGRES_URL', 'PRISMA_DATABASE_URL'];
 const migrationSource = MIGRATION_URL_SOURCES.find((name) => env[name]);
 const migrationUrl = migrationSource ? env[migrationSource] : undefined;
 
@@ -41,7 +41,8 @@ for (const [label, url] of [['migration', migrationUrl], ['runtime', runtimeUrl]
   }
 }
 
-if (migrationSource === 'DATABASE_URL' || migrationSource === 'POSTGRES_URL') {
+const UNPOOLED_SOURCES = ['DATABASE_URL_UNPOOLED', 'POSTGRES_URL_NON_POOLING', 'DIRECT_DATABASE_URL'];
+if (!UNPOOLED_SOURCES.includes(migrationSource)) {
   console.warn(
     `WARNING: migrations will run over ${migrationSource}, which may be a pooled (PgBouncer) endpoint. ` +
       'If `prisma migrate deploy` fails or hangs, expose the unpooled URL as DATABASE_URL_UNPOOLED.',
