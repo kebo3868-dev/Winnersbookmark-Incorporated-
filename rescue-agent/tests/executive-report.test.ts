@@ -349,3 +349,28 @@ describe('Phase 2.5 — executive snapshot, scenarios, journey map, prescription
     expect(serialized.toLowerCase()).not.toContain('you are losing');
   });
 });
+
+describe('Phase 2.5 — scenario dedupe (review #18)', () => {
+  it('collapses multiple same-kind findings into a single top-level scenario card (unique keys)', () => {
+    const dto = buildExecutiveReport(baseInput({
+      opportunities: [
+        {
+          category: 'ONLINE ORDERING FAILURE RISK', title: 'Ordering link failing', problem: 'Order link 404s.', businessImpact: 'Dead end.',
+          customerJourneyStage: 'ORDERING', evidenceIds: [], impactScore: 90, urgencyScore: 90, confidenceScore: 95,
+          aiFitScore: 50, rescuePriorityScore: 90, recommendedSolution: 'Fix it.', manualValidationRequired: false,
+        },
+        {
+          category: 'THIRD-PARTY ORDERING DEPENDENCY', title: 'Third-party ordering split', problem: 'Fragmented ordering.', businessImpact: 'Margin.',
+          customerJourneyStage: 'ORDERING', evidenceIds: [], impactScore: 65, urgencyScore: 50, confidenceScore: 75,
+          aiFitScore: 50, rescuePriorityScore: 60, recommendedSolution: 'Consolidate.', manualValidationRequired: false,
+        },
+      ],
+    }));
+    const orderingScenarios = dto.scenarios.filter((s) => s.key === 'ordering');
+    expect(orderingScenarios).toHaveLength(1);
+    const keys = dto.scenarios.map((s) => s.key);
+    expect(new Set(keys).size).toBe(keys.length); // all keys unique
+    // both findings still keep their own inline scenario
+    expect(dto.findings.filter((f) => f.scenario?.key === 'ordering')).toHaveLength(2);
+  });
+});

@@ -350,7 +350,21 @@ export function buildExecutiveReport(input: ExecutiveReportInput): ExecutiveRepo
       complexity: (opp.aiFitScore >= 90 ? 'Moderate' : 'Moderate') as 'Low' | 'Moderate' | 'High',
     }));
 
-  const scenarios = findings.map((f) => f.scenario).filter((sc): sc is RevenueScenario => Boolean(sc)).slice(0, 3);
+  // Dedupe by scenario key: multiple findings can map to the same ScenarioKind
+  // (e.g. ordering-failure and third-party-ordering both → 'ordering'), which
+  // would otherwise render duplicate cards with identical dollars and duplicate
+  // React keys. Findings are already ranked, so the first instance of each kind
+  // is the highest-priority one and is the one we keep.
+  const seenScenarioKeys = new Set<string>();
+  const scenarios = findings
+    .map((f) => f.scenario)
+    .filter((sc): sc is RevenueScenario => Boolean(sc))
+    .filter((sc) => {
+      if (seenScenarioKeys.has(sc.key)) return false;
+      seenScenarioKeys.add(sc.key);
+      return true;
+    })
+    .slice(0, 3);
   const rankedAiOpportunities = buildRankedAiOpportunities(top);
   const snapshot = buildSnapshot(input, findings, rankedAiOpportunities);
 
