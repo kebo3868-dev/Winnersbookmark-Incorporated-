@@ -10,14 +10,26 @@ import {
   type ExecutiveReportInput,
 } from '@/lib/reports/executive';
 
+const TEST_CONTACT = {
+  company: 'Winners Bookmark Incorporated',
+  consultantName: 'Keith Warren',
+  phone: '727-291-5965',
+  email: null,
+  bookingUrl: null,
+  fallbackText: 'Contact Keith Warren at 727-291-5965 to schedule your Restaurant Rescue Review.',
+};
+
 function baseInput(overrides: Partial<ExecutiveReportInput> = {}): ExecutiveReportInput {
   return {
+    auditId: 'cltestaudit0001',
     restaurantName: 'Test Grill',
     websiteUrl: 'https://testgrill.example',
     location: 'Tampa, FL',
     auditDate: '2026-07-12',
     auditStatus: 'COMPLETED',
     demoMode: false,
+    contact: TEST_CONTACT,
+    bookingQrDataUrl: null,
     overallScore: 68,
     coverageScore: 80,
     sourcesCollected: 7,
@@ -228,5 +240,137 @@ describe('deriveEvidenceSourceUrl (evidence chain cites the tested URL, not the 
     expect(deriveEvidenceSourceUrl(null, 'https://restaurant.example')).toBe('https://restaurant.example');
     expect(deriveEvidenceSourceUrl('https://bad url with spaces', 'https://restaurant.example')).toBe('https://restaurant.example');
     expect(deriveEvidenceSourceUrl(null, null)).toBeNull();
+  });
+});
+
+describe('Phase 2.5 — executive snapshot, scenarios, journey map, prescription, decision, cta', () => {
+  it('builds an executive snapshot from ranked findings (≤3 priorities) with score and validation', () => {
+    const dto = buildExecutiveReport(baseInput());
+    expect(dto.snapshot.priorities.length).toBeGreaterThan(0);
+    expect(dto.snapshot.priorities.length).toBeLessThanOrEqual(3);
+    expect(dto.snapshot.priorities[0].title).toContain('transaction link');
+    expect(dto.snapshot.rescueScore).toBe(68);
+    expect(dto.snapshot.primaryValidationRequirement.length).toBeGreaterThan(10);
+  });
+
+  it('attaches an illustrative scenario to eligible findings and shows all assumptions', () => {
+    const dto = buildExecutiveReport(baseInput());
+    const phone = dto.findings.find((f) => f.category.includes('PHONE'))!;
+    expect(phone.scenario).not.toBeNull();
+    expect(phone.scenario!.classification).toBe('ILLUSTRATIVE SCENARIO');
+    expect(phone.scenario!.assumptions.length).toBeGreaterThan(0);
+    // ordering finding is a broken-link category — NOT scenario-eligible under ordering-failure? it IS eligible (ordering)
+    const ordering = dto.findings.find((f) => f.category.includes('ORDERING'))!;
+    expect(ordering.scenario).not.toBeNull();
+  });
+
+  it('collects up to 3 top-level scenarios for "What This Could Be Costing You"', () => {
+    const dto = buildExecutiveReport(baseInput());
+    expect(dto.scenarios.length).toBeGreaterThan(0);
+    expect(dto.scenarios.length).toBeLessThanOrEqual(3);
+    for (const sc of dto.scenarios) expect(sc.classification).toBe('ILLUSTRATIVE SCENARIO');
+  });
+
+  it('never attaches a scenario to a technical/insufficient finding', () => {
+    const dto = buildExecutiveReport(baseInput({
+      opportunities: [{
+        category: 'WEBSITE TECHNICAL FOUNDATION', title: 'HTTPS missing', problem: 'No HTTPS.', businessImpact: 'Trust.',
+        customerJourneyStage: 'WEBSITE', evidenceIds: [], impactScore: 75, urgencyScore: 70, confidenceScore: 90,
+        aiFitScore: 10, rescuePriorityScore: 72, recommendedSolution: 'Fix SSL.', manualValidationRequired: false,
+      }],
+    }));
+    expect(dto.findings[0].scenario).toBeNull();
+    expect(dto.scenarios).toHaveLength(0);
+  });
+
+  it('orders the visual journey map and maps UNKNOWN → INSUFFICIENT DATA', () => {
+    const dto = buildExecutiveReport(baseInput());
+    expect(dto.journeyMap.map((s) => s.stage)).toEqual(['WEBSITE', 'PHONE', 'REVIEW']);
+    expect(dto.journeyMap.find((s) => s.stage === 'REVIEW')!.status).toBe('INSUFFICIENT DATA');
+    expect(dto.journeyMap.find((s) => s.stage === 'PHONE')!.status).toBe('MANUAL VALIDATION');
+  });
+
+  it('ranks AI opportunities with capabilities and measurement, best-fit first', () => {
+    const dto = buildExecutiveReport(baseInput());
+    expect(dto.rankedAiOpportunities.length).toBeGreaterThan(0);
+    expect(dto.rankedAiOpportunities[0].fit).toBe('STRONG');
+    expect(dto.rankedAiOpportunities[0].capabilities.length).toBeGreaterThan(0);
+    expect(dto.rankedAiOpportunities[0].measurement.length).toBeGreaterThan(0);
+  });
+
+  it('builds a diagnosis/validation/prescription block and an operational role list', () => {
+    const dto = buildExecutiveReport(baseInput());
+    expect(dto.prescription.diagnosis.length).toBeGreaterThan(10);
+    expect(dto.prescription.validation.length).toBeGreaterThan(10);
+    expect(dto.prescription.prescription.length).toBeGreaterThan(10);
+    expect(dto.prescription.expectedOperationalRole.length).toBeGreaterThan(2);
+  });
+
+  it('builds the three-option decision box', () => {
+    const dto = buildExecutiveReport(baseInput());
+    expect(dto.decisionBox.doNothing.heading).toBe('DO NOTHING');
+    expect(dto.decisionBox.validate.heading).toBe('VALIDATE');
+    expect(dto.decisionBox.implement.heading).toBe('IMPLEMENT');
+  });
+
+  it('CTA falls back to phone text when no booking URL/QR is configured', () => {
+    const dto = buildExecutiveReport(baseInput());
+    expect(dto.cta.headline).toMatch(/BOOK YOUR 20-MINUTE/);
+    expect(dto.cta.phone).toBe('727-291-5965');
+    expect(dto.cta.bookingUrl).toBeNull();
+    expect(dto.cta.qrDataUrl).toBeNull();
+    expect(dto.cta.fallbackText).toMatch(/727-291-5965/);
+  });
+
+  it('CTA surfaces a configured booking URL and QR when present', () => {
+    const dto = buildExecutiveReport(baseInput({
+      contact: { ...TEST_CONTACT, bookingUrl: 'https://book.example/keith' },
+      bookingQrDataUrl: 'data:image/png;base64,AAAA',
+    }));
+    expect(dto.cta.bookingUrl).toBe('https://book.example/keith');
+    expect(dto.cta.qrDataUrl).toBe('data:image/png;base64,AAAA');
+  });
+
+  it('exposes value signals including audit id, and never mutates the score', () => {
+    const input = baseInput();
+    const dto = buildExecutiveReport(input);
+    expect(dto.valueSignals.auditId).toBe('cltestaudit0001');
+    expect(dto.valueSignals.preparedFor).toBe('Test Grill');
+    expect(dto.score.rescueScore).toBe(68);
+    expect(input.overallScore).toBe(68);
+  });
+
+  it('scenarios and snapshot never state a confirmed dollar loss', () => {
+    const dto = buildExecutiveReport(baseInput());
+    const serialized = JSON.stringify({ scenarios: dto.scenarios, snapshot: dto.snapshot, findings: dto.findings });
+    // every scenario carries the not-a-confirmed-loss qualifier
+    for (const sc of dto.scenarios) expect(sc.confidenceStatement.toLowerCase()).toContain('not a confirmed loss');
+    expect(serialized.toLowerCase()).not.toContain('confirmed loss of');
+    expect(serialized.toLowerCase()).not.toContain('you are losing');
+  });
+});
+
+describe('Phase 2.5 — scenario dedupe (review #18)', () => {
+  it('collapses multiple same-kind findings into a single top-level scenario card (unique keys)', () => {
+    const dto = buildExecutiveReport(baseInput({
+      opportunities: [
+        {
+          category: 'ONLINE ORDERING FAILURE RISK', title: 'Ordering link failing', problem: 'Order link 404s.', businessImpact: 'Dead end.',
+          customerJourneyStage: 'ORDERING', evidenceIds: [], impactScore: 90, urgencyScore: 90, confidenceScore: 95,
+          aiFitScore: 50, rescuePriorityScore: 90, recommendedSolution: 'Fix it.', manualValidationRequired: false,
+        },
+        {
+          category: 'THIRD-PARTY ORDERING DEPENDENCY', title: 'Third-party ordering split', problem: 'Fragmented ordering.', businessImpact: 'Margin.',
+          customerJourneyStage: 'ORDERING', evidenceIds: [], impactScore: 65, urgencyScore: 50, confidenceScore: 75,
+          aiFitScore: 50, rescuePriorityScore: 60, recommendedSolution: 'Consolidate.', manualValidationRequired: false,
+        },
+      ],
+    }));
+    const orderingScenarios = dto.scenarios.filter((s) => s.key === 'ordering');
+    expect(orderingScenarios).toHaveLength(1);
+    const keys = dto.scenarios.map((s) => s.key);
+    expect(new Set(keys).size).toBe(keys.length); // all keys unique
+    // both findings still keep their own inline scenario
+    expect(dto.findings.filter((f) => f.scenario?.key === 'ordering')).toHaveLength(2);
   });
 });
