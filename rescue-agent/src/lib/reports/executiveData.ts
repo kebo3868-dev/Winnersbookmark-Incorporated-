@@ -1,6 +1,8 @@
 import { prisma } from '@/lib/db';
 import { buildExecutiveReport, type ExecutiveReportDTO, type ExecutiveReportInput } from './executive';
 import type { OwnerReportContent } from './owner';
+import { getContact } from '@/lib/config';
+import { generateBookingQrDataUrl } from './qrcode';
 
 export type ExecutiveReportResult =
   | { status: 'ok'; dto: ExecutiveReportDTO }
@@ -66,14 +68,19 @@ export async function loadExecutiveReport(auditId: string): Promise<ExecutiveRep
 
   const sourceUrlById = new Map(audit.sources.map((s) => [s.id, s.url]));
   const owner = (audit.reports[0]?.content ?? null) as unknown as OwnerReportContent | null;
+  const contact = getContact();
+  const bookingQrDataUrl = await generateBookingQrDataUrl(contact.bookingUrl);
 
   const input: ExecutiveReportInput = {
+    auditId: audit.id,
     restaurantName: audit.restaurant.name,
     websiteUrl: audit.restaurant.websiteUrl,
     location: [audit.restaurant.city, audit.restaurant.state].filter(Boolean).join(', ') || null,
     auditDate: (audit.completedAt ?? audit.createdAt).toISOString().slice(0, 10),
     auditStatus: audit.status,
     demoMode: audit.demoMode,
+    contact,
+    bookingQrDataUrl,
     overallScore: audit.overallScore,
     coverageScore: audit.coverageScore,
     sourcesCollected: audit.sources.filter((s) => s.status === 'COLLECTED').length,

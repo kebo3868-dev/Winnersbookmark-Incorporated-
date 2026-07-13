@@ -1,6 +1,9 @@
 import { scoreBand } from '@/lib/scoring/rescueScore';
 import { CATEGORY_LABELS } from '@/lib/reports/owner';
-import { COMPANY } from '@/lib/config';
+import { COMPANY, type Contact } from '@/lib/config';
+import { buildScenario, scenarioKindFor, type RevenueScenario } from '@/lib/reports/scenarios';
+
+export type { RevenueScenario } from '@/lib/reports/scenarios';
 
 /**
  * EXECUTIVE AUDIT REPORT — presentation layer.
@@ -78,12 +81,15 @@ function solutionCategoryFor(category: string): string {
 // ── Input shape (plain data, no Prisma types — builder is DB-agnostic) ──────
 
 export interface ExecutiveReportInput {
+  auditId: string;
   restaurantName: string;
   websiteUrl: string;
   location: string | null;
   auditDate: string; // ISO date
   auditStatus: string;
   demoMode: boolean;
+  contact: Contact;
+  bookingQrDataUrl: string | null;
   overallScore: number | null;
   coverageScore: number | null;
   sourcesCollected: number;
@@ -116,17 +122,95 @@ export interface ExecutiveReportInput {
 export interface ExecutiveFinding {
   number: number;
   title: string;
+  category: string;
   classification: EvidenceClassification;
   problem: string;
   whyItMatters: string;
+  commercialEffect: string;
   whatWeKnow: string[];
   whatWeDoNotKnow: string;
   potentialEffect: string;
   recommendedAction: string;
+  automationOpportunity: string;
+  validationRequired: string;
   journeyStage: string;
   labels: { businessImpact: string; urgency: string; evidenceConfidence: string; automationOpportunity: string; priority: string };
   internalScores: { impact: number; urgency: number; confidence: number; aiFit: number; rescuePriority: number };
   evidenceSnapshot: { fact: string; sourceUrl: string | null }[];
+  scenario: RevenueScenario | null;
+}
+
+export interface SnapshotPriority {
+  rank: number;
+  title: string;
+  priorityLabel: string;
+  summary: string;
+  validationRequired: string;
+}
+
+export interface ExecutiveSnapshot {
+  priorities: SnapshotPriority[];
+  rescueScore: number | null;
+  band: string | null;
+  coverage: number | null;
+  topRecommendedAutomation: string | null;
+  primaryValidationRequirement: string;
+  recommendedNextStep: string;
+}
+
+export interface JourneyMapStage {
+  stage: string;
+  label: string;
+  status: 'HEALTHY' | 'FRICTION' | 'INSUFFICIENT DATA' | 'UNKNOWN' | 'MANUAL VALIDATION';
+  note: string;
+}
+
+export interface RankedAiOpportunity {
+  rank: number;
+  solutionCategory: string;
+  fit: 'STRONG' | 'MODERATE' | 'LIMITED';
+  problemAddressed: string;
+  whyItFits: string;
+  capabilities: string[];
+  validationBeforeImplementation: string;
+  implementationComplexity: 'Low' | 'Moderate' | 'High';
+  measurement: string[];
+}
+
+export interface DecisionBox {
+  doNothing: { heading: string; detail: string; risk: string };
+  validate: { heading: string; detail: string; cost: string; benefit: string };
+  implement: { heading: string; detail: string; benefit: string };
+}
+
+export interface Prescription {
+  diagnosis: string;
+  validation: string;
+  prescription: string;
+  expectedOperationalRole: string[];
+}
+
+export interface ReportCta {
+  headline: string;
+  subtext: string;
+  company: string;
+  consultantName: string;
+  phone: string;
+  email: string | null;
+  bookingUrl: string | null;
+  qrDataUrl: string | null;
+  fallbackText: string;
+}
+
+export interface ValueSignals {
+  auditId: string;
+  auditDate: string;
+  preparedFor: string;
+  preparedBy: string;
+  pagesAnalyzed: number;
+  evidenceItems: number;
+  coverage: number | null;
+  confidentialityNote: string;
 }
 
 export interface ExecutiveReportDTO {
@@ -143,6 +227,14 @@ export interface ExecutiveReportDTO {
     demoMode: boolean;
     auditStatus: string;
   };
+  snapshot: ExecutiveSnapshot;
+  scenarios: RevenueScenario[];
+  journeyMap: JourneyMapStage[];
+  rankedAiOpportunities: RankedAiOpportunity[];
+  prescription: Prescription;
+  decisionBox: DecisionBox;
+  cta: ReportCta;
+  valueSignals: ValueSignals;
   executiveSummary: string;
   summaryWasAiEnhanced: boolean;
   score: {
@@ -196,16 +288,22 @@ export function buildExecutiveReport(input: ExecutiveReportInput): ExecutiveRepo
 
   const findings: ExecutiveFinding[] = top.map((opp, i) => {
     const attached = opp.evidenceIds.map((id) => evidenceById.get(id)).filter((e): e is NonNullable<typeof e> => Boolean(e));
+    const classification = classifyFinding(opp);
+    const kind = scenarioKindFor({ category: opp.category, classification });
     return {
       number: i + 1,
       title: opp.title,
-      classification: classifyFinding(opp),
+      category: opp.category,
+      classification,
       problem: opp.problem,
       whyItMatters: opp.businessImpact,
+      commercialEffect: commercialEffectFor(opp.category, opp.businessImpact),
       whatWeKnow: attached.slice(0, 3).map((e) => e.fact),
       whatWeDoNotKnow: unknownsFor(opp.category),
       potentialEffect: opp.businessImpact,
       recommendedAction: opp.recommendedSolution,
+      automationOpportunity: automationLabel(opp.aiFitScore),
+      validationRequired: unknownsFor(opp.category),
       journeyStage: JOURNEY_LABELS[opp.customerJourneyStage] ?? opp.customerJourneyStage,
       labels: {
         businessImpact: levelLabel(opp.impactScore),
@@ -222,6 +320,7 @@ export function buildExecutiveReport(input: ExecutiveReportInput): ExecutiveRepo
         rescuePriority: opp.rescuePriorityScore,
       },
       evidenceSnapshot: attached.slice(0, 3).map((e) => ({ fact: e.fact, sourceUrl: e.sourceUrl })),
+      scenario: kind ? buildScenario(kind, firstSentence(opp.problem)) : null,
     };
   });
 
@@ -251,6 +350,10 @@ export function buildExecutiveReport(input: ExecutiveReportInput): ExecutiveRepo
       complexity: (opp.aiFitScore >= 90 ? 'Moderate' : 'Moderate') as 'Low' | 'Moderate' | 'High',
     }));
 
+  const scenarios = findings.map((f) => f.scenario).filter((sc): sc is RevenueScenario => Boolean(sc)).slice(0, 3);
+  const rankedAiOpportunities = buildRankedAiOpportunities(top);
+  const snapshot = buildSnapshot(input, findings, rankedAiOpportunities);
+
   return {
     cover: {
       company: COMPANY.name,
@@ -264,6 +367,33 @@ export function buildExecutiveReport(input: ExecutiveReportInput): ExecutiveRepo
       footer: COMPANY.footer,
       demoMode: input.demoMode,
       auditStatus: input.auditStatus,
+    },
+    snapshot,
+    scenarios,
+    journeyMap: buildJourneyMap(input.journey),
+    rankedAiOpportunities,
+    prescription: buildPrescription(input, findings),
+    decisionBox: buildDecisionBox(findings, rankedAiOpportunities),
+    cta: {
+      headline: COMPANY.ctaHeadline,
+      subtext: COMPANY.ctaSubtext,
+      company: input.contact.company,
+      consultantName: input.contact.consultantName,
+      phone: input.contact.phone,
+      email: input.contact.email,
+      bookingUrl: input.contact.bookingUrl,
+      qrDataUrl: input.bookingQrDataUrl,
+      fallbackText: input.contact.fallbackText,
+    },
+    valueSignals: {
+      auditId: input.auditId,
+      auditDate: input.auditDate,
+      preparedFor: input.restaurantName,
+      preparedBy: COMPANY.name,
+      pagesAnalyzed: input.sourcesCollected,
+      evidenceItems: input.evidence.length,
+      coverage: input.coverageScore,
+      confidentialityNote: 'Confidential — prepared for management review.',
     },
     executiveSummary: buildSummary(input, findings),
     summaryWasAiEnhanced: Boolean(input.storedSummaryWasAiEnhanced && input.storedSummary),
@@ -290,8 +420,8 @@ export function buildExecutiveReport(input: ExecutiveReportInput): ExecutiveRepo
         : `Based on the public evidence reviewed, ${COMPANY.shortName} recommends validating the highest-priority findings against internal operating data before committing to any system.`,
       nextStep: COMPANY.nextStepCta,
       company: COMPANY.name,
-      contactName: COMPANY.founder,
-      contactPhone: COMPANY.phone,
+      contactName: input.contact.consultantName,
+      contactPhone: input.contact.phone,
     },
     methodologyAndLimitations: METHODOLOGY,
     appendix: input.evidence.map((e) => ({
@@ -301,6 +431,169 @@ export function buildExecutiveReport(input: ExecutiveReportInput): ExecutiveRepo
       sourceUrl: e.sourceUrl,
       confidence: e.confidence,
     })),
+  };
+}
+
+// ── Section builders (all deterministic, evidence-derived) ──────────────────
+
+type OppInput = ExecutiveReportInput['opportunities'][number];
+
+function commercialEffectFor(category: string, businessImpact: string): string {
+  if (/PHONE-DEPENDENT/i.test(category))
+    return 'When guest demand depends on a live phone answer, customer intent competes directly with staff attention during peak service, and inquiries that arrive at the wrong moment may go unanswered.';
+  if (/CATERING|PRIVATE|LEAD/i.test(category))
+    return 'High-value event inquiries reward speed-to-response; when they depend on manual handling, intent that arrives after hours or during a rush may cool before anyone replies.';
+  if (/RETENTION|REACTIVATION/i.test(category))
+    return 'Without an owned channel to invite guests back, repeat visits depend on memory and paid reach rather than a repeatable, measurable workflow.';
+  if (/ORDERING|THIRD-PARTY/i.test(category))
+    return 'Friction or fragmentation in the ordering path can split guest intent across channels and shift margin toward third-party platforms.';
+  if (/CTA|CONVERSION/i.test(category))
+    return 'When the primary guest action is not obvious, ready-to-act visitors may hesitate, and intent that could convert can dissipate.';
+  if (/MENU/i.test(category))
+    return 'The menu is the most-requested piece of restaurant information; friction here can turn a ready visitor into a comparison shopper before they ever see a dish.';
+  if (/TECHNICAL|HTTPS|MOBILE/i.test(category))
+    return 'Most restaurant traffic is mobile; a technical barrier can cost the visit before the guest reaches any content.';
+  if (/CONTACT|HOURS|ADDRESS/i.test(category))
+    return 'When basic visit information is hard to find, guests may call, hesitate, or choose a competitor whose details are one tap away.';
+  // Distinct from "why it matters" (which restates business impact) so the two
+  // fields never render identical text.
+  return 'This friction sits on a path guests actually use, so any exposure compounds quietly across every visit until it is measured and addressed.';
+}
+
+function buildSnapshot(
+  input: ExecutiveReportInput,
+  findings: ExecutiveFinding[],
+  ranked: RankedAiOpportunity[],
+): ExecutiveSnapshot {
+  const priorities: SnapshotPriority[] = findings.slice(0, 3).map((f) => ({
+    rank: f.number,
+    title: f.title,
+    priorityLabel: `${f.labels.priority.toUpperCase()} PRIORITY`,
+    summary: firstSentence(f.problem),
+    validationRequired: f.whatWeDoNotKnow,
+  }));
+  const primaryValidation = findings.find((f) => f.classification === 'MANUAL VALIDATION REQUIRED')?.whatWeDoNotKnow
+    ?? findings[0]?.whatWeDoNotKnow
+    ?? 'Validate the highest-priority findings against internal operating data.';
+  return {
+    priorities,
+    rescueScore: input.overallScore,
+    band: input.overallScore === null ? null : scoreBand(input.overallScore),
+    coverage: input.coverageScore,
+    topRecommendedAutomation: ranked[0]?.solutionCategory ?? null,
+    primaryValidationRequirement: primaryValidation,
+    recommendedNextStep: COMPANY.nextStepCta,
+  };
+}
+
+const JOURNEY_MAP_ORDER = ['DISCOVERY', 'WEBSITE', 'MENU', 'PHONE', 'RESERVATION', 'ORDERING', 'CONTACT', 'FOLLOW_UP', 'REVIEW', 'RETURN'];
+
+function buildJourneyMap(journey: ExecutiveReportInput['journey']): JourneyMapStage[] {
+  const byStage = new Map(journey.map((s) => [s.stage, s]));
+  return JOURNEY_MAP_ORDER.filter((stage) => byStage.has(stage)).map((stage) => {
+    const s = byStage.get(stage)!;
+    let status: JourneyMapStage['status'];
+    if (s.status === 'UNKNOWN') status = 'INSUFFICIENT DATA';
+    else if (s.manualValidationRequired && s.status !== 'HEALTHY') status = 'MANUAL VALIDATION';
+    else status = s.status as JourneyMapStage['status'];
+    return { stage, label: JOURNEY_LABELS[stage] ?? stage, status, note: firstSentence(s.finding) };
+  });
+}
+
+const AI_CAPABILITIES: [RegExp, { capabilities: string[]; measurement: string[] }][] = [
+  [/PHONE-DEPENDENT|MISSED-CALL|FRONT DESK/i, {
+    capabilities: ['AI voice receptionist', 'Missed-call text-back', 'FAQ automation', 'Lead capture', 'After-hours response'],
+    measurement: ['Missed calls', 'Answered inquiries', 'Commercial inquiry rate', 'Booking or ordering action after response'],
+  }],
+  [/CATERING|PRIVATE|LEAD/i, {
+    capabilities: ['Instant inquiry acknowledgment', 'Structured event intake', 'Lead qualification', 'Human handoff', 'After-hours capture'],
+    measurement: ['Event inquiries received', 'Response time', 'Inquiries qualified', 'Inquiries converted'],
+  }],
+  [/RETENTION|REACTIVATION/i, {
+    capabilities: ['Email/SMS list building', 'Lapsed-guest campaigns', 'Birthday & occasion automation', 'Offer follow-up'],
+    measurement: ['Contacts captured per week', 'Reactivation response rate', 'Repeat-visit rate', 'Campaign revenue'],
+  }],
+  [/ORDERING|THIRD-PARTY/i, {
+    capabilities: ['Direct-order path consolidation', 'Order-status automation', 'Channel guidance'],
+    measurement: ['Online order clicks', 'Direct-order share', 'Third-party commission exposure'],
+  }],
+  [/CTA|CONVERSION/i, {
+    capabilities: ['Primary-action clarity', 'Conversion-path simplification'],
+    measurement: ['Website conversion actions per hundred visits', 'Primary CTA click rate'],
+  }],
+];
+
+function buildRankedAiOpportunities(top: OppInput[]): RankedAiOpportunity[] {
+  return top
+    .filter((opp) => opp.aiFitScore >= 70)
+    .sort((a, b) => b.aiFitScore - a.aiFitScore || b.rescuePriorityScore - a.rescuePriorityScore)
+    .slice(0, 3)
+    .map((opp, i) => {
+      const caps = AI_CAPABILITIES.find(([re]) => re.test(opp.category) || re.test(solutionCategoryFor(opp.category)))?.[1]
+        ?? { capabilities: ['Configured automation matched to the finding'], measurement: ['Response volume', 'Conversion action after response'] };
+      const fit = automationLabel(opp.aiFitScore) === 'Strong' ? 'STRONG' : automationLabel(opp.aiFitScore) === 'Moderate' ? 'MODERATE' : 'LIMITED';
+      return {
+        rank: i + 1,
+        solutionCategory: solutionCategoryFor(opp.category),
+        fit,
+        problemAddressed: firstSentence(opp.problem),
+        whyItFits: opp.businessImpact,
+        capabilities: caps.capabilities,
+        validationBeforeImplementation: unknownsFor(opp.category),
+        implementationComplexity: 'Moderate',
+        measurement: caps.measurement,
+      };
+    });
+}
+
+function buildPrescription(input: ExecutiveReportInput, findings: ExecutiveFinding[]): Prescription {
+  const primary = findings[0];
+  const tier = input.storedRecommendation?.tier ?? 'AI DISCOVERY AUDIT';
+  const frictionStages = input.journey.filter((s) => s.status === 'FRICTION' || s.status === 'RISK').map((s) => JOURNEY_LABELS[s.stage] ?? s.stage);
+  const diagnosis = frictionStages.length > 0
+    ? `The public digital journey shows friction concentrated in: ${frictionStages.join(', ')}. ${primary ? firstSentence(primary.problem) : ''}`.trim()
+    : 'The public digital journey is broadly healthy; the open questions sit in areas a public audit cannot observe.';
+  const validation = primary?.whatWeDoNotKnow
+    ?? 'Review 30 days of phone activity, missed-call counts, guest-question categories, and average ticket data.';
+  const prescription = input.storedRecommendation
+    ? `If the validation data confirms the observed friction, ${COMPANY.shortName} recommends ${tier}${primary && primary.internalScores.aiFit >= 70 ? ', beginning with the highest-fit automation identified above,' : ''} as the next step. ${input.storedRecommendation.rationale}`
+    : `${COMPANY.shortName} recommends validating the highest-priority findings against internal operating data before committing to any system.`;
+  return {
+    diagnosis,
+    validation,
+    prescription,
+    expectedOperationalRole: [
+      'Answer repetitive guest questions',
+      'Capture missed-call and after-hours demand',
+      'Route booking and ordering intent',
+      'Capture leads for follow-up',
+      'Report on response and conversion activity',
+    ],
+  };
+}
+
+function buildDecisionBox(findings: ExecutiveFinding[], ranked: RankedAiOpportunity[]): DecisionBox {
+  const topAutomation = ranked[0]?.solutionCategory ?? 'the highest-fit automation';
+  const frictionExists = findings.some((f) => f.classification !== 'INSUFFICIENT DATA');
+  return {
+    doNothing: {
+      heading: 'DO NOTHING',
+      detail: 'Continue relying on the current customer journey as-is.',
+      risk: frictionExists
+        ? 'Potential phone, conversion, and follow-up friction remains unmeasured, and any exposure continues without a workflow to capture it.'
+        : 'Any friction in areas a public audit cannot see remains unmeasured.',
+    },
+    validate: {
+      heading: 'VALIDATE',
+      detail: 'Review 30 days of operating data (calls, bookings, orders, and average ticket).',
+      cost: 'Low operational effort.',
+      benefit: 'Turns public audit findings into measurable business evidence you own.',
+    },
+    implement: {
+      heading: 'IMPLEMENT',
+      detail: `Deploy ${topAutomation} after validation confirms the demand.`,
+      benefit: 'Creates a measurable customer-response workflow with defined KPIs.',
+    },
   };
 }
 

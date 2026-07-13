@@ -3,12 +3,22 @@ import React from 'react';
 import { buildExecutiveReport, type ExecutiveReportInput } from '@/lib/reports/executive';
 
 const input: ExecutiveReportInput = {
+  auditId: 'clweirdaudit001',
   restaurantName: 'Ünïcøde & "Weird" <Name>',
   websiteUrl: 'https://weird.example',
   location: null,
   auditDate: '2026-07-12',
   auditStatus: 'COMPLETED',
   demoMode: true,
+  contact: {
+    company: 'Winners Bookmark Incorporated',
+    consultantName: 'Keith Warren',
+    phone: '727-291-5965',
+    email: null,
+    bookingUrl: 'https://book.example/keith',
+    fallbackText: 'Contact Keith Warren at 727-291-5965 to schedule your Restaurant Rescue Review.',
+  },
+  bookingQrDataUrl: null,
   overallScore: 70,
   coverageScore: 90,
   sourcesCollected: 5,
