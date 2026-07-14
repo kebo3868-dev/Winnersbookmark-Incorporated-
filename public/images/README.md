@@ -1,0 +1,2 @@
+Place final licensed images here. Current components use premium gradient placeholders for these paths:
+hero-legacy-dashboard.jpg, daily-knowledge.jpg, men-of-all-ages-health.jpg, discipline-training.jpg, clean-nutrition.jpg, monthly-book-stack.jpg, monthly-mentor-board.jpg, money-productivity.jpg, member-dashboard.jpg, spider-king-strategy.jpg, fitness-healthy-aging.jpg, reading-and-journaling.jpg, clean-meal-prep.jpg.

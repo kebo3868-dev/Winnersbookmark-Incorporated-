@@ -1331,6 +1331,24 @@ export const posts = [
     ],
     related: ['goal-setting-survives-february', 'atomic-habits-and-identity', 'discipline-is-freedom-in-practice'],
   },
+
+  {
+    slug: 'discipline-beats-motivation',
+    title: 'Discipline Beats Motivation',
+    subtitle: 'Motivation is emotion. Discipline is architecture.',
+    category: 'discipline', tags: ['Discipline'], author: 'Keith Warren', date: '2026-07-10', readTime: 8, tier: 'free', featured: true,
+    excerpt: 'The man who controls his habits controls his future. Build standards that execute when feelings disappear.', takeaways: ['Discipline is architecture', 'Standards beat moods', 'Execution compounds identity'],
+    body: [{type:'p',text:'Motivation can start a fire, but discipline builds the house that keeps a man warm. Decide the standard, remove the negotiation, and repeat the rep.'},{type:'actions',items:['Write one non-negotiable standard.','Do it before checking your phone.','Track the rep tonight.']}], related:['deep-work-blueprint-for-focus']
+  },
+  {
+    slug: 'money-is-stored-discipline', title: 'Money Is Stored Discipline', subtitle: 'Cashflow reveals standards.', category: 'money', tags:['Money'], author:'Keith Warren', date:'2026-07-09', readTime:7, tier:'free', featured:false, excerpt:'Budgeting, skill building, and income growth are daily discipline in financial form.', takeaways:['Track cashflow','Invest in skills','Reduce waste'], body:[{type:'p',text:'Money is stored discipline because every dollar carries a decision. A man who directs his attention can direct his capital.'}], related:['discipline-beats-motivation']
+  },
+  {
+    slug: 'clean-eating-is-mental-discipline', title: 'Clean Eating Is Mental Discipline', subtitle:'Fuel is focus.', category:'nutrition', tags:['Nutrition'], author:'Keith Warren', date:'2026-07-08', readTime:6, tier:'free', featured:false, excerpt:'Clean meals, hydration, and protein give the mind a steadier operating system.', takeaways:['Protein first','Hydrate early','Prep the environment'], body:[{type:'p',text:'Clean eating is not punishment. It is the daily vote for energy, clarity, and long-term self-respect.'}], related:['fitness-as-masculine-discipline']
+  },
+  {
+    slug: 'the-spider-king-strategy-build-the-web-before-you-hunt', title: 'The Spider King Strategy: Build the Web Before You Hunt', subtitle:'The web is the system. Opportunity walks into structure already built.', category:'strategy', tags:['Strategy','Systems'], author:'Keith Warren', date:'2026-07-07', readTime:10, tier:'member', featured:true, excerpt:'The Spider King does not chase randomly. He builds systems, content, habits, and strategy before the opportunity arrives.', takeaways:['Build systems first','Create before demand','Let structure catch opportunity'], body:[{type:'p',text:'The Spider King does not chase randomly. He builds systems, structure, content, habits, and strategy before the opportunity arrives. The web is the system. The opportunity walks into the structure already built.'},{type:'actions',items:['Map your web: content, contacts, offers, habits.','Strengthen one strand today.','Stop chasing what your system should attract.']}], related:['deep-work-blueprint-for-focus']
+  },
 ];
 
 export const postBySlug = (slug) => posts.find((p) => p.slug === slug);

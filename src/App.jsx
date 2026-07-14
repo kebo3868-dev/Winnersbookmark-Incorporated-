@@ -14,6 +14,12 @@ const Membership    = lazy(() => import('./pages/Membership'));
 const About         = lazy(() => import('./pages/About'));
 const Contact       = lazy(() => import('./pages/Contact'));
 const NotFound      = lazy(() => import('./pages/NotFound'));
+const Today         = lazy(() => import('./pages/Today'));
+const MonthlyRotation = lazy(() => import('./pages/MonthlyRotation'));
+const FocusPage     = lazy(() => import('./pages/FocusPage'));
+const Login         = lazy(() => import('./pages/Login'));
+const Dashboard     = lazy(() => import('./pages/Dashboard'));
+const Admin         = lazy(() => import('./pages/Admin'));
 
 function Loader() {
   return (
@@ -40,6 +46,15 @@ export default function App() {
           <Route path="/mentors"             element={<Mentors />} />
           <Route path="/mentors/:slug"       element={<MentorDetail />} />
           <Route path="/membership"          element={<Membership />} />
+          <Route path="/today"               element={<Today />} />
+          <Route path="/monthly-rotation"    element={<MonthlyRotation />} />
+          <Route path="/fitness"             element={<FocusPage type="fitness" />} />
+          <Route path="/nutrition"           element={<FocusPage type="nutrition" />} />
+          <Route path="/money"               element={<FocusPage type="money" />} />
+          <Route path="/ai-productivity"     element={<FocusPage type="ai" />} />
+          <Route path="/login"               element={<Login />} />
+          <Route path="/dashboard"           element={<Dashboard />} />
+          <Route path="/admin"               element={<Admin />} />
           <Route path="/about"               element={<About />} />
           <Route path="/contact"             element={<Contact />} />
           <Route path="*"                    element={<NotFound />} />
