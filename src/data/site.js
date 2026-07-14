@@ -37,13 +37,14 @@ export const site = {
 
 export const nav = [
   { label: 'Home', to: '/' },
-  { label: 'Blog', to: '/blog' },
+  { label: 'Today’s Blog', to: '/today' },
   { label: 'Categories', to: '/categories' },
   { label: 'Books', to: '/books' },
   { label: 'Mentors', to: '/mentors' },
+  { label: 'Fitness', to: '/fitness' },
+  { label: 'Money', to: '/money' },
   { label: 'Membership', to: '/membership' },
-  { label: 'About', to: '/about' },
-  { label: 'Contact', to: '/contact' },
+  { label: 'Dashboard', to: '/dashboard' },
 ];
 
 export const memberBenefits = [

@@ -11,12 +11,18 @@ import BookCard from '../components/BookCard';
 import MembershipCTA from '../components/MembershipCTA';
 import VisionBoard from '../components/VisionBoard';
 import ImagePlaceholder from '../components/ImagePlaceholder';
+import DailyKnowledgeCard from '../components/DailyKnowledgeCard';
+import MonthlyRotationCard from '../components/MonthlyRotationCard';
+import LifestyleCard from '../components/LifestyleCard';
 import { useMeta } from '../lib/useMeta';
 import { site, trustBullets } from '../data/site';
 import { categories } from '../data/categories';
 import { mentors } from '../data/mentors';
 import { books } from '../data/books';
 import { latestPost, featuredPosts, sortedPosts } from '../data/posts';
+import { dailyKnowledge } from '../data/dailyKnowledge';
+import { monthlyRotation } from '../data/monthlyRotation';
+import { lifestyleCards } from '../data/lifestyleCards';
 
 export default function Home() {
   useMeta(
@@ -95,6 +101,44 @@ export default function Home() {
               </div>
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* ============ DAILY KNOWLEDGE ============ */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 mt-16">
+        <SectionHeading
+          eyebrow="Every Day, New Knowledge"
+          title="Daily Standards That Make the Platform Feel Alive"
+          blurb="Nothing stays stale. Every day brings a lesson, a strategy, a health insight, a money habit, a book idea, and an action step."
+          action={{ label: 'Today’s Knowledge', to: '/today' }}
+        />
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {dailyKnowledge.map((item) => <DailyKnowledgeCard key={item.title} item={item} />)}
+        </div>
+      </section>
+
+      {/* ============ MONTHLY ROTATION ============ */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 mt-24">
+        <SectionHeading
+          eyebrow="Monthly Rotation"
+          title="New Mentors. New Books. New Standards Every Month."
+          blurb="The mentor board, book stack, discipline challenge, fitness focus, and money skill are built to rotate monthly."
+          action={{ label: 'View Rotation', to: '/monthly-rotation' }}
+        />
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {monthlyRotation.map((item) => <MonthlyRotationCard key={item.label} item={item} />)}
+        </div>
+      </section>
+
+      {/* ============ MEN OF ALL AGES ============ */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 mt-24">
+        <SectionHeading
+          eyebrow="Built for Every Man Still Becoming"
+          title="Growth Does Not Expire. Discipline Has No Age Limit."
+          blurb="Young men, fathers, leaders, builders, and older men still sharpening the blade — every man can become stronger, wiser, healthier, and more focused."
+        />
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
+          {lifestyleCards.map((item) => <LifestyleCard key={item.title} item={item} />)}
         </div>
       </section>
 
