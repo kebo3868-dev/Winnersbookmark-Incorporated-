@@ -106,6 +106,15 @@ PostgreSQL + Prisma. Local dev credentials live in `.env` (never committed).
 `RESCUE_AGENT_ALLOW_PRIVATE_TARGETS=1` is a test-only hook for the fixture-site
 integration test and is hard-disabled when `NODE_ENV=production`.
 
+## Voice Rescue module
+
+The **Leverock's AI Call & Order Rescue System** — an overflow call recovery
+layer that answers calls, captures human-in-the-loop draft to-go orders,
+escalates high-risk calls, and captures leads — lives alongside the audit engine
+at `/voice-rescue`, with provider-facing tools under `/api/voice/*`. See
+[`docs/VOICE_RESCUE.md`](docs/VOICE_RESCUE.md). Apply migrations and seed with
+`npm run db:deploy && npm run db:seed`.
+
 ## Roadmap after MVP
 
 - PDF export of the owner report (HTML report is authoritative today)

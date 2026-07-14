@@ -50,6 +50,370 @@ enum SalesPriority {
   LOW_PRIORITY
 }
 
+// ---------------------------------------------------------------------------
+// LEVEROCK'S AI CALL & ORDER RESCUE SYSTEM
+// An overflow call recovery layer for restaurants. Version one is strictly
+// human-in-the-loop: the AI captures DRAFT orders and escalates high-risk
+// calls to staff — it never sends a final order to the kitchen on its own.
+// ---------------------------------------------------------------------------
+
+/// How trustworthy a knowledge record is. The voice agent prioritizes
+/// MANAGER/SYSTEM/STAFF confirmed data over merely photo-observed information,
+/// and never presents unverified data as fact.
+enum VerificationStatus {
+  UNVERIFIED
+  PHOTO_OBSERVED
+  STAFF_CONFIRMED
+  MANAGER_CONFIRMED
+  SYSTEM_CONFIRMED
+  ARCHIVED
+}
+
+/// Final outcome of a call. ESTIMATED revenue is only ever modeled, never
+/// presented as confirmed.
+enum CallResolution {
+  AI_RESOLVED
+  DRAFT_ORDER_CREATED
+  TRANSFERRED
+  CALLBACK_REQUIRED
+  LEAD_CAPTURED
+  CUSTOMER_ABANDONED
+  AI_FAILED
+  TECHNICAL_FAILURE
+  UNKNOWN
+}
+
+/// Lifecycle of a captured to-go order. The AI may only reach
+/// AWAITING_STAFF_REVIEW; ACCEPTED/REJECTED are human decisions.
+enum DraftOrderStatus {
+  CAPTURING
+  AWAITING_CUSTOMER_CONFIRMATION
+  CUSTOMER_CONFIRMED
+  AWAITING_STAFF_REVIEW
+  ACCEPTED
+  REQUIRES_CALLBACK
+  REJECTED
+  CANCELLED
+  EXPIRED
+}
+
+enum LeadType {
+  LARGE_PARTY
+  PRIVATE_EVENT
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  QUOTED
+  WON
+  LOST
+}
+
+/// Delivery state of a staff notification / escalation.
+enum AlertStatus {
+  PENDING
+  SENT
+  ACKNOWLEDGED
+  FAILED
+}
+
+/// The single restaurant this deployment answers calls for. Modeled as its own
+/// row (not hard-coded) so greeting, hours note, and policies are
+/// restaurant-managed data, editable without a code change.
+model RestaurantProfile {
+  id              String  @id @default(cuid())
+  name            String
+  slug            String  @unique
+  greeting        String
+  agentName       String  @default("Leverock's virtual assistant")
+  phone           String?
+  address         String?
+  city            String?
+  state           String?
+  timezone        String  @default("America/New_York")
+  hoursNote       String?
+  earlyMenuNote   String?
+  freshFishPolicy String?
+  active          Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  businessHours BusinessHours[]
+  categories    MenuCategory[]
+  menuItems     MenuItem[]
+  policies      RestaurantPolicy[]
+  faqs          Faq[]
+  staffContacts StaffContact[]
+  calls         VoiceCall[]
+  draftOrders   DraftOrder[]
+  leads         Lead[]
+  alerts        StaffAlert[]
+}
+
+model BusinessHours {
+  id                  String            @id @default(cuid())
+  restaurantProfileId String
+  restaurant          RestaurantProfile @relation(fields: [restaurantProfileId], references: [id], onDelete: Cascade)
+  dayOfWeek           Int // 0 = Sunday … 6 = Saturday
+  serviceType         String            @default("DINING") // DINING | EARLY_MENU | BAR
+  opensAt             String? // "11:30"
+  closesAt            String? // "22:00"
+  closed              Boolean           @default(false)
+  note                String?
+  verificationStatus  VerificationStatus @default(UNVERIFIED)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([restaurantProfileId, dayOfWeek])
+}
+
+model MenuCategory {
+  id                  String            @id @default(cuid())
+  restaurantProfileId String
+  restaurant          RestaurantProfile @relation(fields: [restaurantProfileId], references: [id], onDelete: Cascade)
+  name                String
+  slug                String
+  sortOrder           Int               @default(0)
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+
+  items MenuItem[]
+
+  @@unique([restaurantProfileId, slug])
+}
+
+model MenuItem {
+  id                  String            @id @default(cuid())
+  restaurantProfileId String
+  restaurant          RestaurantProfile @relation(fields: [restaurantProfileId], references: [id], onDelete: Cascade)
+  categoryId          String
+  category            MenuCategory      @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  name        String
+  slug        String
+  description String?
+
+  // Pricing is restaurant-managed data. The AI must never invent a price. When
+  // price is null / low confidence, the agent offers to confirm with the team.
+  price         Decimal? @db.Decimal(10, 2)
+  priceDisplay  String?
+  isMarketPrice Boolean  @default(false)
+
+  isActive         Boolean @default(true)
+  isAvailable      Boolean @default(true)
+  availabilityNote String?
+
+  mostPopular              Boolean @default(false)
+  signatureItem            Boolean @default(false)
+  requiresStaffConfirmation Boolean @default(false)
+  allergenEscalationRequired Boolean @default(false)
+
+  // Option sets kept as arrays for v1 (a preparation choice, side choices,
+  // modifiers). Complex per-option pricing is deliberately out of v1 scope.
+  prepOptions     String[]
+  sideOptions     String[]
+  modifierOptions String[]
+  requiredSideCount Int   @default(0)
+
+  verificationStatus VerificationStatus @default(UNVERIFIED)
+  sourceType         String? // e.g. "MENU_PHOTO"
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  draftItems DraftOrderItem[]
+
+  @@unique([restaurantProfileId, slug])
+  @@index([restaurantProfileId, categoryId])
+}
+
+model RestaurantPolicy {
+  id                  String             @id @default(cuid())
+  restaurantProfileId String
+  restaurant          RestaurantProfile  @relation(fields: [restaurantProfileId], references: [id], onDelete: Cascade)
+  topic               String
+  policy              String
+  verificationStatus  VerificationStatus @default(UNVERIFIED)
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+}
+
+model Faq {
+  id                  String             @id @default(cuid())
+  restaurantProfileId String
+  restaurant          RestaurantProfile  @relation(fields: [restaurantProfileId], references: [id], onDelete: Cascade)
+  question            String
+  answer              String
+  verificationStatus  VerificationStatus @default(UNVERIFIED)
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+}
+
+/// Escalation targets. Phone numbers live in the database (restaurant-managed),
+/// never hard-coded in source. Role is one of: HOST_STAND, MANAGER_ON_DUTY,
+/// GENERAL_MANAGER, TO_GO_STATION, EVENTS_CONTACT, EMERGENCY_ESCALATION.
+model StaffContact {
+  id                  String            @id @default(cuid())
+  restaurantProfileId String
+  restaurant          RestaurantProfile @relation(fields: [restaurantProfileId], references: [id], onDelete: Cascade)
+  role                String
+  name                String?
+  phone               String?
+  smsEnabled          Boolean           @default(true)
+  active              Boolean           @default(true)
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+
+  @@unique([restaurantProfileId, role])
+}
+
+model VoiceCall {
+  id                  String            @id @default(cuid())
+  restaurantProfileId String
+  restaurant          RestaurantProfile @relation(fields: [restaurantProfileId], references: [id], onDelete: Cascade)
+
+  externalCallId String? @unique
+  callerPhone    String?
+  callerName     String?
+
+  startedAt DateTime  @default(now())
+  answeredAt DateTime?
+  endedAt   DateTime?
+  durationSeconds Int?
+
+  initialIntent   String?
+  finalIntent     String?
+  intentConfidence Int?
+
+  resolution        CallResolution @default(UNKNOWN)
+  resolvedByAi      Boolean        @default(false)
+  transferred       Boolean        @default(false)
+  transferTargetRole String?
+  callbackRequired  Boolean        @default(false)
+  abandoned         Boolean        @default(false)
+
+  // ESTIMATED, never presented as confirmed revenue.
+  estimatedRevenue Decimal? @db.Decimal(10, 2)
+  summary          String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  events      CallEvent[]
+  draftOrders DraftOrder[]
+  leads       Lead[]
+  alerts      StaffAlert[]
+
+  @@index([restaurantProfileId, startedAt])
+}
+
+model CallEvent {
+  id        String   @id @default(cuid())
+  callId    String
+  call      VoiceCall @relation(fields: [callId], references: [id], onDelete: Cascade)
+  eventType String
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  @@index([callId, createdAt])
+}
+
+model DraftOrder {
+  id                  String            @id @default(cuid())
+  restaurantProfileId String
+  restaurant          RestaurantProfile @relation(fields: [restaurantProfileId], references: [id], onDelete: Cascade)
+  callId              String?
+  call                VoiceCall?        @relation(fields: [callId], references: [id])
+
+  customerName  String?
+  customerPhone String?
+
+  status            DraftOrderStatus @default(CAPTURING)
+  customerConfirmed Boolean          @default(false)
+  requiresHumanReview Boolean        @default(true)
+  reviewReason      String?
+  reviewFlags       String[]
+  allergyFlag       Boolean          @default(false)
+  aiConfidence      Int?
+  estimatedValue    Decimal?         @db.Decimal(10, 2)
+  staffNotes        String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items DraftOrderItem[]
+
+  @@index([restaurantProfileId, status])
+}
+
+model DraftOrderItem {
+  id           String     @id @default(cuid())
+  draftOrderId String
+  draftOrder   DraftOrder @relation(fields: [draftOrderId], references: [id], onDelete: Cascade)
+
+  // Nullable link: the item is stored as captured even if it could not be
+  // matched to the verified menu (flagged UNKNOWN_MENU_ITEM instead).
+  menuItemId   String?
+  menuItem     MenuItem? @relation(fields: [menuItemId], references: [id])
+
+  menuItemName    String
+  quantity        Int      @default(1)
+  preparation     String?
+  sides           String[]
+  modifiers       String[]
+  specialRequests String[]
+  allergyNote     String?
+  itemFlags       String[]
+  unitPrice       Decimal? @db.Decimal(10, 2)
+
+  createdAt DateTime @default(now())
+}
+
+model Lead {
+  id                  String            @id @default(cuid())
+  restaurantProfileId String
+  restaurant          RestaurantProfile @relation(fields: [restaurantProfileId], references: [id], onDelete: Cascade)
+  callId              String?
+  call                VoiceCall?        @relation(fields: [callId], references: [id])
+
+  leadType      LeadType
+  status        LeadStatus @default(NEW)
+  customerName  String?
+  customerPhone String?
+  partySize     Int?
+  requestedDate String?
+  details       String?
+  estimatedValue Decimal?  @db.Decimal(10, 2)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([restaurantProfileId, leadType, status])
+}
+
+model StaffAlert {
+  id                  String            @id @default(cuid())
+  restaurantProfileId String
+  restaurant          RestaurantProfile @relation(fields: [restaurantProfileId], references: [id], onDelete: Cascade)
+  callId              String?
+  call                VoiceCall?        @relation(fields: [callId], references: [id])
+
+  reason      String
+  severity    String      @default("NORMAL") // NORMAL | HIGH | EMERGENCY
+  targetRole  String?
+  message     String
+  status      AlertStatus @default(PENDING)
+  deliveredAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([restaurantProfileId, status])
+}
+
 model Restaurant {
   id         String   @id @default(cuid())
   name       String

@@ -6,7 +6,9 @@ import { checkBasicAuth, resolveAuthMode } from '@/lib/auth';
  * sales intelligence, so production deployments MUST set BASIC_AUTH_USER and
  * BASIC_AUTH_PASSWORD; without them, production requests are refused (fail
  * closed) rather than served openly. Local development stays open.
- * /api/health is exempt so orchestrators can probe liveness.
+ * /api/health is exempt so orchestrators can probe liveness. /api/voice is
+ * exempt from basic auth because it is called by the external voice provider
+ * (Retell/Vapi) — it enforces its own VOICE_TOOL_TOKEN bearer guard instead.
  */
 export function middleware(request: NextRequest) {
   const mode = resolveAuthMode({
@@ -37,5 +39,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!api/health|_next/static|_next/image|favicon.ico).*)'],
+  matcher: ['/((?!api/health|api/voice|_next/static|_next/image|favicon.ico).*)'],
 };
