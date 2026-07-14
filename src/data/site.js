@@ -42,6 +42,7 @@ export const nav = [
   { label: 'Books', to: '/books' },
   { label: 'Mentors', to: '/mentors' },
   { label: 'Membership', to: '/membership' },
+  { label: 'AI Secretary', to: '/virtual-secretary' },
   { label: 'About', to: '/about' },
   { label: 'Contact', to: '/contact' },
 ];
