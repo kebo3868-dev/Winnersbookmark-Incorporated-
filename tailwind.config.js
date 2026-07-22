@@ -29,6 +29,13 @@ export default {
           deep:    '#a67c00',
           muted:   '#3a2f11',
         },
+        amber: {
+          DEFAULT: '#f59e0b',
+          light:   '#fbbf24',
+          glow:    '#fcd34d',
+          deep:    '#b45309',
+          muted:   '#3a2a11',
+        },
         paper:  '#f5f6fb',
         chalk:  '#cbd2e0',
         mist:   '#8893ad',
