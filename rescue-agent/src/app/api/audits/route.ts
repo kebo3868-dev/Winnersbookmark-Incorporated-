@@ -14,6 +14,19 @@ const bodySchema = z.object({
   city: z.string().max(120).optional(),
   state: z.string().max(60).optional(),
   knownConcern: z.string().max(2000).optional(),
+  // Phase 3 — optional owner-supplied intake
+  reservationUrl: z.string().max(2000).optional(),
+  orderingUrl: z.string().max(2000).optional(),
+  socialUrl: z.string().max(2000).optional(),
+  googleBusinessUrl: z.string().max(2000).optional(),
+  ownerRating: z.coerce.number().min(0).max(5).optional(),
+  ownerReviewCount: z.coerce.number().int().min(0).max(10_000_000).optional(),
+  avgTicket: z.coerce.number().min(0).max(100_000).optional(),
+  // Phase 3 — prospect / lead capture
+  contactName: z.string().max(200).optional(),
+  contactEmail: z.string().max(320).optional(),
+  contactPhone: z.string().max(60).optional(),
+  contactConsent: z.coerce.boolean().optional(),
 });
 
 // Very small in-memory rate limit (per server instance) to protect the collector.

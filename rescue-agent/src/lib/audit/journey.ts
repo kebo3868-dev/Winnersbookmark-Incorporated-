@@ -231,8 +231,31 @@ export function analyzeJourney(evidence: EvidenceRecordLike[]): JourneyStageResu
     }
   }
 
-  // REVIEW — public review platform data is not collected in the MVP.
-  push(stage('REVIEW', 'UNKNOWN', 'Public review platform analysis is not included in this audit scope. Manual review of Google/Yelp response patterns is recommended.', 20, true, []));
+  // REVIEW — owner-reported only (Phase 3). Rating drives status when provided;
+  // otherwise stays UNKNOWN. Response-pattern/recency still need platform access.
+  {
+    const reviews = has(index, 'REVIEW_SIGNAL');
+    const ratingEv = reviews.find((e) => /rating:/i.test(e.fact));
+    const ratingMatch = ratingEv?.fact.match(/(\d(?:\.\d)?)\s*★/);
+    if (reviews.length === 0) {
+      push(stage('REVIEW', 'UNKNOWN', 'No review data was provided and public review platforms are not scraped. Share your Google/Yelp rating to include reputation in the audit.', 20, true, []));
+    } else if (ratingMatch) {
+      const rating = parseFloat(ratingMatch[1]);
+      const status = rating >= 4.3 ? 'HEALTHY' : rating >= 3.8 ? 'FRICTION' : 'RISK';
+      push(
+        stage(
+          'REVIEW',
+          status,
+          `Owner-reported rating of ${rating.toFixed(1)}★. Reputation is included from provided data; response-pattern and recency analysis still require direct platform access.`,
+          avgConfidence(reviews, 55),
+          true,
+          ids(reviews),
+        ),
+      );
+    } else {
+      push(stage('REVIEW', 'FRICTION', 'A review profile was provided but no rating was shared, so reputation strength cannot be assessed. Provide the current star rating to complete this.', avgConfidence(reviews, 45), true, ids(reviews)));
+    }
+  }
 
   // RETURN
   {

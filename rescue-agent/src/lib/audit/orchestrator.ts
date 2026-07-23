@@ -10,6 +10,7 @@ import { calculateCategoryScores, calculateOverallScore } from '@/lib/scoring/re
 import { generateOwnerReport, type RankedOpportunity } from '@/lib/reports/owner';
 import { generateSalesBrief } from '@/lib/reports/sales';
 import { getAiProvider } from '@/lib/ai/provider';
+import { analyzeOwnerReviews, reviewEvidence } from '@/lib/audit/reviews';
 import type { AuditStage, AuditStatus } from '@prisma/client';
 import { z } from 'zod';
 
@@ -19,6 +20,33 @@ export interface CreateAuditInput {
   city?: string;
   state?: string;
   knownConcern?: string;
+  // Phase 3 — optional owner-supplied intake
+  reservationUrl?: string;
+  orderingUrl?: string;
+  socialUrl?: string;
+  googleBusinessUrl?: string;
+  ownerRating?: number;
+  ownerReviewCount?: number;
+  avgTicket?: number;
+  // Phase 3 — prospect / lead capture
+  contactName?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  contactConsent?: boolean;
+}
+
+const clean = (v?: string): string | null => v?.trim() || null;
+
+/** Accept an optional owner-supplied http(s) URL; return normalized or null (never throws on bad input). */
+function cleanOptionalUrl(v?: string): string | null {
+  const t = v?.trim();
+  if (!t) return null;
+  const withScheme = /^https?:\/\//i.test(t) ? t : `https://${t}`;
+  try {
+    return new URL(withScheme).toString();
+  } catch {
+    return null;
+  }
 }
 
 export async function createAudit(input: CreateAuditInput): Promise<{ auditId: string } | { error: string }> {
@@ -31,8 +59,8 @@ export async function createAudit(input: CreateAuditInput): Promise<{ auditId: s
     create: {
       websiteUrl,
       name: input.restaurantName?.trim() || validation.url.hostname.replace(/^www\./, ''),
-      city: input.city?.trim() || null,
-      state: input.state?.trim() || null,
+      city: clean(input.city),
+      state: clean(input.state),
     },
     update: {
       ...(input.restaurantName?.trim() ? { name: input.restaurantName.trim() } : {}),
@@ -41,14 +69,49 @@ export async function createAudit(input: CreateAuditInput): Promise<{ auditId: s
     },
   });
 
+  const rating = typeof input.ownerRating === 'number' && Number.isFinite(input.ownerRating)
+    ? Math.max(0, Math.min(5, input.ownerRating))
+    : null;
+  const reviewCount = typeof input.ownerReviewCount === 'number' && Number.isFinite(input.ownerReviewCount) && input.ownerReviewCount >= 0
+    ? Math.round(input.ownerReviewCount)
+    : null;
+  const avgTicket = typeof input.avgTicket === 'number' && Number.isFinite(input.avgTicket) && input.avgTicket > 0
+    ? input.avgTicket
+    : null;
+
   const audit = await prisma.audit.create({
     data: {
       restaurantId: restaurant.id,
       status: 'PENDING',
-      knownConcern: input.knownConcern?.trim() || null,
+      knownConcern: clean(input.knownConcern),
+      reservationUrlInput: cleanOptionalUrl(input.reservationUrl),
+      orderingUrlInput: cleanOptionalUrl(input.orderingUrl),
+      socialUrlInput: cleanOptionalUrl(input.socialUrl),
+      googleBusinessUrl: cleanOptionalUrl(input.googleBusinessUrl),
+      ownerRating: rating,
+      ownerReviewCount: reviewCount,
+      avgTicketInput: avgTicket,
       job: { create: { status: 'PENDING', currentStage: 'INITIALIZING' } },
     },
   });
+
+  // Lead capture: only when the prospect actually gave contact details.
+  const contactName = clean(input.contactName);
+  const contactEmail = clean(input.contactEmail);
+  const contactPhone = clean(input.contactPhone);
+  if (contactName || contactEmail || contactPhone) {
+    await prisma.lead.create({
+      data: {
+        auditId: audit.id,
+        restaurantId: restaurant.id,
+        contactName,
+        email: contactEmail,
+        phone: contactPhone,
+        consent: Boolean(input.contactConsent),
+      },
+    });
+  }
+
   return { auditId: audit.id };
 }
 
@@ -158,6 +221,16 @@ export async function runAudit(auditId: string): Promise<void> {
     const probes: ProbeResult[] = [];
     const probeTargets: { url: string; category: ProbeResult['category'] }[] = [];
     const seenProbe = new Set<string>();
+    // Owner-supplied pathway URLs are probed first so they are never dropped.
+    for (const [url, category] of [
+      [audit.reservationUrlInput, 'reservation'],
+      [audit.orderingUrlInput, 'ordering'],
+    ] as const) {
+      if (url && !seenProbe.has(url)) {
+        seenProbe.add(url);
+        probeTargets.push({ url, category });
+      }
+    }
     for (const [category, key] of [
       ['reservation', 'reservation'],
       ['ordering', 'ordering'],
@@ -172,13 +245,17 @@ export async function runAudit(auditId: string): Promise<void> {
         }
       }
     }
-    for (const target of probeTargets.slice(0, 6)) {
+    for (const target of probeTargets.slice(0, 8)) {
       const result = await probeLink(target.url);
       probes.push({ url: target.url, category: target.category, ...result });
     }
 
     // ---- NORMALIZE EVIDENCE ----
     const evidenceInputs = normalizeEvidence({ pages, failures, probes });
+    // Owner-reported review data → evidence (labeled owner-reported; never scraped).
+    const reviewInput = { rating: audit.ownerRating, reviewCount: audit.ownerReviewCount, googleBusinessUrl: audit.googleBusinessUrl };
+    const reviewSignal = analyzeOwnerReviews(reviewInput);
+    evidenceInputs.push(...reviewEvidence(reviewInput, reviewSignal));
     const evidenceRecords = [];
     for (const item of evidenceInputs) {
       const record = await prisma.evidence.create({

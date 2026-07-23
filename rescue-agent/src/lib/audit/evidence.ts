@@ -185,10 +185,13 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
     if (found.size > 0) {
       const [firstHref, firstText] = Array.from(found.entries())[0];
       const external = isExternal(firstHref, home.finalUrl);
+      const platform = (check.key === 'reservation' || check.key === 'ordering')
+        ? detectPlatform(Array.from(found.keys()))
+        : null;
       evidence.push({
         sourceUrl: firstHref,
         evidenceType: check.type,
-        fact: `A ${check.label} pathway is publicly linked${external ? ' to an external platform' : ''} (${found.size} link(s) found).`,
+        fact: `A ${check.label} pathway is publicly linked${platform ? ` via ${platform}` : external ? ' to an external platform' : ''} (${found.size} link(s) found).`,
         supportingContext: `Example link text: "${firstText || '(no text)'}" → ${firstHref}`,
         confidence: 90,
       });
@@ -340,4 +343,35 @@ function hostOf(href: string): string {
   } catch {
     return href;
   }
+}
+
+// Named reservation/ordering platforms, matched against the destination host.
+const PLATFORM_PATTERNS: [RegExp, string][] = [
+  [/opentable\./i, 'OpenTable'],
+  [/resy\./i, 'Resy'],
+  [/sevenrooms\./i, 'SevenRooms'],
+  [/tockhq\.|exploretock\./i, 'Tock'],
+  [/yelp\.[a-z]+\/reservations|yelp\.to/i, 'Yelp Reservations'],
+  [/toasttab\.|order\.toast/i, 'Toast'],
+  [/doordash\./i, 'DoorDash'],
+  [/ubereats\.|uber\.com\/.*eats/i, 'Uber Eats'],
+  [/grubhub\./i, 'Grubhub'],
+  [/postmates\./i, 'Postmates'],
+  [/chownow\./i, 'ChowNow'],
+  [/slicelife\.|slice\./i, 'Slice'],
+  [/olo\.com|olobservice/i, 'Olo'],
+  [/square(up)?\./i, 'Square'],
+  [/clover\./i, 'Clover'],
+  [/menufy\./i, 'Menufy'],
+];
+
+/** Identify a known reservation/ordering platform from candidate URLs, or null. */
+export function detectPlatform(urls: string[]): string | null {
+  for (const url of urls) {
+    const host = hostOf(url);
+    for (const [pattern, name] of PLATFORM_PATTERNS) {
+      if (pattern.test(host) || pattern.test(url)) return name;
+    }
+  }
+  return null;
 }
