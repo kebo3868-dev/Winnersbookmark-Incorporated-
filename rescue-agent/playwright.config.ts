@@ -1,7 +1,11 @@
 import { defineConfig } from '@playwright/test';
 
 /**
- * Browser E2E config. Run with `npm run test:e2e` against a running server:
+ * Browser E2E config. @playwright/test is intentionally NOT a committed
+ * dependency (its install downloads Chromium, which broke the Vercel build).
+ * Install it on demand to run the E2E:  npm i -D @playwright/test
+ *
+ * Run with `npm run test:e2e` against a running server:
  *   DATABASE_URL=... BASIC_AUTH_USER=... BASIC_AUTH_PASSWORD=... npm run build && npm start
  * then in another shell: E2E_BASE_URL=http://localhost:3000 E2E_USER=.. E2E_PASS=.. npm run test:e2e
  *
