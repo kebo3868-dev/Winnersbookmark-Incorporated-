@@ -113,3 +113,20 @@ export function reviewEvidence(input: OwnerReviewInput, signal: ReviewSignal): E
   }
   return out;
 }
+
+/**
+ * Owner-supplied social profile → evidence. The URL is attributed as the
+ * source; follower/engagement analysis stays out of scope (no scraping).
+ */
+export function socialEvidence(socialUrl: string | null): EvidenceInput[] {
+  if (!socialUrl) return [];
+  return [
+    {
+      sourceUrl: socialUrl,
+      evidenceType: 'SOCIAL_LINK',
+      fact: `A social profile was provided by the restaurant: ${socialUrl}`,
+      supportingContext: 'Owner-provided at intake. Follower/engagement analysis requires direct platform access and is out of audit scope.',
+      confidence: 70,
+    },
+  ];
+}

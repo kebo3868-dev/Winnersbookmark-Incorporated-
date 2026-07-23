@@ -51,3 +51,29 @@ describe('reviewEvidence (clearly labeled owner-reported)', () => {
     expect(ev[0].supportingContext).toMatch(/not independently verified/i);
   });
 });
+
+describe('socialEvidence (review finding: supplied social URL must be used)', () => {
+  it('produces a SOCIAL_LINK evidence attributed to the supplied URL', async () => {
+    const { socialEvidence } = await import('@/lib/audit/reviews');
+    const ev = socialEvidence('https://instagram.com/theplace');
+    expect(ev).toHaveLength(1);
+    expect(ev[0].evidenceType).toBe('SOCIAL_LINK');
+    expect(ev[0].sourceUrl).toBe('https://instagram.com/theplace');
+    expect(ev[0].fact).toContain('https://instagram.com/theplace');
+  });
+
+  it('produces nothing when no social URL is supplied', async () => {
+    const { socialEvidence } = await import('@/lib/audit/reviews');
+    expect(socialEvidence(null)).toHaveLength(0);
+  });
+});
+
+describe('review evidence source attribution (review finding)', () => {
+  it('attributes the Google Business URL as the evidence source, not prose', () => {
+    const input = { rating: 4.4, reviewCount: 210, googleBusinessUrl: 'https://maps.google.com/place/abc' };
+    const ev = reviewEvidence(input, analyzeOwnerReviews(input));
+    // rating evidence sources to the Google profile (or null), never the homepage
+    const profile = ev.find((e) => /Google Business Profile URL/.test(e.fact));
+    expect(profile?.sourceUrl).toBe('https://maps.google.com/place/abc');
+  });
+});

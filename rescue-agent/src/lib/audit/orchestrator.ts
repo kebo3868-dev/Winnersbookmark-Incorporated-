@@ -10,7 +10,7 @@ import { calculateCategoryScores, calculateOverallScore } from '@/lib/scoring/re
 import { generateOwnerReport, type RankedOpportunity } from '@/lib/reports/owner';
 import { generateSalesBrief } from '@/lib/reports/sales';
 import { getAiProvider } from '@/lib/ai/provider';
-import { analyzeOwnerReviews, reviewEvidence } from '@/lib/audit/reviews';
+import { analyzeOwnerReviews, reviewEvidence, socialEvidence } from '@/lib/audit/reviews';
 import type { AuditStage, AuditStatus } from '@prisma/client';
 import { z } from 'zod';
 
@@ -256,6 +256,27 @@ export async function runAudit(auditId: string): Promise<void> {
     const reviewInput = { rating: audit.ownerRating, reviewCount: audit.ownerReviewCount, googleBusinessUrl: audit.googleBusinessUrl };
     const reviewSignal = analyzeOwnerReviews(reviewInput);
     evidenceInputs.push(...reviewEvidence(reviewInput, reviewSignal));
+    // Owner-supplied social profile → evidence (was previously stored but unused).
+    evidenceInputs.push(...socialEvidence(audit.socialUrlInput));
+
+    // Register owner-provided external reference URLs (review profile, social)
+    // as audit sources so their evidence attributes to the real URL in the
+    // report — not the homepage fallback. Marked owner-provided (not fetched).
+    for (const url of [audit.googleBusinessUrl, audit.socialUrlInput]) {
+      if (url && !sourceIdByUrl.has(url)) {
+        const src = await prisma.auditSource.create({
+          data: {
+            auditId,
+            url,
+            sourceType: 'OWNER_PROVIDED',
+            status: 'COLLECTED',
+            note: 'Owner-provided reference; not fetched by the crawler.',
+          },
+        });
+        sourceIdByUrl.set(url, src.id);
+      }
+    }
+
     const evidenceRecords = [];
     for (const item of evidenceInputs) {
       const record = await prisma.evidence.create({
