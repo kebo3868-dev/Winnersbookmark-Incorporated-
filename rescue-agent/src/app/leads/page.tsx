@@ -12,7 +12,7 @@ const STATUS_STYLES: Record<string, string> = {
 };
 
 export default async function LeadsPage() {
-  const leads = await prisma.lead.findMany({
+  const leads = await prisma.auditLead.findMany({
     orderBy: { createdAt: 'desc' },
     take: 100,
     include: {

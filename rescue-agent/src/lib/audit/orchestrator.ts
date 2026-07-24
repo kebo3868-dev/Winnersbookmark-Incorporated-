@@ -100,7 +100,7 @@ export async function createAudit(input: CreateAuditInput): Promise<{ auditId: s
   const contactEmail = clean(input.contactEmail);
   const contactPhone = clean(input.contactPhone);
   if (contactName || contactEmail || contactPhone) {
-    await prisma.lead.create({
+    await prisma.auditLead.create({
       data: {
         auditId: audit.id,
         restaurantId: restaurant.id,

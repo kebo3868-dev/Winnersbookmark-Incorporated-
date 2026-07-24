@@ -7,7 +7,7 @@ export default async function CommandCenter() {
   const [totalAudits, completedAudits, newLeads, avgScore, recent] = await Promise.all([
     prisma.audit.count(),
     prisma.audit.count({ where: { status: { in: ['COMPLETED', 'PARTIALLY_COMPLETED'] } } }),
-    prisma.lead.count({ where: { status: 'NEW' } }),
+    prisma.auditLead.count({ where: { status: 'NEW' } }),
     prisma.audit.aggregate({ _avg: { overallScore: true }, where: { overallScore: { not: null } } }),
     prisma.audit.findMany({
       orderBy: { createdAt: 'desc' },

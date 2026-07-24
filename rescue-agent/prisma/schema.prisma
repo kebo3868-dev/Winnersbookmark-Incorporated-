@@ -59,7 +59,7 @@ model Restaurant {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
   audits     Audit[]
-  leads      Lead[]
+  auditLeads AuditLead[]
 
   @@unique([websiteUrl])
 }
@@ -100,10 +100,15 @@ model Audit {
   salesIntelligence SalesIntelligence?
   job               AuditJob?
   journeyStages     JourneyStage[]
-  lead              Lead?
+  lead              AuditLead?
 }
 
-enum LeadStatus {
+// Phase 3 lead capture. Named AuditLead / AuditLeadStatus (not Lead /
+// LeadStatus) because this production database is shared with a separate
+// "voice rescue" application that already owns a `Lead` table and a
+// `LeadStatus` enum with different columns/values. Unique names keep the two
+// systems from colliding in the shared `public` schema.
+enum AuditLeadStatus {
   NEW
   CONTACTED
   QUALIFIED
@@ -111,20 +116,20 @@ enum LeadStatus {
   LOST
 }
 
-model Lead {
-  id           String     @id @default(cuid())
-  auditId      String     @unique
-  audit        Audit      @relation(fields: [auditId], references: [id], onDelete: Cascade)
+model AuditLead {
+  id           String          @id @default(cuid())
+  auditId      String          @unique
+  audit        Audit           @relation(fields: [auditId], references: [id], onDelete: Cascade)
   restaurantId String
-  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+  restaurant   Restaurant      @relation(fields: [restaurantId], references: [id])
   contactName  String?
   email        String?
   phone        String?
-  consent      Boolean    @default(false)
-  status       LeadStatus @default(NEW)
+  consent      Boolean         @default(false)
+  status       AuditLeadStatus @default(NEW)
   notes        String?
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
 }
 
 model AuditSource {
