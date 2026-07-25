@@ -51,6 +51,25 @@ export const SCENARIO_DEFAULTS: ScenarioDefaults = {
   website: { illustrativeLostConversionsPerDay: 3, illustrativeConversionValue: 40, operatingDays: 365 },
 };
 
+/**
+ * Return a defaults set with per-transaction dollar values replaced by an
+ * owner-supplied average ticket. Rates, counts, and periods stay illustrative;
+ * only the money figure the owner actually knows becomes real. The scenario
+ * cards keep the "illustrative" labeling because counts/rates remain assumed.
+ */
+export function withAverageTicket(avgTicket: number | null, base: ScenarioDefaults = SCENARIO_DEFAULTS): ScenarioDefaults {
+  if (avgTicket === null || !Number.isFinite(avgTicket) || avgTicket <= 0) return base;
+  const t = Math.round(avgTicket * 100) / 100;
+  return {
+    phone: { ...base.phone, illustrativeTransactionValue: t },
+    reservation: { ...base.reservation, illustrativePerGuestValue: t },
+    ordering: { ...base.ordering, illustrativeOrderValue: t },
+    lead: base.lead, // event value is not a per-cover ticket; keep illustrative
+    reactivation: { ...base.reactivation, illustrativeTicket: t },
+    website: { ...base.website, illustrativeConversionValue: t },
+  };
+}
+
 // ── Decimal-safe helpers (integer cents) ────────────────────────────────────
 const toCents = (dollars: number): number => Math.round(dollars * 100);
 const formatUSD = (cents: number): string =>

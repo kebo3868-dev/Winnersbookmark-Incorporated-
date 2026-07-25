@@ -96,15 +96,30 @@ export function calculateCategoryScores(
   fromStages('ONLINE_ORDERING_EXPERIENCE', ['ORDERING'], 'Online ordering experience');
   fromStages('CUSTOMER_RETENTION', ['FOLLOW_UP', 'RETURN'], 'Customer retention');
 
-  // Review/reputation: not collected in MVP scope.
-  scores.push({
-    category: 'REVIEW_REPUTATION_SYSTEM',
-    weight: SCORE_WEIGHTS.REVIEW_REPUTATION_SYSTEM,
-    score: null,
-    confidence: 0,
-    insufficientData: true,
-    explanation: 'Public review platform data is not collected in this audit scope; manual review recommended.',
-  });
+  // Review/reputation: owner-reported only. Scored from the rating when the
+  // owner provides it; otherwise INSUFFICIENT DATA (platforms are never scraped).
+  const reviewRatingEv = evidence.find((e) => e.evidenceType === 'REVIEW_SIGNAL' && /rating:/i.test(e.fact));
+  const reviewRating = reviewRatingEv?.fact.match(/(\d(?:\.\d)?)\s*★/);
+  if (reviewRating) {
+    const rating = parseFloat(reviewRating[1]);
+    scores.push({
+      category: 'REVIEW_REPUTATION_SYSTEM',
+      weight: SCORE_WEIGHTS.REVIEW_REPUTATION_SYSTEM,
+      score: Math.round(Math.max(0, Math.min(100, (rating / 5) * 100))),
+      confidence: 55,
+      insufficientData: false,
+      explanation: `Derived from an owner-reported ${rating.toFixed(1)}★ rating (not independently verified). Response-pattern analysis requires direct platform access.`,
+    });
+  } else {
+    scores.push({
+      category: 'REVIEW_REPUTATION_SYSTEM',
+      weight: SCORE_WEIGHTS.REVIEW_REPUTATION_SYSTEM,
+      score: null,
+      confidence: 0,
+      insufficientData: true,
+      explanation: 'No owner-reported rating provided and review platforms are not scraped; a dedicated reputation analysis is recommended.',
+    });
+  }
 
   // Local digital presence: partial signal from on-site NAP visibility only.
   const nap = evidence.filter((e) => ['HOURS_VISIBILITY', 'ADDRESS_VISIBILITY', 'PHONE_VISIBILITY'].includes(e.evidenceType));

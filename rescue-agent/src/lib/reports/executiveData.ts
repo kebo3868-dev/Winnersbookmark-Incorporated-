@@ -81,6 +81,7 @@ export async function loadExecutiveReport(auditId: string): Promise<ExecutiveRep
     demoMode: audit.demoMode,
     contact,
     bookingQrDataUrl,
+    avgTicket: audit.avgTicketInput ?? null,
     overallScore: audit.overallScore,
     coverageScore: audit.coverageScore,
     sourcesCollected: audit.sources.filter((s) => s.status === 'COLLECTED').length,

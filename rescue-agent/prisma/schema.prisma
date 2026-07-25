@@ -59,6 +59,7 @@ model Restaurant {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
   audits     Audit[]
+  auditLeads AuditLead[]
 
   @@unique([websiteUrl])
 }
@@ -80,6 +81,17 @@ model Audit {
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
 
+  // Phase 3 — optional owner-supplied intake. Pathway hints are probed like
+  // any discovered link; review data is owner-reported (never scraped) and
+  // feeds the REVIEW journey stage + reputation score when present.
+  reservationUrlInput String?
+  orderingUrlInput    String?
+  socialUrlInput      String?
+  googleBusinessUrl   String?
+  ownerRating         Float?
+  ownerReviewCount    Int?
+  avgTicketInput      Float?
+
   sources           AuditSource[]
   evidence          Evidence[]
   opportunities     Opportunity[]
@@ -88,6 +100,36 @@ model Audit {
   salesIntelligence SalesIntelligence?
   job               AuditJob?
   journeyStages     JourneyStage[]
+  lead              AuditLead?
+}
+
+// Phase 3 lead capture. Named AuditLead / AuditLeadStatus (not Lead /
+// LeadStatus) because this production database is shared with a separate
+// "voice rescue" application that already owns a `Lead` table and a
+// `LeadStatus` enum with different columns/values. Unique names keep the two
+// systems from colliding in the shared `public` schema.
+enum AuditLeadStatus {
+  NEW
+  CONTACTED
+  QUALIFIED
+  WON
+  LOST
+}
+
+model AuditLead {
+  id           String          @id @default(cuid())
+  auditId      String          @unique
+  audit        Audit           @relation(fields: [auditId], references: [id], onDelete: Cascade)
+  restaurantId String
+  restaurant   Restaurant      @relation(fields: [restaurantId], references: [id])
+  contactName  String?
+  email        String?
+  phone        String?
+  consent      Boolean         @default(false)
+  status       AuditLeadStatus @default(NEW)
+  notes        String?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
 }
 
 model AuditSource {

@@ -30,6 +30,7 @@ function baseInput(overrides: Partial<ExecutiveReportInput> = {}): ExecutiveRepo
     demoMode: false,
     contact: TEST_CONTACT,
     bookingQrDataUrl: null,
+    avgTicket: null,
     overallScore: 68,
     coverageScore: 80,
     sourcesCollected: 7,

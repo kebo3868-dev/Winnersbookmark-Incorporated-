@@ -65,3 +65,24 @@ describe('buildScenario (decimal-safe, assumptions always shown)', () => {
     expect(SCENARIO_DEFAULTS.phone.commercialIntentRate).toBe(0.3);
   });
 });
+
+describe('withAverageTicket (owner-supplied ticket refinement)', () => {
+  it('replaces per-transaction dollar values, keeps counts/rates illustrative', async () => {
+    const { withAverageTicket, buildScenario } = await import('@/lib/reports/scenarios');
+    const defaults = withAverageTicket(60);
+    const phone = buildScenario('phone', 'friction', defaults);
+    // 5 missed/day × 0.30 intent × $60 × 365 = $32,850.00
+    expect(phone.annualExposure).toBe('$32,850.00');
+    // assumption row reflects the real ticket
+    expect(phone.assumptions.some((a) => a.value === '$60.00')).toBe(true);
+    // still illustrative
+    expect(phone.assumptions.every((a) => a.qualifier === 'illustrative assumption')).toBe(true);
+  });
+
+  it('returns base defaults unchanged for null/invalid ticket', async () => {
+    const { withAverageTicket, SCENARIO_DEFAULTS } = await import('@/lib/reports/scenarios');
+    expect(withAverageTicket(null)).toBe(SCENARIO_DEFAULTS);
+    expect(withAverageTicket(0)).toBe(SCENARIO_DEFAULTS);
+    expect(withAverageTicket(-5)).toBe(SCENARIO_DEFAULTS);
+  });
+})

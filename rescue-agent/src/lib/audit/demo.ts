@@ -36,6 +36,7 @@ const DEMO_EVIDENCE: EvidenceInput[] = [
   { sourceUrl: DEMO_WEBSITE_URL, evidenceType: 'SOCIAL_LINK', fact: '2 social profile link(s) detected. [DEMONSTRATION DATA]', supportingContext: 'facebook.example, instagram.example', confidence: 90 },
   { sourceUrl: DEMO_WEBSITE_URL, evidenceType: 'CTA_SIGNAL', fact: 'Homepage presents 4 action-oriented CTA(s). [DEMONSTRATION DATA]', supportingContext: 'Examples: Book a Table | Order Online | View Menu | Gift Cards', confidence: 80 },
   { sourceUrl: DEMO_WEBSITE_URL, evidenceType: 'MOBILE_SIGNAL', fact: 'Homepage declares a mobile viewport meta tag (basic mobile configuration present). [DEMONSTRATION DATA]', supportingContext: null, confidence: 85 },
+  { sourceUrl: 'https://maps.google.example/golden-anchor', evidenceType: 'REVIEW_SIGNAL', fact: 'Owner-reported public rating: 4.2★ across 318 review(s). [DEMONSTRATION DATA]', supportingContext: 'Provided by the restaurant at intake; not independently verified against the review platform.', confidence: 55 },
 ];
 
 export async function createDemoAudit(): Promise<{ auditId: string }> {
@@ -50,7 +51,22 @@ export async function createDemoAudit(): Promise<{ auditId: string }> {
       status: 'RUNNING',
       demoMode: true,
       startedAt: new Date(),
+      // Phase 3 demo: owner-reported reviews + real average ticket showcase.
+      ownerRating: 4.2,
+      ownerReviewCount: 318,
+      googleBusinessUrl: 'https://maps.google.example/golden-anchor',
+      avgTicketInput: 38,
       job: { create: { status: 'RUNNING', currentStage: 'COLLECTING_EVIDENCE' } },
+      lead: {
+        create: {
+          restaurantId: restaurant.id,
+          contactName: 'Sample Prospect (DEMO)',
+          email: 'owner@golden-anchor.demo',
+          phone: '(555) 013-7788',
+          consent: true,
+          notes: 'DEMONSTRATION DATA — fictional lead.',
+        },
+      },
     },
   });
 

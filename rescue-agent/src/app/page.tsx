@@ -4,10 +4,10 @@ import { prisma } from '@/lib/db';
 export const dynamic = 'force-dynamic';
 
 export default async function CommandCenter() {
-  const [totalAudits, completedAudits, hotLeads, avgScore, recent] = await Promise.all([
+  const [totalAudits, completedAudits, newLeads, avgScore, recent] = await Promise.all([
     prisma.audit.count(),
     prisma.audit.count({ where: { status: { in: ['COMPLETED', 'PARTIALLY_COMPLETED'] } } }),
-    prisma.salesIntelligence.count({ where: { priority: 'HOT' } }),
+    prisma.auditLead.count({ where: { status: 'NEW' } }),
     prisma.audit.aggregate({ _avg: { overallScore: true }, where: { overallScore: { not: null } } }),
     prisma.audit.findMany({
       orderBy: { createdAt: 'desc' },
@@ -23,7 +23,7 @@ export default async function CommandCenter() {
   const stats = [
     { label: 'Total Audits', value: totalAudits },
     { label: 'Completed Audits', value: completedAudits },
-    { label: 'Hot Sales Opportunities', value: hotLeads },
+    { label: 'New Leads', value: newLeads },
     { label: 'Average Rescue Score', value: avgScore._avg.overallScore ? Math.round(avgScore._avg.overallScore) : '—' },
   ];
 

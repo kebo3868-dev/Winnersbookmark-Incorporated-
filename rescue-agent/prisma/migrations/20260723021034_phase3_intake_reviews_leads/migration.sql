@@ -1,0 +1,37 @@
+-- CreateEnum
+CREATE TYPE "AuditLeadStatus" AS ENUM ('NEW', 'CONTACTED', 'QUALIFIED', 'WON', 'LOST');
+
+-- AlterTable
+ALTER TABLE "Audit" ADD COLUMN     "avgTicketInput" DOUBLE PRECISION,
+ADD COLUMN     "googleBusinessUrl" TEXT,
+ADD COLUMN     "orderingUrlInput" TEXT,
+ADD COLUMN     "ownerRating" DOUBLE PRECISION,
+ADD COLUMN     "ownerReviewCount" INTEGER,
+ADD COLUMN     "reservationUrlInput" TEXT,
+ADD COLUMN     "socialUrlInput" TEXT;
+
+-- CreateTable
+CREATE TABLE "AuditLead" (
+    "id" TEXT NOT NULL,
+    "auditId" TEXT NOT NULL,
+    "restaurantId" TEXT NOT NULL,
+    "contactName" TEXT,
+    "email" TEXT,
+    "phone" TEXT,
+    "consent" BOOLEAN NOT NULL DEFAULT false,
+    "status" "AuditLeadStatus" NOT NULL DEFAULT 'NEW',
+    "notes" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "AuditLead_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateIndex
+CREATE UNIQUE INDEX "AuditLead_auditId_key" ON "AuditLead"("auditId");
+
+-- AddForeignKey
+ALTER TABLE "AuditLead" ADD CONSTRAINT "AuditLead_auditId_fkey" FOREIGN KEY ("auditId") REFERENCES "Audit"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "AuditLead" ADD CONSTRAINT "AuditLead_restaurantId_fkey" FOREIGN KEY ("restaurantId") REFERENCES "Restaurant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;

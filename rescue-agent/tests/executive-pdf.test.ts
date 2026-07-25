@@ -19,6 +19,7 @@ const input: ExecutiveReportInput = {
     fallbackText: 'Contact Keith Warren at 727-291-5965 to schedule your Restaurant Rescue Review.',
   },
   bookingQrDataUrl: null,
+  avgTicket: null,
   overallScore: 70,
   coverageScore: 90,
   sourcesCollected: 5,

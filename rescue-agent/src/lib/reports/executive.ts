@@ -1,7 +1,7 @@
 import { scoreBand } from '@/lib/scoring/rescueScore';
 import { CATEGORY_LABELS } from '@/lib/reports/owner';
 import { COMPANY, type Contact } from '@/lib/config';
-import { buildScenario, scenarioKindFor, type RevenueScenario } from '@/lib/reports/scenarios';
+import { buildScenario, scenarioKindFor, withAverageTicket, type RevenueScenario } from '@/lib/reports/scenarios';
 
 export type { RevenueScenario } from '@/lib/reports/scenarios';
 
@@ -90,6 +90,7 @@ export interface ExecutiveReportInput {
   demoMode: boolean;
   contact: Contact;
   bookingQrDataUrl: string | null;
+  avgTicket: number | null;
   overallScore: number | null;
   coverageScore: number | null;
   sourcesCollected: number;
@@ -285,6 +286,9 @@ export function buildExecutiveReport(input: ExecutiveReportInput): ExecutiveRepo
   const evidenceById = new Map(input.evidence.map((e) => [e.id, e]));
   const ranked = [...input.opportunities].sort((a, b) => b.rescuePriorityScore - a.rescuePriorityScore);
   const top = ranked.slice(0, MAX_REPORT_FINDINGS);
+  // Owner-supplied average ticket replaces the illustrative per-transaction
+  // dollar figure in scenarios; counts and rates stay illustrative.
+  const scenarioDefaults = withAverageTicket(input.avgTicket);
 
   const findings: ExecutiveFinding[] = top.map((opp, i) => {
     const attached = opp.evidenceIds.map((id) => evidenceById.get(id)).filter((e): e is NonNullable<typeof e> => Boolean(e));
@@ -320,7 +324,7 @@ export function buildExecutiveReport(input: ExecutiveReportInput): ExecutiveRepo
         rescuePriority: opp.rescuePriorityScore,
       },
       evidenceSnapshot: attached.slice(0, 3).map((e) => ({ fact: e.fact, sourceUrl: e.sourceUrl })),
-      scenario: kind ? buildScenario(kind, firstSentence(opp.problem)) : null,
+      scenario: kind ? buildScenario(kind, firstSentence(opp.problem), scenarioDefaults) : null,
     };
   });
 
