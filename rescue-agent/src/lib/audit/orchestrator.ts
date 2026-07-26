@@ -11,6 +11,7 @@ import { generateOwnerReport, type RankedOpportunity } from '@/lib/reports/owner
 import { generateSalesBrief } from '@/lib/reports/sales';
 import { getAiProvider } from '@/lib/ai/provider';
 import { analyzeOwnerReviews, reviewEvidence, socialEvidence } from '@/lib/audit/reviews';
+import { createAuditBudget, resolveAuditBudgetMs } from '@/lib/audit/budget';
 import type { AuditStage, AuditStatus } from '@prisma/client';
 import { z } from 'zod';
 
@@ -123,6 +124,26 @@ async function log(auditId: string, level: 'INFO' | 'WARN' | 'ERROR', message: s
   await prisma.systemLog.create({ data: { auditId, level, message, detail: detail?.slice(0, 2000) } });
 }
 
+/** Per-request caps for the collection phase; each is further clamped by the budget. */
+const PAGE_TIMEOUT_MS = 15_000;
+const PROBE_TIMEOUT_MS = 10_000;
+
+/**
+ * A target the audit never looked at because time ran out. Recorded as a source
+ * so the evidence chain shows the gap instead of silently omitting it.
+ */
+async function recordSkippedTarget(auditId: string, url: string, sourceType: string): Promise<void> {
+  await prisma.auditSource.create({
+    data: {
+      auditId,
+      url,
+      sourceType,
+      status: 'TIMEOUT',
+      note: 'Not examined — the audit reached its collection time budget before reaching this page.',
+    },
+  });
+}
+
 const aiSummarySchema = z.object({ executiveSummary: z.string().min(40).max(2000) });
 
 /**
@@ -149,7 +170,14 @@ export async function runAudit(auditId: string): Promise<void> {
     const failures: CollectionSet['failures'] = [];
     const sourceIdByUrl = new Map<string, string>();
 
-    const homeOutcome = await fetchPage(validation.url.toString());
+    // Collection is network-bound and runs after the response is sent, so it
+    // must finish inside the platform's function limit. Past the deadline the
+    // remaining targets are skipped and the audit still scores and reports on
+    // what it has, rather than being killed with nothing.
+    const budget = createAuditBudget(resolveAuditBudgetMs());
+    let skippedForBudget = 0;
+
+    const homeOutcome = await fetchPage(validation.url.toString(), { deadline: budget.deadline });
     if (homeOutcome.status !== 'COLLECTED') {
       await prisma.auditSource.create({
         data: {
@@ -186,7 +214,13 @@ export async function runAudit(auditId: string): Promise<void> {
     await setStage(auditId, 'COLLECTING_EVIDENCE');
     const targets = discoverRelevantPages(home);
     for (const target of targets) {
-      const outcome = await fetchPage(target.url);
+      const pageTimeout = budget.timeoutFor(PAGE_TIMEOUT_MS);
+      if (pageTimeout === null) {
+        skippedForBudget += 1;
+        await recordSkippedTarget(auditId, target.url, target.sourceType);
+        continue;
+      }
+      const outcome = await fetchPage(target.url, { timeoutMs: pageTimeout, deadline: budget.deadline });
       if (outcome.status === 'COLLECTED') {
         pages.push(outcome.page);
         const src = await prisma.auditSource.create({
@@ -246,8 +280,21 @@ export async function runAudit(auditId: string): Promise<void> {
       }
     }
     for (const target of probeTargets.slice(0, 8)) {
-      const result = await probeLink(target.url);
+      const probeTimeout = budget.timeoutFor(PROBE_TIMEOUT_MS);
+      if (probeTimeout === null) {
+        skippedForBudget += 1;
+        continue;
+      }
+      const result = await probeLink(target.url, { timeoutMs: probeTimeout, deadline: budget.deadline });
       probes.push({ url: target.url, category: target.category, ...result });
+    }
+    if (skippedForBudget > 0) {
+      await log(
+        auditId,
+        'WARN',
+        `Collection time budget reached; ${skippedForBudget} target(s) were not examined.`,
+        `Budget ${resolveAuditBudgetMs()}ms. The audit was completed on the evidence gathered so far and marked partial.`,
+      );
     }
 
     // ---- NORMALIZE EVIDENCE ----
@@ -382,7 +429,9 @@ export async function runAudit(auditId: string): Promise<void> {
     // ---- OWNER REPORT ----
     await setStage(auditId, 'GENERATING_OWNER_REPORT');
     const location = [audit.restaurant.city, audit.restaurant.state].filter(Boolean).join(', ') || null;
-    const partial = failures.length > 0;
+    // Skipping targets for time is a real gap in coverage, so the audit is
+    // reported as partial even when nothing outright failed.
+    const partial = failures.length > 0 || skippedForBudget > 0;
     const finalStatus: AuditStatus = partial ? 'PARTIALLY_COMPLETED' : 'COMPLETED';
     const ownerReport = generateOwnerReport({
       restaurantName: audit.restaurant.name,
