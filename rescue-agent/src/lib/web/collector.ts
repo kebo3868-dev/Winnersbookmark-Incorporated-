@@ -55,6 +55,7 @@ const USER_AGENT =
   'WinnersBookmarkRescueAgent/0.1 (+restaurant digital audit; public pages only; contact: audits@winnersbookmark.example)';
 
 const FETCH_TIMEOUT_MS = 15_000;
+const PROBE_TIMEOUT_MS = 10_000;
 const MAX_REDIRECTS = 5;
 const MAX_BODY_BYTES = 2_500_000;
 
@@ -117,9 +118,21 @@ function classifyFetchError(error: unknown, timeoutMs: number): HopResult {
  * Never bypasses auth, captchas, or bot protection — a 401/403/429 is
  * recorded as BLOCKED, not worked around.
  */
-async function followRedirectsSafely(rawUrl: string, timeoutMs: number): Promise<HopResult> {
+async function followRedirectsSafely(rawUrl: string, timeoutMs: number, deadline?: number): Promise<HopResult> {
   let currentUrl = rawUrl;
   for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
+    // Each hop gets its own timeout, so without an absolute deadline a redirect
+    // chain could spend timeoutMs × (MAX_REDIRECTS + 1). Clamp every hop to the
+    // time actually left so the whole call stays inside the audit budget. This
+    // is checked before URL validation, which performs a DNS lookup.
+    let hopTimeout = timeoutMs;
+    if (deadline !== undefined) {
+      const remaining = deadline - Date.now();
+      if (remaining <= 0) {
+        return { kind: 'failure', status: 'TIMEOUT', note: 'Audit time budget exhausted before this request completed' };
+      }
+      hopTimeout = Math.min(timeoutMs, remaining);
+    }
     const validation = await validateUrlTarget(currentUrl);
     if (!validation.ok) {
       return { kind: 'failure', status: 'BLOCKED', note: `Destination rejected by safety policy: ${validation.reason}` };
@@ -128,11 +141,11 @@ async function followRedirectsSafely(rawUrl: string, timeoutMs: number): Promise
     let response: UndiciResponse;
     try {
       response = await safeFetchHop(target, {
-        timeoutMs,
+        timeoutMs: hopTimeout,
         headers: { 'user-agent': USER_AGENT, accept: 'text/html,application/xhtml+xml' },
       });
     } catch (error) {
-      return classifyFetchError(error, timeoutMs);
+      return classifyFetchError(error, hopTimeout);
     }
 
     if (response.status >= 300 && response.status < 400) {
@@ -147,8 +160,15 @@ async function followRedirectsSafely(rawUrl: string, timeoutMs: number): Promise
   return { kind: 'failure', status: 'ERROR', note: `Exceeded ${MAX_REDIRECTS} redirects` };
 }
 
-export async function fetchPage(rawUrl: string): Promise<FetchOutcome> {
-  const hop = await followRedirectsSafely(rawUrl, FETCH_TIMEOUT_MS);
+/**
+ * @param options.timeoutMs per-hop timeout (defaults to FETCH_TIMEOUT_MS)
+ * @param options.deadline  absolute epoch ms the whole call must stay inside
+ */
+export async function fetchPage(
+  rawUrl: string,
+  options: { timeoutMs?: number; deadline?: number } = {},
+): Promise<FetchOutcome> {
+  const hop = await followRedirectsSafely(rawUrl, options.timeoutMs ?? FETCH_TIMEOUT_MS, options.deadline);
   if (hop.kind === 'failure') {
     const { kind: _kind, ...failure } = hop;
     return failure;
@@ -306,8 +326,11 @@ export function extractPage(
  * against the SSRF policy — a public link that 302s to a private or
  * link-local address is rejected, not followed.
  */
-export async function probeLink(url: string): Promise<{ ok: boolean; httpStatus?: number; note: string }> {
-  const hop = await followRedirectsSafely(url, 10_000);
+export async function probeLink(
+  url: string,
+  options: { timeoutMs?: number; deadline?: number } = {},
+): Promise<{ ok: boolean; httpStatus?: number; note: string }> {
+  const hop = await followRedirectsSafely(url, options.timeoutMs ?? PROBE_TIMEOUT_MS, options.deadline);
   if (hop.kind === 'failure') {
     if (hop.status === 'BLOCKED' && /safety policy/.test(hop.note)) {
       return { ok: false, httpStatus: hop.httpStatus, note: hop.note };

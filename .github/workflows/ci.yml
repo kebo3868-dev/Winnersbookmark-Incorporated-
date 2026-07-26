@@ -1,0 +1,102 @@
+name: CI
+
+# Gates every change to the Restaurant Rescue Agent before it can reach
+# production. Vercel deploys on merge, so this is the only place broken code
+# gets caught first.
+on:
+  push:
+    branches: [main, 'claude/**']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# A newer push to the same branch cancels the older run.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: rescue-agent
+
+jobs:
+  build:
+    name: Typecheck, tests, build
+    runs-on: ubuntu-latest
+    env:
+      # The app never connects during typecheck/tests/build (all pages are
+      # force-dynamic and the unit suite is hermetic), but the Prisma client is
+      # constructed at import time, so it needs a syntactically valid URL.
+      DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/ci?schema=public
+      # Chromium is not needed here — the browser E2E is a separate, opt-in
+      # script and @playwright/test is deliberately not a committed dependency.
+      PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: rescue-agent/package-lock.json
+
+      # `npm ci` runs the postinstall hook, which is `prisma generate`.
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit and integration tests
+        run: npm test
+
+      - name: Production build
+        run: npm run build
+
+  migrations:
+    name: Migrations apply cleanly with zero drift
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: migration_check
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/migration_check?schema=public
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: rescue-agent/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Applies every migration from an empty database, exactly as the Vercel
+      # build does against Neon.
+      - name: Apply migrations from scratch
+        run: npx prisma migrate deploy
+
+      # Asserts the resulting schema matches schema.prisma exactly. This is the
+      # check that catches a migration which drifts from the model definitions
+      # before it can wedge production.
+      - name: Assert zero schema drift
+        run: |
+          npx prisma migrate diff \
+            --from-url "$DATABASE_URL" \
+            --to-schema-datamodel prisma/schema.prisma \
+            --exit-code
