@@ -1,32 +1,32 @@
 import Link from 'next/link';
 import { prisma } from '@/lib/db';
+import { LeadStatusSelect } from './LeadStatusSelect';
+import { PurgeDemoButton } from './PurgeDemoButton';
 
 export const dynamic = 'force-dynamic';
 
-const STATUS_STYLES: Record<string, string> = {
-  NEW: 'text-gold border-gold/40',
-  CONTACTED: 'text-amber-300 border-amber-300/40',
-  QUALIFIED: 'text-emerald-400 border-emerald-400/40',
-  WON: 'text-emerald-400 border-emerald-400/40',
-  LOST: 'text-ivory-faint border-obsidian-line',
-};
-
 export default async function LeadsPage() {
-  const leads = await prisma.auditLead.findMany({
-    orderBy: { createdAt: 'desc' },
-    take: 100,
-    include: {
-      restaurant: { select: { name: true } },
-      audit: { select: { id: true, status: true, overallScore: true, demoMode: true } },
-    },
-  });
+  const [leads, demoAuditCount] = await Promise.all([
+    prisma.auditLead.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+      include: {
+        restaurant: { select: { name: true } },
+        audit: { select: { id: true, status: true, overallScore: true, demoMode: true } },
+      },
+    }),
+    prisma.audit.count({ where: { demoMode: true } }),
+  ]);
 
   return (
     <div className="space-y-8">
-      <div>
-        <p className="label mb-2">Sales Pipeline</p>
-        <h1 className="font-display text-3xl">Leads</h1>
-        <p className="text-ivory-dim text-sm mt-2">Prospects captured at audit intake. Each links to the audit that qualified them.</p>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <p className="label mb-2">Sales Pipeline</p>
+          <h1 className="font-display text-3xl">Leads</h1>
+          <p className="text-ivory-dim text-sm mt-2">Prospects captured at audit intake. Each links to the audit that qualified them.</p>
+        </div>
+        {demoAuditCount > 0 && <PurgeDemoButton />}
       </div>
 
       <div className="card overflow-hidden">
@@ -59,7 +59,7 @@ export default async function LeadsPage() {
                     <td className="px-6 py-4 text-ivory-dim">{lead.phone ?? '—'}</td>
                     <td className="px-6 py-4 font-display text-gold">{lead.audit.overallScore ?? '—'}</td>
                     <td className="px-6 py-4">
-                      <span className={`text-[10px] uppercase tracking-wider border rounded px-2 py-1 ${STATUS_STYLES[lead.status]}`}>{lead.status}</span>
+                      <LeadStatusSelect leadId={lead.id} status={lead.status} />
                     </td>
                     <td className="px-6 py-4">
                       <Link href={`/audits/${lead.audit.id}`} className="text-gold hover:underline text-xs">View audit</Link>
