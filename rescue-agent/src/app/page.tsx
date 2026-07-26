@@ -1,10 +1,11 @@
 import Link from 'next/link';
 import { prisma } from '@/lib/db';
+import { ATTENTION_STATUSES, classifyAudit } from '@/lib/audit/attention';
 
 export const dynamic = 'force-dynamic';
 
 export default async function CommandCenter() {
-  const [totalAudits, completedAudits, newLeads, avgScore, recent] = await Promise.all([
+  const [totalAudits, completedAudits, newLeads, avgScore, recent, needsAttention] = await Promise.all([
     prisma.audit.count(),
     prisma.audit.count({ where: { status: { in: ['COMPLETED', 'PARTIALLY_COMPLETED'] } } }),
     prisma.auditLead.count({ where: { status: 'NEW' } }),
@@ -18,7 +19,24 @@ export default async function CommandCenter() {
         salesIntelligence: { select: { priority: true } },
       },
     }),
+    // Failures were recorded but never shown; surface them where they are seen.
+    prisma.audit.findMany({
+      where: { status: { in: ATTENTION_STATUSES } },
+      orderBy: { createdAt: 'desc' },
+      take: 5,
+      select: {
+        id: true,
+        status: true,
+        failureReason: true,
+        createdAt: true,
+        restaurant: { select: { name: true } },
+      },
+    }),
   ]);
+
+  const attention = needsAttention
+    .map((a) => ({ audit: a, item: classifyAudit(a) }))
+    .filter((x): x is { audit: (typeof needsAttention)[number]; item: NonNullable<ReturnType<typeof classifyAudit>> } => x.item !== null);
 
   const stats = [
     { label: 'Total Audits', value: totalAudits },
@@ -48,6 +66,39 @@ export default async function CommandCenter() {
           </div>
         ))}
       </div>
+
+      {attention.length > 0 && (
+        <div className="card overflow-hidden border-amber-300/30">
+          <div className="px-6 py-4 border-b border-obsidian-line">
+            <h2 className="label text-amber-300">Needs Attention</h2>
+            <p className="text-ivory-faint text-xs mt-1">
+              Audits that failed or completed with gaps. Review before sending anything to a client.
+            </p>
+          </div>
+          <div className="divide-y divide-obsidian-line">
+            {attention.map(({ audit, item }) => (
+              <div key={audit.id} className="px-6 py-4 flex items-start gap-4">
+                <span
+                  className={`shrink-0 mt-0.5 text-[10px] uppercase tracking-wider border rounded px-2 py-1 ${
+                    item.level === 'FAILED'
+                      ? 'text-red-300 border-red-300/40'
+                      : 'text-amber-300 border-amber-300/40'
+                  }`}
+                >
+                  {item.headline}
+                </span>
+                <div className="min-w-0">
+                  <p className="text-ivory text-sm">{audit.restaurant.name}</p>
+                  <p className="text-ivory-faint text-xs mt-1">{item.detail}</p>
+                </div>
+                <Link href={`/audits/${audit.id}`} className="ml-auto shrink-0 text-gold hover:underline text-xs">
+                  Open
+                </Link>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="card overflow-hidden">
         <div className="px-6 py-4 border-b border-obsidian-line flex justify-between items-center">
