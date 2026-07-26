@@ -14,13 +14,24 @@ import { execSync } from 'node:child_process';
 
 const env = process.env;
 
-// Migration URL: unpooled/direct names first, pooled names as fallback.
-const MIGRATION_URL_SOURCES = ['DATABASE_URL_UNPOOLED', 'POSTGRES_URL_NON_POOLING', 'DIRECT_DATABASE_URL', 'DATABASE_URL', 'POSTGRES_URL', 'PRISMA_DATABASE_URL'];
+// Migration URL: this app's own override first, then unpooled/direct names,
+// then pooled names as fallback.
+//
+// RESCUE_DIRECT_URL exists because a managed integration (Neon's Vercel
+// integration) owns DATABASE_URL_UNPOOLED and locks it to the database it
+// provisioned. This app has its own database, separate from the other
+// application sharing that Neon project, so overriding it needs a name the
+// integration does not manage. Set it to the UNPOOLED/direct endpoint —
+// running DDL through PgBouncer is unreliable.
+const MIGRATION_URL_SOURCES = ['RESCUE_DIRECT_URL', 'DATABASE_URL_UNPOOLED', 'POSTGRES_URL_NON_POOLING', 'DIRECT_DATABASE_URL', 'DATABASE_URL', 'POSTGRES_URL', 'PRISMA_DATABASE_URL'];
 const migrationSource = MIGRATION_URL_SOURCES.find((name) => env[name]);
 const migrationUrl = migrationSource ? env[migrationSource] : undefined;
 
 // Runtime URL (only validated here; the client resolves it again at runtime).
-const runtimeUrl = env.POSTGRES_PRISMA_URL || env.DATABASE_URL || env.POSTGRES_URL || env.PRISMA_DATABASE_URL;
+// Mirrors RUNTIME_URL_SOURCES in src/lib/db.ts — keep the two in step.
+const RUNTIME_URL_SOURCES = ['RESCUE_DATABASE_URL', 'POSTGRES_PRISMA_URL', 'DATABASE_URL', 'POSTGRES_URL', 'PRISMA_DATABASE_URL'];
+const runtimeSource = RUNTIME_URL_SOURCES.find((name) => env[name]);
+const runtimeUrl = runtimeSource ? env[runtimeSource] : undefined;
 
 if (!migrationUrl || !runtimeUrl) {
   console.error(
@@ -41,14 +52,16 @@ for (const [label, url] of [['migration', migrationUrl], ['runtime', runtimeUrl]
   }
 }
 
-const UNPOOLED_SOURCES = ['DATABASE_URL_UNPOOLED', 'POSTGRES_URL_NON_POOLING', 'DIRECT_DATABASE_URL'];
+// RESCUE_DIRECT_URL is this app's override and is documented as the direct
+// (unpooled) endpoint, so it belongs here — otherwise every build warns.
+const UNPOOLED_SOURCES = ['RESCUE_DIRECT_URL', 'DATABASE_URL_UNPOOLED', 'POSTGRES_URL_NON_POOLING', 'DIRECT_DATABASE_URL'];
 if (!UNPOOLED_SOURCES.includes(migrationSource)) {
   console.warn(
     `WARNING: migrations will run over ${migrationSource}, which may be a pooled (PgBouncer) endpoint. ` +
       'If `prisma migrate deploy` fails or hangs, expose the unpooled URL as DATABASE_URL_UNPOOLED.',
   );
 } else {
-  console.log(`Using ${migrationSource} for migrations (unpooled) and ${env.POSTGRES_PRISMA_URL ? 'POSTGRES_PRISMA_URL' : 'DATABASE_URL'} for runtime.`);
+  console.log(`Using ${migrationSource} for migrations (unpooled) and ${runtimeSource} for runtime.`);
 }
 
 const run = (cmd, extraEnv = {}) => {

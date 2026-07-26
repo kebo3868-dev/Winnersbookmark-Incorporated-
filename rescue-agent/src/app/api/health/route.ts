@@ -20,7 +20,9 @@ export async function GET() {
   const config = {
     auth: authMode === 'required' ? 'configured' : authMode === 'open' ? 'open (non-production)' : 'MISSING — all routes serve 503 until BASIC_AUTH_USER/BASIC_AUTH_PASSWORD are set',
     databaseSource: resolveDatabaseUrlSource() ?? 'NONE — no database env var found',
-    migrationSourceAvailable: Boolean(process.env.DATABASE_URL_UNPOOLED || process.env.POSTGRES_URL_NON_POOLING),
+    migrationSourceAvailable: Boolean(
+      process.env.RESCUE_DIRECT_URL || process.env.DATABASE_URL_UNPOOLED || process.env.POSTGRES_URL_NON_POOLING,
+    ),
     aiNarrative: process.env.AI_PROVIDER && process.env.ANTHROPIC_API_KEY ? 'configured' : 'disabled (deterministic reports)',
   };
   try {
