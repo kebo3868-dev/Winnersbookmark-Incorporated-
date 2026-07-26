@@ -28,3 +28,19 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     return NextResponse.json({ error: 'LEAD NOT FOUND' }, { status: 404 });
   }
 }
+
+/**
+ * Erase a captured lead. A hard delete, not a redaction: this exists to satisfy
+ * an individual's erasure request, which the retention sweep's redaction does
+ * not fully answer. The audit itself is untouched — only the personal record
+ * linked to it is removed.
+ */
+export async function DELETE(_request: NextRequest, { params }: { params: Promise<{ leadId: string }> }) {
+  const { leadId } = await params;
+  try {
+    await prisma.auditLead.delete({ where: { id: leadId } });
+    return NextResponse.json({ id: leadId, deleted: true });
+  } catch {
+    return NextResponse.json({ error: 'LEAD NOT FOUND' }, { status: 404 });
+  }
+}

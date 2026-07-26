@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma, resolveDatabaseUrlSource } from '@/lib/db';
 import { checkBasicAuth, resolveAuthMode } from '@/lib/auth';
+import { resolveLeadRetentionDays } from '@/lib/leads/retention';
 
 export const dynamic = 'force-dynamic';
 
@@ -67,5 +68,11 @@ function diagnosticConfig() {
     ),
     aiNarrative:
       process.env.AI_PROVIDER && process.env.ANTHROPIC_API_KEY ? 'configured' : 'disabled (deterministic reports)',
+    leadRetention: (() => {
+      const days = resolveLeadRetentionDays();
+      return days === null
+        ? 'disabled — lead contact details are kept indefinitely (set LEAD_RETENTION_DAYS to expire them)'
+        : `contact details redacted after ${days} day(s)`;
+    })(),
   };
 }

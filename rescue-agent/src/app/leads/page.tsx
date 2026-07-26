@@ -2,10 +2,20 @@ import Link from 'next/link';
 import { prisma } from '@/lib/db';
 import { LeadStatusSelect } from './LeadStatusSelect';
 import { PurgeDemoButton } from './PurgeDemoButton';
+import { DeleteLeadButton } from './DeleteLeadButton';
+import { redactExpiredLeads, resolveLeadRetentionDays } from '@/lib/leads/retention';
 
 export const dynamic = 'force-dynamic';
 
 export default async function LeadsPage() {
+  // Retention sweep runs lazily from this read path, mirroring the stale-audit
+  // sweep: serverless hosting has no daemon, so expiry is enforced whenever
+  // anyone looks at the pipeline. No-op unless LEAD_RETENTION_DAYS is set.
+  const retentionDays = resolveLeadRetentionDays();
+  if (retentionDays !== null) {
+    await redactExpiredLeads(prisma, retentionDays);
+  }
+
   const [leads, demoAuditCount] = await Promise.all([
     prisma.auditLead.findMany({
       orderBy: { createdAt: 'desc' },
@@ -39,8 +49,8 @@ export default async function LeadsPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left">
-                  {['Contact', 'Restaurant', 'Email', 'Phone', 'Rescue Score', 'Status', 'Audit'].map((h) => (
-                    <th key={h} className="label px-6 py-3 font-normal">{h}</th>
+                  {['Contact', 'Restaurant', 'Email', 'Phone', 'Rescue Score', 'Status', 'Audit', ''].map((h, i) => (
+                    <th key={h || `col-${i}`} className="label px-6 py-3 font-normal">{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -63,6 +73,9 @@ export default async function LeadsPage() {
                     </td>
                     <td className="px-6 py-4">
                       <Link href={`/audits/${lead.audit.id}`} className="text-gold hover:underline text-xs">View audit</Link>
+                    </td>
+                    <td className="px-6 py-4">
+                      <DeleteLeadButton leadId={lead.id} contactLabel={lead.contactName ?? lead.email ?? 'this lead'} />
                     </td>
                   </tr>
                 ))}
