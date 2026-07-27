@@ -15,6 +15,17 @@
       a { color: #B4300F; text-decoration: underline; text-underline-offset: 2px; }
       a:hover { color: #17150F; }
       .path-row { display: grid; grid-template-columns: 120px 1fr 200px; gap: 28px; align-items: baseline; }
+      html { scroll-behavior: smooth; }
+      article[id], section[id] { scroll-margin-top: 64px; }
+      #toc { position: sticky; top: 0; z-index: 10; background: #E8E4DA; border-bottom: 2px solid #17150F; }
+      .toc-inner { max-width: 1000px; margin: 0 auto; padding: 12px 32px; display: flex; gap: 22px; align-items: baseline; overflow-x: auto; white-space: nowrap; font-family: 'JetBrains Mono', monospace; font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; scrollbar-width: none; }
+      .toc-inner::-webkit-scrollbar { display: none; }
+      .toc-inner a { color: #17150F; text-decoration: none; font-weight: 700; }
+      .toc-inner a:hover { color: #B4300F; }
+      #toc-progress { margin-left: auto; color: #B4300F; font-weight: 700; flex-shrink: 0; }
+      .mastery-check { display: flex; align-items: center; gap: 10px; margin-top: 4px; padding-top: 12px; border-top: 1px solid rgba(107,101,90,0.35); font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; cursor: pointer; user-select: none; }
+      .mastery-check input { width: 16px; height: 16px; accent-color: #B4300F; cursor: pointer; margin: 0; }
+      article.passed > div:first-child { color: #6B655A !important; }
       @media (max-width: 680px) {
         .path-row { grid-template-columns: 1fr; gap: 10px; }
         .rhythm-grid { grid-template-columns: 1fr !important; }
@@ -25,6 +36,17 @@
     </style>
   </head>
   <body>
+<nav id="toc" aria-label="Curriculum sections">
+  <div class="toc-inner">
+    <a href="#tier-1">I &middot; Instruction</a>
+    <a href="#tier-2">II &middot; Thinking</a>
+    <a href="#tier-3">III &middot; Systems</a>
+    <a href="#tier-4">IV &middot; Leverage</a>
+    <a href="#rhythm">Rhythm</a>
+    <a href="#path">30-day path</a>
+    <span id="toc-progress" title="Mastery tests passed">0/15 passed</span>
+  </div>
+</nav>
 <div style="background:#E8E4DA; color:#17150F; font-family:Archivo, sans-serif; padding:72px 32px 120px; display:flex; justify-content:center">
 <div style="width:100%; max-width:1000px; display:flex; flex-direction:column; gap:72px">
 
@@ -39,21 +61,21 @@
     <p style="margin:0; font-size:20px; line-height:1.5; max-width:62ch; color:#3B372E; text-wrap:pretty">Every module has the mechanism behind the skill, a drill run against your actual business — restaurant prospects, the audit offer, your content catalog — and a pass/fail mastery test. No module is complete until its test passes on live material.</p>
   </header>
 
-  <section style="border:2px solid #17150F; background:#17150F; color:#F2EFE7; padding:36px 40px; display:flex; flex-direction:column; gap:18px">
+  <section id="standing-rule" style="border:2px solid #17150F; background:#17150F; color:#F2EFE7; padding:36px 40px; display:flex; flex-direction:column; gap:18px">
     <div style="font-family:'JetBrains Mono', monospace; font-size:12px; letter-spacing:0.16em; text-transform:uppercase; color:#E8853F">Standing rule — read before Module 1</div>
     <p style="margin:0; font-family:'Instrument Serif', serif; font-size:34px; line-height:1.2; max-width:40ch">This only counts as expert training if the drills touch the market.</p>
     <p style="margin:0; font-size:17px; line-height:1.6; max-width:70ch; color:#C6C0B2; text-wrap:pretty">Learning Claude deeply is legitimate — it is the core competency the agency sells. But if this becomes "study the masterclass for a month," it is the production trap wearing a costume. Every drill below is anchored to a real prospect or a live piece of content. Week 4's graduation requirement is a closed audit, not a completed curriculum.</p>
-    <p style="margin:0; padding-top:14px; border-top:1px solid #3B372E; font-family:'JetBrains Mono', monospace; font-size:13px; line-height:1.6; color:#F2EFE7">Start here: <strong style="color:#E8853F">Module 03's drill, this week.</strong> It feeds directly into the active closing sprint.</p>
+    <p style="margin:0; padding-top:14px; border-top:1px solid #3B372E; font-family:'JetBrains Mono', monospace; font-size:13px; line-height:1.6; color:#F2EFE7">Start here: <a href="#module-03" style="color:#E8853F; font-weight:700">Module 03's drill, this week.</a> It feeds directly into the active closing sprint.</p>
   </section>
 
-  <section style="display:flex; flex-direction:column; gap:32px">
+  <section id="tier-1" style="display:flex; flex-direction:column; gap:32px">
     <div style="display:flex; align-items:baseline; gap:20px; border-bottom:1px solid #B5AE9F; padding-bottom:12px">
       <span style="font-family:'JetBrains Mono', monospace; font-size:13px; font-weight:700; letter-spacing:0.16em; color:#B4300F">TIER I</span>
       <h2 style="margin:0; font-family:'Instrument Serif', serif; font-weight:400; font-size:44px; line-height:1">Instruction</h2>
       <span style="font-size:15px; color:#6B655A; margin-left:auto; text-align:right; max-width:34ch">Getting a correct first draft on demand. Modules 01–04.</span>
     </div>
 
-    <article style="display:grid; grid-template-columns:96px 1fr; gap:32px; border-top:1px solid #D3CDBF; padding-top:28px">
+    <article style="display:grid; grid-template-columns:96px 1fr; gap:32px; border-top:1px solid #D3CDBF; padding-top:28px" id="module-01">
       <div style="font-family:'Instrument Serif', serif; font-size:56px; line-height:0.8; color:#B4300F">01</div>
       <div style="display:flex; flex-direction:column; gap:20px">
         <h3 style="margin:0; font-size:26px; font-weight:600; letter-spacing:-0.01em">Context loading beats clever phrasing</h3>
@@ -72,7 +94,7 @@
       </div>
     </article>
 
-    <article style="display:grid; grid-template-columns:96px 1fr; gap:32px; border-top:1px solid #D3CDBF; padding-top:28px">
+    <article style="display:grid; grid-template-columns:96px 1fr; gap:32px; border-top:1px solid #D3CDBF; padding-top:28px" id="module-02">
       <div style="font-family:'Instrument Serif', serif; font-size:56px; line-height:0.8; color:#B4300F">02</div>
       <div style="display:flex; flex-direction:column; gap:20px">
         <h3 style="margin:0; font-size:26px; font-weight:600; letter-spacing:-0.01em">Specify the artifact, not the topic</h3>
@@ -91,12 +113,12 @@
       </div>
     </article>
 
-    <article style="display:grid; grid-template-columns:96px 1fr; gap:32px; border-top:1px solid #D3CDBF; padding-top:28px">
+    <article style="display:grid; grid-template-columns:96px 1fr; gap:32px; border-top:1px solid #D3CDBF; padding-top:28px" id="module-03">
       <div style="font-family:'Instrument Serif', serif; font-size:56px; line-height:0.8; color:#B4300F">03</div>
       <div style="display:flex; flex-direction:column; gap:20px">
         <div style="display:flex; align-items:center; gap:14px; flex-wrap:wrap">
           <h3 style="margin:0; font-size:26px; font-weight:600; letter-spacing:-0.01em">Assign the vantage point</h3>
-          <span style="font-family:'JetBrains Mono', monospace; font-size:11px; font-weight:700; letter-spacing:0.12em; text-transform:uppercase; background:#B4300F; color:#F2EFE7; padding:5px 10px">Start here — this week</span>
+          <a href="#module-03" style="font-family:'JetBrains Mono', monospace; font-size:11px; font-weight:700; letter-spacing:0.12em; text-transform:uppercase; background:#B4300F; color:#F2EFE7; padding:5px 10px; text-decoration:none">Start here — this week</a>
         </div>
         <div style="display:flex; flex-direction:column; gap:6px">
           <div style="font-family:'JetBrains Mono', monospace; font-size:11px; letter-spacing:0.16em; text-transform:uppercase; color:#8A8375">Mechanism</div>
@@ -113,7 +135,7 @@
       </div>
     </article>
 
-    <article style="display:grid; grid-template-columns:96px 1fr; gap:32px; border-top:1px solid #D3CDBF; padding-top:28px">
+    <article style="display:grid; grid-template-columns:96px 1fr; gap:32px; border-top:1px solid #D3CDBF; padding-top:28px" id="module-04">
       <div style="font-family:'Instrument Serif', serif; font-size:56px; line-height:0.8; color:#B4300F">04</div>
       <div style="display:flex; flex-direction:column; gap:20px">
         <h3 style="margin:0; font-size:26px; font-weight:600; letter-spacing:-0.01em">Critique-and-revise, never re-prompt</h3>
@@ -133,14 +155,14 @@
     </article>
   </section>
 
-  <section style="display:flex; flex-direction:column; gap:32px">
+  <section id="tier-2" style="display:flex; flex-direction:column; gap:32px">
     <div style="display:flex; align-items:baseline; gap:20px; border-bottom:1px solid #B5AE9F; padding-bottom:12px">
       <span style="font-family:'JetBrains Mono', monospace; font-size:13px; font-weight:700; letter-spacing:0.16em; color:#B4300F">TIER II</span>
       <h2 style="margin:0; font-family:'Instrument Serif', serif; font-weight:400; font-size:44px; line-height:1">Thinking</h2>
       <span style="font-size:15px; color:#6B655A; margin-left:auto; text-align:right; max-width:34ch">Making the model reason instead of pattern-match. Modules 05–08.</span>
     </div>
 
-    <article style="display:grid; grid-template-columns:96px 1fr; gap:32px; border-top:1px solid #D3CDBF; padding-top:28px">
+    <article style="display:grid; grid-template-columns:96px 1fr; gap:32px; border-top:1px solid #D3CDBF; padding-top:28px" id="module-05">
       <div style="font-family:'Instrument Serif', serif; font-size:56px; line-height:0.8; color:#B4300F">05</div>
       <div style="display:flex; flex-direction:column; gap:20px">
         <h3 style="margin:0; font-size:26px; font-weight:600; letter-spacing:-0.01em">Decompose before you delegate</h3>
@@ -159,7 +181,7 @@
       </div>
     </article>
 
-    <article style="display:grid; grid-template-columns:96px 1fr; gap:32px; border-top:1px solid #D3CDBF; padding-top:28px">
+    <article style="display:grid; grid-template-columns:96px 1fr; gap:32px; border-top:1px solid #D3CDBF; padding-top:28px" id="module-06">
       <div style="font-family:'Instrument Serif', serif; font-size:56px; line-height:0.8; color:#B4300F">06</div>
       <div style="display:flex; flex-direction:column; gap:20px">
         <h3 style="margin:0; font-size:26px; font-weight:600; letter-spacing:-0.01em">Demand the mechanism before the answer</h3>
@@ -178,7 +200,7 @@
       </div>
     </article>
 
-    <article style="display:grid; grid-template-columns:96px 1fr; gap:32px; border-top:1px solid #D3CDBF; padding-top:28px">
+    <article style="display:grid; grid-template-columns:96px 1fr; gap:32px; border-top:1px solid #D3CDBF; padding-top:28px" id="module-07">
       <div style="font-family:'Instrument Serif', serif; font-size:56px; line-height:0.8; color:#B4300F">07</div>
       <div style="display:flex; flex-direction:column; gap:20px">
         <h3 style="margin:0; font-size:26px; font-weight:600; letter-spacing:-0.01em">Constraints carry more signal than instructions</h3>
@@ -197,7 +219,7 @@
       </div>
     </article>
 
-    <article style="display:grid; grid-template-columns:96px 1fr; gap:32px; border-top:1px solid #D3CDBF; padding-top:28px">
+    <article style="display:grid; grid-template-columns:96px 1fr; gap:32px; border-top:1px solid #D3CDBF; padding-top:28px" id="module-08">
       <div style="font-family:'Instrument Serif', serif; font-size:56px; line-height:0.8; color:#B4300F">08</div>
       <div style="display:flex; flex-direction:column; gap:20px">
         <h3 style="margin:0; font-size:26px; font-weight:600; letter-spacing:-0.01em">Examples outrank descriptions</h3>
@@ -217,14 +239,14 @@
     </article>
   </section>
 
-  <section style="display:flex; flex-direction:column; gap:32px">
+  <section id="tier-3" style="display:flex; flex-direction:column; gap:32px">
     <div style="display:flex; align-items:baseline; gap:20px; border-bottom:1px solid #B5AE9F; padding-bottom:12px">
       <span style="font-family:'JetBrains Mono', monospace; font-size:13px; font-weight:700; letter-spacing:0.16em; color:#B4300F">TIER III</span>
       <h2 style="margin:0; font-family:'Instrument Serif', serif; font-weight:400; font-size:44px; line-height:1">Systems</h2>
       <span style="font-size:15px; color:#6B655A; margin-left:auto; text-align:right; max-width:34ch">Turning one good output into a repeatable asset. Modules 09–12.</span>
     </div>
 
-    <article style="display:grid; grid-template-columns:96px 1fr; gap:32px; border-top:1px solid #D3CDBF; padding-top:28px">
+    <article style="display:grid; grid-template-columns:96px 1fr; gap:32px; border-top:1px solid #D3CDBF; padding-top:28px" id="module-09">
       <div style="font-family:'Instrument Serif', serif; font-size:56px; line-height:0.8; color:#B4300F">09</div>
       <div style="display:flex; flex-direction:column; gap:20px">
         <h3 style="margin:0; font-size:26px; font-weight:600; letter-spacing:-0.01em">Prompts are inventory, not conversation</h3>
@@ -243,7 +265,7 @@
       </div>
     </article>
 
-    <article style="display:grid; grid-template-columns:96px 1fr; gap:32px; border-top:1px solid #D3CDBF; padding-top:28px">
+    <article style="display:grid; grid-template-columns:96px 1fr; gap:32px; border-top:1px solid #D3CDBF; padding-top:28px" id="module-10">
       <div style="font-family:'Instrument Serif', serif; font-size:56px; line-height:0.8; color:#B4300F">10</div>
       <div style="display:flex; flex-direction:column; gap:20px">
         <h3 style="margin:0; font-size:26px; font-weight:600; letter-spacing:-0.01em">Real numbers in, judgement stays yours</h3>
@@ -262,7 +284,7 @@
       </div>
     </article>
 
-    <article style="display:grid; grid-template-columns:96px 1fr; gap:32px; border-top:1px solid #D3CDBF; padding-top:28px">
+    <article style="display:grid; grid-template-columns:96px 1fr; gap:32px; border-top:1px solid #D3CDBF; padding-top:28px" id="module-11">
       <div style="font-family:'Instrument Serif', serif; font-size:56px; line-height:0.8; color:#B4300F">11</div>
       <div style="display:flex; flex-direction:column; gap:20px">
         <h3 style="margin:0; font-size:26px; font-weight:600; letter-spacing:-0.01em">Chain the work, hand off the artifact</h3>
@@ -281,7 +303,7 @@
       </div>
     </article>
 
-    <article style="display:grid; grid-template-columns:96px 1fr; gap:32px; border-top:1px solid #D3CDBF; padding-top:28px">
+    <article style="display:grid; grid-template-columns:96px 1fr; gap:32px; border-top:1px solid #D3CDBF; padding-top:28px" id="module-12">
       <div style="font-family:'Instrument Serif', serif; font-size:56px; line-height:0.8; color:#B4300F">12</div>
       <div style="display:flex; flex-direction:column; gap:20px">
         <h3 style="margin:0; font-size:26px; font-weight:600; letter-spacing:-0.01em">Every deliverable ships through a harness</h3>
@@ -301,14 +323,14 @@
     </article>
   </section>
 
-  <section style="display:flex; flex-direction:column; gap:32px">
+  <section id="tier-4" style="display:flex; flex-direction:column; gap:32px">
     <div style="display:flex; align-items:baseline; gap:20px; border-bottom:1px solid #B5AE9F; padding-bottom:12px">
       <span style="font-family:'JetBrains Mono', monospace; font-size:13px; font-weight:700; letter-spacing:0.16em; color:#B4300F">TIER IV</span>
       <h2 style="margin:0; font-family:'Instrument Serif', serif; font-weight:400; font-size:44px; line-height:1">Leverage</h2>
       <span style="font-size:15px; color:#6B655A; margin-left:auto; text-align:right; max-width:34ch">Where the skill becomes revenue. Modules 13–15.</span>
     </div>
 
-    <article style="display:grid; grid-template-columns:96px 1fr; gap:32px; border-top:1px solid #D3CDBF; padding-top:28px">
+    <article style="display:grid; grid-template-columns:96px 1fr; gap:32px; border-top:1px solid #D3CDBF; padding-top:28px" id="module-13">
       <div style="font-family:'Instrument Serif', serif; font-size:56px; line-height:0.8; color:#B4300F">13</div>
       <div style="display:flex; flex-direction:column; gap:20px">
         <h3 style="margin:0; font-size:26px; font-weight:600; letter-spacing:-0.01em">Productise the workflow, not the tool</h3>
@@ -327,7 +349,7 @@
       </div>
     </article>
 
-    <article style="display:grid; grid-template-columns:96px 1fr; gap:32px; border-top:1px solid #D3CDBF; padding-top:28px">
+    <article style="display:grid; grid-template-columns:96px 1fr; gap:32px; border-top:1px solid #D3CDBF; padding-top:28px" id="module-14">
       <div style="font-family:'Instrument Serif', serif; font-size:56px; line-height:0.8; color:#B4300F">14</div>
       <div style="display:flex; flex-direction:column; gap:20px">
         <h3 style="margin:0; font-size:26px; font-weight:600; letter-spacing:-0.01em">Your catalog is training data</h3>
@@ -346,7 +368,7 @@
       </div>
     </article>
 
-    <article style="display:grid; grid-template-columns:96px 1fr; gap:32px; border-top:1px solid #D3CDBF; padding-top:28px">
+    <article style="display:grid; grid-template-columns:96px 1fr; gap:32px; border-top:1px solid #D3CDBF; padding-top:28px" id="module-15">
       <div style="font-family:'Instrument Serif', serif; font-size:56px; line-height:0.8; color:#B4300F">15</div>
       <div style="display:flex; flex-direction:column; gap:20px">
         <h3 style="margin:0; font-size:26px; font-weight:600; letter-spacing:-0.01em">The whole stack, aimed at one deal</h3>
@@ -366,7 +388,7 @@
     </article>
   </section>
 
-  <section style="display:flex; flex-direction:column; gap:28px">
+  <section id="rhythm" style="display:flex; flex-direction:column; gap:28px">
     <div style="display:flex; align-items:baseline; gap:20px; border-bottom:2px solid #17150F; padding-bottom:12px">
       <h2 style="margin:0; font-family:'Instrument Serif', serif; font-weight:400; font-size:44px; line-height:1">Weekly operating rhythm</h2>
       <span style="font-size:15px; color:#6B655A; margin-left:auto">Same shape every week, forever</span>
@@ -399,7 +421,7 @@
     </div>
   </section>
 
-  <section style="display:flex; flex-direction:column; gap:28px">
+  <section id="path" style="display:flex; flex-direction:column; gap:28px">
     <div style="display:flex; align-items:baseline; gap:20px; border-bottom:2px solid #17150F; padding-bottom:12px">
       <h2 style="margin:0; font-family:'Instrument Serif', serif; font-weight:400; font-size:44px; line-height:1">The 30-day path</h2>
       <span style="font-size:15px; color:#6B655A; margin-left:auto">Modules are the syllabus; this is the order</span>
@@ -436,5 +458,53 @@
 
 </div>
 </div>
+
+  <script>
+    (function () {
+      var KEY = 'wb-masterclass-progress';
+      var saved = {};
+      try { saved = JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) {}
+
+      var modules = document.querySelectorAll('article[id^="module-"]');
+      var progressEl = document.getElementById('toc-progress');
+
+      function persist() {
+        try { localStorage.setItem(KEY, JSON.stringify(saved)); } catch (e) {}
+      }
+      function render() {
+        var done = 0;
+        modules.forEach(function (article) {
+          var checked = !!saved[article.id];
+          if (checked) done++;
+          article.classList.toggle('passed', checked);
+          var box = article.querySelector('.mastery-check input');
+          if (box) box.checked = checked;
+          var text = article.querySelector('.mastery-check span');
+          if (text) text.textContent = checked ? 'Mastery test passed \u2713' : 'Mark mastery test passed';
+        });
+        if (progressEl) progressEl.textContent = done + '/' + modules.length + ' passed';
+      }
+
+      modules.forEach(function (article) {
+        var blocks = article.querySelectorAll(':scope > div:last-child > div');
+        var mastery = blocks[blocks.length - 1];
+        if (!mastery) return;
+        var label = document.createElement('label');
+        label.className = 'mastery-check';
+        var box = document.createElement('input');
+        box.type = 'checkbox';
+        var text = document.createElement('span');
+        label.appendChild(box);
+        label.appendChild(text);
+        mastery.appendChild(label);
+        box.addEventListener('change', function () {
+          if (box.checked) { saved[article.id] = true; } else { delete saved[article.id]; }
+          persist();
+          render();
+        });
+      });
+      render();
+    })();
+  </script>
   </body>
 </html>
