@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db';
 import { LeadStatusSelect } from './LeadStatusSelect';
 import { PurgeDemoButton } from './PurgeDemoButton';
 import { DeleteLeadButton } from './DeleteLeadButton';
+import { LeadCard } from './LeadCard';
 import { redactExpiredLeads, resolveLeadRetentionDays } from '@/lib/leads/retention';
 
 export const dynamic = 'force-dynamic';
@@ -45,7 +46,15 @@ export default async function LeadsPage() {
             No leads captured yet. Contact details entered on the <Link href="/audits/new" className="text-gold hover:underline">New Audit</Link> form appear here.
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+            {/* Phones: stacked cards. The eight-column table below cannot fit. */}
+            <div className="md:hidden divide-y divide-obsidian-line">
+              {leads.map((lead) => (
+                <LeadCard key={lead.id} lead={lead} />
+              ))}
+            </div>
+
+            <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left">
@@ -81,7 +90,8 @@ export default async function LeadsPage() {
                 ))}
               </tbody>
             </table>
-          </div>
+            </div>
+          </>
         )}
       </div>
     </div>

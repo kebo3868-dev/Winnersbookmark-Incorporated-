@@ -20,9 +20,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body className="min-h-screen">
         <header className="border-b border-obsidian-line bg-obsidian-soft/60 backdrop-blur sticky top-0 z-10">
-          <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between gap-6">
-            <Link href="/" className="flex items-baseline gap-3">
-              <span className="font-display text-gold text-lg tracking-wide">WINNERS BOOKMARK</span>
+          {/* Wraps on narrow screens. The nav wrapping alone is not enough:
+              the brand and the nav were still forced onto one row, which pushed
+              the header past the viewport and made every page scroll sideways
+              on a phone. */}
+          <div className="max-w-6xl mx-auto px-5 sm:px-6 py-4 flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
+            <Link href="/" className="flex items-baseline gap-3 min-w-0">
+              <span className="font-display text-gold text-base sm:text-lg tracking-wide truncate">WINNERS BOOKMARK</span>
               <span className="label hidden sm:inline">Restaurant Rescue Agent</span>
             </Link>
             {/* Wraps rather than forcing the page to scroll sideways on a
@@ -37,7 +41,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </nav>
           </div>
         </header>
-        <main className="max-w-6xl mx-auto px-6 py-10">{children}</main>
+        <main className="max-w-6xl mx-auto px-5 sm:px-6 py-8 sm:py-10">{children}</main>
         <footer className="border-t border-obsidian-line mt-16">
           <div className="max-w-6xl mx-auto px-6 py-8 flex flex-wrap justify-between gap-4">
             <p className="label">Designed by Winnersbookmark Incorporated</p>

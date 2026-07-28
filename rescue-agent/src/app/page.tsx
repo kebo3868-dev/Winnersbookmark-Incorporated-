@@ -77,7 +77,7 @@ export default async function CommandCenter() {
           </div>
           <div className="divide-y divide-obsidian-line">
             {attention.map(({ audit, item }) => (
-              <div key={audit.id} className="px-6 py-4 flex items-start gap-4">
+              <div key={audit.id} className="px-6 py-4 flex flex-wrap items-start gap-x-4 gap-y-2">
                 <span
                   className={`shrink-0 mt-0.5 text-[10px] uppercase tracking-wider border rounded px-2 py-1 ${
                     item.level === 'FAILED'
