@@ -110,7 +110,44 @@ export default async function CommandCenter() {
             <Link href="/audits/new" className="text-gold hover:underline">start with the demo</Link>.
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+            {/* Phones: stacked cards. Six columns cannot fit, and this is the
+                first screen anyone sees in a live demo. */}
+            <div className="md:hidden divide-y divide-obsidian-line">
+              {recent.map((audit) => (
+                <div key={audit.id} className="px-5 py-4 space-y-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <Link href={`/audits/${audit.id}`} className="text-ivory hover:text-gold min-w-0 break-words">
+                      {audit.restaurant.name}
+                      {audit.demoMode && (
+                        <span className="ml-2 inline-block whitespace-nowrap text-[10px] uppercase tracking-wider text-gold-dim border border-gold-dim/50 rounded px-1.5 py-0.5">
+                          Demo
+                        </span>
+                      )}
+                    </Link>
+                    <div className="text-right shrink-0">
+                      <p className="label text-[10px] mb-1">Score</p>
+                      <p className="font-display text-2xl text-gold leading-none">{audit.overallScore ?? '—'}</p>
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className="label text-[10px] mb-1">Top Opportunity</p>
+                    <p className="text-ivory-dim text-sm break-words">{audit.opportunities[0]?.title ?? '—'}</p>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                    <StatusBadge status={audit.status} />
+                    <PriorityBadge priority={audit.salesIntelligence?.priority ?? null} />
+                    <span className="label text-[10px] ml-auto">
+                      Coverage {audit.coverageScore !== null ? `${audit.coverageScore}%` : '—'}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left">
@@ -137,7 +174,8 @@ export default async function CommandCenter() {
                 ))}
               </tbody>
             </table>
-          </div>
+            </div>
+          </>
         )}
       </div>
     </div>
