@@ -8,7 +8,31 @@ import { checkBasicAuth, resolveAuthMode } from '@/lib/auth';
  * closed) rather than served openly. Local development stays open.
  * /api/health is exempt so orchestrators can probe liveness.
  */
+/**
+ * Routes that authenticate themselves per tenant and may therefore bypass the
+ * app-wide operator credential — but ONLY when the deployment has explicitly
+ * opted in via FRONTDESK_PUBLIC_ENDPOINT_ENABLED=true.
+ *
+ * The flag defaults to false, so a deployment that merely receives this code
+ * does not become publicly reachable. Building per-tenant authentication and
+ * exposing the endpoint to the internet are two separate decisions, and this
+ * is where the second one is made.
+ *
+ * The route behind this still requires a valid tenant key: bypassing Basic
+ * Auth means "authenticated differently", never "unauthenticated".
+ */
+const PER_TENANT_AUTH_ROUTES = [/^\/api\/frontdesk\/[^/]+\/message$/];
+
+function isSelfAuthenticatingRoute(pathname: string): boolean {
+  if (process.env.FRONTDESK_PUBLIC_ENDPOINT_ENABLED !== 'true') return false;
+  return PER_TENANT_AUTH_ROUTES.some((pattern) => pattern.test(pathname));
+}
+
 export function middleware(request: NextRequest) {
+  if (isSelfAuthenticatingRoute(request.nextUrl.pathname)) {
+    return NextResponse.next();
+  }
+
   const mode = resolveAuthMode({
     BASIC_AUTH_USER: process.env.BASIC_AUTH_USER,
     BASIC_AUTH_PASSWORD: process.env.BASIC_AUTH_PASSWORD,

@@ -216,8 +216,12 @@ export async function recordTurn(
       }
     }
 
-    await tx.fdConversation.update({
-      where: { id: conversationId },
+    // updateMany rather than update: it lets the tenant into the WHERE clause.
+    // `update({ where: { id } })` would be correct here (the id was already
+    // resolved under this tenant) but it would also be the one write in this
+    // file that could touch another tenant's row if that ever stopped holding.
+    await tx.fdConversation.updateMany({
+      where: { id: conversationId, tenantId },
       data: {
         lastMessageAt: new Date(),
         escalated: turn.needsHuman ? true : undefined,
