@@ -39,16 +39,43 @@ const SIGNED_WEBHOOK_ROUTES = [
   // Inbound customer SMS and missed-call events. Same HMAC verification as the
   // delivery webhook, and equally fails closed without a configured secret.
   /^\/api\/frontdesk\/sms\/inbound$/,
+  // Sign-in and sign-out. A login endpoint cannot sit behind the credential it
+  // exists to replace. It authenticates itself by definition, and carries its
+  // own per-account attempt limit so being reachable is not being open.
+  /^\/api\/frontdesk\/auth\/(login|logout)$/,
 ];
 
-function isSelfAuthenticatingRoute(pathname: string): boolean {
+/**
+ * Front desk surfaces that perform their OWN authorization (resolveActor +
+ * authorize) on every request. A restaurant user signs in with a session
+ * cookie, which the operator-wide Basic Auth cannot represent, so a request
+ * carrying a session is allowed past the middleware and judged by the surface
+ * itself.
+ *
+ * This is only safe because every one of those surfaces authorizes; a
+ * structural test (frontdesk-surface-authz) fails the build if a page or route
+ * is added under /frontdesk without doing so. A cookie that is absent, forged
+ * or expired resolves to no actor, and the surface then refuses — so "past the
+ * middleware" is never "authenticated".
+ */
+const SELF_AUTHORIZING_AREA = /^\/(frontdesk|api\/frontdesk)(\/|$)/;
+
+function hasSessionCookie(request: NextRequest): boolean {
+  const value = request.cookies.get('wbi_fd_session')?.value;
+  // Shape check only — the middleware runs on the edge and cannot reach the
+  // database. Verification happens in the surface's own authorization.
+  return typeof value === 'string' && /^[A-Za-z0-9_-]{40,64}$/.test(value);
+}
+
+function isSelfAuthenticatingRoute(pathname: string, request: NextRequest): boolean {
   if (SIGNED_WEBHOOK_ROUTES.some((pattern) => pattern.test(pathname))) return true;
+  if (SELF_AUTHORIZING_AREA.test(pathname) && hasSessionCookie(request)) return true;
   if (process.env.FRONTDESK_PUBLIC_ENDPOINT_ENABLED !== 'true') return false;
   return PER_TENANT_AUTH_ROUTES.some((pattern) => pattern.test(pathname));
 }
 
 export function middleware(request: NextRequest) {
-  if (isSelfAuthenticatingRoute(request.nextUrl.pathname)) {
+  if (isSelfAuthenticatingRoute(request.nextUrl.pathname, request)) {
     return NextResponse.next();
   }
 

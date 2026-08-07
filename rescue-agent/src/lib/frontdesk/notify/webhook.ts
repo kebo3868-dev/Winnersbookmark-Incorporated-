@@ -107,3 +107,59 @@ export function parseDeliveryCallback(value: unknown): DeliveryCallback | null {
     errorMessage: asString(body.errorMessage),
   };
 }
+
+/**
+ * Verify against a tenant's OWN stored secret digest.
+ *
+ * The platform previously used one shared secret for every restaurant, which
+ * meant anyone able to sign could post events naming ANY restaurant — one
+ * tenant's credential effectively reaching another tenant's data. This takes
+ * the stored digest instead of a plaintext secret, so the verifier never needs
+ * the secret in memory and a tenant with none configured fails closed.
+ */
+export function verifyWebhookForTenant(options: {
+  secretHash: string | null;
+  signature: string | null;
+  timestamp: string | null;
+  rawBody: string;
+  now: Date;
+}): WebhookVerdict {
+  const { secretHash, signature, timestamp, rawBody, now } = options;
+
+  if (!secretHash) return { ok: false, reason: 'NO_SECRET_CONFIGURED' };
+  if (!signature) return { ok: false, reason: 'MISSING_SIGNATURE' };
+  if (!timestamp) return { ok: false, reason: 'MISSING_TIMESTAMP' };
+
+  const sentAtSeconds = Number(timestamp);
+  if (!Number.isFinite(sentAtSeconds) || !/^\d{9,11}$/.test(timestamp)) {
+    return { ok: false, reason: 'MALFORMED_TIMESTAMP' };
+  }
+  if (Math.abs(now.getTime() / 1000 - sentAtSeconds) > MAX_SKEW_SECONDS) {
+    return { ok: false, reason: 'STALE_TIMESTAMP' };
+  }
+
+  // The caller proves knowledge of the secret by producing a signature we can
+  // reproduce from its digest — see signPayloadFromHash.
+  const expected = signPayloadFromHash(secretHash, timestamp, rawBody);
+  if (!safeEqualExported(expected, signature)) return { ok: false, reason: 'BAD_SIGNATURE' };
+  return { ok: true };
+}
+
+/**
+ * HMAC keyed on the secret's DIGEST rather than the secret itself.
+ *
+ * The sender computes sha256(secret) and keys the HMAC with that, so the
+ * platform never stores or holds a recoverable secret while still being able
+ * to verify. Documented explicitly because it differs from what a vendor SDK
+ * would do, and a future adapter must match it.
+ */
+export function signPayloadFromHash(secretHash: string, timestamp: string, rawBody: string): string {
+  return createHmac('sha256', secretHash).update(`${timestamp}.${rawBody}`, 'utf8').digest('hex');
+}
+
+export function safeEqualExported(a: string, b: string): boolean {
+  const left = Buffer.from(a, 'utf8');
+  const right = Buffer.from(b, 'utf8');
+  if (left.length !== right.length) return false;
+  return timingSafeEqual(left, right);
+}

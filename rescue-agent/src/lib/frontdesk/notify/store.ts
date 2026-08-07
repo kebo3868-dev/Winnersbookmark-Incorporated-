@@ -139,9 +139,13 @@ export async function updateNotification(
   id: string,
   update: NotificationUpdate,
   db: Db = prisma,
+  tenantId?: string,
 ): Promise<void> {
-  await db.fdNotification.update({
-    where: { id },
+  // updateMany so the tenant can join the WHERE clause. The worker always has
+  // it from the claimed row; it is optional only so the signature stays
+  // compatible with callers that already proved ownership.
+  await db.fdNotification.updateMany({
+    where: { id, ...(tenantId ? { tenantId } : {}) },
     data: {
       status: update.status,
       attempts: update.attempts,
@@ -205,8 +209,12 @@ export async function applyDeliveryStatus(
     return { updated: false, tenantId: existing.tenantId };
   }
 
-  await db.fdNotification.update({
-    where: { id: existing.id },
+  // Scoped by tenant as well as id. The row was found via an unguessable
+  // provider message id, so this is belt-and-braces — but it keeps every write
+  // in this file uniformly tenant-scoped rather than relying on one lookup
+  // having been safe.
+  await db.fdNotification.updateMany({
+    where: { id: existing.id, tenantId: existing.tenantId },
     data: {
       status,
       deliveredAt: status === 'DELIVERED' ? options.at : null,

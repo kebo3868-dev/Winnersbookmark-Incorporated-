@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { prisma } from '@/lib/db';
+import { authorizePlatform, resolveActor } from '@/lib/frontdesk/auth/actor';
 import { purgeFrontDeskDemoData, seedDemoTenants } from '@/lib/frontdesk/store';
 
 export const dynamic = 'force-dynamic';
@@ -15,6 +16,12 @@ export const dynamic = 'force-dynamic';
  */
 
 export async function POST() {
+  // Platform-admin only. Seeding and purging demo data spans every restaurant,
+  // so a restaurant user must never reach it — and since a session cookie now
+  // passes the operator middleware, this route has to say so itself.
+  const authz = authorizePlatform(await resolveActor());
+  if (!authz.ok) return NextResponse.json({ error: 'NOT PERMITTED' }, { status: authz.status });
+
   try {
     const result = await seedDemoTenants(prisma);
     return NextResponse.json(result);
@@ -25,6 +32,9 @@ export async function POST() {
 }
 
 export async function DELETE(request: NextRequest) {
+  const authz = authorizePlatform(await resolveActor());
+  if (!authz.ok) return NextResponse.json({ error: 'NOT PERMITTED' }, { status: authz.status });
+
   // A second, explicit confirmation in the request itself, so that a stray
   // DELETE cannot wipe demo data without intent.
   const confirmed = new URL(request.url).searchParams.get('confirm') === 'true';

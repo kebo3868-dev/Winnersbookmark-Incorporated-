@@ -55,15 +55,19 @@ export async function setConsent(
 /**
  * Record an inbound provider event, returning false when it has been seen.
  *
- * The unique constraint on (provider, providerEventId) is what makes this
- * safe under concurrency: two simultaneous redeliveries race to insert and
- * exactly one wins. Checking-then-inserting would let both through.
+ * The unique constraint on (tenantId, provider, providerEventId) is what makes
+ * this safe under concurrency: two simultaneous redeliveries race to insert
+ * and exactly one wins. Checking-then-inserting would let both through.
+ *
+ * Scoped by TENANT deliberately. A global constraint would let one
+ * restaurant's event id collide with another's, silently dropping the second
+ * as a "duplicate" — cross-tenant data loss rather than a tidiness issue.
  */
 export async function claimInboundEvent(
   provider: string,
   providerEventId: string,
   kind: string,
-  tenantId: string | null,
+  tenantId: string,
   db: Db = prisma,
 ): Promise<boolean> {
   try {
@@ -151,5 +155,50 @@ export async function listConsents(tenantId: string, take = 50, db: Db = prisma)
     where: { tenantId },
     orderBy: { updatedAt: 'desc' },
     take,
+  });
+}
+
+/**
+ * Failed sign-in attempts for one account in the current hour.
+ *
+ * Reuses the send-rate counter table with a distinct scope, so there is one
+ * windowing implementation rather than two that can drift. Only TENANT logins
+ * are counted: the counter is foreign-keyed to a restaurant, so a Winners
+ * Bookmark administrator login has no row to hang off. That gap is documented
+ * rather than papered over.
+ */
+export async function countLoginAttempts(
+  tenantId: string,
+  email: string,
+  now: Date,
+  db: Db = prisma,
+): Promise<number> {
+  const row = await db.fdRateCounter.findUnique({
+    where: {
+      tenantId_scope_subject_windowStart: {
+        tenantId,
+        scope: 'LOGIN',
+        subject: email.toLowerCase(),
+        windowStart: windowStart(now),
+      },
+    },
+    select: { count: true },
+  });
+  return row?.count ?? 0;
+}
+
+export async function recordLoginAttempt(
+  tenantId: string,
+  email: string,
+  now: Date,
+  db: Db = prisma,
+): Promise<void> {
+  const start = windowStart(now);
+  await db.fdRateCounter.upsert({
+    where: {
+      tenantId_scope_subject_windowStart: { tenantId, scope: 'LOGIN', subject: email.toLowerCase(), windowStart: start },
+    },
+    create: { tenantId, scope: 'LOGIN', subject: email.toLowerCase(), windowStart: start, count: 1 },
+    update: { count: { increment: 1 } },
   });
 }

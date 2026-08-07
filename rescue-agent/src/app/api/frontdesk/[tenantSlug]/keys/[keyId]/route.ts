@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { requireAdmin } from '@/lib/frontdesk/auth/admin';
+import { authorize, resolveActor } from '@/lib/frontdesk/auth/actor';
 import { recordAudit, revokeApiKey } from '@/lib/frontdesk/auth/store';
 import { getTenantBySlug } from '@/lib/frontdesk/store';
 
@@ -16,11 +16,11 @@ export async function DELETE(
   { params }: { params: Promise<{ tenantSlug: string; keyId: string }> },
 ) {
   const { tenantSlug, keyId } = await params;
-  const admin = requireAdmin(request);
-  if (!admin.ok) return admin.response;
-
   const tenant = await getTenantBySlug(tenantSlug);
   if (!tenant) return NextResponse.json({ error: 'RESTAURANT NOT FOUND' }, { status: 404 });
+
+  const authz = authorize(await resolveActor(), tenant.id, 'keys:manage');
+  if (!authz.ok) return NextResponse.json({ error: 'NOT PERMITTED' }, { status: authz.status });
 
   // Scoped by tenant, so another restaurant's key id cannot be revoked here.
   const revoked = await revokeApiKey(tenant.id, keyId);

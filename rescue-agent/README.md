@@ -350,6 +350,60 @@ Every inbound event is claimed by a unique-constrained insert on
 exactly one proceeds — verified live: three deliveries of one missed call
 produce one text.
 
+## Tenant users, roles and isolation (Phase 4 M4)
+
+Until M4 the dashboard was all-or-nothing: one operator credential that saw
+every restaurant. A restaurant owner could not be given access to their own
+dashboard without being given access to everyone's. Now each restaurant has its
+own users.
+
+### Roles (§XXVI)
+
+| Role | Scope | May |
+| --- | --- | --- |
+| `WBI_ADMIN` | all tenants | everything, incl. creating restaurants and demo data |
+| `RESTAURANT_OWNER` | own restaurant | read, leads, API keys, configuration |
+| `RESTAURANT_MANAGER` | own restaurant | read, leads |
+| `RESTAURANT_STAFF` | own restaurant | read, leads |
+| `READ_ONLY` | own restaurant | read |
+
+**Two questions, never one.** Every authorization asks *does this actor hold the
+permission* AND *for THIS restaurant*, together, in a single `authorize()` call.
+A permission check alone passes for every restaurant — that is the classic
+multi-tenant hole, and the API makes it impossible to write.
+
+`tenantId` on the user row IS the boundary: NULL only for `WBI_ADMIN`, non-null
+for every restaurant role, and a row violating that is refused rather than
+interpreted generously.
+
+### Credentials
+
+Passwords use **scrypt** (`node:crypto`, no dependency) — deliberately expensive,
+because a password is human-chosen and the threat is offline brute force after a
+leak. API keys and session tokens use **SHA-256** — deliberately fast, because
+they are 256-bit random values where brute force is not the threat. Using either
+in the other's place would be wrong.
+
+Sessions store only a token digest, expire absolutely after 12 hours, are
+revoked server-side on logout, and die the moment a user is suspended. The
+cookie is httpOnly, sameSite=lax, and Secure in production.
+
+Sign-in is rate-limited per (restaurant, email) per hour, and wrong password,
+unknown user and unknown restaurant are byte-identical responses — so the
+endpoint is neither a brute-force target nor an account-enumeration oracle.
+
+### Two structural guards
+
+Behavioural tests prove today's code is correct; they cannot prove tomorrow's
+will be. Two source-scanning tests run in CI:
+
+1. **Query scoping** — fails if any query against customer data omits a tenant
+   filter. Extended in M4 to the consent, notification, rate-counter, inbound-event
+   and user models, all of which were outside it until now.
+2. **Surface authorization** — fails if any page or route under `/frontdesk` is
+   added without authorizing itself. This is what makes the middleware's
+   session bypass safe, and it caught a real privilege escalation during M4.
+
 ## FOUNDER ACTION REQUIRED — before real customer traffic
 
 The `/api/frontdesk/[tenantSlug]/message` route currently sits behind the same

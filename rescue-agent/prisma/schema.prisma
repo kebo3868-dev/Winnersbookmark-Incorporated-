@@ -328,14 +328,19 @@ enum FdEscalationStatus {
 /// One restaurant client. `config` holds the validated TenantConfig (Layer 2);
 /// the engine reads nothing about a restaurant from anywhere else.
 model FdTenant {
-  id        String         @id @default(cuid())
-  slug      String         @unique
-  name      String
-  status    FdTenantStatus @default(ONBOARDING)
-  demoMode  Boolean        @default(false)
+  id                String         @id @default(cuid())
+  slug              String         @unique
+  name              String
+  status            FdTenantStatus @default(ONBOARDING)
+  demoMode          Boolean        @default(false)
+  /// SHA-256 of this restaurant's own inbound-webhook secret. Per tenant so a
+  /// leaked secret cannot be used to forge events for a different restaurant.
+  /// NULL means this tenant has no inbound webhook configured yet.
+  webhookSecretHash String?
+
   config    Json
-  createdAt DateTime       @default(now())
-  updatedAt DateTime       @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   conversations FdConversation[]
   messages      FdMessage[]
@@ -348,6 +353,7 @@ model FdTenant {
   consents      FdConsent[]
   inboundEvents FdInboundEvent[]
   rateCounters  FdRateCounter[]
+  users         FdUser[]
 
   @@index([status])
 }
@@ -648,16 +654,20 @@ model FdConsent {
 /// this, one inbound SMS could be answered several times and one missed call
 /// could trigger several recovery messages.
 model FdInboundEvent {
-  id              String    @id @default(cuid())
-  tenantId        String?
-  tenant          FdTenant? @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  id              String   @id @default(cuid())
+  /// Required. An event is always resolved to a tenant before it is claimed.
+  tenantId        String
+  tenant          FdTenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   provider        String
-  /// The provider's own id for this event. Uniqueness is the dedupe.
+  /// The provider's own id for this event.
   providerEventId String
   kind            String
-  receivedAt      DateTime  @default(now())
+  receivedAt      DateTime @default(now())
 
-  @@unique([provider, providerEventId])
+  /// Scoped by tenant. A global constraint would let one restaurant's event id
+  /// collide with another's and silently drop it as a duplicate — a
+  /// cross-tenant data-loss path, not just a tidiness issue.
+  @@unique([tenantId, provider, providerEventId])
   @@index([tenantId, receivedAt])
 }
 
@@ -676,4 +686,69 @@ model FdRateCounter {
 
   @@unique([tenantId, scope, subject, windowStart])
   @@index([windowStart])
+}
+
+// ---------------------------------------------------------------------------
+// PHASE 4 M4 — tenant users, roles and sessions
+// ---------------------------------------------------------------------------
+
+/// Least-privilege roles (§XXVI). Every role except WBI_ADMIN is bound to
+/// exactly one restaurant by the user's tenantId.
+enum FdRole {
+  /// Winners Bookmark staff. The only role that may act across tenants.
+  WBI_ADMIN
+  RESTAURANT_OWNER
+  RESTAURANT_MANAGER
+  RESTAURANT_STAFF
+  READ_ONLY
+}
+
+enum FdUserStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+/// A person who can sign in.
+///
+/// `tenantId` IS the isolation boundary: it is NULL only for WBI_ADMIN, and
+/// non-null for every restaurant user. Authorization compares it against the
+/// restaurant being addressed, so a restaurant user physically cannot be
+/// resolved to another restaurant's data.
+model FdUser {
+  id           String       @id @default(cuid())
+  /// NULL only for WBI_ADMIN. Enforced in code and asserted by tests.
+  tenantId     String?
+  tenant       FdTenant?    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  email        String
+  /// scrypt digest, salted per user. Never a plaintext or reversible value.
+  passwordHash String
+  name         String?
+  role         FdRole
+  status       FdUserStatus @default(ACTIVE)
+  lastLoginAt  DateTime?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  sessions FdSession[]
+
+  /// Email is unique per tenant, not globally: the same person may hold
+  /// accounts at two restaurants without either account implying the other.
+  @@unique([tenantId, email])
+  @@index([tenantId, status])
+}
+
+/// A signed-in session. Only a digest of the token is stored, so a database
+/// leak does not hand an attacker usable sessions.
+model FdSession {
+  id         String    @id @default(cuid())
+  userId     String
+  user       FdUser    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// SHA-256 of the session token held in the cookie.
+  tokenHash  String    @unique
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+  lastSeenAt DateTime  @default(now())
+
+  @@index([userId, expiresAt])
 }

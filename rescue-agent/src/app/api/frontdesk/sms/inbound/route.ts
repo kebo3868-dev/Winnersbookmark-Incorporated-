@@ -5,7 +5,8 @@ import { handleInboundSms } from '@/lib/frontdesk/messaging/inbound';
 import { handleMissedCall } from '@/lib/frontdesk/messaging/missedCall';
 import { claimInboundEvent } from '@/lib/frontdesk/messaging/store';
 import { recordFailure } from '@/lib/frontdesk/notify/store';
-import { SIGNATURE_HEADER, TIMESTAMP_HEADER, verifyWebhook } from '@/lib/frontdesk/notify/webhook';
+import { getTenantWebhookSecretHash } from '@/lib/frontdesk/auth/users';
+import { SIGNATURE_HEADER, TIMESTAMP_HEADER, verifyWebhookForTenant } from '@/lib/frontdesk/notify/webhook';
 import { getTenantBySlug } from '@/lib/frontdesk/store';
 
 export const dynamic = 'force-dynamic';
@@ -46,25 +47,12 @@ const bodySchema = z.discriminatedUnion('kind', [
 export async function POST(request: NextRequest) {
   const rawBody = await request.text();
 
-  const verdict = verifyWebhook({
-    secret: process.env.SMS_WEBHOOK_SECRET,
-    signature: request.headers.get(SIGNATURE_HEADER),
-    timestamp: request.headers.get(TIMESTAMP_HEADER),
-    rawBody,
-    now: new Date(),
-  });
-
-  if (!verdict.ok) {
-    await recordFailure({
-      tenantId: null,
-      category: 'FAILED_WEBHOOK',
-      operation: 'sms.inbound',
-      detail: `Rejected an inbound messaging webhook: ${verdict.reason}`,
-      lastError: verdict.reason,
-    });
-    return NextResponse.json({ error: 'INVALID WEBHOOK REQUEST' }, { status: 401 });
-  }
-
+  // The body is PARSED before it is verified, because the signature is checked
+  // against the named restaurant's OWN secret and we cannot know which secret
+  // to use until we know which restaurant. Parsing is not trusting: nothing is
+  // acted on until the signature check below passes. Resolving a slug to look
+  // up a secret is a read, and an attacker who names a restaurant still cannot
+  // produce a signature for it.
   let parsedJson: unknown;
   try {
     parsedJson = JSON.parse(rawBody);
@@ -79,6 +67,30 @@ export async function POST(request: NextRequest) {
   const event = parsed.data;
 
   const tenant = await getTenantBySlug(event.tenantSlug);
+
+  // Verify against this restaurant's secret. A tenant with no secret
+  // configured, or a slug that does not exist, both fail closed — and both
+  // return the same 401, so the endpoint cannot be used to discover which
+  // restaurants are on the platform.
+  const verdict = verifyWebhookForTenant({
+    secretHash: tenant ? await getTenantWebhookSecretHash(tenant.id) : null,
+    signature: request.headers.get(SIGNATURE_HEADER),
+    timestamp: request.headers.get(TIMESTAMP_HEADER),
+    rawBody,
+    now: new Date(),
+  });
+
+  if (!verdict.ok) {
+    await recordFailure({
+      tenantId: tenant?.id ?? null,
+      category: 'FAILED_WEBHOOK',
+      operation: 'sms.inbound',
+      detail: `Rejected an inbound messaging webhook: ${verdict.reason}`,
+      lastError: verdict.reason,
+    });
+    return NextResponse.json({ error: 'INVALID WEBHOOK REQUEST' }, { status: 401 });
+  }
+
   if (!tenant) {
     // 200 rather than 404: the provider cannot fix an unknown tenant by
     // retrying, and a retry storm helps nobody. Filed for an operator instead.

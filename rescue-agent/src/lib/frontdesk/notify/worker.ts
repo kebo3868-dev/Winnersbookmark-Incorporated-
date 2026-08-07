@@ -65,7 +65,10 @@ export async function runDispatchCycle(options: CycleOptions = {}): Promise<Cycl
 
   try {
     const summary = await dispatchBatch(claimed, provider, {
-      updateNotification: (id, update) => updateNotification(id, update, prisma),
+      updateNotification: (id, update) =>
+        // The tenant comes from the row this worker claimed, so the write is
+        // scoped to it rather than trusting the id alone.
+        updateNotification(id, update, prisma, claimed.find((n) => n.id === id)?.tenantId),
       recordFailure: (failure) => recordFailure(failure, prisma),
       now: () => new Date(),
     });

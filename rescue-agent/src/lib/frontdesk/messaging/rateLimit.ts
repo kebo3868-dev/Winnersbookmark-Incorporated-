@@ -71,3 +71,13 @@ export function checkRate(
   }
   return { allowed: true };
 }
+
+/**
+ * Failed sign-in attempts allowed per account per hour.
+ *
+ * A login endpoint has to be publicly reachable, which makes it the one place
+ * an attacker can guess passwords at will. This bounds that per (restaurant,
+ * email) so credential-stuffing one account cannot run unbounded, while a
+ * legitimate user fumbling their password a few times is unaffected.
+ */
+export const LOGIN_ATTEMPTS_PER_HOUR = 10;

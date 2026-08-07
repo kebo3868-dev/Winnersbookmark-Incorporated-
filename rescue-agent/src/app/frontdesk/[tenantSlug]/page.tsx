@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { authorize, resolveActor } from '@/lib/frontdesk/auth/actor';
 import { buildCompletenessReport } from '@/lib/frontdesk/config/completeness';
 import { startOfLocalDay } from '@/lib/frontdesk/knowledge/hours';
 import { formatCurrency } from '@/lib/frontdesk/leads';
@@ -34,6 +35,14 @@ export default async function FrontDeskTenantPage({
   const { tenantSlug } = await params;
   const tenant = await getTenantBySlug(tenantSlug);
   if (!tenant) notFound();
+
+  // AUTHORIZATION. Checked server-side on every render: a restaurant user may
+  // only ever see their own restaurant, and an unauthorised actor gets the
+  // same 404 as a nonexistent slug so this page cannot be used to discover
+  // which restaurants are on the platform.
+  const actor = await resolveActor();
+  const authz = authorize(actor, tenant.id, 'tenant:read');
+  if (!authz.ok) notFound();
 
   // "Today" means the restaurant's own day, from the actual instant its local
   // midnight occurred — not UTC midnight, which for a US tenant would start

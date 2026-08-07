@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { z } from 'zod';
 import { ALL_SCOPES, parseScopes } from '@/lib/frontdesk/auth/apiKey';
 import { createApiKey, listApiKeys, recordAudit } from '@/lib/frontdesk/auth/store';
-import { requireAdmin } from '@/lib/frontdesk/auth/admin';
+import { authorize, resolveActor } from '@/lib/frontdesk/auth/actor';
 import { getTenantBySlug } from '@/lib/frontdesk/store';
 
 export const dynamic = 'force-dynamic';
@@ -25,11 +25,11 @@ const createSchema = z.object({
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ tenantSlug: string }> }) {
   const { tenantSlug } = await params;
-  const admin = requireAdmin(request);
-  if (!admin.ok) return admin.response;
-
   const tenant = await getTenantBySlug(tenantSlug);
   if (!tenant) return NextResponse.json({ error: 'RESTAURANT NOT FOUND' }, { status: 404 });
+
+  const authz = authorize(await resolveActor(), tenant.id, 'keys:manage');
+  if (!authz.ok) return NextResponse.json({ error: 'NOT PERMITTED' }, { status: authz.status });
 
   // Digests are never selected, so this response cannot leak key material.
   return NextResponse.json({ keys: await listApiKeys(tenant.id) });
@@ -37,8 +37,6 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ tenantSlug: string }> }) {
   const { tenantSlug } = await params;
-  const admin = requireAdmin(request);
-  if (!admin.ok) return admin.response;
 
   let raw: unknown;
   try {
@@ -62,6 +60,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   const tenant = await getTenantBySlug(tenantSlug);
   if (!tenant) return NextResponse.json({ error: 'RESTAURANT NOT FOUND' }, { status: 404 });
+
+  // Minting a credential is an owner-level action. A manager or staff user of
+  // this restaurant is refused, as is an owner of a different one.
+  const authz = authorize(await resolveActor(), tenant.id, 'keys:manage');
+  if (!authz.ok) return NextResponse.json({ error: 'NOT PERMITTED' }, { status: authz.status });
 
   const expiresAt = parsed.data.expiresInDays
     ? new Date(Date.now() + parsed.data.expiresInDays * 86_400_000)
