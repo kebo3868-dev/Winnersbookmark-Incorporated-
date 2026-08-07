@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { authorize, resolveActor } from '@/lib/frontdesk/auth/actor';
 import { buildCompletenessReport } from '@/lib/frontdesk/config/completeness';
-import { startOfLocalDay } from '@/lib/frontdesk/knowledge/hours';
+import { startOfLocalDay, tenantTimezone } from '@/lib/frontdesk/knowledge/hours';
 import { formatCurrency } from '@/lib/frontdesk/leads';
 import { listNotifications, listOpenFailures } from '@/lib/frontdesk/notify/store';
 import { maskNumber } from '@/lib/frontdesk/notify/provider';
@@ -47,9 +47,13 @@ export default async function FrontDeskTenantPage({
   // "Today" means the restaurant's own day, from the actual instant its local
   // midnight occurred — not UTC midnight, which for a US tenant would start
   // counting several hours into the previous evening.
-  const timezone = tenant.config.locations[0]?.timezone ?? 'UTC';
+  //
+  // With no configured location there is no local day to report on. Rather
+  // than printing a UTC window under a heading that claims to be the
+  // restaurant's own, the page falls back to a rolling 24 hours and says so.
+  const timezone = tenantTimezone(tenant.config);
   const now = new Date();
-  const since = startOfLocalDay(now, timezone);
+  const since = timezone ? startOfLocalDay(now, timezone) : new Date(now.getTime() - 24 * 60 * 60 * 1000);
 
   const [summary, leads, escalations, notifications, failures] = await Promise.all([
     getTodaySummary(tenant.id, since),
@@ -71,7 +75,8 @@ export default async function FrontDeskTenantPage({
           <div className="min-w-0">
             <h1 className="font-display text-2xl sm:text-3xl">{tenant.config.restaurantName}</h1>
             <p className="text-ivory-faint text-xs mt-1">
-              Today in {timezone.replace('_', ' ')} · status {tenant.status}
+              {timezone ? `Today in ${timezone.replace('_', ' ')}` : 'Last 24 hours — no location timezone set'} ·
+              status {tenant.status}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">

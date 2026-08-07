@@ -48,7 +48,14 @@ export async function getTenantBySlug(slug: string, db: Db = prisma): Promise<Te
   const row = await db.fdTenant.findUnique({ where: { slug } });
   if (!row) return null;
   const parsed = parseTenantConfig(row.config);
-  if (!parsed.ok) return null;
+  if (!parsed.ok) {
+    // The tenant exists but its stored config no longer validates — an invalid
+    // timezone, say. Callers surface this as a 404, which to an operator looks
+    // identical to a typo in the slug, so the real reason is logged. The
+    // tenant list page shows these load failures explicitly.
+    console.error('[frontdesk] tenant config rejected', { slug, error: parsed.error });
+    return null;
+  }
   return {
     id: row.id,
     slug: row.slug,
@@ -136,6 +143,8 @@ export async function getConversationHistory(
 export interface RecordedTurn {
   leadIds: string[];
   escalationIds: string[];
+  /** The stored assistant message, so the transcript can be corrected if the reply is. */
+  assistantMessageId: string;
 }
 
 /**
@@ -158,7 +167,7 @@ export async function recordTurn(
     await tx.fdMessage.create({
       data: { tenantId, conversationId, role: 'CUSTOMER', body: customerMessage, intent: turn.intent },
     });
-    await tx.fdMessage.create({
+    const assistantMessage = await tx.fdMessage.create({
       data: {
         tenantId,
         conversationId,
@@ -167,6 +176,7 @@ export async function recordTurn(
         intent: turn.intent,
         answerSource: turn.answerSource,
       },
+      select: { id: true },
     });
 
     const leadIds: string[] = [];
@@ -230,7 +240,7 @@ export async function recordTurn(
       },
     });
 
-    return { leadIds, escalationIds };
+    return { leadIds, escalationIds, assistantMessageId: assistantMessage.id };
   });
 }
 
@@ -256,6 +266,29 @@ export interface TodaySummary {
 }
 
 /** Aggregate the TODAY screen (§XIV) for one tenant over one window. */
+/**
+ * Correct a stored reply so the transcript matches what the customer was sent.
+ *
+ * Used only when a reply is retracted after dispatch (see retractAlertClaim).
+ * The transcript is the auditable record of the conversation (§XXX), so it
+ * must never show a sentence the customer never received — an owner reviewing
+ * a food-safety incident has to be reading the real exchange.
+ *
+ * `updateMany` rather than `update` so the tenant id sits in the WHERE clause:
+ * a message id alone must never be enough to write across a tenant boundary.
+ */
+export async function amendAssistantReply(
+  tenantId: string,
+  messageId: string,
+  body: string,
+  db: Db = prisma,
+): Promise<void> {
+  await db.fdMessage.updateMany({
+    where: { id: messageId, tenantId, role: 'ASSISTANT' },
+    data: { body },
+  });
+}
+
 export async function getTodaySummary(
   tenantId: string,
   since: Date,

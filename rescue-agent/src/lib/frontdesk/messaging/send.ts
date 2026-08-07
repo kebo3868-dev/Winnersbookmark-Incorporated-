@@ -32,6 +32,15 @@ export type SendRequest = {
   escalationId?: string | null;
   /** Set for carrier-mandated replies (STOP/HELP acknowledgements). */
   bypassConsent?: boolean;
+  /**
+   * A life-safety or food-safety alert. Exempts the message from the SPEND
+   * rate limits — never from consent. The per-tenant cap exists to bound a
+   * bill and contain a misconfiguration; letting it silence a food-safety
+   * alert would be trading a few cents against someone's health. A STOP still
+   * wins, because that is a legal obligation rather than a cost control, and
+   * the refusal is surfaced loudly so the routing gets fixed.
+   */
+  critical?: boolean;
 };
 
 export type SendResult =
@@ -75,11 +84,15 @@ export async function queueMessage(request: SendRequest, db: PrismaClient = pris
   }
 
   // --- Rate limits ---------------------------------------------------------
-  const counts = await getRateCounts(tenantId, toNumber, now, db);
-  const rate = checkRate(counts, resolveLimits(config));
-  if (!rate.allowed) {
-    await fileBlocked(tenantId, purpose, `RATE_LIMIT_${rate.scope}`, rate.detail, toNumber, db);
-    return { queued: false, reason: `RATE_LIMIT_${rate.scope}`, detail: rate.detail };
+  // Skipped for critical alerts. The counter is still incremented below, so
+  // the spend stays visible; it simply does not get to block this message.
+  if (!request.critical) {
+    const counts = await getRateCounts(tenantId, toNumber, now, db);
+    const rate = checkRate(counts, resolveLimits(config));
+    if (!rate.allowed) {
+      await fileBlocked(tenantId, purpose, `RATE_LIMIT_${rate.scope}`, rate.detail, toNumber, db);
+      return { queued: false, reason: `RATE_LIMIT_${rate.scope}`, detail: rate.detail };
+    }
   }
 
   // --- Queue ---------------------------------------------------------------

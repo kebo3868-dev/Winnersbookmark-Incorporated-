@@ -1,6 +1,7 @@
 import type { TenantConfig } from './config/schema';
 import {
   buildAllergyResponse,
+  hasAlertPath,
   intentRequiresHuman,
   resolveEscalationRoute,
   screenMessage,
@@ -15,6 +16,7 @@ import {
   extractPhone,
   extractTime,
 } from './intent';
+import { tenantTimezone } from './knowledge/hours';
 import { resolveKnowledge, selectLocation } from './knowledge/resolver';
 import { buildLeadDraft, categoriseLead, isLeadGenerating } from './leads';
 import {
@@ -72,7 +74,8 @@ export interface TurnInput {
 export function accumulateSlots(
   messages: string[],
   now: Date,
-  timezone: string,
+  /** Null when the tenant has no configured location; date parsing is skipped. */
+  timezone: string | null,
   seed: ExtractedSlots = emptySlots(),
 ): ExtractedSlots {
   const slots: ExtractedSlots = { ...seed };
@@ -84,7 +87,11 @@ export function accumulateSlots(
     slots.email = extractEmail(message) ?? slots.email;
     slots.partySize = extractPartySize(message) ?? slots.partySize;
     slots.requestedTime = extractTime(message) ?? slots.requestedTime;
-    const date = extractDate(message, now, timezone);
+    // "Tomorrow", "this Friday" and "the 12th" all resolve against a calendar,
+    // and which calendar depends on the restaurant's timezone. With no
+    // timezone the date stays unfilled, which makes it a required slot the
+    // customer is asked for rather than a guess written into the lead.
+    const date = timezone ? extractDate(message, now, timezone) : { iso: null, text: null };
     slots.requestedDate = date.iso ?? slots.requestedDate;
     slots.requestedDateText = date.text ?? slots.requestedDateText;
   }
@@ -192,7 +199,13 @@ const CONTACT_ASK = 'Can I take your name and the best number to reach you, so t
 
 export function runTurn(input: TurnInput): TurnResult {
   const { config, message, now, history = [] } = input;
-  const timezone = selectLocation(config, message)?.timezone ?? config.locations[0]?.timezone ?? 'UTC';
+  // No silent UTC default. If the restaurant has no configured location it has
+  // no calendar of its own, and resolving "tomorrow at 7" against UTC would
+  // hand staff a date that is off by a day for most of the world — recorded on
+  // the lead as though it had been confirmed by the customer. Passing null
+  // switches relative-date extraction off, so the front desk asks for the date
+  // instead of inventing one.
+  const timezone = selectLocation(config, message)?.timezone ?? tenantTimezone(config);
 
   const priorMessages = history.filter((t) => t.role === 'CUSTOMER').map((t) => t.body);
   const slots = accumulateSlots([...priorMessages, message], now, timezone);
@@ -241,7 +254,7 @@ export function runTurn(input: TurnInput): TurnResult {
     }
     return {
       ...base,
-      reply: escalationReply(verdict.reason, slots, config),
+      reply: escalationReply(verdict.reason, slots, config, routeKey),
       intent: verdict.reason === 'REFUND_REQUEST' || verdict.reason === 'PAYMENT_DISPUTE' ? 'COMPLAINT' : 'COMPLAINT',
       answerSource: 'ESCALATED',
       actions,
@@ -595,7 +608,45 @@ function confirmationReply(category: string, summary: string, config: TenantConf
  * team — and, for anything time-critical, points the customer at the channel
  * that actually reaches a human immediately.
  */
-function escalationReply(reason: string, slots: ExtractedSlots, config: TenantConfig): string {
+/**
+ * The one sentence in the whole system that claims a human is being alerted
+ * right now. A named constant because it has to be retractable: `hasAlertPath`
+ * can only see CONFIGURATION, and a configured contact who has since texted
+ * STOP is unreachable in a way no config check can predict. When dispatch
+ * comes back having reached nobody, `retractAlertClaim` takes this sentence
+ * back out before the customer ever sees it.
+ */
+export const ALERT_CLAIM = " I've flagged this for the restaurant team as urgent.";
+
+function noAlertPathSentence(config: TenantConfig): string {
+  return config.mainPhone
+    ? ` I'm not able to reach the restaurant's team directly from here, so please call them on ${config.mainPhone}.`
+    : " I'm not able to reach the restaurant's team directly from here, so please contact them directly.";
+}
+
+/**
+ * Replace the alert claim with the truth, for use when dispatch reached nobody.
+ *
+ * Pure and string-level on purpose: the engine stays synchronous and free of
+ * I/O, and the correction happens in the route, which is the only place that
+ * knows whether a message actually got queued. A no-op on any reply that never
+ * made the claim.
+ */
+export function retractAlertClaim(reply: string, config: TenantConfig): string {
+  if (!reply.includes(ALERT_CLAIM)) return reply;
+
+  // Some replies already tell the customer to phone the restaurant. Repeating
+  // the number twice in three sentences reads like a malfunction, so in that
+  // case the retraction is just the correction itself.
+  const alreadyPointsAtPhone = Boolean(config.mainPhone) && reply.includes(`call us on ${config.mainPhone}`);
+  const substitute = alreadyPointsAtPhone
+    ? " I'm not able to reach the restaurant's team directly from here."
+    : noAlertPathSentence(config);
+
+  return reply.replace(ALERT_CLAIM, substitute);
+}
+
+function escalationReply(reason: string, slots: ExtractedSlots, config: TenantConfig, routeKey: string): string {
   const ask = slots.phone
     ? 'A manager will follow up with you.'
     : "What's the best number for a manager to reach you on?";
@@ -606,12 +657,21 @@ function escalationReply(reason: string, slots: ExtractedSlots, config: TenantCo
     ? ` If you need someone right away, please call us on ${config.mainPhone}.`
     : '';
 
+  // Whether saying "I've flagged this for the team" is TRUE depends on whether
+  // an alert can actually leave. When it cannot, the wording drops the claim
+  // and points harder at the channels that do reach a person. Telling someone
+  // in an emergency that staff have been notified when nobody will be is the
+  // worst false promise this system could make.
+  const alertable = hasAlertPath(config, routeKey);
+  const flagged = alertable ? ALERT_CLAIM : '';
+  const noAlertPath = alertable ? '' : noAlertPathSentence(config);
+
   switch (reason) {
     case 'EMERGENCY':
-      return 'If this is an emergency, please call 911 right away — that will reach help faster than I can. I have flagged this for the restaurant team as urgent.';
+      return `If this is an emergency, please call 911 right away — that will reach help faster than I can.${flagged}${noAlertPath}`;
     case 'FOOD_SAFETY':
       // No diagnosis, no liability, no minimising — acknowledge and route (§XI, §XII).
-      return `I'm very sorry to hear that. I've flagged this for the management team as urgent. If you are unwell, please speak to a medical professional.${callInstead} ${ask}`;
+      return `I'm very sorry to hear that.${flagged || noAlertPath} If you are unwell, please speak to a medical professional.${alertable ? callInstead : ''} ${ask}`;
     case 'HARASSMENT':
       return "I'm ending this conversation here. If you need to reach the restaurant, please contact them directly.";
     case 'LEGAL_THREAT':

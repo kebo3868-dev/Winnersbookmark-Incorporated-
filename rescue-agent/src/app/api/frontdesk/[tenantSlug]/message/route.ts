@@ -5,9 +5,10 @@ import { prisma } from '@/lib/db';
 import { SCOPES } from '@/lib/frontdesk/auth/apiKey';
 import { authFailureMessage, authenticateTenantRequest } from '@/lib/frontdesk/auth/authenticate';
 import { findKeyByHash, recordAudit, touchApiKey } from '@/lib/frontdesk/auth/store';
-import { runTurn } from '@/lib/frontdesk/engine';
+import { retractAlertClaim, runTurn } from '@/lib/frontdesk/engine';
 import { enqueueEscalationNotifications } from '@/lib/frontdesk/notify/escalation';
 import {
+  amendAssistantReply,
   getConversationHistory,
   getTenantBySlug,
   openConversation,
@@ -137,6 +138,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       prisma,
     );
 
+    // The reply as it will be sent. Escalation dispatch below may retract a
+    // claim it makes, which is why this is not read straight off `turn`.
+    let reply = turn.reply;
+
     // Escalations become actual alerts. Queued AFTER the escalation rows are
     // committed, so a messaging problem can never lose the escalation itself,
     // and wrapped so it can never fail the customer's request either — the
@@ -148,7 +153,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         .filter((draft): draft is NonNullable<typeof draft> => draft !== null);
 
       try {
-        await enqueueEscalationNotifications(
+        const dispatch = await enqueueEscalationNotifications(
           tenant.id,
           tenant.config,
           recorded.escalationIds.map((escalationId, index) => ({
@@ -162,8 +167,26 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           })),
           prisma,
         );
+
+        // TRUTH CORRECTION. The reply may have promised the team was flagged
+        // as urgent, on the strength of a configured contact. Whether that
+        // contact is actually reachable is runtime state the pure engine
+        // cannot see — they may have texted STOP since. If nothing was
+        // queued, the promise is retracted before the customer reads it.
+        if (dispatch.queued === 0) {
+          reply = retractAlertClaim(reply, tenant.config);
+        }
       } catch (error) {
         console.error('[frontdesk] escalation notification enqueue failed', { tenantSlug, error });
+        // The dispatch attempt itself failed, so nothing was alerted either.
+        reply = retractAlertClaim(reply, tenant.config);
+      }
+
+      // Keep the transcript equal to what was actually sent. Written outside
+      // the try/catch above so a correction is never lost to a dispatch error,
+      // and guarded so the common case does no extra write.
+      if (reply !== turn.reply) {
+        await amendAssistantReply(tenant.id, recorded.assistantMessageId, reply);
       }
     }
 
@@ -180,7 +203,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     return NextResponse.json({
       conversationId: activeConversationId,
-      reply: turn.reply,
+      reply,
       intent: turn.intent,
       secondaryIntents: turn.secondaryIntents,
       answerSource: turn.answerSource,

@@ -1,6 +1,6 @@
 import type { Faq, Location, Pathway, TenantConfig } from '../config/schema';
 import type { AnswerSource, Intent } from '../types';
-import { formatTime, formatWeek, formatWindows, resolveHours, weekdayLabel } from './hours';
+import { formatTime, formatWeek, formatWindows, resolveHours, tenantTimezone, weekdayLabel } from './hours';
 
 /**
  * VERIFIED-KNOWLEDGE RESOLUTION (§IV, §XXIX)
@@ -289,7 +289,7 @@ export function resolveKnowledge(
   message: string,
   now: Date,
 ): KnowledgeResult {
-  const timezone = config.locations[0]?.timezone ?? 'UTC';
+  const timezone = tenantTimezone(config);
 
   switch (intent) {
     case 'HOURS':
@@ -317,7 +317,13 @@ export function resolveKnowledge(
     case 'EMPLOYMENT':
       return answerEmployment(config);
     case 'SPECIALS':
-      return answerSpecials(config, now, timezone);
+      // A promotion is bounded by calendar dates, so answering needs to know
+      // which calendar day it is for this restaurant. Without a configured
+      // timezone we would be reading the date off UTC and could announce a
+      // promotion that has not started, or one that ended last night.
+      return timezone
+        ? answerSpecials(config, now, timezone)
+        : unresolved("No location timezone configured, so today's date is unknown");
     case 'FAQ':
     case 'UNKNOWN':
       return answerFaq(config, message);
