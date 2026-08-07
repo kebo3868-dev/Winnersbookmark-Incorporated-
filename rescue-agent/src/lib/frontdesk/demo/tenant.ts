@@ -141,6 +141,13 @@ export const demoTenantConfig: TenantConfig = {
     rateLimitPerNumberPerHour: 5,
     rateLimitPerTenantPerHour: 200,
   },
+  // A rota order, so the demo exercises the ordered fallback chain. No owner
+  // verification and no carrier campaign: a demo restaurant does not exist, so
+  // there is nobody to sign off and nothing to register. The readiness gate is
+  // meant to refuse this tenant, and these fields are why.
+  pilot: {
+    escalationRota: ['urgent', 'manager', 'events', 'catering'],
+  },
   retentionDays: 365,
 };
 
@@ -199,4 +206,5 @@ export const demoTenantBConfig: TenantConfig = {
     maxFollowUps: 1,
     optOutKeywords: ['STOP', 'UNSUBSCRIBE', 'CANCEL', 'END', 'QUIT'],
   },
+  pilot: { escalationRota: ['manager'] },
 };

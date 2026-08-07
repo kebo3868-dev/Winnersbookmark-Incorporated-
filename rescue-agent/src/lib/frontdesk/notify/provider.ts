@@ -94,11 +94,21 @@ export async function getSmsProvider(
     return new MockSmsProvider();
   }
 
-  // Real vendor adapters plug in here, behind the same interface. None is
-  // implemented yet: connecting one requires credentials and an account, which
-  // is a deliberate, separately approved step.
+  if (configured === 'twilio') {
+    // Credentials are read from the environment inside the adapter and never
+    // touched here, so a thrown error cannot carry a token in its message.
+    const { twilioFromEnv } = await import('./twilio');
+    try {
+      return twilioFromEnv(env);
+    } catch (error) {
+      throw new SmsProviderNotConfigured(
+        error instanceof Error ? error.message : 'Twilio adapter could not be configured',
+      );
+    }
+  }
+
   throw new SmsProviderNotConfigured(
-    `SMS_PROVIDER="${configured}" has no adapter. Supported today: "mock".`,
+    `SMS_PROVIDER="${configured}" has no adapter. Supported today: "mock", "twilio".`,
   );
 }
 

@@ -202,6 +202,35 @@ export const messagingSchema = z.object({
   missedCallTemplate: z.string().max(320).optional(),
 });
 
+/**
+ * Pilot activation state.
+ *
+ * Separated from the operational configuration above because these fields
+ * record HUMAN acts, not restaurant facts: who at the restaurant confirmed the
+ * configuration is true, and in what order a critical alert should hunt for a
+ * person. Neither can be derived, and neither should be defaulted into
+ * existence — an absent rota must read as "nobody decided yet", not as an
+ * empty one that quietly passes.
+ */
+export const pilotSchema = z.object({
+  /**
+   * Escalation contact keys, in the order a CRITICAL alert tries them.
+   * Ordering matters: the first person on the list is the one woken up.
+   */
+  escalationRota: z.array(z.string().min(1)).default([]),
+  /** ISO timestamp of the restaurant owner's sign-off on this configuration. */
+  ownerVerifiedAt: z.string().datetime().optional(),
+  /** Who signed off, for the audit trail. A name, not an account. */
+  ownerVerifiedBy: z.string().max(200).optional(),
+  /**
+   * Carrier campaign identifier (US A2P 10DLC or the local equivalent).
+   * Recorded for the audit trail only — the platform cannot verify it, and
+   * pretending otherwise would be exactly the kind of false assurance this
+   * product refuses to give.
+   */
+  carrierCampaignId: z.string().max(120).optional(),
+});
+
 export const tenantConfigSchema = z.object({
   /** Schema version so stored configs can be migrated safely. */
   version: z.literal(1).default(1),
@@ -250,6 +279,7 @@ export const tenantConfigSchema = z.object({
     maxFollowUps: 1,
     optOutKeywords: ['STOP', 'UNSUBSCRIBE', 'CANCEL', 'END', 'QUIT'],
   }),
+  pilot: pilotSchema.default({ escalationRota: [] }),
   /** Per-tenant retention override; deployment default applies when unset. */
   retentionDays: z.number().int().min(1).max(3650).optional(),
 });
@@ -262,6 +292,7 @@ export type Pathway = z.infer<typeof pathwaySchema>;
 export type Faq = z.infer<typeof faqSchema>;
 export type EscalationContact = z.infer<typeof escalationContactSchema>;
 export type Thresholds = z.infer<typeof thresholdsSchema>;
+export type PilotConfig = z.infer<typeof pilotSchema>;
 
 /**
  * Parse an untrusted stored config. Returns a typed result rather than

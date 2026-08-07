@@ -16,7 +16,8 @@
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
     "db:generate": "prisma generate",
-    "worker:notifications": "node scripts/notification-worker.mjs"
+    "worker:notifications": "node scripts/notification-worker.mjs",
+    "smoke:provider": "node --experimental-strip-types scripts/provider-smoke-test.mjs"
   },
   "engines": {
     "node": ">=20.9"
