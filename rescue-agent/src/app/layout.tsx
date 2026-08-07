@@ -12,6 +12,7 @@ const NAV = [
   { href: '/audits/new', label: 'New Audit' },
   { href: '/audits', label: 'Audits' },
   { href: '/leads', label: 'Leads' },
+  { href: '/frontdesk', label: 'Front Desk' },
 ];
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -24,7 +25,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <span className="font-display text-gold text-lg tracking-wide">WINNERS BOOKMARK</span>
               <span className="label hidden sm:inline">Restaurant Rescue Agent</span>
             </Link>
-            <nav className="flex gap-6">
+            {/* Wraps rather than forcing the page to scroll sideways on a
+                phone. The nav was already too wide for a 430px viewport before
+                the Front Desk link was added (§XXVII). */}
+            <nav className="flex flex-wrap justify-end gap-x-4 gap-y-2 sm:gap-x-6">
               {NAV.map((item) => (
                 <Link key={item.href} href={item.href} className="text-xs uppercase tracking-[0.15em] text-ivory-dim hover:text-gold transition-colors">
                   {item.label}

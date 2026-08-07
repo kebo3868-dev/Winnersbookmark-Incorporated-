@@ -51,13 +51,13 @@ enum SalesPriority {
 }
 
 model Restaurant {
-  id         String   @id @default(cuid())
+  id         String      @id @default(cuid())
   name       String
   websiteUrl String
   city       String?
   state      String?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
   audits     Audit[]
   auditLeads AuditLead[]
 
@@ -161,14 +161,14 @@ model Evidence {
 }
 
 model JourneyStage {
-  id                       String  @id @default(cuid())
+  id                       String   @id @default(cuid())
   auditId                  String
-  audit                    Audit   @relation(fields: [auditId], references: [id], onDelete: Cascade)
+  audit                    Audit    @relation(fields: [auditId], references: [id], onDelete: Cascade)
   stage                    String
   status                   String
   finding                  String
   confidence               Int
-  manualValidationRequired Boolean @default(false)
+  manualValidationRequired Boolean  @default(false)
   evidenceIds              String[]
 }
 
@@ -256,4 +256,188 @@ model SystemLog {
   message   String
   detail    String?
   createdAt DateTime @default(now())
+}
+
+// ============================================================================
+// WINNERS BOOKMARK AI FRONT DESK
+// ============================================================================
+//
+// A separate product from the Restaurant Rescue Audit above, sharing this
+// application's database, Prisma client and deployment. Every model is
+// prefixed `Fd` for two reasons: this database is shared with other Winners
+// Bookmark applications (see the AuditLead comment above), and the prefix
+// makes it obvious at a glance which product a table belongs to.
+//
+// MULTI-TENANT RULE (§XIX): every row that can contain restaurant or customer
+// data carries `tenantId`, and every index leads with it. Queries are written
+// tenant-first so a missing filter is a compile-time or index-visible mistake
+// rather than a silent cross-tenant leak.
+
+enum FdTenantStatus {
+  ONBOARDING
+  ACTIVE
+  SUSPENDED
+}
+
+enum FdChannel {
+  WEB
+  SMS
+  VOICE
+}
+
+enum FdMessageRole {
+  CUSTOMER
+  ASSISTANT
+  SYSTEM
+}
+
+enum FdLeadCategory {
+  RESERVATION
+  LARGE_PARTY
+  CATERING
+  PRIVATE_EVENT
+  TAKEOUT
+  DELIVERY
+  GENERAL
+  COMPLAINT_RECOVERY
+}
+
+enum FdLeadStatus {
+  NEW
+  CONTACTED
+  QUALIFIED
+  BOOKED
+  WON
+  LOST
+  CLOSED
+  ESCALATED
+}
+
+enum FdPriority {
+  STANDARD
+  HIGH
+  URGENT
+}
+
+enum FdEscalationStatus {
+  OPEN
+  ACKNOWLEDGED
+  RESOLVED
+}
+
+/// One restaurant client. `config` holds the validated TenantConfig (Layer 2);
+/// the engine reads nothing about a restaurant from anywhere else.
+model FdTenant {
+  id        String         @id @default(cuid())
+  slug      String         @unique
+  name      String
+  status    FdTenantStatus @default(ONBOARDING)
+  demoMode  Boolean        @default(false)
+  config    Json
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  conversations FdConversation[]
+  messages      FdMessage[]
+  leads         FdLead[]
+  escalations   FdEscalation[]
+
+  @@index([status])
+}
+
+model FdConversation {
+  id            String    @id @default(cuid())
+  tenantId      String
+  tenant        FdTenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  channel       FdChannel @default(WEB)
+  /// Provider-side identifier (call SID, thread id) for de-duplicating webhooks.
+  externalRef   String?
+  customerName  String?
+  customerPhone String?
+  escalated     Boolean   @default(false)
+  demoMode      Boolean   @default(false)
+  startedAt     DateTime  @default(now())
+  lastMessageAt DateTime  @default(now())
+
+  messages    FdMessage[]
+  leads       FdLead[]
+  escalations FdEscalation[]
+
+  @@unique([tenantId, channel, externalRef])
+  @@index([tenantId, startedAt])
+}
+
+model FdMessage {
+  id             String         @id @default(cuid())
+  tenantId       String
+  tenant         FdTenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  conversationId String
+  conversation   FdConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  role           FdMessageRole
+  body           String
+  /// Detected intent, and which verified source the reply came from. Together
+  /// these are the anti-hallucination audit trail an operator can review.
+  intent         String?
+  answerSource   String?
+  createdAt      DateTime       @default(now())
+
+  @@index([tenantId, createdAt])
+  @@index([conversationId, createdAt])
+}
+
+model FdLead {
+  id                  String          @id @default(cuid())
+  tenantId            String
+  tenant              FdTenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  conversationId      String?
+  conversation        FdConversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+  source              String
+  customerName        String?
+  phone               String?
+  email               String?
+  category            FdLeadCategory
+  intent              String
+  priority            FdPriority      @default(STANDARD)
+  partySize           Int?
+  requestedDate       String?
+  requestedTime       String?
+  notes               String?
+  /// ESTIMATED opportunity value only. Never rendered as confirmed revenue.
+  estimatedValueCents Int?
+  status              FdLeadStatus    @default(NEW)
+  assignedTo          String?
+  lastContactAt       DateTime?
+  followUpDueAt       DateTime?
+  resolution          String?
+  demoMode            Boolean         @default(false)
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+
+  @@index([tenantId, createdAt])
+  @@index([tenantId, status])
+  @@index([tenantId, category])
+}
+
+model FdEscalation {
+  id             String             @id @default(cuid())
+  tenantId       String
+  tenant         FdTenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  conversationId String?
+  conversation   FdConversation?    @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+  reason         String
+  severity       String
+  summary        String
+  customerName   String?
+  contact        String?
+  /// Config key of the escalation contact this routed to (never the contact
+  /// details themselves — those live in config and can change).
+  routeTo        String
+  status         FdEscalationStatus @default(OPEN)
+  acknowledgedAt DateTime?
+  resolvedAt     DateTime?
+  demoMode       Boolean            @default(false)
+  createdAt      DateTime           @default(now())
+
+  @@index([tenantId, status])
+  @@index([tenantId, createdAt])
 }
