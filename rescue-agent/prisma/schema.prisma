@@ -501,6 +501,9 @@ model FdAuditLog {
 enum FdNotificationStatus {
   /// Waiting for its first send, or for a scheduled retry.
   QUEUED
+  /// Claimed by a worker and in flight. A row stuck here past the lease
+  /// timeout is reclaimed — that is how a crashed worker is recovered.
+  SENDING
   /// Handed to the provider; not yet confirmed on a handset.
   SENT
   /// Provider confirmed delivery.
@@ -544,6 +547,9 @@ model FdNotification {
   attempts          Int                  @default(0)
   maxAttempts       Int                  @default(3)
   nextAttemptAt     DateTime?
+  /// Worker lease. Set when a row is claimed, cleared when it is finished.
+  lockedAt          DateTime?
+  lockedBy          String?
   providerName      String?
   providerMessageId String?              @unique
   errorCode         String?
@@ -558,6 +564,7 @@ model FdNotification {
 
   @@index([tenantId, status])
   @@index([status, nextAttemptAt])
+  @@index([status, lockedAt])
   @@index([tenantId, createdAt])
 }
 

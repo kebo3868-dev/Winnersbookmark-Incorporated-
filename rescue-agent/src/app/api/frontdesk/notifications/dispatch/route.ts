@@ -1,69 +1,33 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { prisma } from '@/lib/db';
 import { requireAdmin } from '@/lib/frontdesk/auth/admin';
-import { dispatchBatch } from '@/lib/frontdesk/notify/dispatch';
-import { getSmsProvider, SmsProviderNotConfigured } from '@/lib/frontdesk/notify/provider';
-import { claimDueNotifications, recordFailure, updateNotification } from '@/lib/frontdesk/notify/store';
+import { runDispatchCycle } from '@/lib/frontdesk/notify/worker';
 
 export const dynamic = 'force-dynamic';
 
 /**
- * Drain the notification queue. WBI ADMIN ONLY.
+ * Manual dispatch trigger. WBI ADMIN ONLY.
  *
- * A platform worker rather than a tenant operation: it processes every
- * restaurant's due notifications, each row carrying its own tenantId which
- * scopes the writes that follow.
+ * Runs exactly the same cycle as the scheduler (see notify/worker.ts) — this
+ * route only differs in how the caller is authenticated. Keeping one cycle
+ * means a manual run during a pilot exercises the same code the schedule does,
+ * including the atomic claim, so the two cannot drift apart.
  *
- * In a deployment this is driven on a schedule. It is exposed as a route so
- * the pipeline can be driven deterministically in staging and by hand during
- * a pilot — no scheduler is configured here, because that is a deployment
- * decision, not a code one.
+ * Safe to invoke while the scheduler is also running: claiming uses
+ * FOR UPDATE SKIP LOCKED, so the two take disjoint batches rather than both
+ * sending the same alert.
  */
 export async function POST(request: NextRequest) {
   const admin = requireAdmin(request);
   if (!admin.ok) return admin.response;
 
-  let provider;
-  try {
-    provider = await getSmsProvider();
-  } catch (error) {
-    // A misconfigured provider is an operator-visible failure, not a 500 that
-    // disappears into a log nobody reads.
-    const detail = error instanceof SmsProviderNotConfigured ? error.message : 'SMS provider could not be loaded';
-    await recordFailure({
-      tenantId: null,
-      category: 'FAILED_INTEGRATION',
-      operation: 'notifications.dispatch',
-      detail,
-      lastError: detail,
-    });
-    return NextResponse.json({ error: detail }, { status: 503 });
-  }
+  const result = await runDispatchCycle({ workerId: 'manual' });
 
-  if (!provider) {
+  if (!result.ok) {
     return NextResponse.json(
-      {
-        error: 'NO SMS PROVIDER CONFIGURED',
-        detail: 'Set SMS_PROVIDER to enable outbound alerts. Escalations remain visible on the dashboard.',
-      },
-      { status: 503 },
+      { error: result.reason, detail: result.detail },
+      { status: result.reason === 'NO_PROVIDER' ? 503 : 503 },
     );
   }
 
-  const now = new Date();
-  const due = await claimDueNotifications(now, 25, prisma);
-
-  const summary = await dispatchBatch(due, provider, {
-    updateNotification: (id, update) => updateNotification(id, update, prisma),
-    recordFailure: (failure) => recordFailure(failure, prisma),
-    now: () => new Date(),
-  });
-
-  return NextResponse.json({
-    ...summary,
-    provider: provider.name,
-    // Stated on every response so a staging run can never be mistaken for real
-    // delivery when someone reads the output later.
-    simulated: provider.simulated,
-  });
+  return NextResponse.json(result);
 }

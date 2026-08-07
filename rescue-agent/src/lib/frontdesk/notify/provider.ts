@@ -18,6 +18,14 @@ export interface SmsMessage {
   body: string;
   /** Correlates provider logs with our notification record. */
   reference: string;
+  /**
+   * Stable per-attempt key. Delivery here is at-least-once: a worker that dies
+   * after the provider accepted a message but before the outcome was recorded
+   * will retry that attempt. Passing this key lets the vendor recognise the
+   * repeat and not send twice. Real adapters MUST forward it to whatever the
+   * vendor calls its idempotency header.
+   */
+  idempotencyKey: string;
 }
 
 /**

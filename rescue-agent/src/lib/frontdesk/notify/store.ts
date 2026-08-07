@@ -38,38 +38,93 @@ export async function enqueueNotification(
 }
 
 /**
- * Notifications due for a send attempt.
+ * How long a worker's claim on a row is honoured. A worker that dies mid-send
+ * leaves its row in SENDING; after this it is reclaimed so the alert is not
+ * lost forever. Long enough that a slow provider call is not stolen from a
+ * live worker, short enough that a crash does not strand a food-safety alert.
+ */
+export const LEASE_MINUTES = 5;
+
+/**
+ * Atomically claim notifications due for a send attempt.
  *
- * Intentionally NOT tenant-filtered: the dispatcher is a platform-level worker
- * that drains every tenant's queue. Each row carries its own tenantId, which
- * is what every downstream write is scoped by, so no cross-tenant data is
- * mixed — a tenant filter here would simply mean some restaurants' alerts
- * never get sent.
+ * DUPLICATE-SEND PROTECTION. The previous implementation was a plain SELECT,
+ * which meant two workers running at once — a cron overlapping with a manual
+ * dispatch, or two container replicas — would both read the same rows and both
+ * send them. A manager would get the same alert twice, and every send would be
+ * billed twice.
+ *
+ * This claims in one statement:
+ *   - `FOR UPDATE SKIP LOCKED` lets concurrent workers take disjoint rows
+ *     instead of blocking on each other or colliding.
+ *   - The UPDATE flips rows to SENDING in the same statement that selects
+ *     them, so there is no window where a row looks claimable but is claimed.
+ *   - Rows stuck in SENDING past the lease are reclaimed, which is how a
+ *     crashed worker's backlog is recovered.
+ *
+ * Intentionally NOT tenant-filtered: this is a platform worker draining every
+ * restaurant's queue. Each row carries its own tenantId, which scopes every
+ * write that follows — a tenant filter here would just mean some restaurants'
+ * alerts never get sent.
  */
 export async function claimDueNotifications(
   now: Date,
   limit = 25,
   db: Db = prisma,
+  workerId = 'worker',
 ): Promise<NotificationRecord[]> {
-  const rows = await db.fdNotification.findMany({
-    where: {
-      status: 'QUEUED',
-      OR: [{ nextAttemptAt: null }, { nextAttemptAt: { lte: now } }],
-    },
-    orderBy: { createdAt: 'asc' },
-    take: limit,
-    select: {
-      id: true,
-      tenantId: true,
-      escalationId: true,
-      toNumber: true,
-      fromNumber: true,
-      body: true,
-      attempts: true,
-      maxAttempts: true,
-    },
-  });
+  const staleBefore = new Date(now.getTime() - LEASE_MINUTES * 60_000);
+
+  const rows = await db.$queryRaw<
+    {
+      id: string;
+      tenantId: string;
+      escalationId: string | null;
+      toNumber: string;
+      fromNumber: string;
+      body: string;
+      attempts: number;
+      maxAttempts: number;
+    }[]
+  >`
+    UPDATE "FdNotification" AS n
+       SET status = 'SENDING',
+           "lockedAt" = ${now},
+           "lockedBy" = ${workerId}
+     WHERE n.id IN (
+       SELECT c.id
+         FROM "FdNotification" AS c
+        WHERE (c.status = 'QUEUED'
+                AND (c."nextAttemptAt" IS NULL OR c."nextAttemptAt" <= ${now}))
+           OR (c.status = 'SENDING' AND c."lockedAt" < ${staleBefore})
+        ORDER BY c."createdAt" ASC
+        LIMIT ${limit}
+        FOR UPDATE SKIP LOCKED
+     )
+    RETURNING n.id,
+              n."tenantId"      AS "tenantId",
+              n."escalationId"  AS "escalationId",
+              n."toNumber"      AS "toNumber",
+              n."fromNumber"    AS "fromNumber",
+              n.body,
+              n.attempts,
+              n."maxAttempts"   AS "maxAttempts"
+  `;
+
   return rows;
+}
+
+/**
+ * Release rows a worker claimed but never processed (e.g. the provider could
+ * not be loaded). Without this they would sit in SENDING until the lease
+ * expired, delaying alerts for no reason.
+ */
+export async function releaseClaims(ids: string[], db: Db = prisma): Promise<void> {
+  if (ids.length === 0) return;
+  await db.fdNotification.updateMany({
+    where: { id: { in: ids }, status: 'SENDING' },
+    data: { status: 'QUEUED', lockedAt: null, lockedBy: null },
+  });
 }
 
 export async function updateNotification(
@@ -83,6 +138,10 @@ export async function updateNotification(
       status: update.status,
       attempts: update.attempts,
       nextAttemptAt: update.nextAttemptAt ?? null,
+      // Every terminal or requeued state releases the worker's claim. Leaving
+      // a lease behind would make the row unclaimable until it expired.
+      lockedAt: null,
+      lockedBy: null,
       providerName: update.providerName ?? undefined,
       providerMessageId: update.providerMessageId ?? undefined,
       errorCode: update.errorCode ?? null,

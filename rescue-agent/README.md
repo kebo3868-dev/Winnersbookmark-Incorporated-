@@ -219,12 +219,42 @@ credentials, and is a separate, explicitly approved step; it plugs in behind the
 existing `SmsProvider` interface without touching dispatch, retries or the
 failure queue.
 
-### Draining the queue
+### Draining the queue — the dispatch worker
 
-`POST /api/frontdesk/notifications/dispatch` (admin only) processes due
-notifications. A deployment runs this on a schedule; **no scheduler is
-configured in this repo**, so until one is added alerts are only sent when that
-endpoint is called.
+Queued alerts do not send themselves. Three triggers drive the **same** dispatch
+cycle (`notify/worker.ts`), so behaviour never depends on how it was started:
+
+| Trigger | Auth | Use |
+| --- | --- | --- |
+| `GET/POST /api/frontdesk/notifications/cron` | `Authorization: Bearer $CRON_SECRET` | Managed schedulers (Vercel Cron) |
+| `npm run worker:notifications` | same secret, over HTTP | Long-lived deploys (Docker, VM) |
+| `POST /api/frontdesk/notifications/dispatch` | WBI admin | Manual runs during a pilot |
+
+`vercel.json` declares a once-a-minute schedule. **It does nothing until
+`CRON_SECRET` is set** — the endpoint refuses a missing secret *and* one shorter
+than 16 characters, so a queue-draining route cannot become reachable because
+someone set `CRON_SECRET=test`.
+
+#### Duplicate-send protection
+
+Claiming is a single `UPDATE … FOR UPDATE SKIP LOCKED` statement that flips rows
+to `SENDING` as it selects them. Concurrent workers therefore take **disjoint**
+batches rather than both reading the same rows — the cron tick overlapping a
+manual dispatch, or two container replicas, cannot text a manager twice or
+double-bill a send. Verified live with six simultaneous cycles against one
+queue: every alert processed exactly once.
+
+Each attempt also carries an idempotency key (`<notification id>:<attempt>`).
+Delivery is **at-least-once**: a worker that dies between "the provider accepted
+it" and "we recorded that" will retry that attempt, and the key is what lets the
+vendor recognise the repeat. A real adapter MUST forward it to the vendor's
+idempotency header.
+
+#### Crash recovery
+
+A worker that dies mid-send leaves its row in `SENDING`. After a 5-minute lease
+another worker reclaims it, so a stranded food-safety alert is never lost. A
+claim that is still within its lease is not stolen from the worker holding it.
 
 ### Delivery callback
 

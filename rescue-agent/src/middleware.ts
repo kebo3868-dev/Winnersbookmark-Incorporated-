@@ -31,7 +31,12 @@ const PER_TENANT_AUTH_ROUTES = [/^\/api\/frontdesk\/[^/]+\/message$/];
  * delivery tracking to work at all, and it has no useful surface without a
  * valid signature.
  */
-const SIGNED_WEBHOOK_ROUTES = [/^\/api\/frontdesk\/notifications\/webhook$/];
+const SIGNED_WEBHOOK_ROUTES = [
+  /^\/api\/frontdesk\/notifications\/webhook$/,
+  // The scheduled dispatch trigger. A scheduler cannot present Basic Auth, so
+  // it carries a shared secret instead and refuses a missing or weak one.
+  /^\/api\/frontdesk\/notifications\/cron$/,
+];
 
 function isSelfAuthenticatingRoute(pathname: string): boolean {
   if (SIGNED_WEBHOOK_ROUTES.some((pattern) => pattern.test(pathname))) return true;

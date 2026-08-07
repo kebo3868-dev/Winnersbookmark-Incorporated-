@@ -28,6 +28,13 @@ export const MOCK_BEHAVIOURS = {
 /** Attempt counter per reference, so TRANSIENT_FAILURE can succeed on retry. */
 const attemptsByReference = new Map<string, number>();
 
+/**
+ * Results already returned for an idempotency key. A real vendor keeps this
+ * server-side; the mock keeps it here so duplicate-send protection can be
+ * tested rather than assumed.
+ */
+const resultsByIdempotencyKey = new Map<string, SmsSendResult>();
+
 /** Everything the mock "sent". Inspectable by tests and the staging harness. */
 export interface MockSentMessage {
   to: string;
@@ -47,6 +54,7 @@ export function mockOutbox(): readonly MockSentMessage[] {
 export function resetMockProvider(): void {
   outbox.length = 0;
   attemptsByReference.clear();
+  resultsByIdempotencyKey.clear();
 }
 
 export class MockSmsProvider implements SmsProvider {
@@ -55,46 +63,57 @@ export class MockSmsProvider implements SmsProvider {
   readonly simulated = true;
 
   async send(message: SmsMessage): Promise<SmsSendResult> {
+    // Replaying the same attempt returns the original result without sending
+    // again — this is what stops a crashed-and-restarted worker from texting a
+    // manager twice.
+    const seen = resultsByIdempotencyKey.get(message.idempotencyKey);
+    if (seen) return seen;
+
     const digits = message.to.replace(/\D/g, '');
     const suffix = digits.slice(-4);
     const attempt = (attemptsByReference.get(message.reference) ?? 0) + 1;
     attemptsByReference.set(message.reference, attempt);
 
+    const remember = (result: SmsSendResult): SmsSendResult => {
+      resultsByIdempotencyKey.set(message.idempotencyKey, result);
+      return result;
+    };
+
     if (suffix === MOCK_BEHAVIOURS.PERMANENT_FAILURE) {
-      return {
+      return remember({
         status: 'FAILED',
         errorCode: 'INVALID_NUMBER',
         errorMessage: 'The destination number is not valid',
         retryable: false,
-      };
+      });
     }
 
     if (suffix === MOCK_BEHAVIOURS.OPTED_OUT) {
-      return {
+      return remember({
         status: 'FAILED',
         errorCode: 'RECIPIENT_OPTED_OUT',
         errorMessage: 'The recipient has opted out of messages from this sender',
         retryable: false,
-      };
+      });
     }
 
     if (suffix === MOCK_BEHAVIOURS.ALWAYS_TRANSIENT) {
-      return {
+      return remember({
         status: 'FAILED',
         errorCode: 'PROVIDER_UNAVAILABLE',
         errorMessage: 'Temporary provider outage',
         retryable: true,
-      };
+      });
     }
 
     // Fails once, then succeeds — the ordinary transient case.
     if (suffix === MOCK_BEHAVIOURS.TRANSIENT_FAILURE && attempt === 1) {
-      return {
+      return remember({
         status: 'FAILED',
         errorCode: 'TIMEOUT',
         errorMessage: 'Request to provider timed out',
         retryable: true,
-      };
+      });
     }
 
     const providerMessageId = `mock_${randomUUID()}`;
@@ -107,6 +126,6 @@ export class MockSmsProvider implements SmsProvider {
       sentAt: new Date(),
     });
 
-    return { status: 'ACCEPTED', providerMessageId, retryable: false };
+    return remember({ status: 'ACCEPTED', providerMessageId, retryable: false });
   }
 }

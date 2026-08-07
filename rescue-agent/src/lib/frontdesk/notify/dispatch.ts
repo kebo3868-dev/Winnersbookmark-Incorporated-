@@ -174,6 +174,9 @@ export async function attemptSend(
         from: notification.fromNumber,
         body: notification.body,
         reference: notification.id,
+        // Per-attempt, so a genuine retry after a transient failure is a NEW
+        // send, while a repeat of the same attempt after a crash is deduped.
+        idempotencyKey: `${notification.id}:${attempts}`,
       }),
     );
   } catch (error) {
