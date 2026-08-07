@@ -1,0 +1,42 @@
+import { NextResponse, type NextRequest } from 'next/server';
+import { prisma } from '@/lib/db';
+import { purgeFrontDeskDemoData, seedDemoTenants } from '@/lib/frontdesk/store';
+
+export const dynamic = 'force-dynamic';
+
+/**
+ * Demo tenant lifecycle (§XXI).
+ *
+ * POST   → create or refresh the demo restaurants
+ * DELETE → remove every demo tenant and all data marked demoMode
+ *
+ * Both sit behind the app-wide Basic Auth middleware. The delete is destructive
+ * by design, so the UI confirms before calling it.
+ */
+
+export async function POST() {
+  try {
+    const result = await seedDemoTenants(prisma);
+    return NextResponse.json(result);
+  } catch (error) {
+    console.error('[frontdesk] demo seed failed', error);
+    return NextResponse.json({ error: 'DEMO RESTAURANTS COULD NOT BE CREATED' }, { status: 500 });
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  // A second, explicit confirmation in the request itself, so that a stray
+  // DELETE cannot wipe demo data without intent.
+  const confirmed = new URL(request.url).searchParams.get('confirm') === 'true';
+  if (!confirmed) {
+    return NextResponse.json({ error: 'CONFIRMATION REQUIRED' }, { status: 400 });
+  }
+
+  try {
+    const result = await purgeFrontDeskDemoData(prisma);
+    return NextResponse.json(result);
+  } catch (error) {
+    console.error('[frontdesk] demo purge failed', error);
+    return NextResponse.json({ error: 'DEMO DATA COULD NOT BE REMOVED' }, { status: 500 });
+  }
+}

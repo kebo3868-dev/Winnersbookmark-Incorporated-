@@ -106,6 +106,113 @@ PostgreSQL + Prisma. Local dev credentials live in `.env` (never committed).
 `RESCUE_AGENT_ALLOW_PRIVATE_TARGETS=1` is a test-only hook for the fixture-site
 integration test and is hard-disabled when `NODE_ENV=production`.
 
+---
+
+# Winners Bookmark AI Front Desk
+
+A **second product** sharing this application's database, deployment and auth.
+The Rescue Audit sells to a prospect; the Front Desk is what the restaurant then
+runs day to day. Routes live under `/frontdesk`, code under `src/lib/frontdesk`,
+and every table is prefixed `Fd`. Nothing in the audit pipeline was changed.
+
+## The two layers
+
+**Layer 1 — the engine.** One reusable pipeline, in `src/lib/frontdesk/`.
+It contains no restaurant facts at all.
+
+**Layer 2 — tenant configuration.** Each restaurant is a row in `FdTenant` whose
+`config` column holds a validated `TenantConfig` (`config/schema.ts`). Onboarding
+restaurant #2 or #100 means writing one of these objects — never editing engine code.
+
+```
+src/lib/frontdesk/
+  config/schema.ts        Tenant configuration contract (zod). Secrets are
+                          referenced by env-var NAME only, never by value.
+  config/completeness.ts  Missing Information Report — blocks activation and
+                          names the capability each gap switches off
+  intent.ts               Deterministic intent detection + entity extraction
+  guardrails.ts           Screening (injection, cross-tenant, staff data,
+                          payment data) and escalation triggers
+  knowledge/hours.ts      Hours in the LOCATION's timezone; holidays override
+  knowledge/resolver.ts   Verified-answer resolution — the only source of
+                          restaurant facts
+  leads.ts                Lead categorisation, priority, ESTIMATED value
+  engine.ts               The turn engine (pure function: no I/O, no clock)
+  store.ts                Tenant-scoped persistence — every query filters by
+                          tenantId, including lookups by primary key
+  demo/tenant.ts          Two fictional restaurants (.invalid domains, 555 numbers)
+```
+
+## Why replies are composed, not generated
+
+The engine builds replies from templates plus verified config values. This is a
+deliberate MVP constraint: there is no code path from "customer asked" to
+"sentence invented", so the front desk **cannot** fabricate a price, an allergen
+claim or a booking. Every assistant turn stores an `answerSource`
+(`VERIFIED_CONFIG` / `VERIFIED_FAQ` / `VERIFIED_PATHWAY` / `CLARIFYING` /
+`UNVERIFIED_DEFERRED` / `ESCALATED` / `REFUSED`) so an operator can audit whether
+it spoke from data or correctly declined. A later phase may pass a composed reply
+through a model to smooth phrasing — the facts will still come from here.
+
+## Safety rules that are structural, not stylistic
+
+- **Allergens** — never certified. `guardrails.ts` runs before knowledge
+  resolution, so no path answers an allergen question from menu data. A severe
+  allergy always reaches a human.
+- **Reservations** — `bookingState` is `REQUESTED`, never `CONFIRMED`, until a
+  real booking integration says otherwise.
+- **Complaints** — acknowledge → capture → escalate. Never promises a refund,
+  never admits liability, never argues.
+- **Estimated value** — labelled ESTIMATED everywhere. When the restaurant has
+  supplied no average check, the estimate is `null`, not a guess.
+- **Multi-tenant** — every read and write is filtered by `tenantId`. Lead updates
+  use `updateMany` with a tenant filter so a leaked id is useless.
+
+## Try it
+
+```bash
+npm run dev
+# open /frontdesk → "Create demo restaurants" → open a restaurant → "Try the front desk"
+```
+
+The simulator talks to the real API route and shows the provenance badge on every
+reply. "Remove demo data" deletes only rows marked `demoMode` and asks first.
+
+## Escalations are dashboard-only until Phase 2
+
+An escalation writes an `FdEscalation` record that appears under **Needs a
+person** on the TODAY dashboard. It does **not** send anything to the configured
+contact — outbound notification is Phase 2.
+
+The customer-facing wording reflects that exactly: replies say the issue has been
+*flagged for the team*, never that anyone is being alerted, and anything
+time-critical points the customer at the restaurant's own phone number, which
+reaches a human immediately. A food-safety report is the worst possible place to
+over-promise, so it does not.
+
+**Operationally this means someone has to watch the dashboard.** Until
+notifications ship, an unwatched dashboard means an unseen escalation.
+
+## FOUNDER ACTION REQUIRED — before real customer traffic
+
+The `/api/frontdesk/[tenantSlug]/message` route currently sits behind the same
+Basic Auth as the rest of the app. That is correct for demos and internal use.
+**Before pointing a website widget or a telephony webhook at it**, it needs a
+public per-tenant authentication path (a per-tenant key or signed webhook
+verification) — otherwise making it publicly reachable would expose every
+tenant's endpoint. This is the first Phase 2 task, not an optional hardening step.
+
+## Phase status
+
+- **Phase 1 (MVP) — built:** tenant configuration, intent detection, FAQ
+  answering, lead capture, human escalation, TODAY dashboard, demo mode.
+- **Phase 2 — not started:** missed-call recovery, SMS, follow-up workflows,
+  notifications, the operator failure queue (`FAILED_SMS` and friends).
+- **Phase 3 — not started:** reservation/ordering integrations, telephony,
+  email, review workflow.
+- **Phase 4 — not started:** RBAC roles, monthly owner report, billing,
+  onboarding automation.
+
 ## Roadmap after MVP
 
 - PDF export of the owner report (HTML report is authoritative today)
