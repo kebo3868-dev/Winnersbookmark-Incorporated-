@@ -178,20 +178,231 @@ npm run dev
 The simulator talks to the real API route and shows the provenance badge on every
 reply. "Remove demo data" deletes only rows marked `demoMode` and asks first.
 
-## Escalations are dashboard-only until Phase 2
+## Escalation alerts by SMS (Phase 2)
 
-An escalation writes an `FdEscalation` record that appears under **Needs a
-person** on the TODAY dashboard. It does **not** send anything to the configured
-contact — outbound notification is Phase 2.
+An escalation now queues an SMS to the staff contact its routing rules select,
+and the whole path is tracked:
 
-The customer-facing wording reflects that exactly: replies say the issue has been
-*flagged for the team*, never that anyone is being alerted, and anything
-time-critical points the customer at the restaurant's own phone number, which
-reaches a human immediately. A food-safety report is the worst possible place to
-over-promise, so it does not.
+```
+escalation recorded → notification QUEUED → provider accepts → SENT
+                                          → carrier callback → DELIVERED
+                                          → transient error  → retry (max 3) → ABANDONED
+                                          → permanent error  → ABANDONED immediately
+```
 
-**Operationally this means someone has to watch the dashboard.** Until
-notifications ship, an unwatched dashboard means an unseen escalation.
+**SENT is not DELIVERED.** SENT means a provider accepted the message; only a
+carrier callback confirms it reached a handset. The dashboard shows both, and
+never conflates them — believing a manager was reached when the message is
+still queued is the failure this distinction exists to prevent.
+
+Anything that ends ABANDONED, plus every configuration reason an alert could
+not be sent at all (`smsEnabled` off, no sending number, contact has no phone),
+is written to the **failure queue** and shown at the top of the TODAY dashboard.
+Nothing fails silently.
+
+### Configuration
+
+| Variable | Purpose |
+| --- | --- |
+| `SMS_PROVIDER` | `mock` today. Unset means no alerts — escalations stay dashboard-only. |
+| `SMS_WEBHOOK_SECRET` | HMAC secret for delivery callbacks. **Verification fails closed without it.** |
+| `SMS_ALLOW_MOCK_IN_PRODUCTION` | Staging escape hatch. See below. |
+
+**The mock is refused when `NODE_ENV=production`** unless
+`SMS_ALLOW_MOCK_IN_PRODUCTION=true`. Without that guard a production deploy
+would look healthy — notifications marked SENT — while no manager ever received
+anything. Every simulated message is also labelled `Simulated` in the UI and in
+the dispatch response.
+
+No real provider adapter is implemented. Connecting one requires an account and
+credentials, and is a separate, explicitly approved step; it plugs in behind the
+existing `SmsProvider` interface without touching dispatch, retries or the
+failure queue.
+
+### Draining the queue — the dispatch worker
+
+Queued alerts do not send themselves. Three triggers drive the **same** dispatch
+cycle (`notify/worker.ts`), so behaviour never depends on how it was started:
+
+| Trigger | Auth | Use |
+| --- | --- | --- |
+| `GET/POST /api/frontdesk/notifications/cron` | `Authorization: Bearer $CRON_SECRET` | Managed schedulers (Vercel Cron) |
+| `npm run worker:notifications` | same secret, over HTTP | Long-lived deploys (Docker, VM) |
+| `POST /api/frontdesk/notifications/dispatch` | WBI admin | Manual runs during a pilot |
+
+The endpoint refuses a missing secret *and* one shorter than 16 characters, so
+a queue-draining route cannot become reachable because someone set
+`CRON_SECRET=test`.
+
+**No schedule is committed to this repo, deliberately.** Vercel rejects
+sub-daily cron schedules on Hobby plans *at build time*, so shipping an active
+`vercel.json` could break a deploy depending on the account's plan. Add it once
+you have confirmed the plan supports it:
+
+```json
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "crons": [{ "path": "/api/frontdesk/notifications/cron", "schedule": "* * * * *" }]
+}
+```
+
+Vercel Cron issues a `GET` and supplies `Authorization: Bearer $CRON_SECRET`
+automatically once `CRON_SECRET` is set in project settings. On a Hobby plan, or
+any container deploy, run `npm run worker:notifications` instead — it polls the
+same endpoint on an interval and has no plan restriction.
+
+**Until one of these is running, alerts queue and are never sent.**
+
+#### Duplicate-send protection
+
+Claiming is a single `UPDATE … FOR UPDATE SKIP LOCKED` statement that flips rows
+to `SENDING` as it selects them. Concurrent workers therefore take **disjoint**
+batches rather than both reading the same rows — the cron tick overlapping a
+manual dispatch, or two container replicas, cannot text a manager twice or
+double-bill a send. Verified live with six simultaneous cycles against one
+queue: every alert processed exactly once.
+
+Each attempt also carries an idempotency key (`<notification id>:<attempt>`).
+Delivery is **at-least-once**: a worker that dies between "the provider accepted
+it" and "we recorded that" will retry that attempt, and the key is what lets the
+vendor recognise the repeat. A real adapter MUST forward it to the vendor's
+idempotency header.
+
+#### Crash recovery
+
+A worker that dies mid-send leaves its row in `SENDING`. After a 5-minute lease
+another worker reclaims it, so a stranded food-safety alert is never lost. A
+claim that is still within its lease is not stolen from the worker holding it.
+
+### Delivery callback
+
+`POST /api/frontdesk/notifications/webhook` — HMAC-signed over the raw body,
+with a required recent timestamp so a captured callback cannot be replayed to
+mark a failed alert as delivered. It is the one route exempt from the app-wide
+Basic Auth, which is safe precisely because it fails closed without a valid
+signature. Duplicate and out-of-order callbacks are idempotent: a late
+`UNDELIVERED` never overwrites a `DELIVERED`.
+
+### Customer-facing wording is unchanged, deliberately
+
+Replies still say an issue has been *flagged for the team* — never that someone
+is being alerted. At the moment of reply the system genuinely does not know
+whether the SMS will be accepted, delivered, or abandoned, so promising delivery
+would be a claim it cannot stand behind. Anything time-critical still points the
+customer at the restaurant's own number, which reaches a human immediately.
+
+## Inbound messaging, consent and rate limits (Phase 2 M3)
+
+The front desk now receives as well as sends: customer SMS and missed-call
+events arrive on one signed webhook.
+
+### Missed-call recovery (§VII)
+
+A missed call creates a conversation and queues **one** recovery text. The
+customer replies or does not — and if they do not, the follow-up cap stops us
+chasing them. A caller who rings five times without replying still gets one
+text: only an inbound *message* resets that baseline, never another call.
+
+### Consent — checked before every outbound message
+
+`messaging/send.ts` is the **only** path that queues a message, and it applies
+consent, rate limits and the follow-up cap there rather than at each call site,
+so a future feature cannot skip them.
+
+| Status | Meaning |
+| --- | --- |
+| `UNKNOWN` | Never interacted. Customer-directed messages are refused. |
+| `IMPLIED` | They called or texted us. Bounded operational replies allowed. |
+| `OPTED_IN` | Explicit START after a STOP. |
+| `OPTED_OUT` | Sent STOP. **Blocks every outbound message, including staff alerts.** |
+
+STOP is absolute and applies to *every* purpose. If a manager texts STOP, their
+escalation alerts stop — and the refusal is filed loudly to the failure queue so
+an operator fixes the routing instead of the system quietly ignoring consent.
+The STOP acknowledgement itself is the one message an opted-out number still
+receives, because carriers expect it.
+
+Keyword matching is deliberately strict: only a message that is essentially just
+the keyword counts. "Stop by around 7?" is a reservation enquiry, and silencing
+a paying customer over it would be worse than missing a keyword.
+
+**Consent is per (restaurant, number), never global.** Opting out of one
+restaurant does not silence another — they are separate businesses.
+
+**NOT LEGAL ADVICE.** The encoded policy is a defensible default for US A2P
+messaging. Each restaurant remains responsible for confirming its own
+obligations; every threshold is per-tenant configuration so it can be tightened
+without a code change.
+
+### Rate limits
+
+Per-number (default 5/hour) protects a person from being messaged repeatedly by
+a bug or a redelivery storm. Per-tenant (default 200/hour) caps spend and
+contains a misconfiguration to one client. Both fall back to conservative
+defaults, never to unlimited. Fixed hourly windows, so an operator can be shown
+exactly which counter throttled a message; the tradeoff is up to 2x across a
+window boundary.
+
+### Duplicate webhook protection
+
+Every inbound event is claimed by a unique-constrained insert on
+(provider, eventId) before any work happens. Concurrent redeliveries race and
+exactly one proceeds — verified live: three deliveries of one missed call
+produce one text.
+
+## Tenant users, roles and isolation (Phase 4 M4)
+
+Until M4 the dashboard was all-or-nothing: one operator credential that saw
+every restaurant. A restaurant owner could not be given access to their own
+dashboard without being given access to everyone's. Now each restaurant has its
+own users.
+
+### Roles (§XXVI)
+
+| Role | Scope | May |
+| --- | --- | --- |
+| `WBI_ADMIN` | all tenants | everything, incl. creating restaurants and demo data |
+| `RESTAURANT_OWNER` | own restaurant | read, leads, API keys, configuration |
+| `RESTAURANT_MANAGER` | own restaurant | read, leads |
+| `RESTAURANT_STAFF` | own restaurant | read, leads |
+| `READ_ONLY` | own restaurant | read |
+
+**Two questions, never one.** Every authorization asks *does this actor hold the
+permission* AND *for THIS restaurant*, together, in a single `authorize()` call.
+A permission check alone passes for every restaurant — that is the classic
+multi-tenant hole, and the API makes it impossible to write.
+
+`tenantId` on the user row IS the boundary: NULL only for `WBI_ADMIN`, non-null
+for every restaurant role, and a row violating that is refused rather than
+interpreted generously.
+
+### Credentials
+
+Passwords use **scrypt** (`node:crypto`, no dependency) — deliberately expensive,
+because a password is human-chosen and the threat is offline brute force after a
+leak. API keys and session tokens use **SHA-256** — deliberately fast, because
+they are 256-bit random values where brute force is not the threat. Using either
+in the other's place would be wrong.
+
+Sessions store only a token digest, expire absolutely after 12 hours, are
+revoked server-side on logout, and die the moment a user is suspended. The
+cookie is httpOnly, sameSite=lax, and Secure in production.
+
+Sign-in is rate-limited per (restaurant, email) per hour, and wrong password,
+unknown user and unknown restaurant are byte-identical responses — so the
+endpoint is neither a brute-force target nor an account-enumeration oracle.
+
+### Two structural guards
+
+Behavioural tests prove today's code is correct; they cannot prove tomorrow's
+will be. Two source-scanning tests run in CI:
+
+1. **Query scoping** — fails if any query against customer data omits a tenant
+   filter. Extended in M4 to the consent, notification, rate-counter, inbound-event
+   and user models, all of which were outside it until now.
+2. **Surface authorization** — fails if any page or route under `/frontdesk` is
+   added without authorizing itself. This is what makes the middleware's
+   session bypass safe, and it caught a real privilege escalation during M4.
 
 ## FOUNDER ACTION REQUIRED — before real customer traffic
 

@@ -1,4 +1,7 @@
 import Link from 'next/link';
+import { notFound } from 'next/navigation';
+import { resolveActor } from '@/lib/frontdesk/auth/actor';
+import { can, mayActOnTenant } from '@/lib/frontdesk/auth/roles';
 import { buildCompletenessReport } from '@/lib/frontdesk/config/completeness';
 import { listTenants } from '@/lib/frontdesk/store';
 import { DemoControls } from './DemoControls';
@@ -13,7 +16,19 @@ export const dynamic = 'force-dynamic';
  * not have to scroll sideways to read a metric.
  */
 export default async function FrontDeskIndexPage() {
-  const { tenants, failures } = await listTenants();
+  const actor = await resolveActor();
+  if (!actor) notFound();
+
+  const all = await listTenants();
+
+  // A restaurant user sees exactly one row — their own. Filtering here rather
+  // than hiding rows in the markup: a hidden row is still in the HTML, and
+  // "not rendered" is not access control (§XIX).
+  const tenants = all.tenants.filter((t) => mayActOnTenant(actor, t.id));
+  // Misconfigured-tenant diagnostics are platform information, not a
+  // restaurant's business.
+  const failures = can(actor.role, 'platform:admin') ? all.failures : [];
+  const isPlatformAdmin = can(actor.role, 'platform:admin');
 
   return (
     <div className="space-y-8">
@@ -26,7 +41,7 @@ export default async function FrontDeskIndexPage() {
             configuration, not changing the product.
           </p>
         </div>
-        <DemoControls hasDemoTenants={tenants.some((t) => t.demoMode)} />
+        {isPlatformAdmin && <DemoControls hasDemoTenants={tenants.some((t) => t.demoMode)} />}
       </div>
 
       {failures.length > 0 && (

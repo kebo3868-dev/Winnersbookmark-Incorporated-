@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { z } from 'zod';
+import { authorize, resolveActor } from '@/lib/frontdesk/auth/actor';
 import { getTenantBySlug, updateLeadStatus } from '@/lib/frontdesk/store';
 import { LEAD_STATUSES } from '@/lib/frontdesk/types';
 
@@ -42,6 +43,14 @@ export async function PATCH(
 
   const tenant = await getTenantBySlug(tenantSlug);
   if (!tenant) return NextResponse.json({ error: 'RESTAURANT NOT FOUND' }, { status: 404 });
+
+  // Role AND tenant, together. A READ_ONLY user of this restaurant is refused,
+  // and a manager of a DIFFERENT restaurant is refused — the second is the one
+  // a permission-only check would have let through.
+  const authz = authorize(await resolveActor(), tenant.id, 'leads:write');
+  if (!authz.ok) {
+    return NextResponse.json({ error: 'NOT PERMITTED' }, { status: authz.status });
+  }
 
   const updated = await updateLeadStatus(tenant.id, leadId, parsed.data);
   if (!updated) return NextResponse.json({ error: 'LEAD NOT FOUND' }, { status: 404 });

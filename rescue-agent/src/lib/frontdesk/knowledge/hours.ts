@@ -118,6 +118,22 @@ function previousDay(
 }
 
 /**
+ * The timezone every time-dependent answer for a tenant is computed in.
+ *
+ * Returns null rather than defaulting to UTC. A tenant with no configured
+ * location genuinely has no clock of its own, and quietly substituting UTC
+ * produces answers that are confidently wrong — "we're closed" at 7 PM Pacific,
+ * a promotion shown a day early, a "Today" dashboard that started counting at
+ * 8 PM yesterday. Every one of those reads exactly like a verified answer.
+ *
+ * Callers must handle null explicitly. §IV: an unknown fact is deferred, not
+ * guessed, and a timezone is a fact like any other.
+ */
+export function tenantTimezone(config: { locations: Location[] }): string | null {
+  return config.locations[0]?.timezone ?? null;
+}
+
+/**
  * The instant at which the current local day began in a given timezone.
  *
  * `new Date(\`${localDate}T00:00:00Z\`)` is NOT this: it is UTC midnight, which

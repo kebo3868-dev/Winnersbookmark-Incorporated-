@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { authorize, resolveActor } from '@/lib/frontdesk/auth/actor';
 import { getTenantBySlug } from '@/lib/frontdesk/store';
 import { Simulator } from './Simulator';
 
@@ -9,6 +10,12 @@ export default async function SimulatorPage({ params }: { params: Promise<{ tena
   const { tenantSlug } = await params;
   const tenant = await getTenantBySlug(tenantSlug);
   if (!tenant) notFound();
+
+  // Same tenant-scoped check as the dashboard. The simulator writes real
+  // conversations and leads against this restaurant, so it is not a lesser
+  // surface — an unauthorised actor gets the same 404 as a fake slug.
+  const authz = authorize(await resolveActor(), tenant.id, 'tenant:read');
+  if (!authz.ok) notFound();
 
   return (
     <div className="space-y-6">

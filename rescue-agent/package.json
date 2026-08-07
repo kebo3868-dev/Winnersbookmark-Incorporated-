@@ -2,7 +2,7 @@
   "name": "wbi-restaurant-rescue-agent",
   "private": true,
   "version": "0.1.0",
-  "description": "Winners Bookmark Restaurant Rescue Agent — restaurant revenue intelligence and AI opportunity detection engine.",
+  "description": "Winners Bookmark Restaurant Rescue Agent \u2014 restaurant revenue intelligence and AI opportunity detection engine.",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -15,7 +15,8 @@
     "postinstall": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
-    "db:generate": "prisma generate"
+    "db:generate": "prisma generate",
+    "worker:notifications": "node scripts/notification-worker.mjs"
   },
   "engines": {
     "node": ">=20.9"

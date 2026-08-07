@@ -276,3 +276,27 @@ export function resolveEscalationRoute(config: TenantConfig, key: string): strin
   if (config.escalationContacts.some((c) => c.key === 'manager')) return 'manager';
   return config.escalationContacts[0]?.key ?? 'manager';
 }
+
+/**
+ * Can an escalation to this route actually reach a person by SMS?
+ *
+ * The front desk must not tell a customer their emergency has been "flagged
+ * for the team" when no alert can leave the building. That is the same class
+ * of false promise as claiming a booking exists — worse, because the person
+ * believing it may be in a genuine emergency.
+ *
+ * Pure and config-only, so the engine can consult it while composing a reply,
+ * before anything is queued.
+ */
+export function hasAlertPath(config: TenantConfig, routeKey: string): boolean {
+  if (!config.messaging.smsEnabled) return false;
+  if (!config.messaging.fromNumber) return false;
+
+  const resolved = resolveEscalationRoute(config, routeKey);
+  const contact = config.escalationContacts.find((c) => c.key === resolved);
+  if (contact?.phone) return true;
+
+  // A CRITICAL alert falls back to any other reachable contact, so the path
+  // exists if ANY configured contact has a phone number.
+  return config.escalationContacts.some((c) => Boolean(c.phone));
+}
