@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Location } from '@/lib/frontdesk/config/schema';
-import { formatTime, localParts, resolveHours } from '@/lib/frontdesk/knowledge/hours';
+import { formatTime, localParts, resolveHours, startOfLocalDay } from '@/lib/frontdesk/knowledge/hours';
 
 /**
  * Hours are the most-asked question and the easiest to answer wrongly. These
@@ -98,8 +98,8 @@ describe('resolveHours', () => {
       holidayHours: [],
       hours: { ...location.hours!, wed: [{ open: '17:00', close: '02:00' }] },
     };
-    // 00:30 Thursday New York is inside Wednesday's window... but the day has
-    // already rolled over, so this asserts the same-day case at 23:30 instead.
+    // 23:30 Wednesday New York — before midnight, so the window is found on
+    // the current day. The after-midnight case is covered separately below.
     const answer = resolveHours(lateBar, new Date('2026-08-13T03:30:00Z'));
     expect(answer.status).toBe('OPEN');
     expect(answer.closesAt).toBe('02:00');
@@ -112,5 +112,80 @@ describe('formatTime', () => {
     expect(formatTime('11:30')).toBe('11:30 AM');
     expect(formatTime('12:00')).toBe('12 PM');
     expect(formatTime('00:00')).toBe('12 AM');
+  });
+});
+
+/**
+ * Fixes from the PR #29 automated review. Each pinned here because each was a
+ * silently wrong answer rather than a visible failure.
+ */
+describe('cross-midnight service from the previous day', () => {
+  const lateBar: Location = {
+    ...location,
+    holidayHours: [],
+    hours: { ...location.hours!, wed: [{ open: '17:00', close: '02:00' }], thu: [] },
+  };
+
+  it('reports OPEN at 00:30 Thursday for a Wednesday 17:00-02:00 window', () => {
+    // 04:30 UTC Thursday = 00:30 Thursday in New York. The active window is
+    // attached to WEDNESDAY, so looking only at Thursday reports closed.
+    const answer = resolveHours(lateBar, new Date('2026-08-13T04:30:00Z'));
+    expect(answer.status).toBe('OPEN');
+    expect(answer.closesAt).toBe('02:00');
+  });
+
+  it('reports closed at 02:30 Thursday, after the window has ended', () => {
+    const answer = resolveHours(lateBar, new Date('2026-08-13T06:30:00Z'));
+    expect(answer.status).not.toBe('OPEN');
+  });
+
+  it('still reports OPEN before midnight on the day the window opened', () => {
+    const answer = resolveHours(lateBar, new Date('2026-08-13T03:30:00Z')); // 23:30 Wed
+    expect(answer.status).toBe('OPEN');
+  });
+
+  it('does not treat an ordinary window as spilling into the next day', () => {
+    // Wednesday 11:30-22:00 must not make Thursday 00:30 look open.
+    const answer = resolveHours(location, new Date('2026-08-13T04:30:00Z'));
+    expect(answer.status).not.toBe('OPEN');
+  });
+});
+
+describe('startOfLocalDay', () => {
+  it('returns the instant local midnight actually occurred, not UTC midnight', () => {
+    // 2026-08-12 19:00 New York (EDT, UTC-4). Local midnight that day was
+    // 2026-08-12T04:00:00Z — NOT 2026-08-12T00:00:00Z.
+    const start = startOfLocalDay(new Date('2026-08-12T23:00:00Z'), 'America/New_York');
+    expect(start.toISOString()).toBe('2026-08-12T04:00:00.000Z');
+  });
+
+  it('handles a zone east of UTC', () => {
+    // Tokyo is UTC+9, so its day begins the previous UTC afternoon.
+    const start = startOfLocalDay(new Date('2026-08-12T23:00:00Z'), 'Asia/Tokyo');
+    expect(start.toISOString()).toBe('2026-08-12T15:00:00.000Z');
+  });
+
+  it('handles a half-hour offset zone', () => {
+    const start = startOfLocalDay(new Date('2026-08-12T23:00:00Z'), 'Asia/Kolkata');
+    expect(start.toISOString()).toBe('2026-08-12T18:30:00.000Z');
+  });
+
+  it('is a no-op for UTC', () => {
+    const start = startOfLocalDay(new Date('2026-08-12T23:00:00Z'), 'UTC');
+    expect(start.toISOString()).toBe('2026-08-12T00:00:00.000Z');
+  });
+
+  it('never returns an instant after the moment asked about', () => {
+    for (const zone of ['America/New_York', 'Asia/Tokyo', 'Europe/London', 'Pacific/Auckland', 'UTC']) {
+      const now = new Date('2026-08-12T23:00:00Z');
+      expect(startOfLocalDay(now, zone).getTime()).toBeLessThanOrEqual(now.getTime());
+    }
+  });
+
+  it('resolves the correct day across a daylight-saving transition', () => {
+    // US DST ended 2026-11-01. At 12:00 local on the 1st the offset is -05:00,
+    // but local midnight occurred while the offset was still -04:00.
+    const start = startOfLocalDay(new Date('2026-11-01T17:00:00Z'), 'America/New_York');
+    expect(start.toISOString()).toBe('2026-11-01T04:00:00.000Z');
   });
 });

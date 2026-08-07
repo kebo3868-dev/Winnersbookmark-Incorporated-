@@ -411,3 +411,104 @@ describe('regressions found by running the app', () => {
     expect(turn.reply).toMatch(/closed now/i);
   });
 });
+
+/**
+ * Fixes from the PR #29 automated review.
+ */
+describe('a completed request is not captured twice', () => {
+  /** Runs a full conversation and returns every turn, feeding history forward. */
+  function runAll(messages: string[], tenant: TenantConfig = config) {
+    const history: ConversationTurn[] = [];
+    const turns = [];
+    for (const message of messages) {
+      const turn = runTurn({ config: tenant, message, history, now });
+      turns.push(turn);
+      history.push({ role: 'CUSTOMER', body: message });
+      history.push({ role: 'ASSISTANT', body: turn.reply });
+    }
+    return turns;
+  }
+
+  it('does not re-capture the lead when the customer says thanks afterwards', () => {
+    const turns = runAll([
+      'Table for 4 on Friday at 7pm, my name is Dana Whitfield, 727-555-0142',
+      'thanks!',
+    ]);
+    const captured = turns.flatMap((t) => t.actions).filter((a) => a.type === 'CAPTURE_LEAD');
+    // Exactly one lead for one booking — a duplicate would inflate both the
+    // owner's pipeline count and its estimated value.
+    expect(captured).toHaveLength(1);
+  });
+
+  it('does not repeat the confirmation message', () => {
+    const turns = runAll([
+      'Table for 4 on Friday at 7pm, my name is Dana Whitfield, 727-555-0142',
+      'thanks!',
+    ]);
+    expect(turns[0].reply).toMatch(/reservation request/i);
+    expect(turns[1].reply).not.toMatch(/reservation request/i);
+    expect(turns[1].bookingState).toBe('NONE');
+  });
+
+  it('does not create duplicate escalations for a completed catering request', () => {
+    const turns = runAll([
+      'I need catering for 40 people on December 12th. Marcus Reed, 727-555-0188',
+      'ok great',
+      'thank you',
+    ]);
+    const leads = turns.flatMap((t) => t.actions).filter((a) => a.type === 'CAPTURE_LEAD');
+    const escalations = turns.flatMap((t) => t.actions).filter((a) => a.type === 'ESCALATE');
+    expect(leads).toHaveLength(1);
+    expect(escalations).toHaveLength(1);
+  });
+
+  it('still inherits the intent while the request is incomplete', () => {
+    // The fix must not break terse mid-conversation answers.
+    const turns = runAll(['I would like to book a table', 'four of us', 'Friday']);
+    expect(turns[1].intent).toBe('RESERVATION');
+    expect(turns[2].intent).toBe('RESERVATION');
+    expect(turns[2].reply).toMatch(/time/i);
+  });
+
+  it('starts a genuinely new request after one has completed', () => {
+    const turns = runAll([
+      'Table for 4 on Friday at 7pm, my name is Dana Whitfield, 727-555-0142',
+      'actually I also need catering for 60 people next month',
+    ]);
+    expect(turns[1].intent).toBe('CATERING');
+  });
+});
+
+describe('escalation replies do not promise a notification the system cannot send', () => {
+  // Outbound notification is Phase 2: an escalation writes a record staff see
+  // on the dashboard, and sends nothing. The wording must reflect that.
+  const CLAIMS_DISPATCH = /\b(alerting|notifying|paging|texting|calling|emailing)\b.*\b(team|staff|manager|management)\b|\bi am alerting\b|\bmaking sure .* sees this straight away\b/i;
+
+  it.each([
+    ['emergency', 'There is a fire in the dining room, this is an emergency'],
+    ['food safety', 'I got sick after eating here last night'],
+    ['legal threat', 'I am going to sue you and call my attorney'],
+    ['refund', 'Give me a refund'],
+    ['manager request', 'Let me talk to the manager'],
+    ['complaint', 'The service last night was rude and the food was awful'],
+  ])('%s reply does not claim staff are being alerted', (_label, message) => {
+    expect(ask(message).reply).not.toMatch(CLAIMS_DISPATCH);
+  });
+
+  it('directs an emergency to 911 rather than to itself', () => {
+    const turn = ask('There is a fire in the dining room, this is an emergency');
+    expect(turn.reply).toMatch(/911/);
+    expect(turn.reply).toMatch(/faster than I can|right away/i);
+  });
+
+  it('offers the restaurant phone number for time-critical matters', () => {
+    const turn = ask('I got sick after eating here last night');
+    expect(turn.reply).toContain(config.mainPhone!);
+  });
+
+  it('still records the escalation so it reaches the dashboard', () => {
+    const turn = ask('I got sick after eating here last night');
+    expect(turn.actions.some((a) => a.type === 'ESCALATE')).toBe(true);
+    expect(turn.needsHuman).toBe(true);
+  });
+});

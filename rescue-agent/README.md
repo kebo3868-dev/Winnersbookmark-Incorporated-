@@ -178,6 +178,21 @@ npm run dev
 The simulator talks to the real API route and shows the provenance badge on every
 reply. "Remove demo data" deletes only rows marked `demoMode` and asks first.
 
+## Escalations are dashboard-only until Phase 2
+
+An escalation writes an `FdEscalation` record that appears under **Needs a
+person** on the TODAY dashboard. It does **not** send anything to the configured
+contact — outbound notification is Phase 2.
+
+The customer-facing wording reflects that exactly: replies say the issue has been
+*flagged for the team*, never that anyone is being alerted, and anything
+time-critical points the customer at the restaurant's own phone number, which
+reaches a human immediately. A food-safety report is the worst possible place to
+over-promise, so it does not.
+
+**Operationally this means someone has to watch the dashboard.** Until
+notifications ship, an unwatched dashboard means an unseen escalation.
+
 ## FOUNDER ACTION REQUIRED — before real customer traffic
 
 The `/api/frontdesk/[tenantSlug]/message` route currently sits behind the same

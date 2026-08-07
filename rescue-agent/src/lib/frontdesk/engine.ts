@@ -16,7 +16,7 @@ import {
   extractTime,
 } from './intent';
 import { resolveKnowledge, selectLocation } from './knowledge/resolver';
-import { buildLeadDraft, isLeadGenerating } from './leads';
+import { buildLeadDraft, categoriseLead, isLeadGenerating } from './leads';
 import {
   emptySlots,
   type Channel,
@@ -194,8 +194,13 @@ export function runTurn(input: TurnInput): TurnResult {
   const { config, message, now, history = [] } = input;
   const timezone = selectLocation(config, message)?.timezone ?? config.locations[0]?.timezone ?? 'UTC';
 
-  const customerMessages = [...history.filter((t) => t.role === 'CUSTOMER').map((t) => t.body), message];
-  const slots = accumulateSlots(customerMessages, now, timezone);
+  const priorMessages = history.filter((t) => t.role === 'CUSTOMER').map((t) => t.body);
+  const slots = accumulateSlots([...priorMessages, message], now, timezone);
+  // Slots as they stood BEFORE this message. Intent inheritance is decided
+  // against these: the question is whether the conversation was still waiting
+  // on an answer when this message arrived. Judging it against the post-message
+  // slots would refuse to inherit on the very turn that completes the request.
+  const priorSlots = accumulateSlots(priorMessages, now, timezone);
 
   const base = {
     slots,
@@ -236,7 +241,7 @@ export function runTurn(input: TurnInput): TurnResult {
     }
     return {
       ...base,
-      reply: escalationReply(verdict.reason, slots),
+      reply: escalationReply(verdict.reason, slots, config),
       intent: verdict.reason === 'REFUND_REQUEST' || verdict.reason === 'PAYMENT_DISPUTE' ? 'COMPLAINT' : 'COMPLAINT',
       answerSource: 'ESCALATED',
       actions,
@@ -252,8 +257,15 @@ export function runTurn(input: TurnInput): TurnResult {
   // booking. So an unclassifiable message inherits the revenue intent already
   // in progress. A message that classifies on its own is never overridden — a
   // customer who switches to "do you have parking?" gets a parking answer.
+  //
+  // Inheritance stops the moment the request is complete. Otherwise a closing
+  // "thanks" would inherit RESERVATION, find every slot already filled from
+  // history, and capture the same lead a second time — duplicating the row,
+  // the escalation and the confirmation message. Duplicate leads inflate the
+  // owner's pipeline and their estimated value, which is precisely the kind of
+  // number this product must not overstate.
   const detected = detectIntent(message);
-  const inherited = detected.intent === 'UNKNOWN' ? activeRevenueIntent(history) : null;
+  const inherited = detected.intent === 'UNKNOWN' ? activeRevenueIntent(history, priorSlots, config) : null;
   const intent = inherited ?? detected.intent;
   const withIntent = { ...base, intent, secondaryIntents: detected.secondary };
 
@@ -367,15 +379,28 @@ export function runTurn(input: TurnInput): TurnResult {
 }
 
 /**
- * The revenue intent a conversation is already working on, if any. Scans the
- * customer's own turns newest-first and re-detects rather than trusting a
- * stored label, so the answer is the same in a unit test and in production.
+ * The revenue intent a conversation is STILL WORKING ON, if any.
+ *
+ * Scans the customer's own turns newest-first and re-detects rather than
+ * trusting a stored label, so the answer is the same in a unit test and in
+ * production.
+ *
+ * Returns null once every required slot is filled: at that point the request
+ * has already been captured and handed off, so there is nothing left to
+ * inherit. Without that condition a follow-up like "thanks" re-enters the
+ * revenue path and captures the lead again.
  */
-function activeRevenueIntent(history: ConversationTurn[]): Intent | null {
+function activeRevenueIntent(
+  history: ConversationTurn[],
+  slots: ExtractedSlots,
+  config: TenantConfig,
+): Intent | null {
   const customerTurns = history.filter((turn) => turn.role === 'CUSTOMER');
   for (let i = customerTurns.length - 1; i >= 0; i--) {
     const match = detectIntent(customerTurns[i].body);
-    if (match.confidence >= CONFIDENCE_FLOOR && isLeadGenerating(match.intent)) return match.intent;
+    if (match.confidence < CONFIDENCE_FLOOR || !isLeadGenerating(match.intent)) continue;
+    const category = categoriseLead(match.intent, slots, config);
+    return nextMissingSlot(category, slots) ? match.intent : null;
   }
   return null;
 }
@@ -556,35 +581,56 @@ function confirmationReply(category: string, summary: string, config: TenantConf
   return `Thank you — I've sent your reservation request${detail} to the restaurant and someone will confirm it with you shortly. Please treat it as requested rather than confirmed until you hear back.${selfServe}`;
 }
 
-function escalationReply(reason: string, slots: ExtractedSlots): string {
+/**
+ * Escalation wording.
+ *
+ * IMPORTANT: an escalation currently writes a record that staff see on the
+ * dashboard. It does NOT send anything to the configured contact — outbound
+ * notification is Phase 2. So none of these replies may claim an alert is
+ * being dispatched. "I'm alerting the team now" would be exactly the kind of
+ * promise-beyond-capability this product refuses to make everywhere else, and
+ * on a food-safety report it is the worst possible place to make it.
+ *
+ * The wording therefore says what is true — the issue has been flagged for the
+ * team — and, for anything time-critical, points the customer at the channel
+ * that actually reaches a human immediately.
+ */
+function escalationReply(reason: string, slots: ExtractedSlots, config: TenantConfig): string {
   const ask = slots.phone
-    ? 'A manager will be in touch shortly.'
+    ? 'A manager will follow up with you.'
     : "What's the best number for a manager to reach you on?";
+
+  // For urgent matters, the restaurant's own phone number reaches a person now;
+  // a flagged record does not.
+  const callInstead = config.mainPhone
+    ? ` If you need someone right away, please call us on ${config.mainPhone}.`
+    : '';
 
   switch (reason) {
     case 'EMERGENCY':
-      return 'If this is an emergency, please call 911 right away. I am alerting the restaurant team now.';
+      return 'If this is an emergency, please call 911 right away — that will reach help faster than I can. I have flagged this for the restaurant team as urgent.';
     case 'FOOD_SAFETY':
       // No diagnosis, no liability, no minimising — acknowledge and route (§XI, §XII).
-      return `I'm very sorry to hear that, and I'm making sure the management team sees this straight away. If you are unwell, please speak to a medical professional. ${ask}`;
+      return `I'm very sorry to hear that. I've flagged this for the management team as urgent. If you are unwell, please speak to a medical professional.${callInstead} ${ask}`;
     case 'HARASSMENT':
       return "I'm ending this conversation here. If you need to reach the restaurant, please contact them directly.";
     case 'LEGAL_THREAT':
-      return `I understand, and I want to make sure this reaches the right person rather than being handled by me. I'm passing it to management now. ${ask}`;
+      return `I understand, and I want to make sure this reaches the right person rather than being handled by me. I've flagged it for management.${callInstead} ${ask}`;
     case 'MEDIA_INQUIRY':
-      return `Thanks for reaching out — press enquiries are handled by our management team rather than by me. ${slots.phone ? "They'll be in touch." : 'What is the best way to reach you?'}`;
+      return `Thanks for reaching out — press enquiries are handled by our management team rather than by me. I've flagged your enquiry for them. ${slots.phone ? "They'll be in touch." : 'What is the best way to reach you?'}`;
     case 'REFUND_REQUEST':
     case 'PAYMENT_DISPUTE':
       // Never promises money back — that decision belongs to the restaurant.
-      return `I'm sorry about that. I'm not able to make a decision on billing myself, so I'm passing this to a manager who can look into it properly. ${ask}`;
+      return `I'm sorry about that. I'm not able to make a decision on billing myself, so I've flagged this for a manager who can look into it properly. ${ask}`;
     default:
-      return `I want to make sure this reaches the right person. ${ask}`;
+      return `I want to make sure this reaches the right person, so I've flagged it for the team. ${ask}`;
   }
 }
 
+/** Same honesty constraint as escalationReply: flagged for staff, not dispatched. */
 function humanRequestReply(intent: Intent, slots: ExtractedSlots): string {
   const ask = slots.phone
-    ? "I've passed your details along and someone will get back to you shortly."
+    ? "I've flagged this for the team along with your details, and someone will follow up with you."
     : 'Can I get your name and the best number to reach you?';
 
   switch (intent) {

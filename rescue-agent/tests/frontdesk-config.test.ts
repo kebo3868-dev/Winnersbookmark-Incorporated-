@@ -173,3 +173,43 @@ describe('missing information report', () => {
     expect(report.gaps.some((g) => g.field.includes('holidayHours'))).toBe(true);
   });
 });
+
+/**
+ * Fix from the PR #29 automated review: an unrecognised timezone used to parse
+ * cleanly and then throw RangeError inside Intl on every single request.
+ */
+describe('timezone validation', () => {
+  const withTimezone = (timezone: string) => ({
+    restaurantName: 'A Restaurant',
+    locations: [
+      { id: 'l1', name: 'Main', addressLine1: '1 Street', city: 'Town', state: 'FL', timezone },
+    ],
+  });
+
+  it.each(['America/New_York', 'Europe/London', 'Asia/Kolkata', 'UTC', 'Pacific/Auckland'])(
+    'accepts the real zone %s',
+    (zone) => {
+      expect(parseTenantConfig(withTimezone(zone)).ok).toBe(true);
+    },
+  );
+
+  it.each(['America/New_Yrok', 'Not/AZone', 'EST5EDT-nonsense', 'america/new_york '])(
+    'rejects the invalid zone %j at parse time rather than at runtime',
+    (zone) => {
+      expect(parseTenantConfig(withTimezone(zone)).ok).toBe(false);
+    },
+  );
+
+  it('names the offending field so an operator can fix it', () => {
+    const parsed = parseTenantConfig(withTimezone('America/New_Yrok'));
+    expect(parsed.ok).toBe(false);
+    if (!parsed.ok) expect(parsed.error).toContain('timezone');
+  });
+
+  it('a rejected config never reaches the engine as a live tenant', () => {
+    // getTenantBySlug returns null on a parse failure, so a typo takes the
+    // tenant out of service visibly instead of throwing on every request.
+    const parsed = parseTenantConfig(withTimezone('America/New_Yrok'));
+    expect(parsed.ok).toBe(false);
+  });
+});

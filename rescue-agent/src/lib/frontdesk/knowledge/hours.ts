@@ -101,6 +101,65 @@ export function windowsForDate(
   return { windows: location.hours[weekday], holidayName: null, note: null, known: true };
 }
 
+/** Windows for the local day before `isoDate`, used for cross-midnight service. */
+function previousDay(
+  location: Location,
+  isoDate: string,
+  weekday: Weekday,
+): { windows: ServiceWindow[]; known: boolean } {
+  const [year, month, day] = isoDate.split('-').map(Number);
+  // Constructed in UTC purely to step the calendar back one day; no local
+  // instant is derived from it, so the zone is irrelevant here.
+  const previous = new Date(Date.UTC(year, month - 1, day - 1));
+  const previousIso = previous.toISOString().slice(0, 10);
+  const previousWeekday = WEEKDAYS[(WEEKDAYS.indexOf(weekday) + 6) % 7];
+  const resolved = windowsForDate(location, previousIso, previousWeekday);
+  return { windows: resolved.windows, known: resolved.known };
+}
+
+/**
+ * The instant at which the current local day began in a given timezone.
+ *
+ * `new Date(\`${localDate}T00:00:00Z\`)` is NOT this: it is UTC midnight, which
+ * in New York is 8 PM on the previous local day. Using it as a "today" boundary
+ * silently widens or narrows every dashboard metric by the zone's offset.
+ *
+ * The offset is read at the instant in question, so daylight-saving transitions
+ * are handled rather than assumed away.
+ */
+export function startOfLocalDay(now: Date, timezone: string): Date {
+  const localDate = new Intl.DateTimeFormat('en-CA', {
+    timeZone: timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(now);
+
+  const utcMidnight = new Date(`${localDate}T00:00:00Z`);
+  // Two passes: the first uses the offset in effect at UTC midnight, the second
+  // re-reads it at the corrected instant. That converges across a DST boundary,
+  // where those two offsets differ.
+  let candidate = new Date(utcMidnight.getTime() + offsetMillis(utcMidnight, timezone));
+  candidate = new Date(utcMidnight.getTime() + offsetMillis(candidate, timezone));
+  return candidate;
+}
+
+/** Milliseconds to ADD to a UTC instant to reach the same wall clock in `timezone`. */
+function offsetMillis(at: Date, timezone: string): number {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: timezone,
+    timeZoneName: 'longOffset',
+  }).formatToParts(at);
+  const name = parts.find((p) => p.type === 'timeZoneName')?.value ?? 'GMT';
+  // "GMT-04:00", "GMT+05:30", or plain "GMT" at zero offset.
+  const match = name.match(/GMT([+-])(\d{2}):(\d{2})/);
+  if (!match) return 0;
+  const sign = match[1] === '-' ? -1 : 1;
+  const minutes = Number(match[2]) * 60 + Number(match[3]);
+  // A zone at GMT-04:00 begins its day four hours AFTER UTC midnight.
+  return -sign * minutes * 60_000;
+}
+
 /** Answer "are you open / when do you close" for a location at an instant. */
 export function resolveHours(location: Location, now: Date): HoursAnswer {
   const { isoDate, weekday, minutes } = localParts(now, location.timezone);
@@ -116,6 +175,20 @@ export function resolveHours(location: Location, now: Date): HoursAnswer {
     opensAt: null,
     note,
   };
+
+  // A window opened YESTERDAY may still be running. At 00:30 Thursday a bar
+  // configured Wednesday 17:00-02:00 is open, but nothing in Thursday's own
+  // windows says so — the answer lives on the previous local date. Checked
+  // before today's windows because being open now outranks anything later.
+  const yesterday = previousDay(location, isoDate, weekday);
+  if (yesterday.known) {
+    const spillover = yesterday.windows.find(
+      (w) => windowEndMinutes(w) > 24 * 60 && minutes < windowEndMinutes(w) - 24 * 60,
+    );
+    if (spillover) {
+      return { ...base, status: 'OPEN', windows: [spillover], closesAt: spillover.close };
+    }
+  }
 
   if (!known) return base;
   if (windows.length === 0) return { ...base, status: 'CLOSED_TODAY' };

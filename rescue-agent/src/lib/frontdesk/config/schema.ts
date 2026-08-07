@@ -56,6 +56,27 @@ export const holidayHoursSchema = z.object({
   note: z.string().optional(),
 });
 
+/**
+ * A timezone this runtime can actually resolve.
+ *
+ * Every hours answer and every dashboard window passes this string straight to
+ * `Intl.DateTimeFormat`, which throws `RangeError` on an unknown zone. Without
+ * this check a routine typo ("America/New_Yrok") parses fine, the tenant looks
+ * healthy, and then every single message and dashboard request fails at
+ * runtime. Catching it here turns a hard outage into a visible misconfiguration.
+ */
+const ianaTimezone = z.string().min(1).refine(
+  (value) => {
+    try {
+      new Intl.DateTimeFormat('en-US', { timeZone: value });
+      return true;
+    } catch {
+      return false;
+    }
+  },
+  { message: 'Not a recognised IANA timezone (for example "America/New_York")' },
+);
+
 export const locationSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
@@ -65,7 +86,7 @@ export const locationSchema = z.object({
   state: z.string().min(1),
   postalCode: z.string().optional(),
   /** IANA timezone, e.g. "America/New_York". Drives every hours answer. */
-  timezone: z.string().min(1),
+  timezone: ianaTimezone,
   phone: z.string().optional(),
   hours: weeklyHoursSchema.optional(),
   holidayHours: z.array(holidayHoursSchema).default([]),

@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { buildCompletenessReport } from '@/lib/frontdesk/config/completeness';
+import { startOfLocalDay } from '@/lib/frontdesk/knowledge/hours';
 import { formatCurrency } from '@/lib/frontdesk/leads';
 import {
   getTenantBySlug,
@@ -32,17 +33,12 @@ export default async function FrontDeskTenantPage({
   const tenant = await getTenantBySlug(tenantSlug);
   if (!tenant) notFound();
 
-  // "Today" in the restaurant's own timezone, not the server's.
+  // "Today" means the restaurant's own day, from the actual instant its local
+  // midnight occurred — not UTC midnight, which for a US tenant would start
+  // counting several hours into the previous evening.
   const timezone = tenant.config.locations[0]?.timezone ?? 'UTC';
   const now = new Date();
-  const localDate = new Intl.DateTimeFormat('en-CA', {
-    timeZone: timezone,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(now);
-  const startOfDay = new Date(`${localDate}T00:00:00Z`);
-  const since = new Date(Math.min(startOfDay.getTime(), now.getTime()));
+  const since = startOfLocalDay(now, timezone);
 
   const [summary, leads, escalations] = await Promise.all([
     getTodaySummary(tenant.id, since),
