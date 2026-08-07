@@ -143,6 +143,36 @@ export async function enqueueEscalationNotifications(
 }
 
 /**
+ * Contacts to try, in the order the restaurant chose.
+ *
+ * `pilot.escalationRota` exists precisely so a restaurant can say who gets
+ * woken first. Falling back in config-array order instead would mean the
+ * ordering depended on how somebody happened to type the JSON. Contacts not
+ * named in the rota are still tried, last — a rota is a priority list, not a
+ * whitelist, and dropping a reachable person from a life-safety alert because
+ * they were left off a list would be the wrong trade.
+ */
+export function orderedFallbackContacts(config: TenantConfig): Array<{ key: string; phone: string }> {
+  const withPhones = config.escalationContacts.filter((c) => c.phone);
+  const byKey = new Map(withPhones.map((c) => [c.key, c.phone as string]));
+
+  const ordered: Array<{ key: string; phone: string }> = [];
+  const seen = new Set<string>();
+
+  for (const key of config.pilot.escalationRota) {
+    const phone = byKey.get(key);
+    if (phone && !seen.has(key)) {
+      ordered.push({ key, phone });
+      seen.add(key);
+    }
+  }
+  for (const contact of withPhones) {
+    if (!seen.has(contact.key)) ordered.push({ key: contact.key, phone: contact.phone as string });
+  }
+  return ordered;
+}
+
+/**
  * Try every other configured contact for a CRITICAL alert.
  *
  * Only reached when the primary route was refused. Ordinary alerts do not do
@@ -159,9 +189,7 @@ async function tryFallbackContacts(
   body: string,
   db: PrismaClient,
 ): Promise<boolean> {
-  const candidates = config.escalationContacts
-    .filter((contact) => Boolean(contact.phone))
-    .map((contact) => ({ key: contact.key, phone: contact.phone as string }));
+  const candidates = orderedFallbackContacts(config);
 
   for (const candidate of candidates) {
     const normalised = normaliseNumber(candidate.phone);

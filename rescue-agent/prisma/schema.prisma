@@ -342,18 +342,19 @@ model FdTenant {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  conversations FdConversation[]
-  messages      FdMessage[]
-  leads         FdLead[]
-  escalations   FdEscalation[]
-  apiKeys       FdApiKey[]
-  auditLogs     FdAuditLog[]
-  notifications FdNotification[]
-  failures      FdFailure[]
-  consents      FdConsent[]
-  inboundEvents FdInboundEvent[]
-  rateCounters  FdRateCounter[]
-  users         FdUser[]
+  conversations        FdConversation[]
+  messages             FdMessage[]
+  leads                FdLead[]
+  escalations          FdEscalation[]
+  apiKeys              FdApiKey[]
+  auditLogs            FdAuditLog[]
+  notifications        FdNotification[]
+  failures             FdFailure[]
+  consents             FdConsent[]
+  inboundEvents        FdInboundEvent[]
+  rateCounters         FdRateCounter[]
+  contactVerifications FdContactVerification[]
+  users                FdUser[]
 
   @@index([status])
 }
@@ -540,6 +541,16 @@ enum FdFailureStatus {
   ABANDONED
 }
 
+/// Lifecycle of a test alert sent to an escalation contact.
+/// VERIFIED is only ever reached from a provider delivery receipt — never from
+/// a send being accepted, which proves nothing about a handset.
+enum FdContactVerificationStatus {
+  PENDING
+  SENT
+  VERIFIED
+  FAILED
+}
+
 /// One outbound message and its full delivery history.
 model FdNotification {
   id                String               @id @default(cuid())
@@ -580,6 +591,34 @@ model FdNotification {
 
 /// OPERATOR-VISIBLE FAILURE QUEUE (§XVI). Nothing fails silently: every
 /// abandoned notification, rejected webhook or integration error lands here.
+/// Proof that a specific escalation contact can actually be reached.
+///
+/// An escalation rota made of numbers nobody has ever texted is a list of
+/// assumptions. This records a real test alert and the delivery receipt that
+/// came back, so the pilot gate can require evidence rather than intent.
+model FdContactVerification {
+  id             String                      @id @default(cuid())
+  tenantId       String
+  tenant         FdTenant                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  /// Escalation contact key from tenant config, e.g. "manager".
+  contactKey     String
+  /// The number tested. Stored so a later config edit invalidates the proof.
+  phone          String
+  /// The test notification whose delivery receipt confirms this.
+  notificationId String?
+  status         FdContactVerificationStatus @default(PENDING)
+  requestedBy    String?
+  requestedAt    DateTime                    @default(now())
+  verifiedAt     DateTime?
+  failureReason  String?
+  createdAt      DateTime                    @default(now())
+  updatedAt      DateTime                    @updatedAt
+
+  @@unique([tenantId, contactKey, phone])
+  @@index([tenantId, status])
+  @@index([notificationId])
+}
+
 model FdFailure {
   id          String            @id @default(cuid())
   tenantId    String?

@@ -196,17 +196,19 @@ export async function applyDeliveryStatus(
   status: 'DELIVERED' | 'UNDELIVERED',
   options: { errorCode?: string | null; errorMessage?: string | null; at: Date },
   db: Db = prisma,
-): Promise<{ updated: boolean; tenantId: string | null }> {
+): Promise<{ updated: boolean; tenantId: string | null; notificationId: string | null }> {
   const existing = await db.fdNotification.findUnique({
     where: { providerMessageId },
     select: { id: true, tenantId: true, status: true },
   });
-  if (!existing) return { updated: false, tenantId: null };
+  if (!existing) return { updated: false, tenantId: null, notificationId: null };
 
   // Already terminal and already correct — a duplicate callback.
-  if (existing.status === status) return { updated: false, tenantId: existing.tenantId };
+  if (existing.status === status) {
+    return { updated: false, tenantId: existing.tenantId, notificationId: existing.id };
+  }
   if (existing.status === 'DELIVERED' && status === 'UNDELIVERED') {
-    return { updated: false, tenantId: existing.tenantId };
+    return { updated: false, tenantId: existing.tenantId, notificationId: existing.id };
   }
 
   // Scoped by tenant as well as id. The row was found via an unguessable
@@ -223,10 +225,74 @@ export async function applyDeliveryStatus(
     },
   });
 
-  return { updated: true, tenantId: existing.tenantId };
+  return { updated: true, tenantId: existing.tenantId, notificationId: existing.id };
 }
 
 // --- Operator views --------------------------------------------------------
+
+/**
+ * Escalation alerts that did NOT reach a person.
+ *
+ * The plain notification list mixes these in with successes, where a single
+ * UNDELIVERED row scrolls past unnoticed. This is the query behind the
+ * dashboard's own section for them, because "an alert about a food-safety
+ * report was never delivered" is not an item in a list — it is the most
+ * important thing on the page.
+ *
+ * ABANDONED is included alongside UNDELIVERED: it means the retry ceiling was
+ * reached, which is the same outcome for the manager who was never told.
+ */
+export async function listUndeliveredEscalations(tenantId: string, take = 20, db: Db = prisma) {
+  return db.fdNotification.findMany({
+    where: {
+      tenantId,
+      purpose: 'ESCALATION_ALERT',
+      status: { in: ['UNDELIVERED', 'ABANDONED'] },
+    },
+    orderBy: { updatedAt: 'desc' },
+    take,
+    select: {
+      id: true,
+      status: true,
+      toNumber: true,
+      attempts: true,
+      maxAttempts: true,
+      errorCode: true,
+      errorMessage: true,
+      simulated: true,
+      lastAttemptAt: true,
+      createdAt: true,
+      escalationId: true,
+    },
+  });
+}
+
+/**
+ * Alerts handed to a provider that never came back with a receipt.
+ *
+ * SENT is not DELIVERED. A message stuck in SENT for hours usually means the
+ * status callback is not wired up — a silent misconfiguration that makes every
+ * alert look successful. Surfacing it by age is the only way to notice.
+ */
+export async function listStalledEscalations(
+  tenantId: string,
+  olderThan: Date,
+  take = 20,
+  db: Db = prisma,
+) {
+  return db.fdNotification.findMany({
+    where: { tenantId, purpose: 'ESCALATION_ALERT', status: 'SENT', lastAttemptAt: { lt: olderThan } },
+    orderBy: { lastAttemptAt: 'asc' },
+    take,
+    select: {
+      id: true,
+      toNumber: true,
+      simulated: true,
+      lastAttemptAt: true,
+      escalationId: true,
+    },
+  });
+}
 
 export async function listNotifications(tenantId: string, take = 25, db: Db = prisma) {
   return db.fdNotification.findMany({

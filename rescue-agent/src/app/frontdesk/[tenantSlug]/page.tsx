@@ -4,7 +4,12 @@ import { authorize, resolveActor } from '@/lib/frontdesk/auth/actor';
 import { buildCompletenessReport } from '@/lib/frontdesk/config/completeness';
 import { startOfLocalDay, tenantTimezone } from '@/lib/frontdesk/knowledge/hours';
 import { formatCurrency } from '@/lib/frontdesk/leads';
-import { listNotifications, listOpenFailures } from '@/lib/frontdesk/notify/store';
+import {
+  listNotifications,
+  listOpenFailures,
+  listStalledEscalations,
+  listUndeliveredEscalations,
+} from '@/lib/frontdesk/notify/store';
 import { maskNumber } from '@/lib/frontdesk/notify/provider';
 import {
   getTenantBySlug,
@@ -55,12 +60,17 @@ export default async function FrontDeskTenantPage({
   const now = new Date();
   const since = timezone ? startOfLocalDay(now, timezone) : new Date(now.getTime() - 24 * 60 * 60 * 1000);
 
-  const [summary, leads, escalations, notifications, failures] = await Promise.all([
+  const [summary, leads, escalations, notifications, failures, undelivered, stalled] = await Promise.all([
     getTodaySummary(tenant.id, since),
     listLeadsForTenant(tenant.id, { take: 25 }),
     listEscalationsForTenant(tenant.id, 10),
     listNotifications(tenant.id, 10),
     listOpenFailures(tenant.id, 10),
+    listUndeliveredEscalations(tenant.id, 10),
+    // An alert accepted by the provider more than 30 minutes ago with no
+    // delivery receipt is almost always a missing status callback, which makes
+    // every alert look successful. Surfaced by age because nothing else shows it.
+    listStalledEscalations(tenant.id, new Date(now.getTime() - 30 * 60 * 1000), 10),
   ]);
 
   const report = buildCompletenessReport(tenant.config);
@@ -154,6 +164,69 @@ export default async function FrontDeskTenantPage({
           </p>
         </div>
       </section>
+
+      {/* --- Escalations that reached nobody ----------------------------- */}
+      {/*
+        Separated from the general alert list on purpose. An escalation alert
+        that was never delivered means a human was never told about a complaint,
+        an allergy or a food-safety report. Buried in a list of mostly-successful
+        sends, that is a line nobody reads.
+      */}
+      {undelivered.length > 0 && (
+        <section>
+          <h2 className="label mb-3 text-red-300">
+            Staff alerts that reached nobody — {undelivered.length}
+          </h2>
+          <p className="text-sm text-ivory-dim mb-3">
+            Each of these is an escalation a person was supposed to hear about and did not. Contact them another way,
+            then fix the routing.
+          </p>
+          <div className="space-y-2">
+            {undelivered.map((notification) => (
+              <div key={notification.id} className="card p-4 border-l-2 border-l-red-500/60">
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <p className="text-ivory text-sm">
+                    {maskNumber(notification.toNumber)} · {notification.status}
+                    {notification.simulated && ' · SIMULATED'}
+                  </p>
+                  <span className="text-[10px] uppercase tracking-wider text-red-300 shrink-0">
+                    {notification.attempts}/{notification.maxAttempts} attempts
+                  </span>
+                </div>
+                <p className="text-ivory-faint text-xs mt-2">
+                  {notification.errorCode ?? 'No error code'}
+                  {notification.errorMessage ? ` · ${notification.errorMessage}` : ''}
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {stalled.length > 0 && (
+        <section>
+          <h2 className="label mb-3 text-amber-300">
+            Staff alerts with no delivery confirmation — {stalled.length}
+          </h2>
+          <p className="text-sm text-ivory-dim mb-3">
+            Handed to the provider over 30 minutes ago with no receipt back. Usually a missing delivery-status
+            callback, which makes every alert look successful whether or not it arrived.
+          </p>
+          <div className="space-y-2">
+            {stalled.map((notification) => (
+              <div key={notification.id} className="card p-3 flex flex-wrap items-center justify-between gap-2">
+                <p className="text-sm text-ivory">
+                  {maskNumber(notification.toNumber)}
+                  {notification.simulated && ' · SIMULATED'}
+                </p>
+                <p className="text-ivory-faint text-xs">
+                  sent {notification.lastAttemptAt?.toISOString().slice(0, 16).replace('T', ' ') ?? 'unknown'}
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* --- Failure queue: never fail silently (§XVI) ------------------- */}
       {failures.length > 0 && (

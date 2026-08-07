@@ -17,8 +17,28 @@ import { claimDueNotifications, recordFailure, releaseClaims, updateNotification
  * one code path to reason about and to test.
  */
 
+/**
+ * What one cycle did, in enough detail to answer the operational questions
+ * without a debugger: is anything being sent, is it real, how long did it
+ * take, and is the queue draining or growing.
+ *
+ * `durationMs` and `queueDepth` exist because "the worker ran" is not the same
+ * as "the queue is keeping up". A cycle that processes its full batch every
+ * time is a cycle that is behind, and without depth there is no way to see it.
+ */
+export interface CycleObservability {
+  provider: string;
+  simulated: boolean;
+  workerId: string;
+  durationMs: number;
+  /** Notifications still waiting after this cycle. */
+  queueDepth: number;
+  /** True when the batch filled up, i.e. there was more work than capacity. */
+  batchSaturated: boolean;
+}
+
 export type CycleResult =
-  | ({ ok: true; provider: string; simulated: boolean; workerId: string } & DispatchSummary)
+  | ({ ok: true } & CycleObservability & DispatchSummary)
   | { ok: false; reason: 'NO_PROVIDER' | 'PROVIDER_ERROR'; detail: string };
 
 export interface CycleOptions {
@@ -57,10 +77,20 @@ export async function runDispatchCycle(options: CycleOptions = {}): Promise<Cycl
   }
 
   const now = new Date();
+  const startedAt = Date.now();
   const claimed = await claimDueNotifications(now, batchSize, prisma, workerId);
 
+  const observe = async (): Promise<CycleObservability> => ({
+    provider: provider.name,
+    simulated: provider.simulated,
+    workerId,
+    durationMs: Date.now() - startedAt,
+    queueDepth: await pendingQueueDepth(),
+    batchSaturated: claimed.length >= batchSize,
+  });
+
   if (claimed.length === 0) {
-    return { ok: true, provider: provider.name, simulated: provider.simulated, workerId, processed: 0, sent: 0, retryScheduled: 0, abandoned: 0 };
+    return { ok: true, ...(await observe()), processed: 0, sent: 0, retryScheduled: 0, abandoned: 0 };
   }
 
   try {
@@ -72,7 +102,7 @@ export async function runDispatchCycle(options: CycleOptions = {}): Promise<Cycl
       recordFailure: (failure) => recordFailure(failure, prisma),
       now: () => new Date(),
     });
-    return { ok: true, provider: provider.name, simulated: provider.simulated, workerId, ...summary };
+    return { ok: true, ...(await observe()), ...summary };
   } catch (error) {
     // dispatchBatch already isolates per-notification failures, so reaching
     // here means something broke around the loop itself. Release the claims so
@@ -90,6 +120,22 @@ export async function runDispatchCycle(options: CycleOptions = {}): Promise<Cycl
       lastError: detail,
     });
     return { ok: false, reason: 'PROVIDER_ERROR', detail };
+  }
+}
+
+/**
+ * How many notifications are still waiting to be sent.
+ *
+ * Cheap enough to run every cycle and the single most useful number the worker
+ * can emit: a depth that climbs across cycles means alerts are arriving faster
+ * than they leave, which is invisible from a per-cycle success count.
+ */
+async function pendingQueueDepth(): Promise<number> {
+  try {
+    return await prisma.fdNotification.count({ where: { status: { in: ['QUEUED', 'SENDING'] } } });
+  } catch {
+    // Observability must never be the thing that fails a dispatch cycle.
+    return -1;
   }
 }
 
