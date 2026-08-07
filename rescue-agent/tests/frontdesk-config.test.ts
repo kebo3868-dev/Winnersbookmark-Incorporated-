@@ -129,9 +129,11 @@ describe('missing information report', () => {
   });
 
   it('blocks activation when SMS is on with no sending number', () => {
+    // fromNumber is cleared explicitly rather than relying on the demo default,
+    // so this keeps testing the gap even as the demo config changes.
     const config: TenantConfig = {
       ...demoTenantConfig,
-      messaging: { ...demoTenantConfig.messaging, smsEnabled: true },
+      messaging: { ...demoTenantConfig.messaging, smsEnabled: true, fromNumber: undefined },
     };
     expect(buildCompletenessReport(config).readyToActivate).toBe(false);
   });

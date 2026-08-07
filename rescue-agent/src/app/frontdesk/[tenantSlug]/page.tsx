@@ -3,6 +3,8 @@ import { notFound } from 'next/navigation';
 import { buildCompletenessReport } from '@/lib/frontdesk/config/completeness';
 import { startOfLocalDay } from '@/lib/frontdesk/knowledge/hours';
 import { formatCurrency } from '@/lib/frontdesk/leads';
+import { listNotifications, listOpenFailures } from '@/lib/frontdesk/notify/store';
+import { maskNumber } from '@/lib/frontdesk/notify/provider';
 import {
   getTenantBySlug,
   getTodaySummary,
@@ -40,10 +42,12 @@ export default async function FrontDeskTenantPage({
   const now = new Date();
   const since = startOfLocalDay(now, timezone);
 
-  const [summary, leads, escalations] = await Promise.all([
+  const [summary, leads, escalations, notifications, failures] = await Promise.all([
     getTodaySummary(tenant.id, since),
     listLeadsForTenant(tenant.id, { take: 25 }),
     listEscalationsForTenant(tenant.id, 10),
+    listNotifications(tenant.id, 10),
+    listOpenFailures(tenant.id, 10),
   ]);
 
   const report = buildCompletenessReport(tenant.config);
@@ -136,6 +140,76 @@ export default async function FrontDeskTenantPage({
           </p>
         </div>
       </section>
+
+      {/* --- Failure queue: never fail silently (§XVI) ------------------- */}
+      {failures.length > 0 && (
+        <section>
+          <h2 className="label mb-3 text-red-300">Needs attention — {failures.length} unresolved</h2>
+          <div className="space-y-3">
+            {failures.map((failure) => (
+              <div key={failure.id} className="card p-4 border-l-2 border-l-red-500/60">
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <p className="text-ivory text-sm">{failure.detail}</p>
+                  <span className="text-[10px] uppercase tracking-wider text-red-300 shrink-0">
+                    {failure.category.replace(/_/g, ' ')}
+                  </span>
+                </div>
+                <p className="text-ivory-faint text-xs mt-2">
+                  {failure.operation}
+                  {failure.attempts > 0 ? ` · ${failure.attempts} attempt(s)` : ''}
+                  {failure.lastError ? ` · ${failure.lastError}` : ''}
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* --- Alert delivery ---------------------------------------------- */}
+      {notifications.length > 0 && (
+        <section>
+          <h2 className="label mb-3">Staff alerts</h2>
+          <div className="space-y-2">
+            {notifications.map((notification) => {
+              const tone =
+                notification.status === 'DELIVERED'
+                  ? 'text-emerald-400/90'
+                  : notification.status === 'ABANDONED' || notification.status === 'UNDELIVERED'
+                    ? 'text-red-300'
+                    : notification.status === 'SENT'
+                      ? 'text-ivory-dim'
+                      : 'text-amber-300/90';
+              return (
+                <div key={notification.id} className="card p-3 flex flex-wrap items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-sm text-ivory">
+                      {maskNumber(notification.toNumber)}
+                      {notification.simulated && (
+                        <span className="ml-2 text-[10px] uppercase tracking-wider text-gold-dim border border-gold-dim/50 rounded px-1.5 py-0.5">
+                          Simulated
+                        </span>
+                      )}
+                    </p>
+                    <p className="text-ivory-faint text-xs mt-0.5">
+                      {notification.attempts}/{notification.maxAttempts} attempt(s)
+                      {notification.errorCode ? ` · ${notification.errorCode}` : ''}
+                      {notification.nextAttemptAt
+                        ? ` · retry ${notification.nextAttemptAt.toISOString().slice(11, 16)}Z`
+                        : ''}
+                    </p>
+                  </div>
+                  <span className={`text-[11px] uppercase tracking-wider shrink-0 ${tone}`}>
+                    {notification.status}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+          <p className="text-ivory-faint text-xs mt-3">
+            SENT means the provider accepted the message. Only DELIVERED confirms it reached a handset.
+          </p>
+        </section>
+      )}
 
       {escalations.length > 0 && (
         <section>

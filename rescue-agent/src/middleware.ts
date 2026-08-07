@@ -23,7 +23,18 @@ import { checkBasicAuth, resolveAuthMode } from '@/lib/auth';
  */
 const PER_TENANT_AUTH_ROUTES = [/^\/api\/frontdesk\/[^/]+\/message$/];
 
+/**
+ * The delivery-status webhook authenticates every request with an HMAC over
+ * the raw body and fails closed when no secret is configured, so a shared
+ * password in front of it would add nothing. Unlike the message endpoint this
+ * is NOT behind the exposure flag: a provider callback has to be reachable for
+ * delivery tracking to work at all, and it has no useful surface without a
+ * valid signature.
+ */
+const SIGNED_WEBHOOK_ROUTES = [/^\/api\/frontdesk\/notifications\/webhook$/];
+
 function isSelfAuthenticatingRoute(pathname: string): boolean {
+  if (SIGNED_WEBHOOK_ROUTES.some((pattern) => pattern.test(pathname))) return true;
   if (process.env.FRONTDESK_PUBLIC_ENDPOINT_ENABLED !== 'true') return false;
   return PER_TENANT_AUTH_ROUTES.some((pattern) => pattern.test(pathname));
 }

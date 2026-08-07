@@ -6,6 +6,7 @@ import { SCOPES } from '@/lib/frontdesk/auth/apiKey';
 import { authFailureMessage, authenticateTenantRequest } from '@/lib/frontdesk/auth/authenticate';
 import { findKeyByHash, recordAudit, touchApiKey } from '@/lib/frontdesk/auth/store';
 import { runTurn } from '@/lib/frontdesk/engine';
+import { enqueueEscalationNotifications } from '@/lib/frontdesk/notify/escalation';
 import {
   getConversationHistory,
   getTenantBySlug,
@@ -135,6 +136,36 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       { demoMode: tenant.demoMode, source: `CHANNEL_${channel}` },
       prisma,
     );
+
+    // Escalations become actual alerts. Queued AFTER the escalation rows are
+    // committed, so a messaging problem can never lose the escalation itself,
+    // and wrapped so it can never fail the customer's request either — the
+    // customer has already been answered by this point.
+    if (recorded.escalationIds.length > 0) {
+      const drafts = turn.actions
+        .filter((action) => action.type === 'ESCALATE')
+        .map((action) => (action.type === 'ESCALATE' ? action.escalation : null))
+        .filter((draft): draft is NonNullable<typeof draft> => draft !== null);
+
+      try {
+        await enqueueEscalationNotifications(
+          tenant.id,
+          tenant.config,
+          recorded.escalationIds.map((escalationId, index) => ({
+            escalationId,
+            reason: drafts[index].reason,
+            severity: drafts[index].severity,
+            summary: drafts[index].summary,
+            customerName: drafts[index].customerName,
+            contact: drafts[index].contact,
+            routeTo: drafts[index].routeTo,
+          })),
+          prisma,
+        );
+      } catch (error) {
+        console.error('[frontdesk] escalation notification enqueue failed', { tenantSlug, error });
+      }
+    }
 
     // The message body is never audited — only that a turn happened, by whom.
     await recordAudit({

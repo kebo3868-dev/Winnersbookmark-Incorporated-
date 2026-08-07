@@ -343,6 +343,8 @@ model FdTenant {
   escalations   FdEscalation[]
   apiKeys       FdApiKey[]
   auditLogs     FdAuditLog[]
+  notifications FdNotification[]
+  failures      FdFailure[]
 
   @@index([status])
 }
@@ -434,6 +436,7 @@ model FdEscalation {
   /// Config key of the escalation contact this routed to (never the contact
   /// details themselves — those live in config and can change).
   routeTo        String
+  notifications  FdNotification[]
   status         FdEscalationStatus @default(OPEN)
   acknowledgedAt DateTime?
   resolvedAt     DateTime?
@@ -489,4 +492,94 @@ model FdAuditLog {
 
   @@index([tenantId, createdAt])
   @@index([event, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// PHASE 2 — outbound notifications and the operator failure queue
+// ---------------------------------------------------------------------------
+
+enum FdNotificationStatus {
+  /// Waiting for its first send, or for a scheduled retry.
+  QUEUED
+  /// Handed to the provider; not yet confirmed on a handset.
+  SENT
+  /// Provider confirmed delivery.
+  DELIVERED
+  /// Provider confirmed it could not deliver.
+  UNDELIVERED
+  /// Retries exhausted, or a permanent error. Terminal, and operator-visible.
+  ABANDONED
+}
+
+enum FdFailureCategory {
+  FAILED_SMS
+  FAILED_NOTIFICATION
+  FAILED_INTEGRATION
+  FAILED_BOOKING
+  FAILED_DATA_WRITE
+  FAILED_WEBHOOK
+  FAILED_AI_RESPONSE
+}
+
+enum FdFailureStatus {
+  OPEN
+  RETRYING
+  RESOLVED
+  ABANDONED
+}
+
+/// One outbound message and its full delivery history.
+model FdNotification {
+  id                String               @id @default(cuid())
+  tenantId          String
+  tenant            FdTenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  escalationId      String?
+  escalation        FdEscalation?        @relation(fields: [escalationId], references: [id], onDelete: SetNull)
+  channel           String               @default("SMS")
+  /// Staff destination taken from tenant config — not a customer's number.
+  toNumber          String
+  fromNumber        String
+  body              String
+  status            FdNotificationStatus @default(QUEUED)
+  attempts          Int                  @default(0)
+  maxAttempts       Int                  @default(3)
+  nextAttemptAt     DateTime?
+  providerName      String?
+  providerMessageId String?              @unique
+  errorCode         String?
+  errorMessage      String?
+  /// True when the provider was a mock. Surfaced in the UI so a simulated
+  /// send can never be mistaken for a real one.
+  simulated         Boolean              @default(false)
+  lastAttemptAt     DateTime?
+  deliveredAt       DateTime?
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+
+  @@index([tenantId, status])
+  @@index([status, nextAttemptAt])
+  @@index([tenantId, createdAt])
+}
+
+/// OPERATOR-VISIBLE FAILURE QUEUE (§XVI). Nothing fails silently: every
+/// abandoned notification, rejected webhook or integration error lands here.
+model FdFailure {
+  id          String            @id @default(cuid())
+  tenantId    String?
+  tenant      FdTenant?         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  category    FdFailureCategory
+  /// What was being attempted, e.g. "escalation.notify".
+  operation   String
+  detail      String
+  /// Id of the row this failure concerns (a notification, a lead, a booking).
+  referenceId String?
+  attempts    Int               @default(0)
+  status      FdFailureStatus   @default(OPEN)
+  lastError   String?
+  resolvedAt  DateTime?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  @@index([tenantId, status])
+  @@index([category, status])
 }

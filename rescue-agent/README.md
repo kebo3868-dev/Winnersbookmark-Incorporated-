@@ -178,20 +178,70 @@ npm run dev
 The simulator talks to the real API route and shows the provenance badge on every
 reply. "Remove demo data" deletes only rows marked `demoMode` and asks first.
 
-## Escalations are dashboard-only until Phase 2
+## Escalation alerts by SMS (Phase 2)
 
-An escalation writes an `FdEscalation` record that appears under **Needs a
-person** on the TODAY dashboard. It does **not** send anything to the configured
-contact — outbound notification is Phase 2.
+An escalation now queues an SMS to the staff contact its routing rules select,
+and the whole path is tracked:
 
-The customer-facing wording reflects that exactly: replies say the issue has been
-*flagged for the team*, never that anyone is being alerted, and anything
-time-critical points the customer at the restaurant's own phone number, which
-reaches a human immediately. A food-safety report is the worst possible place to
-over-promise, so it does not.
+```
+escalation recorded → notification QUEUED → provider accepts → SENT
+                                          → carrier callback → DELIVERED
+                                          → transient error  → retry (max 3) → ABANDONED
+                                          → permanent error  → ABANDONED immediately
+```
 
-**Operationally this means someone has to watch the dashboard.** Until
-notifications ship, an unwatched dashboard means an unseen escalation.
+**SENT is not DELIVERED.** SENT means a provider accepted the message; only a
+carrier callback confirms it reached a handset. The dashboard shows both, and
+never conflates them — believing a manager was reached when the message is
+still queued is the failure this distinction exists to prevent.
+
+Anything that ends ABANDONED, plus every configuration reason an alert could
+not be sent at all (`smsEnabled` off, no sending number, contact has no phone),
+is written to the **failure queue** and shown at the top of the TODAY dashboard.
+Nothing fails silently.
+
+### Configuration
+
+| Variable | Purpose |
+| --- | --- |
+| `SMS_PROVIDER` | `mock` today. Unset means no alerts — escalations stay dashboard-only. |
+| `SMS_WEBHOOK_SECRET` | HMAC secret for delivery callbacks. **Verification fails closed without it.** |
+| `SMS_ALLOW_MOCK_IN_PRODUCTION` | Staging escape hatch. See below. |
+
+**The mock is refused when `NODE_ENV=production`** unless
+`SMS_ALLOW_MOCK_IN_PRODUCTION=true`. Without that guard a production deploy
+would look healthy — notifications marked SENT — while no manager ever received
+anything. Every simulated message is also labelled `Simulated` in the UI and in
+the dispatch response.
+
+No real provider adapter is implemented. Connecting one requires an account and
+credentials, and is a separate, explicitly approved step; it plugs in behind the
+existing `SmsProvider` interface without touching dispatch, retries or the
+failure queue.
+
+### Draining the queue
+
+`POST /api/frontdesk/notifications/dispatch` (admin only) processes due
+notifications. A deployment runs this on a schedule; **no scheduler is
+configured in this repo**, so until one is added alerts are only sent when that
+endpoint is called.
+
+### Delivery callback
+
+`POST /api/frontdesk/notifications/webhook` — HMAC-signed over the raw body,
+with a required recent timestamp so a captured callback cannot be replayed to
+mark a failed alert as delivered. It is the one route exempt from the app-wide
+Basic Auth, which is safe precisely because it fails closed without a valid
+signature. Duplicate and out-of-order callbacks are idempotent: a late
+`UNDELIVERED` never overwrites a `DELIVERED`.
+
+### Customer-facing wording is unchanged, deliberately
+
+Replies still say an issue has been *flagged for the team* — never that someone
+is being alerted. At the moment of reply the system genuinely does not know
+whether the SMS will be accepted, delivered, or abandoned, so promising delivery
+would be a claim it cannot stand behind. Anything time-critical still points the
+customer at the restaurant's own number, which reaches a human immediately.
 
 ## FOUNDER ACTION REQUIRED — before real customer traffic
 

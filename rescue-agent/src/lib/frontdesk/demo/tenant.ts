@@ -130,8 +130,12 @@ export const demoTenantConfig: TenantConfig = {
     approvedStatements: [],
   },
   messaging: {
-    smsEnabled: false,
+    // On for the demo so the escalation-alert pipeline is actually visible.
+    // Every number here is in the 555-01xx fiction range and the demo runs on
+    // the simulated provider, so nothing can reach a real handset.
+    smsEnabled: true,
     missedCallRecoveryEnabled: false,
+    fromNumber: '(555) 010-0100',
     maxFollowUps: 1,
     optOutKeywords: ['STOP', 'UNSUBSCRIBE', 'CANCEL', 'END', 'QUIT'],
   },
