@@ -190,6 +190,16 @@ export const messagingSchema = z.object({
   /** Hard cap on unanswered outbound follow-ups (§VII). */
   maxFollowUps: z.number().int().min(0).max(3).default(1),
   optOutKeywords: z.array(z.string()).default(['STOP', 'UNSUBSCRIBE', 'CANCEL', 'END', 'QUIT']),
+  /**
+   * Send caps per rolling hour. Per-number protects a customer from being
+   * messaged repeatedly; per-tenant caps a restaurant's spend and contains the
+   * blast radius of a misconfiguration. Both fall back to conservative
+   * defaults when unset — never to "unlimited".
+   */
+  rateLimitPerNumberPerHour: z.number().int().min(1).max(50).optional(),
+  rateLimitPerTenantPerHour: z.number().int().min(1).max(5000).optional(),
+  /** Verbatim text for the missed-call recovery message (§VII). */
+  missedCallTemplate: z.string().max(320).optional(),
 });
 
 export const tenantConfigSchema = z.object({

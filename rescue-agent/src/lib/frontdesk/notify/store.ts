@@ -12,6 +12,11 @@ import type { FailureInput, NotificationRecord, NotificationUpdate } from './dis
 
 type Db = PrismaClient | Prisma.TransactionClient;
 
+/**
+ * Low-level enqueue. Do NOT call this directly from feature code — go through
+ * messaging/send.ts, which applies consent, rate limits and the follow-up cap.
+ * This exists only as the write that gated path performs.
+ */
 export async function enqueueNotification(
   tenantId: string,
   input: {
@@ -20,6 +25,8 @@ export async function enqueueNotification(
     fromNumber: string;
     body: string;
     maxAttempts?: number;
+    purpose?: 'ESCALATION_ALERT' | 'MISSED_CALL_RECOVERY' | 'CONVERSATION_REPLY';
+    conversationId?: string | null;
   },
   db: Db = prisma,
 ): Promise<{ id: string }> {
@@ -31,6 +38,7 @@ export async function enqueueNotification(
       fromNumber: input.fromNumber,
       body: input.body,
       maxAttempts: input.maxAttempts ?? 3,
+      purpose: input.purpose ?? 'ESCALATION_ALERT',
       status: 'QUEUED',
     },
     select: { id: true },

@@ -291,6 +291,65 @@ whether the SMS will be accepted, delivered, or abandoned, so promising delivery
 would be a claim it cannot stand behind. Anything time-critical still points the
 customer at the restaurant's own number, which reaches a human immediately.
 
+## Inbound messaging, consent and rate limits (Phase 2 M3)
+
+The front desk now receives as well as sends: customer SMS and missed-call
+events arrive on one signed webhook.
+
+### Missed-call recovery (§VII)
+
+A missed call creates a conversation and queues **one** recovery text. The
+customer replies or does not — and if they do not, the follow-up cap stops us
+chasing them. A caller who rings five times without replying still gets one
+text: only an inbound *message* resets that baseline, never another call.
+
+### Consent — checked before every outbound message
+
+`messaging/send.ts` is the **only** path that queues a message, and it applies
+consent, rate limits and the follow-up cap there rather than at each call site,
+so a future feature cannot skip them.
+
+| Status | Meaning |
+| --- | --- |
+| `UNKNOWN` | Never interacted. Customer-directed messages are refused. |
+| `IMPLIED` | They called or texted us. Bounded operational replies allowed. |
+| `OPTED_IN` | Explicit START after a STOP. |
+| `OPTED_OUT` | Sent STOP. **Blocks every outbound message, including staff alerts.** |
+
+STOP is absolute and applies to *every* purpose. If a manager texts STOP, their
+escalation alerts stop — and the refusal is filed loudly to the failure queue so
+an operator fixes the routing instead of the system quietly ignoring consent.
+The STOP acknowledgement itself is the one message an opted-out number still
+receives, because carriers expect it.
+
+Keyword matching is deliberately strict: only a message that is essentially just
+the keyword counts. "Stop by around 7?" is a reservation enquiry, and silencing
+a paying customer over it would be worse than missing a keyword.
+
+**Consent is per (restaurant, number), never global.** Opting out of one
+restaurant does not silence another — they are separate businesses.
+
+**NOT LEGAL ADVICE.** The encoded policy is a defensible default for US A2P
+messaging. Each restaurant remains responsible for confirming its own
+obligations; every threshold is per-tenant configuration so it can be tightened
+without a code change.
+
+### Rate limits
+
+Per-number (default 5/hour) protects a person from being messaged repeatedly by
+a bug or a redelivery storm. Per-tenant (default 200/hour) caps spend and
+contains a misconfiguration to one client. Both fall back to conservative
+defaults, never to unlimited. Fixed hourly windows, so an operator can be shown
+exactly which counter throttled a message; the tradeoff is up to 2x across a
+window boundary.
+
+### Duplicate webhook protection
+
+Every inbound event is claimed by a unique-constrained insert on
+(provider, eventId) before any work happens. Concurrent redeliveries race and
+exactly one proceeds — verified live: three deliveries of one missed call
+produce one text.
+
 ## FOUNDER ACTION REQUIRED — before real customer traffic
 
 The `/api/frontdesk/[tenantSlug]/message` route currently sits behind the same

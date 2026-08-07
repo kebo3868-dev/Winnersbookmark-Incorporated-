@@ -2,8 +2,9 @@ import type { PrismaClient } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import type { TenantConfig } from '../config/schema';
 import type { EscalationDraft } from '../types';
+import { queueMessage } from '../messaging/send';
 import { prepareEscalationNotification } from './dispatch';
-import { enqueueNotification, recordFailure } from './store';
+import { recordFailure } from './store';
 
 /**
  * Turn recorded escalations into queued notifications.
@@ -61,17 +62,21 @@ export async function enqueueEscalationNotifications(
     }
 
     try {
-      await enqueueNotification(
-        tenantId,
+      // Through the gated path: an alert to a manager who texted STOP must be
+      // suppressed and surfaced, not sent because it is "operational".
+      const result = await queueMessage(
         {
-          escalationId: escalation.escalationId,
+          tenantId,
+          config,
           toNumber: prepared.toNumber,
-          fromNumber: prepared.fromNumber,
           body: prepared.body,
+          purpose: 'ESCALATION_ALERT',
+          escalationId: escalation.escalationId,
         },
         db,
       );
-      summary.queued++;
+      if (result.queued) summary.queued++;
+      else summary.skipped++;
     } catch (error) {
       summary.skipped++;
       await recordFailure(

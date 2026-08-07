@@ -36,6 +36,9 @@ const SIGNED_WEBHOOK_ROUTES = [
   // The scheduled dispatch trigger. A scheduler cannot present Basic Auth, so
   // it carries a shared secret instead and refuses a missing or weak one.
   /^\/api\/frontdesk\/notifications\/cron$/,
+  // Inbound customer SMS and missed-call events. Same HMAC verification as the
+  // delivery webhook, and equally fails closed without a configured secret.
+  /^\/api\/frontdesk\/sms\/inbound$/,
 ];
 
 function isSelfAuthenticatingRoute(pathname: string): boolean {

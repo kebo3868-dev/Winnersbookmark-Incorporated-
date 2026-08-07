@@ -134,10 +134,12 @@ export const demoTenantConfig: TenantConfig = {
     // Every number here is in the 555-01xx fiction range and the demo runs on
     // the simulated provider, so nothing can reach a real handset.
     smsEnabled: true,
-    missedCallRecoveryEnabled: false,
+    missedCallRecoveryEnabled: true,
     fromNumber: '(555) 010-0100',
     maxFollowUps: 1,
     optOutKeywords: ['STOP', 'UNSUBSCRIBE', 'CANCEL', 'END', 'QUIT'],
+    rateLimitPerNumberPerHour: 5,
+    rateLimitPerTenantPerHour: 200,
   },
   retentionDays: 365,
 };

@@ -345,6 +345,9 @@ model FdTenant {
   auditLogs     FdAuditLog[]
   notifications FdNotification[]
   failures      FdFailure[]
+  consents      FdConsent[]
+  inboundEvents FdInboundEvent[]
+  rateCounters  FdRateCounter[]
 
   @@index([status])
 }
@@ -539,6 +542,7 @@ model FdNotification {
   escalationId      String?
   escalation        FdEscalation?        @relation(fields: [escalationId], references: [id], onDelete: SetNull)
   channel           String               @default("SMS")
+  purpose           FdMessagePurpose     @default(ESCALATION_ALERT)
   /// Staff destination taken from tenant config — not a customer's number.
   toNumber          String
   fromNumber        String
@@ -589,4 +593,87 @@ model FdFailure {
 
   @@index([tenantId, status])
   @@index([category, status])
+}
+
+// ---------------------------------------------------------------------------
+// PHASE 2 M3 — inbound messaging, consent, and rate limiting
+// ---------------------------------------------------------------------------
+
+enum FdConsentStatus {
+  /// Never heard from this number, and never messaged it.
+  UNKNOWN
+  /// Reached out to us, or explicitly opted in.
+  IMPLIED
+  /// Explicitly opted in (START after a STOP, or a form).
+  OPTED_IN
+  /// Sent STOP/UNSUBSCRIBE. Blocks every outbound message, permanently,
+  /// until they explicitly opt back in.
+  OPTED_OUT
+}
+
+/// What an outbound message is FOR. Consent and rate rules differ: an
+/// operational alert to a manager is not the same thing as a marketing-adjacent
+/// follow-up to a customer, and they must not be treated identically.
+enum FdMessagePurpose {
+  /// To restaurant staff, about an escalation.
+  ESCALATION_ALERT
+  /// To a customer whose call we missed.
+  MISSED_CALL_RECOVERY
+  /// A front desk reply inside a conversation the customer started.
+  CONVERSATION_REPLY
+}
+
+/// One consent record per (restaurant, phone number). Consent is per tenant,
+/// never global: opting out of one restaurant must not silence another.
+model FdConsent {
+  id            String          @id @default(cuid())
+  tenantId      String
+  tenant        FdTenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  /// E.164.
+  phone         String
+  status        FdConsentStatus @default(UNKNOWN)
+  /// How the current status was reached, e.g. "INBOUND_STOP", "INBOUND_MESSAGE".
+  source        String?
+  optedInAt     DateTime?
+  optedOutAt    DateTime?
+  lastInboundAt DateTime?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  @@unique([tenantId, phone])
+  @@index([tenantId, status])
+}
+
+/// DUPLICATE WEBHOOK PROTECTION. Providers redeliver aggressively; without
+/// this, one inbound SMS could be answered several times and one missed call
+/// could trigger several recovery messages.
+model FdInboundEvent {
+  id              String    @id @default(cuid())
+  tenantId        String?
+  tenant          FdTenant? @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  provider        String
+  /// The provider's own id for this event. Uniqueness is the dedupe.
+  providerEventId String
+  kind            String
+  receivedAt      DateTime  @default(now())
+
+  @@unique([provider, providerEventId])
+  @@index([tenantId, receivedAt])
+}
+
+/// Fixed-window send counters. Deliberately simple and inspectable: an
+/// operator can read exactly why a message was throttled.
+model FdRateCounter {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      FdTenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  /// "TENANT" or "NUMBER".
+  scope       String
+  /// The tenant id or the E.164 number the window applies to.
+  subject     String
+  windowStart DateTime
+  count       Int      @default(0)
+
+  @@unique([tenantId, scope, subject, windowStart])
+  @@index([windowStart])
 }
