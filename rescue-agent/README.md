@@ -230,10 +230,28 @@ cycle (`notify/worker.ts`), so behaviour never depends on how it was started:
 | `npm run worker:notifications` | same secret, over HTTP | Long-lived deploys (Docker, VM) |
 | `POST /api/frontdesk/notifications/dispatch` | WBI admin | Manual runs during a pilot |
 
-`vercel.json` declares a once-a-minute schedule. **It does nothing until
-`CRON_SECRET` is set** — the endpoint refuses a missing secret *and* one shorter
-than 16 characters, so a queue-draining route cannot become reachable because
-someone set `CRON_SECRET=test`.
+The endpoint refuses a missing secret *and* one shorter than 16 characters, so
+a queue-draining route cannot become reachable because someone set
+`CRON_SECRET=test`.
+
+**No schedule is committed to this repo, deliberately.** Vercel rejects
+sub-daily cron schedules on Hobby plans *at build time*, so shipping an active
+`vercel.json` could break a deploy depending on the account's plan. Add it once
+you have confirmed the plan supports it:
+
+```json
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "crons": [{ "path": "/api/frontdesk/notifications/cron", "schedule": "* * * * *" }]
+}
+```
+
+Vercel Cron issues a `GET` and supplies `Authorization: Bearer $CRON_SECRET`
+automatically once `CRON_SECRET` is set in project settings. On a Hobby plan, or
+any container deploy, run `npm run worker:notifications` instead — it polls the
+same endpoint on an interval and has no plan restriction.
+
+**Until one of these is running, alerts queue and are never sent.**
 
 #### Duplicate-send protection
 
