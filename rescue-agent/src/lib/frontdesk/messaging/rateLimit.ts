@@ -81,3 +81,25 @@ export function checkRate(
  * legitimate user fumbling their password a few times is unaffected.
  */
 export const LOGIN_ATTEMPTS_PER_HOUR = 10;
+
+/**
+ * Failed sign-ins allowed for a whole RESTAURANT per hour, across every
+ * address tried.
+ *
+ * The per-account limit above bounds guessing one password. It does not bound
+ * storage, because each distinct email address gets its own counter row — so
+ * an attacker who varies the address never trips a limit and grows the table
+ * forever. This ceiling is what makes the per-account counters bounded.
+ *
+ * Set well above any believable human total (a whole staff fumbling passwords
+ * on a bad morning is nowhere near this) and well below a useful attack.
+ */
+export const TENANT_LOGIN_ATTEMPTS_PER_HOUR = 60;
+
+/**
+ * Reserved counter subject for the per-restaurant ceiling.
+ *
+ * An `@` cannot appear in it, and every real subject is an email address, so
+ * this can never collide with one.
+ */
+export const TENANT_LOGIN_SUBJECT = '__tenant__';

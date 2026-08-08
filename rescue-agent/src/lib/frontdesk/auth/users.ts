@@ -57,10 +57,21 @@ export async function login(
   password: string,
   db: PrismaClient = prisma,
 ): Promise<LoginResult> {
-  const user = await db.fdUser.findUnique({
-    where: { tenantId_email: { tenantId: tenantId as string, email: email.trim().toLowerCase() } },
-    select: { id: true, passwordHash: true, role: true, tenantId: true, status: true },
-  });
+  const normalisedEmail = email.trim().toLowerCase();
+  const select = { id: true, passwordHash: true, role: true, tenantId: true, status: true } as const;
+
+  // A Winners Bookmark administrator has tenantId NULL, and a compound unique
+  // lookup cannot take null — `findUnique({ tenantId_email: { tenantId: null }})`
+  // throws at runtime rather than returning no row. The previous
+  // `tenantId as string` cast hid that from the compiler, so every
+  // administrator sign-in attempt raised an unhandled Prisma error and
+  // returned 500 on an endpoint reachable without any credential.
+  //
+  // `findFirst` with an explicit null is the correct query for that case. The
+  // unique constraint still guarantees at most one row.
+  const user = tenantId
+    ? await db.fdUser.findUnique({ where: { tenantId_email: { tenantId, email: normalisedEmail } }, select })
+    : await db.fdUser.findFirst({ where: { tenantId: null, email: normalisedEmail }, select });
 
   // Dummy verification against a real hash shape keeps the timing of "no such
   // user" close to "wrong password", so the endpoint is not an account oracle.
