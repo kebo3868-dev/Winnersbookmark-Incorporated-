@@ -1,10 +1,18 @@
 import Link from 'next/link';
 import { prisma } from '@/lib/db';
 import { ATTENTION_STATUSES, classifyAudit } from '@/lib/audit/attention';
+import { failStaleAudits } from '@/lib/audit/stale';
 
 export const dynamic = 'force-dynamic';
 
 export default async function CommandCenter() {
+  // Sweep globally BEFORE querying, or the panel misses its most important
+  // case. A killed worker leaves an audit RUNNING, and failStaleAudits was only
+  // ever called from one audit's own status route — so an audit nobody reopens
+  // stays RUNNING forever and never matches ATTENTION_STATUSES. The panel exists
+  // to surface exactly that failure, so it has to run the sweep itself.
+  await failStaleAudits();
+
   const [totalAudits, completedAudits, newLeads, avgScore, recent, needsAttention] = await Promise.all([
     prisma.audit.count(),
     prisma.audit.count({ where: { status: { in: ['COMPLETED', 'PARTIALLY_COMPLETED'] } } }),
@@ -20,15 +28,22 @@ export default async function CommandCenter() {
       },
     }),
     // Failures were recorded but never shown; surface them where they are seen.
+    //
+    // Ordered by when the audit FAILED, not when it was created. An audit
+    // created weeks ago that the stale sweep fails today is news; ordering by
+    // createdAt would sort it as old and `take` could drop it entirely. Prisma
+    // sorts nulls last, so a row without completedAt still falls back to
+    // updatedAt ordering rather than disappearing.
     prisma.audit.findMany({
       where: { status: { in: ATTENTION_STATUSES } },
-      orderBy: { createdAt: 'desc' },
+      orderBy: [{ completedAt: 'desc' }, { updatedAt: 'desc' }],
       take: 5,
       select: {
         id: true,
         status: true,
         failureReason: true,
-        createdAt: true,
+        completedAt: true,
+        updatedAt: true,
         restaurant: { select: { name: true } },
       },
     }),
