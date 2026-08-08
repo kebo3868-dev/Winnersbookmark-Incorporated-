@@ -81,3 +81,20 @@ export function checkRate(
  * legitimate user fumbling their password a few times is unaffected.
  */
 export const LOGIN_ATTEMPTS_PER_HOUR = 10;
+
+/**
+ * Counter subject for failures against an address that has NO account.
+ *
+ * This is what bounds the table. Keying a counter on an attacker-chosen email
+ * lets anyone create unlimited rows by varying the address; folding every
+ * unknown address onto one subject caps the whole thing at
+ * (real accounts at this restaurant + 1) rows per hour.
+ *
+ * A failure is still counted for an unknown address rather than skipped, so
+ * every failed sign-in performs exactly the same database work and the
+ * endpoint cannot be timed to discover which accounts exist.
+ *
+ * No `@`, and every real subject is an email address, so this can never
+ * collide with one.
+ */
+export const UNKNOWN_ACCOUNT_SUBJECT = '__unknown_account__';

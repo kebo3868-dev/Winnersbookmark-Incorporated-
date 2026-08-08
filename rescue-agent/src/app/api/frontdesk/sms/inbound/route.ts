@@ -5,6 +5,7 @@ import { handleInboundSms } from '@/lib/frontdesk/messaging/inbound';
 import { handleMissedCall } from '@/lib/frontdesk/messaging/missedCall';
 import { claimInboundEvent } from '@/lib/frontdesk/messaging/store';
 import { recordFailure } from '@/lib/frontdesk/notify/store';
+import { noteRejection, presentedAnyCredential } from '@/lib/frontdesk/security/rejections';
 import { getTenantWebhookSecretHash } from '@/lib/frontdesk/auth/users';
 import { SIGNATURE_HEADER, TIMESTAMP_HEADER, verifyWebhookForTenant } from '@/lib/frontdesk/notify/webhook';
 import { getTenantBySlug } from '@/lib/frontdesk/store';
@@ -45,6 +46,15 @@ const bodySchema = z.discriminatedUnion('kind', [
 ]);
 
 export async function POST(request: NextRequest) {
+  // FRONT DOOR. A request carrying no signature at all cannot possibly verify,
+  // so it is refused before any parsing, any tenant lookup and any write.
+  // Previously such a request reached a database read (slug → tenant) and then
+  // a database write (a failure row), which made an unauthenticated caller able
+  // to drive work in a production database.
+  if (!presentedAnyCredential(request.headers, [SIGNATURE_HEADER])) {
+    return NextResponse.json({ error: 'INVALID WEBHOOK REQUEST' }, { status: 401 });
+  }
+
   const rawBody = await request.text();
 
   // The body is PARSED before it is verified, because the signature is checked
@@ -81,25 +91,34 @@ export async function POST(request: NextRequest) {
   });
 
   if (!verdict.ok) {
-    await recordFailure({
+    // Coalesced. A signature WAS presented and failed, which is worth an
+    // operator knowing — but attributed per hour, not per request. The detail
+    // deliberately contains nothing the caller supplied: the tenant slug is
+    // attacker-chosen, and echoing it into the operator's queue would let an
+    // outsider write text onto a restaurant's dashboard.
+    await noteRejection({
       tenantId: tenant?.id ?? null,
       category: 'FAILED_WEBHOOK',
       operation: 'sms.inbound',
-      detail: `Rejected an inbound messaging webhook: ${verdict.reason}`,
-      lastError: verdict.reason,
+      reason: verdict.reason,
+      detail: `Inbound messaging webhooks are being rejected: ${verdict.reason}`,
+      credentialPresented: true,
     });
     return NextResponse.json({ error: 'INVALID WEBHOOK REQUEST' }, { status: 401 });
   }
 
   if (!tenant) {
-    // 200 rather than 404: the provider cannot fix an unknown tenant by
-    // retrying, and a retry storm helps nobody. Filed for an operator instead.
-    await recordFailure({
+    // Unreachable in practice: verification above needs the tenant's own secret
+    // hash, and an unknown tenant has none, so `verifyWebhookForTenant` already
+    // failed closed. Kept as a belt-and-braces guard, and coalesced like every
+    // other rejection so it cannot become a write primitive if that changes.
+    await noteRejection({
       tenantId: null,
       category: 'FAILED_WEBHOOK',
       operation: 'sms.inbound',
-      detail: `Inbound event for unknown restaurant "${event.tenantSlug}"`,
-      lastError: 'UNKNOWN_TENANT',
+      reason: 'UNKNOWN_TENANT',
+      detail: 'Inbound events are arriving for a restaurant that does not exist',
+      credentialPresented: true,
     });
     return NextResponse.json({ acknowledged: true, handled: false, reason: 'UNKNOWN_TENANT' });
   }

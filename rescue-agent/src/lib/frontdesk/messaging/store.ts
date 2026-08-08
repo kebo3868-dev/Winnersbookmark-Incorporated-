@@ -167,9 +167,24 @@ export async function listConsents(tenantId: string, take = 50, db: Db = prisma)
  * Bookmark administrator login has no row to hang off. That gap is documented
  * rather than papered over.
  */
+/**
+ * The SUBJECT is supplied already canonical by the caller, and is used
+ * verbatim.
+ *
+ * These helpers used to lowercase an email address themselves. That looked
+ * like normalisation and was not: the account lookup trims AND lowercases, so
+ * " Owner@x " and "owner@x" authenticated as the same user while producing two
+ * different counter subjects. An attacker could vary whitespace to fragment
+ * the counter — bypassing the per-account lockout by keeping each variant
+ * under the limit, and creating unbounded rows at the same time.
+ *
+ * Doing nothing here is the fix. A helper that half-normalises is worse than
+ * one that does not, because it reads as though the problem is handled. The
+ * login route now passes an immutable user id, which cannot be varied at all.
+ */
 export async function countLoginAttempts(
   tenantId: string,
-  email: string,
+  subject: string,
   now: Date,
   db: Db = prisma,
 ): Promise<number> {
@@ -178,7 +193,7 @@ export async function countLoginAttempts(
       tenantId_scope_subject_windowStart: {
         tenantId,
         scope: 'LOGIN',
-        subject: email.toLowerCase(),
+        subject,
         windowStart: windowStart(now),
       },
     },
@@ -189,16 +204,16 @@ export async function countLoginAttempts(
 
 export async function recordLoginAttempt(
   tenantId: string,
-  email: string,
+  subject: string,
   now: Date,
   db: Db = prisma,
 ): Promise<void> {
   const start = windowStart(now);
   await db.fdRateCounter.upsert({
     where: {
-      tenantId_scope_subject_windowStart: { tenantId, scope: 'LOGIN', subject: email.toLowerCase(), windowStart: start },
+      tenantId_scope_subject_windowStart: { tenantId, scope: 'LOGIN', subject, windowStart: start },
     },
-    create: { tenantId, scope: 'LOGIN', subject: email.toLowerCase(), windowStart: start, count: 1 },
+    create: { tenantId, scope: 'LOGIN', subject, windowStart: start, count: 1 },
     update: { count: { increment: 1 } },
   });
 }

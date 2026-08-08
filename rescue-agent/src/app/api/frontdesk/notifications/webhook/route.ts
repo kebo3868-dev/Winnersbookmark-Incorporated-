@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { prisma } from '@/lib/db';
 import { applyDeliveryStatus, recordFailure } from '@/lib/frontdesk/notify/store';
+import { noteRejection, presentedAnyCredential } from '@/lib/frontdesk/security/rejections';
 import {
   TWILIO_SIGNATURE_HEADER,
   parseTwilioDeliveryCallback,
@@ -49,12 +50,25 @@ export async function POST(request: NextRequest) {
       : verifyPlatformRequest(request, rawBody);
 
   if (!outcome.ok) {
-    await recordFailure({
+    // Bounded, and silent when nothing was presented. See security/rejections.
+    // Writing a row per rejected request made this endpoint a write primitive
+    // for anyone on the internet.
+    await noteRejection({
       tenantId: null,
       category: 'FAILED_WEBHOOK',
       operation: 'notifications.webhook',
-      detail: `Rejected a delivery callback: ${outcome.reason}`,
-      lastError: outcome.reason,
+      reason: outcome.reason,
+      detail: `Delivery callbacks are being rejected: ${outcome.reason}`,
+      // The SAME provider branch verification used, not both headers.
+      //
+      // Accepting either meant a caller on a Twilio deployment could send any
+      // `x-wbi-signature` value — a header this deployment never even looks
+      // at — and still be counted as having "presented a credential", which
+      // triggered the write on every request. That gave back the exact
+      // no-credential/no-write guarantee this fix exists to provide.
+      credentialPresented: presentedAnyCredential(request.headers, [
+        provider === 'twilio' ? TWILIO_SIGNATURE_HEADER : SIGNATURE_HEADER,
+      ]),
     });
     // Uniform response: a caller learns only that it was rejected.
     return NextResponse.json({ error: 'INVALID WEBHOOK REQUEST' }, { status: 401 });

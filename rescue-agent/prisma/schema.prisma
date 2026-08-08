@@ -629,6 +629,16 @@ model FdFailure {
   detail      String
   /// Id of the row this failure concerns (a notification, a lead, a booking).
   referenceId String?
+  /// Coalescing key for failures caused by UNAUTHENTICATED requests.
+  ///
+  /// Rejected requests must stay visible to an operator — a rotated secret has
+  /// to surface somewhere — but one row per rejected request lets anyone on the
+  /// internet grow this table without limit. Rejections therefore upsert on
+  /// this key (scope|operation|reason|hour) and increment `attempts`, so an
+  /// attack costs one row per hour instead of one row per request.
+  ///
+  /// NULL for ordinary failures, which are already bounded by real work.
+  dedupeKey   String?           @unique
   attempts    Int               @default(0)
   status      FdFailureStatus   @default(OPEN)
   lastError   String?

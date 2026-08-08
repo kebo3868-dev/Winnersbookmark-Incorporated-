@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { recordFailure } from '@/lib/frontdesk/notify/store';
+import { noteRejection, presentedAnyCredential } from '@/lib/frontdesk/security/rejections';
 import { cronSecretMatches, runDispatchCycle } from '@/lib/frontdesk/notify/worker';
 
 export const dynamic = 'force-dynamic';
@@ -20,12 +20,18 @@ export const dynamic = 'force-dynamic';
  */
 async function handle(request: NextRequest) {
   if (!cronSecretMatches(request.headers.get('authorization'), process.env.CRON_SECRET)) {
-    await recordFailure({
+    // This route answers GET as well as POST, so before this guard a plain
+    // crawler hit wrote a database row. Nothing is written now unless an
+    // authorization header was actually presented, and then only once an hour.
+    await noteRejection({
       tenantId: null,
       category: 'FAILED_INTEGRATION',
       operation: 'notifications.cron',
-      detail: 'Rejected a scheduled dispatch request with a missing, weak or incorrect secret',
-      lastError: 'CRON_AUTH_FAILED',
+      reason: 'CRON_AUTH_FAILED',
+      detail:
+        'Scheduled dispatch requests are being rejected: the secret is missing, weaker than 16 characters, or wrong. ' +
+        'Queued alerts are not being sent while this is true.',
+      credentialPresented: presentedAnyCredential(request.headers, ['authorization']),
     });
     return NextResponse.json({ error: 'AUTHENTICATION REQUIRED' }, { status: 401 });
   }
