@@ -353,8 +353,8 @@ describe('sign-in', () => {
      * cannot reproduce the real client's runtime validation: with the double,
      * the broken call would silently succeed and the test would pass.
      */
-    const { login } = await import('@/lib/frontdesk/auth/users');
-    await login(null, 'admin@example.invalid', 'x', prismaDouble as never);
+    const { verifyCredentials } = await import('@/lib/frontdesk/auth/users');
+    await verifyCredentials(null, 'admin@example.invalid', 'x', prismaDouble as never);
 
     const lookup = calls.find((c) => c.model === 'fdUser');
     expect(lookup?.method).toBe('findFirst');
@@ -362,8 +362,8 @@ describe('sign-in', () => {
   });
 
   it('still uses the compound unique lookup for a restaurant user', async () => {
-    const { login } = await import('@/lib/frontdesk/auth/users');
-    await login('tenant-1', 'staff@example.invalid', 'x', prismaDouble as never);
+    const { verifyCredentials } = await import('@/lib/frontdesk/auth/users');
+    await verifyCredentials('tenant-1', 'staff@example.invalid', 'x', prismaDouble as never);
 
     const lookup = calls.find((c) => c.model === 'fdUser');
     expect(lookup?.method).toBe('findUnique');
@@ -433,9 +433,9 @@ describe('bounding storage must never gate authentication', () => {
     canned.set('fdUser.findUnique', REAL_USER);
     canned.set('fdSession.create', { id: 'session-1' });
 
-    const { login } = await import('@/lib/frontdesk/auth/users');
-    // Prove the route reaches login() rather than returning before it.
-    expect(typeof login).toBe('function');
+    const { verifyCredentials } = await import('@/lib/frontdesk/auth/users');
+    // Prove the route reaches verification rather than returning before it.
+    expect(typeof verifyCredentials).toBe('function');
 
     await signIn({ email: 'owner@r.invalid', password: 'correct', tenantSlug: 'a-restaurant' });
     expect(calls.some((c) => c.model === 'fdUser' && c.method === 'findUnique')).toBe(true);
@@ -469,6 +469,8 @@ describe('bounding storage must never gate authentication', () => {
   });
 
   it('counts a failure against a REAL account under that account', async () => {
+    // Keyed on the immutable user id, not the address the caller typed — see
+    // the counter-fragmentation suite below for why.
     canned.set('fdUser.findUnique', REAL_USER);
     await signIn({ email: 'owner@r.invalid', password: 'wrong', tenantSlug: 'a-restaurant' });
 
@@ -477,7 +479,7 @@ describe('bounding storage must never gate authentication', () => {
       .map((c) => (c.args as { where: { tenantId_scope_subject_windowStart: { subject: string } } })
         .where.tenantId_scope_subject_windowStart.subject);
 
-    expect(subjects).toEqual(['owner@r.invalid']);
+    expect(subjects).toEqual([REAL_USER.id]);
   });
 
   it('performs the SAME database work for a known and an unknown address', async () => {
@@ -573,7 +575,216 @@ describe('bounding storage must never gate authentication', () => {
   it('checks the lockout only AFTER verification', async () => {
     const source = readFileSync(join(process.cwd(), 'src/app/api/frontdesk/auth/login/route.ts'), 'utf8');
     // The USAGE, not the import at the top of the file.
-    expect(source.indexOf('await login(')).toBeLessThan(source.indexOf('attempts >= LOGIN_ATTEMPTS_PER_HOUR'));
+    expect(source.indexOf('await verifyCredentials(')).toBeLessThan(
+      source.indexOf('attempts >= LOGIN_ATTEMPTS_PER_HOUR'),
+    );
+  });
+});
+
+describe('a refused sign-in must leave nothing behind', () => {
+  /**
+   * The second round of review found that the lockout ran AFTER login() had
+   * already created the session and updated lastLoginAt. A locked-out account
+   * receiving the CORRECT password minted an FdSession row and was then
+   * refused — an orphan session per rejected attempt, which is an unbounded
+   * write on the very change that exists to remove them, and a side effect
+   * that distinguishes the correct-password path from a wrong guess.
+   *
+   * It also found the counter was keyed on the raw address while the account
+   * lookup trimmed and lowercased, so whitespace variants fragmented the
+   * counter — defeating both the lockout and the storage bound.
+   */
+  const USER_ID = 'user-immutable-1';
+
+  const realUser = async () => {
+    const { hashPassword } = await import('@/lib/frontdesk/auth/password');
+    return {
+      id: USER_ID,
+      passwordHash: await hashPassword('the-real-password'),
+      role: 'RESTAURANT_OWNER',
+      tenantId: 'tenant-1',
+      status: 'ACTIVE',
+    };
+  };
+
+  beforeEach(() => {
+    canned.set('fdTenant.findUnique', {
+      id: 'tenant-1',
+      slug: 'a-restaurant',
+      name: 'A Restaurant',
+      status: 'ONBOARDING',
+      demoMode: false,
+      config: demoTenantConfig,
+    });
+  });
+
+  const signIn = async (body: Record<string, unknown>) => {
+    const { POST } = await import('@/app/api/frontdesk/auth/login/route');
+    return POST(post('https://x.invalid/api/frontdesk/auth/login', JSON.stringify(body)) as never);
+  };
+
+  it('creates NO session for a locked-out account given the correct password', async () => {
+    canned.set('fdUser.findUnique', await realUser());
+    canned.set('fdRateCounter.findUnique', { count: 10 }); // at the limit
+    canned.set('fdSession.create', { id: 'should-never-be-created' });
+
+    const response = await signIn({
+      email: 'owner@r.invalid',
+      password: 'the-real-password',
+      tenantSlug: 'a-restaurant',
+    });
+
+    expect(response.status).toBe(401);
+    expect(calls.filter((c) => c.model === 'fdSession' && c.method === 'create')).toHaveLength(0);
+    expect(response.headers.get('set-cookie') ?? '').not.toContain('wbi_fd_session=');
+  });
+
+  it('does not touch lastLoginAt for a locked-out account', async () => {
+    canned.set('fdUser.findUnique', await realUser());
+    canned.set('fdRateCounter.findUnique', { count: 10 });
+
+    await signIn({ email: 'owner@r.invalid', password: 'the-real-password', tenantSlug: 'a-restaurant' });
+
+    expect(calls.filter((c) => c.model === 'fdUser' && c.method === 'update')).toHaveLength(0);
+  });
+
+  it('writes NOTHING at all when a locked-out account is refused', async () => {
+    canned.set('fdUser.findUnique', await realUser());
+    canned.set('fdRateCounter.findUnique', { count: 10 });
+
+    await signIn({ email: 'owner@r.invalid', password: 'the-real-password', tenantSlug: 'a-restaurant' });
+
+    // Only the coalesced rejection record, which is bounded to one row per hour.
+    expect(writes().map((c) => `${c.model}.${c.method}`)).toEqual(['fdFailure.upsert']);
+  });
+
+  it('still signs in successfully once the lockout window has cleared', async () => {
+    // The lockout must not become permanent: a legitimate user whose failures
+    // have aged out must get straight back in.
+    canned.set('fdUser.findUnique', await realUser());
+    canned.set('fdRateCounter.findUnique', { count: 0 }); // window rolled over
+    canned.set('fdSession.create', { id: 'session-1' });
+
+    const response = await signIn({
+      email: 'owner@r.invalid',
+      password: 'the-real-password',
+      tenantSlug: 'a-restaurant',
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('set-cookie')).toContain('wbi_fd_session=');
+    expect(calls.filter((c) => c.model === 'fdSession' && c.method === 'create')).toHaveLength(1);
+    expect(calls.filter((c) => c.model === 'fdUser' && c.method === 'update')).toHaveLength(1);
+  });
+
+  it('verification itself writes nothing', async () => {
+    const { verifyCredentials } = await import('@/lib/frontdesk/auth/users');
+    canned.set('fdUser.findUnique', await realUser());
+
+    await verifyCredentials('tenant-1', 'owner@r.invalid', 'the-real-password', prismaDouble as never);
+
+    expect(writes(), `verification wrote: ${describeWrites()}`).toHaveLength(0);
+  });
+});
+
+describe('the failure counter cannot be fragmented', () => {
+  const USER_ID = 'user-immutable-1';
+
+  const realUser = async () => {
+    const { hashPassword } = await import('@/lib/frontdesk/auth/password');
+    return {
+      id: USER_ID,
+      passwordHash: await hashPassword('the-real-password'),
+      role: 'RESTAURANT_OWNER',
+      tenantId: 'tenant-1',
+      status: 'ACTIVE',
+    };
+  };
+
+  beforeEach(() => {
+    canned.set('fdTenant.findUnique', {
+      id: 'tenant-1',
+      slug: 'a-restaurant',
+      name: 'A Restaurant',
+      status: 'ONBOARDING',
+      demoMode: false,
+      config: demoTenantConfig,
+    });
+  });
+
+  const subjects = () =>
+    calls
+      .filter((c) => c.model === 'fdRateCounter' && c.method === 'upsert')
+      .map((c) => (c.args as { where: { tenantId_scope_subject_windowStart: { subject: string } } })
+        .where.tenantId_scope_subject_windowStart.subject);
+
+  it('keys the counter on the immutable user id, not the typed address', async () => {
+    canned.set('fdUser.findUnique', await realUser());
+    const { POST } = await import('@/app/api/frontdesk/auth/login/route');
+    await POST(
+      post(
+        'https://x.invalid/api/frontdesk/auth/login',
+        JSON.stringify({ email: 'owner@r.invalid', password: 'wrong', tenantSlug: 'a-restaurant' }),
+      ) as never,
+    );
+
+    expect(subjects()).toEqual([USER_ID]);
+  });
+
+  it('lands whitespace and case variants on the SAME counter', async () => {
+    // The bypass: " Owner@R.invalid " authenticates as the same account but
+    // used to get its own counter row, so ten guesses per variant defeated the
+    // lockout and grew the table without limit.
+    canned.set('fdUser.findUnique', await realUser());
+    const { POST } = await import('@/app/api/frontdesk/auth/login/route');
+
+    for (const variant of [
+      'owner@r.invalid',
+      ' owner@r.invalid',
+      'owner@r.invalid ',
+      '  Owner@R.Invalid  ',
+      'OWNER@R.INVALID',
+    ]) {
+      await POST(
+        post(
+          'https://x.invalid/api/frontdesk/auth/login',
+          JSON.stringify({ email: variant, password: 'wrong', tenantSlug: 'a-restaurant' }),
+        ) as never,
+      );
+    }
+
+    expect(new Set(subjects()).size).toBe(1);
+    expect([...new Set(subjects())][0]).toBe(USER_ID);
+  });
+
+  it('reads the lockout counter under the same immutable key it writes', async () => {
+    // A read keyed differently from the write would silently never see the
+    // failures it is meant to count.
+    canned.set('fdUser.findUnique', await realUser());
+    canned.set('fdRateCounter.findUnique', { count: 0 });
+    canned.set('fdSession.create', { id: 'session-1' });
+    const { POST } = await import('@/app/api/frontdesk/auth/login/route');
+
+    await POST(
+      post(
+        'https://x.invalid/api/frontdesk/auth/login',
+        JSON.stringify({ email: '  Owner@R.Invalid ', password: 'the-real-password', tenantSlug: 'a-restaurant' }),
+      ) as never,
+    );
+
+    const read = calls.find((c) => c.model === 'fdRateCounter' && c.method === 'findUnique');
+    expect(
+      (read?.args as { where: { tenantId_scope_subject_windowStart: { subject: string } } })
+        .where.tenantId_scope_subject_windowStart.subject,
+    ).toBe(USER_ID);
+  });
+
+  it('does not half-normalise in the store helper', async () => {
+    // A helper that lowercases but does not trim reads as though the problem
+    // is handled, and is worse than one that does nothing.
+    const source = readFileSync(join(process.cwd(), 'src/lib/frontdesk/messaging/store.ts'), 'utf8');
+    const loginSection = source.slice(source.indexOf('export async function countLoginAttempts'));
+    expect(loginSection).not.toContain('toLowerCase');
   });
 });
 

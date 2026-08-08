@@ -40,36 +40,47 @@ export async function createUser(
   });
 }
 
-export type LoginResult =
-  | { ok: true; token: string; expiresAt: Date; userId: string; role: Role; tenantId: string | null }
+/**
+ * The result of checking a password. NO SIDE EFFECTS — see below.
+ */
+export type CredentialCheck =
+  | { ok: true; userId: string; role: Role; tenantId: string | null }
   | {
       ok: false;
       reason: 'INVALID_CREDENTIALS' | 'SUSPENDED';
       /**
-       * Whether an account with this address exists at this restaurant.
+       * The account this attempt was against, or null when no such account
+       * exists. INTERNAL ONLY — the caller must never vary its RESPONSE on
+       * this, or the endpoint becomes an account-enumeration oracle.
        *
-       * INTERNAL ONLY. The caller must never vary its RESPONSE on this — the
-       * whole point of the dummy-hash verification above is that a wrong email
-       * and a wrong password are indistinguishable. It exists so failure
-       * counters can be keyed on real accounts rather than on attacker-chosen
-       * addresses, which is what keeps that table bounded.
+       * It exists so failure counters can be keyed on an immutable id rather
+       * than on the address the caller typed.
        */
-      accountExists: boolean;
+      userId: string | null;
     };
 
 /**
- * Sign in.
+ * Check a password. Writes nothing.
  *
- * A wrong email and a wrong password are indistinguishable to the caller, and
- * the password is verified even when no user was found so the response time
- * does not reveal which accounts exist.
+ * SEPARATED FROM SESSION ISSUANCE ON PURPOSE. When these were one function,
+ * the caller could not enforce a lockout without the session already having
+ * been created: a locked-out account receiving the CORRECT password minted an
+ * FdSession row and updated lastLoginAt, and only then was refused. That left
+ * an orphan session per rejected attempt — an unbounded write — and made the
+ * correct-password path distinguishable from a wrong guess by its side
+ * effects, which is exactly the timing signal the lockout ordering exists to
+ * hide.
+ *
+ * A wrong email and a wrong password remain indistinguishable to the caller,
+ * and the password is verified even when no user was found so the response
+ * time does not reveal which accounts exist.
  */
-export async function login(
+export async function verifyCredentials(
   tenantId: string | null,
   email: string,
   password: string,
   db: PrismaClient = prisma,
-): Promise<LoginResult> {
+): Promise<CredentialCheck> {
   const normalisedEmail = email.trim().toLowerCase();
   const select = { id: true, passwordHash: true, role: true, tenantId: true, status: true } as const;
 
@@ -91,23 +102,32 @@ export async function login(
   const hashToCheck = user?.passwordHash ?? DUMMY_HASH;
   const passwordOk = await verifyPassword(password, hashToCheck);
 
-  if (!user || !passwordOk) return { ok: false, reason: 'INVALID_CREDENTIALS', accountExists: Boolean(user) };
-  if (user.status !== 'ACTIVE') return { ok: false, reason: 'SUSPENDED', accountExists: true };
+  if (!user || !passwordOk) {
+    return { ok: false, reason: 'INVALID_CREDENTIALS', userId: user?.id ?? null };
+  }
+  if (user.status !== 'ACTIVE') {
+    return { ok: false, reason: 'SUSPENDED', userId: user.id };
+  }
 
+  return { ok: true, userId: user.id, role: user.role, tenantId: user.tenantId };
+}
+
+/**
+ * Mint a session. THE ONLY WRITE on the sign-in path.
+ *
+ * Called only after every refusal has been decided, so a rejected attempt can
+ * never leave a session behind.
+ */
+export async function issueSession(
+  userId: string,
+  db: Db = prisma,
+): Promise<{ token: string; expiresAt: Date }> {
   const session = createSessionToken();
   await db.fdSession.create({
-    data: { userId: user.id, tokenHash: session.tokenHash, expiresAt: session.expiresAt },
+    data: { userId, tokenHash: session.tokenHash, expiresAt: session.expiresAt },
   });
-  await db.fdUser.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
-
-  return {
-    ok: true,
-    token: session.token,
-    expiresAt: session.expiresAt,
-    userId: user.id,
-    role: user.role,
-    tenantId: user.tenantId,
-  };
+  await db.fdUser.update({ where: { id: userId }, data: { lastLoginAt: new Date() } });
+  return { token: session.token, expiresAt: session.expiresAt };
 }
 
 /**
