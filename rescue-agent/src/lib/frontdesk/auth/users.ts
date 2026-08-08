@@ -42,7 +42,20 @@ export async function createUser(
 
 export type LoginResult =
   | { ok: true; token: string; expiresAt: Date; userId: string; role: Role; tenantId: string | null }
-  | { ok: false; reason: 'INVALID_CREDENTIALS' | 'SUSPENDED' };
+  | {
+      ok: false;
+      reason: 'INVALID_CREDENTIALS' | 'SUSPENDED';
+      /**
+       * Whether an account with this address exists at this restaurant.
+       *
+       * INTERNAL ONLY. The caller must never vary its RESPONSE on this — the
+       * whole point of the dummy-hash verification above is that a wrong email
+       * and a wrong password are indistinguishable. It exists so failure
+       * counters can be keyed on real accounts rather than on attacker-chosen
+       * addresses, which is what keeps that table bounded.
+       */
+      accountExists: boolean;
+    };
 
 /**
  * Sign in.
@@ -78,8 +91,8 @@ export async function login(
   const hashToCheck = user?.passwordHash ?? DUMMY_HASH;
   const passwordOk = await verifyPassword(password, hashToCheck);
 
-  if (!user || !passwordOk) return { ok: false, reason: 'INVALID_CREDENTIALS' };
-  if (user.status !== 'ACTIVE') return { ok: false, reason: 'SUSPENDED' };
+  if (!user || !passwordOk) return { ok: false, reason: 'INVALID_CREDENTIALS', accountExists: Boolean(user) };
+  if (user.status !== 'ACTIVE') return { ok: false, reason: 'SUSPENDED', accountExists: true };
 
   const session = createSessionToken();
   await db.fdSession.create({

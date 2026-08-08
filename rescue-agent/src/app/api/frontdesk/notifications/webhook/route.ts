@@ -59,9 +59,15 @@ export async function POST(request: NextRequest) {
       operation: 'notifications.webhook',
       reason: outcome.reason,
       detail: `Delivery callbacks are being rejected: ${outcome.reason}`,
+      // The SAME provider branch verification used, not both headers.
+      //
+      // Accepting either meant a caller on a Twilio deployment could send any
+      // `x-wbi-signature` value — a header this deployment never even looks
+      // at — and still be counted as having "presented a credential", which
+      // triggered the write on every request. That gave back the exact
+      // no-credential/no-write guarantee this fix exists to provide.
       credentialPresented: presentedAnyCredential(request.headers, [
-        SIGNATURE_HEADER,
-        TWILIO_SIGNATURE_HEADER,
+        provider === 'twilio' ? TWILIO_SIGNATURE_HEADER : SIGNATURE_HEADER,
       ]),
     });
     // Uniform response: a caller learns only that it was rejected.

@@ -83,23 +83,18 @@ export function checkRate(
 export const LOGIN_ATTEMPTS_PER_HOUR = 10;
 
 /**
- * Failed sign-ins allowed for a whole RESTAURANT per hour, across every
- * address tried.
+ * Counter subject for failures against an address that has NO account.
  *
- * The per-account limit above bounds guessing one password. It does not bound
- * storage, because each distinct email address gets its own counter row — so
- * an attacker who varies the address never trips a limit and grows the table
- * forever. This ceiling is what makes the per-account counters bounded.
+ * This is what bounds the table. Keying a counter on an attacker-chosen email
+ * lets anyone create unlimited rows by varying the address; folding every
+ * unknown address onto one subject caps the whole thing at
+ * (real accounts at this restaurant + 1) rows per hour.
  *
- * Set well above any believable human total (a whole staff fumbling passwords
- * on a bad morning is nowhere near this) and well below a useful attack.
+ * A failure is still counted for an unknown address rather than skipped, so
+ * every failed sign-in performs exactly the same database work and the
+ * endpoint cannot be timed to discover which accounts exist.
+ *
+ * No `@`, and every real subject is an email address, so this can never
+ * collide with one.
  */
-export const TENANT_LOGIN_ATTEMPTS_PER_HOUR = 60;
-
-/**
- * Reserved counter subject for the per-restaurant ceiling.
- *
- * An `@` cannot appear in it, and every real subject is an email address, so
- * this can never collide with one.
- */
-export const TENANT_LOGIN_SUBJECT = '__tenant__';
+export const UNKNOWN_ACCOUNT_SUBJECT = '__unknown_account__';

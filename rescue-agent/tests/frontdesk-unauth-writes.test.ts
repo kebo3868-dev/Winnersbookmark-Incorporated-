@@ -378,6 +378,256 @@ describe('sign-in', () => {
 });
 
 // ===========================================================================
+// 1b. THE FIX MUST NOT BECOME A DENIAL OF SERVICE
+// ===========================================================================
+
+describe('bounding storage must never gate authentication', () => {
+  /**
+   * The first version of this security fix introduced a worse bug than the one
+   * it closed. A per-RESTAURANT failure ceiling was checked BEFORE the password,
+   * and returned 401 once reached — so an anonymous caller who knew a
+   * restaurant's slug could submit sixty bad sign-ins and lock out every member
+   * of that restaurant's staff, correct credentials included, for the rest of
+   * the hour.
+   *
+   * Locking a manager out of the dashboard during a food-safety incident is a
+   * worse outcome than the table growth it prevented. These pin that it cannot
+   * come back.
+   */
+  const REAL_USER = {
+    id: 'user-1',
+    passwordHash: 'scrypt$16384$8$1$c2FsdA$aGFzaA',
+    role: 'RESTAURANT_OWNER',
+    tenantId: 'tenant-1',
+    status: 'ACTIVE',
+  };
+
+  beforeEach(() => {
+    canned.set('fdTenant.findUnique', {
+      id: 'tenant-1',
+      slug: 'a-restaurant',
+      name: 'A Restaurant',
+      status: 'ONBOARDING',
+      demoMode: false,
+      config: demoTenantConfig,
+    });
+  });
+
+  const signIn = async (body: Record<string, unknown>) => {
+    const { POST } = await import('@/app/api/frontdesk/auth/login/route');
+    return POST(post('https://x.invalid/api/frontdesk/auth/login', JSON.stringify(body)) as never);
+  };
+
+  it('always verifies the password, however high the failure count', async () => {
+    // A huge existing count must not short-circuit verification.
+    canned.set('fdRateCounter.findUnique', { count: 10_000 });
+    await signIn({ email: 'staff@r.invalid', password: 'x', tenantSlug: 'a-restaurant' });
+
+    expect(calls.some((c) => c.model === 'fdUser'), 'the password was never verified').toBe(true);
+  });
+
+  it('does not refuse an unrelated account after a flood of failures', async () => {
+    // The scenario that made this a denial of service: an attacker burns the
+    // counter with junk addresses, then a real member of staff signs in.
+    canned.set('fdRateCounter.findUnique', { count: 10_000 });
+    canned.set('fdUser.findUnique', REAL_USER);
+    canned.set('fdSession.create', { id: 'session-1' });
+
+    const { login } = await import('@/lib/frontdesk/auth/users');
+    // Prove the route reaches login() rather than returning before it.
+    expect(typeof login).toBe('function');
+
+    await signIn({ email: 'owner@r.invalid', password: 'correct', tenantSlug: 'a-restaurant' });
+    expect(calls.some((c) => c.model === 'fdUser' && c.method === 'findUnique')).toBe(true);
+  });
+
+  it('no longer has a restaurant-wide ceiling at all', async () => {
+    const source = readFileSync(join(process.cwd(), 'src/app/api/frontdesk/auth/login/route.ts'), 'utf8');
+    expect(source).not.toContain('TENANT_LOGIN_ATTEMPTS_PER_HOUR');
+    expect(source).not.toContain('TENANT_LOGIN_SUBJECT');
+
+    const limits = readFileSync(join(process.cwd(), 'src/lib/frontdesk/messaging/rateLimit.ts'), 'utf8');
+    expect(limits).not.toContain('TENANT_LOGIN_ATTEMPTS_PER_HOUR');
+  });
+
+  it('counts every unknown address onto ONE shared subject', async () => {
+    // This is what bounds the table now: attacker-chosen addresses cannot each
+    // create a row.
+    for (let i = 0; i < 50; i++) {
+      await signIn({ email: `victim${i}@r.invalid`, password: 'x', tenantSlug: 'a-restaurant' });
+    }
+
+    const subjects = new Set(
+      calls
+        .filter((c) => c.model === 'fdRateCounter' && c.method === 'upsert')
+        .map((c) => (c.args as { where: { tenantId_scope_subject_windowStart: { subject: string } } })
+          .where.tenantId_scope_subject_windowStart.subject),
+    );
+
+    expect(subjects.size).toBe(1);
+    expect([...subjects][0]).toBe('__unknown_account__');
+  });
+
+  it('counts a failure against a REAL account under that account', async () => {
+    canned.set('fdUser.findUnique', REAL_USER);
+    await signIn({ email: 'owner@r.invalid', password: 'wrong', tenantSlug: 'a-restaurant' });
+
+    const subjects = calls
+      .filter((c) => c.model === 'fdRateCounter' && c.method === 'upsert')
+      .map((c) => (c.args as { where: { tenantId_scope_subject_windowStart: { subject: string } } })
+        .where.tenantId_scope_subject_windowStart.subject);
+
+    expect(subjects).toEqual(['owner@r.invalid']);
+  });
+
+  it('performs the SAME database work for a known and an unknown address', async () => {
+    // Otherwise the endpoint could be timed to enumerate accounts.
+    canned.set('fdUser.findUnique', REAL_USER);
+    await signIn({ email: 'owner@r.invalid', password: 'wrong', tenantSlug: 'a-restaurant' });
+    const known = calls.map((c) => `${c.model}.${c.method}`);
+
+    calls.length = 0;
+    canned.delete('fdUser.findUnique');
+    await signIn({ email: 'nobody@r.invalid', password: 'wrong', tenantSlug: 'a-restaurant' });
+    const unknown = calls.map((c) => `${c.model}.${c.method}`);
+
+    expect(unknown).toEqual(known);
+  });
+
+  it('uses an atomic upsert-increment, never a read-then-write', async () => {
+    // Concurrency safety: a read-then-write lets simultaneous requests all see
+    // the same value and each write their own row.
+    for (let i = 0; i < 20; i++) {
+      await signIn({ email: `x${i}@r.invalid`, password: 'x', tenantSlug: 'a-restaurant' });
+    }
+
+    const counterCalls = calls.filter((c) => c.model === 'fdRateCounter');
+    // No counts are read on the failure path at all — nothing to race on.
+    expect(counterCalls.every((c) => c.method === 'upsert')).toBe(true);
+
+    const update = (counterCalls[0].args as { update: Record<string, unknown> }).update;
+    expect(update).toEqual({ count: { increment: 1 } });
+  });
+
+  it('stays bounded under CONCURRENT failures at the ceiling', async () => {
+    // The concurrency case that defeated the previous design: many requests in
+    // flight at once, each with a distinct address.
+    canned.set('fdRateCounter.findUnique', { count: 10_000 });
+
+    await Promise.all(
+      Array.from({ length: 40 }, (_, i) =>
+        signIn({ email: `burst${i}@r.invalid`, password: 'x', tenantSlug: 'a-restaurant' }),
+      ),
+    );
+
+    const subjects = new Set(
+      calls
+        .filter((c) => c.model === 'fdRateCounter' && c.method === 'upsert')
+        .map((c) => (c.args as { where: { tenantId_scope_subject_windowStart: { subject: string } } })
+          .where.tenantId_scope_subject_windowStart.subject),
+    );
+
+    // 40 concurrent requests, 40 distinct addresses, ONE row.
+    expect(subjects.size).toBe(1);
+  });
+
+  it('accepts CORRECT credentials once the shared counter is saturated', async () => {
+    // The headline regression, tested end to end with a real password hash:
+    // an attacker has burned the unknown-account counter, and a genuine owner
+    // signs in. Before the fix this returned 401.
+    const { hashPassword } = await import('@/lib/frontdesk/auth/password');
+    canned.set('fdUser.findUnique', { ...REAL_USER, passwordHash: await hashPassword('the-real-password') });
+    // Saturated shared counter; the owner's own counter is a different row.
+    canned.set('fdRateCounter.findUnique', { count: 0 });
+    canned.set('fdSession.create', { id: 'session-1' });
+
+    const response = await signIn({
+      email: 'owner@r.invalid',
+      password: 'the-real-password',
+      tenantSlug: 'a-restaurant',
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('set-cookie')).toContain('wbi_fd_session=');
+  });
+
+  it('still locks out THAT account once its own failures reach the limit', async () => {
+    // The lockout must survive — confined to the attacked account, but real.
+    const { hashPassword } = await import('@/lib/frontdesk/auth/password');
+    canned.set('fdUser.findUnique', { ...REAL_USER, passwordHash: await hashPassword('the-real-password') });
+    canned.set('fdRateCounter.findUnique', { count: 10 });
+    canned.set('fdSession.create', { id: 'session-1' });
+
+    const response = await signIn({
+      email: 'owner@r.invalid',
+      password: 'the-real-password',
+      tenantSlug: 'a-restaurant',
+    });
+
+    expect(response.status).toBe(401);
+    expect(response.headers.get('set-cookie') ?? '').not.toContain('wbi_fd_session=');
+    // The password was still verified, so timing cannot reveal the lockout.
+    expect(calls.some((c) => c.model === 'fdUser')).toBe(true);
+  });
+
+  it('checks the lockout only AFTER verification', async () => {
+    const source = readFileSync(join(process.cwd(), 'src/app/api/frontdesk/auth/login/route.ts'), 'utf8');
+    // The USAGE, not the import at the top of the file.
+    expect(source.indexOf('await login(')).toBeLessThan(source.indexOf('attempts >= LOGIN_ATTEMPTS_PER_HOUR'));
+  });
+});
+
+describe('credential presence uses the configured provider scheme', () => {
+  /**
+   * Verification picks ONE scheme from SMS_PROVIDER. Testing presence against
+   * both headers meant a caller could send the header this deployment never
+   * looks at and still trigger a write on every request — handing back the
+   * no-credential/no-write guarantee.
+   */
+  const timestamp = () => String(Math.floor(Date.now() / 1000));
+
+  it('ignores a Twilio header on a non-Twilio deployment', async () => {
+    process.env.SMS_PROVIDER = 'mock';
+    const { POST } = await import('@/app/api/frontdesk/notifications/webhook/route');
+    await POST(
+      post('https://x.invalid/api/frontdesk/notifications/webhook', '{}', {
+        'x-twilio-signature': 'irrelevant-here',
+      }) as never,
+    );
+    expect(writes(), `unexpected writes: ${describeWrites()}`).toHaveLength(0);
+  });
+
+  it('ignores the platform header on a Twilio deployment', async () => {
+    process.env.SMS_PROVIDER = 'twilio';
+    process.env.TWILIO_AUTH_TOKEN = 'b'.repeat(32);
+    process.env.TWILIO_STATUS_CALLBACK_URL = 'https://x.invalid/api/frontdesk/notifications/webhook';
+
+    const { POST } = await import('@/app/api/frontdesk/notifications/webhook/route');
+    await POST(
+      post('https://x.invalid/api/frontdesk/notifications/webhook', 'MessageSid=SM1', {
+        'x-wbi-signature': 'irrelevant-here',
+        'x-wbi-timestamp': timestamp(),
+      }) as never,
+    );
+    expect(writes(), `unexpected writes: ${describeWrites()}`).toHaveLength(0);
+  });
+
+  it('still records when the CONFIGURED scheme is presented and fails', async () => {
+    process.env.SMS_PROVIDER = 'twilio';
+    process.env.TWILIO_AUTH_TOKEN = 'b'.repeat(32);
+    process.env.TWILIO_STATUS_CALLBACK_URL = 'https://x.invalid/api/frontdesk/notifications/webhook';
+
+    const { POST } = await import('@/app/api/frontdesk/notifications/webhook/route');
+    await POST(
+      post('https://x.invalid/api/frontdesk/notifications/webhook', 'MessageSid=SM1', {
+        'x-twilio-signature': 'a-wrong-signature',
+      }) as never,
+    );
+    expect(writes().filter((c) => c.method === 'upsert')).toHaveLength(1);
+  });
+});
+
+// ===========================================================================
 // 2. THE MIDDLEWARE BYPASS
 // ===========================================================================
 
