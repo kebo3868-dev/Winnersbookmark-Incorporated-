@@ -1,10 +1,19 @@
 import Link from 'next/link';
 import { prisma } from '@/lib/db';
+import { ATTENTION_STATUSES, classifyAudit } from '@/lib/audit/attention';
+import { failStaleAudits } from '@/lib/audit/stale';
 
 export const dynamic = 'force-dynamic';
 
 export default async function CommandCenter() {
-  const [totalAudits, completedAudits, newLeads, avgScore, recent] = await Promise.all([
+  // Sweep globally BEFORE querying, or the panel misses its most important
+  // case. A killed worker leaves an audit RUNNING, and failStaleAudits was only
+  // ever called from one audit's own status route — so an audit nobody reopens
+  // stays RUNNING forever and never matches ATTENTION_STATUSES. The panel exists
+  // to surface exactly that failure, so it has to run the sweep itself.
+  await failStaleAudits();
+
+  const [totalAudits, completedAudits, newLeads, avgScore, recent, needsAttention] = await Promise.all([
     prisma.audit.count(),
     prisma.audit.count({ where: { status: { in: ['COMPLETED', 'PARTIALLY_COMPLETED'] } } }),
     prisma.auditLead.count({ where: { status: 'NEW' } }),
@@ -18,7 +27,31 @@ export default async function CommandCenter() {
         salesIntelligence: { select: { priority: true } },
       },
     }),
+    // Failures were recorded but never shown; surface them where they are seen.
+    //
+    // Ordered by when the audit FAILED, not when it was created. An audit
+    // created weeks ago that the stale sweep fails today is news; ordering by
+    // createdAt would sort it as old and `take` could drop it entirely. Prisma
+    // sorts nulls last, so a row without completedAt still falls back to
+    // updatedAt ordering rather than disappearing.
+    prisma.audit.findMany({
+      where: { status: { in: ATTENTION_STATUSES } },
+      orderBy: [{ completedAt: 'desc' }, { updatedAt: 'desc' }],
+      take: 5,
+      select: {
+        id: true,
+        status: true,
+        failureReason: true,
+        completedAt: true,
+        updatedAt: true,
+        restaurant: { select: { name: true } },
+      },
+    }),
   ]);
+
+  const attention = needsAttention
+    .map((a) => ({ audit: a, item: classifyAudit(a) }))
+    .filter((x): x is { audit: (typeof needsAttention)[number]; item: NonNullable<ReturnType<typeof classifyAudit>> } => x.item !== null);
 
   const stats = [
     { label: 'Total Audits', value: totalAudits },
@@ -49,6 +82,39 @@ export default async function CommandCenter() {
         ))}
       </div>
 
+      {attention.length > 0 && (
+        <div className="card overflow-hidden border-amber-300/30">
+          <div className="px-6 py-4 border-b border-obsidian-line">
+            <h2 className="label text-amber-300">Needs Attention</h2>
+            <p className="text-ivory-faint text-xs mt-1">
+              Audits that failed or completed with gaps. Review before sending anything to a client.
+            </p>
+          </div>
+          <div className="divide-y divide-obsidian-line">
+            {attention.map(({ audit, item }) => (
+              <div key={audit.id} className="px-6 py-4 flex flex-wrap items-start gap-x-4 gap-y-2">
+                <span
+                  className={`shrink-0 mt-0.5 text-[10px] uppercase tracking-wider border rounded px-2 py-1 ${
+                    item.level === 'FAILED'
+                      ? 'text-red-300 border-red-300/40'
+                      : 'text-amber-300 border-amber-300/40'
+                  }`}
+                >
+                  {item.headline}
+                </span>
+                <div className="min-w-0">
+                  <p className="text-ivory text-sm">{audit.restaurant.name}</p>
+                  <p className="text-ivory-faint text-xs mt-1">{item.detail}</p>
+                </div>
+                <Link href={`/audits/${audit.id}`} className="ml-auto shrink-0 text-gold hover:underline text-xs">
+                  Open
+                </Link>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="card overflow-hidden">
         <div className="px-6 py-4 border-b border-obsidian-line flex justify-between items-center">
           <h2 className="label">Recent Audits</h2>
@@ -59,7 +125,44 @@ export default async function CommandCenter() {
             <Link href="/audits/new" className="text-gold hover:underline">start with the demo</Link>.
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+            {/* Phones: stacked cards. Six columns cannot fit, and this is the
+                first screen anyone sees in a live demo. */}
+            <div className="md:hidden divide-y divide-obsidian-line">
+              {recent.map((audit) => (
+                <div key={audit.id} className="px-5 py-4 space-y-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <Link href={`/audits/${audit.id}`} className="text-ivory hover:text-gold min-w-0 break-words">
+                      {audit.restaurant.name}
+                      {audit.demoMode && (
+                        <span className="ml-2 inline-block whitespace-nowrap text-[10px] uppercase tracking-wider text-gold-dim border border-gold-dim/50 rounded px-1.5 py-0.5">
+                          Demo
+                        </span>
+                      )}
+                    </Link>
+                    <div className="text-right shrink-0">
+                      <p className="label text-[10px] mb-1">Score</p>
+                      <p className="font-display text-2xl text-gold leading-none">{audit.overallScore ?? '—'}</p>
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className="label text-[10px] mb-1">Top Opportunity</p>
+                    <p className="text-ivory-dim text-sm break-words">{audit.opportunities[0]?.title ?? '—'}</p>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                    <StatusBadge status={audit.status} />
+                    <PriorityBadge priority={audit.salesIntelligence?.priority ?? null} />
+                    <span className="label text-[10px] ml-auto">
+                      Coverage {audit.coverageScore !== null ? `${audit.coverageScore}%` : '—'}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left">
@@ -86,7 +189,8 @@ export default async function CommandCenter() {
                 ))}
               </tbody>
             </table>
-          </div>
+            </div>
+          </>
         )}
       </div>
     </div>

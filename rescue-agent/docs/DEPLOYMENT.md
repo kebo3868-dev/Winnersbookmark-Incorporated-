@@ -70,10 +70,45 @@ This brings up the app plus a persistent PostgreSQL with migrations applied.
 | Variable | Required | Purpose |
 | --- | --- | --- |
 | `DATABASE_URL` | yes | Direct PostgreSQL connection string (`POSTGRES_URL` / `PRISMA_DATABASE_URL` accepted as fallbacks) |
+| `RESCUE_DATABASE_URL` | see below | **Overrides every other runtime URL.** Pooled endpoint. Use when a managed integration locks `DATABASE_URL` to the wrong database |
+| `RESCUE_DIRECT_URL` | see below | **Overrides every other migration URL.** Unpooled/direct endpoint — DDL through PgBouncer is unreliable |
 | `BASIC_AUTH_USER` / `BASIC_AUTH_PASSWORD` | yes in production | App-wide HTTP Basic Auth; production fails closed without them |
+| `AUDIT_BUDGET_MS` | no | Collection time budget (default 45000, clamped 5000–280000). Past the deadline remaining targets are skipped and the audit completes as `PARTIALLY_COMPLETED` rather than being killed by the platform |
+| `LEAD_RETENTION_DAYS` | no | Days after which lead contact details are redacted. **Unset = retention disabled and personal data is kept indefinitely** |
 | `POSTGRES_PASSWORD` | compose only | Provisions the bundled Postgres |
 | `AI_PROVIDER` / `AI_MODEL` / `ANTHROPIC_API_KEY` | no | Optional AI narrative layer; deterministic fallback when unset |
 | `RESCUE_AGENT_ALLOW_PRIVATE_TARGETS` | never in production | Test-only fixture hook; hard-disabled when `NODE_ENV=production` |
+
+### Database URL overrides
+
+`RESCUE_DATABASE_URL` / `RESCUE_DIRECT_URL` take priority over `DATABASE_URL`,
+`POSTGRES_PRISMA_URL`, `DATABASE_URL_UNPOOLED` and the rest. They exist because
+a managed integration (for example Neon's Vercel integration) owns the standard
+names and locks them to the database it provisioned — which is the wrong one if
+this app has its own database alongside another application's. Setting these two
+points the app at its own database without fighting the integration, and without
+disconnecting it. Leave them unset and resolution falls back to the standard
+names unchanged.
+
+Confirm which one is in effect from `/api/health` → `config.databaseSource`.
+
+### Personal data retention
+
+A captured lead stores a name, email and phone belonging to someone who is not
+your customer. Two controls:
+
+- **Erasure on request** — `DELETE /api/leads/[id]`, surfaced as the **Erase**
+  action on each row of `/leads`. A hard delete of the personal record; the
+  audit itself is untouched.
+- **Automatic expiry** — set `LEAD_RETENTION_DAYS`. Leads older than the window
+  have `contactName`, `email` and `phone` set to null while the row is kept, so
+  pipeline history and conversion counts survive but the data identifying a
+  person does not. The sweep runs lazily when `/leads` is read (serverless has
+  no daemon) and is idempotent.
+
+Retention is **off unless configured** — deleting personal data on a default the
+operator never chose would be the wrong trade-off. Decide a window and set it.
+`/api/health` → `config.leadRetention` reports the deployed policy.
 
 ## Build / run reference
 
@@ -96,6 +131,9 @@ Node >= 20.9 (pinned in `package.json` engines; image uses Node 22).
 - [ ] Health check wired to `/api/health`
 - [ ] Outbound HTTPS egress unrestricted (collector requirement)
 - [ ] Optional: `ANTHROPIC_API_KEY` set if AI narrative is wanted
+- [ ] `LEAD_RETENTION_DAYS` decided and set — leads hold third-party personal data, and it is kept indefinitely while this is unset
+- [ ] Confirm `/api/health` reports the expected `databaseSource` and `leadRetention`
+- [ ] Demo data removed before showing the pipeline to a client (**Remove demo data** on `/leads`)
 - [ ] Run one Demo audit and one real audit post-deploy
 
 ## Known limitations to plan around
