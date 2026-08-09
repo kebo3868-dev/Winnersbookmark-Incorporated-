@@ -1,4 +1,4 @@
-import type { PageExtract } from '@/lib/web/collector';
+import { detectWidgetVendor, type PageExtract } from '@/lib/web/collector';
 import type { EvidenceInput } from '@/types/audit';
 
 export interface ProbeResult {
@@ -7,6 +7,8 @@ export interface ProbeResult {
   ok: boolean;
   httpStatus?: number;
   note: string;
+  /** Destination reached after redirects, when it differs from the link href. */
+  finalUrl?: string;
 }
 
 export interface CollectionSet {
@@ -163,6 +165,34 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
     confidence: addressPage ? 90 : 60,
   });
 
+  // Vendor/builder credits: recorded as a technical fact, never as a pathway.
+  const credits = new Map<string, string>();
+  for (const page of pages) {
+    for (const c of page.vendorCredits ?? []) if (!credits.has(c.href)) credits.set(c.href, c.text);
+  }
+  if (credits.size > 0) {
+    const [creditHref, creditText] = Array.from(credits.entries())[0];
+    const vendor = detectPlatform([creditHref]) ?? hostOf(creditHref);
+    evidence.push({
+      sourceUrl: creditHref,
+      evidenceType: 'TECHNICAL_SIGNAL',
+      fact: `The website carries a builder/vendor credit for ${vendor}.`,
+      supportingContext:
+        `Credit link text: "${creditText}" → ${creditHref}. ` +
+        'Recorded as a technical fact about who built the site. It is not a customer-facing booking or ordering pathway and is excluded from those checks.',
+      confidence: 85,
+    });
+  }
+
+  // Widget vendors detected from script/iframe assets, resolved per capability:
+  // an OpenTable script says nothing about ordering, and a Toast script says
+  // nothing about reservations.
+  const allAssetHosts = pages.flatMap((p) => p.assetHosts ?? []);
+  const widgetVendorFor: Record<'reservation' | 'ordering', string | null> = {
+    reservation: detectWidgetVendor(allAssetHosts, 'reservation'),
+    ordering: detectWidgetVendor(allAssetHosts, 'ordering'),
+  };
+
   // Path categories -> evidence
   const pathChecks: { key: keyof PageExtract['categorizedLinks']; type: EvidenceInput['evidenceType']; label: string }[] = [
     { key: 'menu', type: 'MENU_ACCESS', label: 'menu' },
@@ -207,6 +237,21 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
           });
         }
       }
+    } else if ((check.key === 'reservation' || check.key === 'ordering') && widgetVendorFor[check.key]) {
+      // A vendor's widget is on the page but no anchor was found: its
+      // destination is rendered by JavaScript we do not execute. This is NOT a
+      // working pathway and must never read as one — it is an explicit unknown
+      // with the reason attached, so the gap can be validated by hand.
+      evidence.push({
+        sourceUrl: home.finalUrl,
+        evidenceType: check.type,
+        fact: `No public ${check.label} pathway could be resolved, but a ${widgetVendorFor[check.key]} widget was detected on the page.`,
+        supportingContext:
+          `${widgetVendorFor[check.key]} assets are loaded by the site, so a ${check.label} option may be presented to customers by a script. ` +
+          'Its destination is rendered in the browser and cannot be verified from the public HTML — manual validation required. ' +
+          'This is not evidence that a working pathway exists.',
+        confidence: 55,
+      });
     } else {
       evidence.push({
         sourceUrl: home.finalUrl,
@@ -305,11 +350,17 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
         confidence: probe.httpStatus ? 95 : 75,
       });
     } else {
+      // Name the destination actually reached, and the vendor operating it —
+      // "where does this button lead" is the question the audit is answering.
+      const resolved = probe.finalUrl && probe.finalUrl !== probe.url ? probe.finalUrl : null;
+      const operator = detectPlatform([probe.finalUrl ?? probe.url]);
       evidence.push({
         sourceUrl: probe.url,
         evidenceType: probe.category === 'reservation' ? 'RESERVATION_PATH' : probe.category === 'ordering' ? 'ORDERING_PATH' : 'MENU_ACCESS',
-        fact: `The linked ${probe.category} destination responded successfully when tested (${probe.note}).`,
-        supportingContext: probe.url,
+        fact:
+          `The linked ${probe.category} destination responded successfully when tested (${probe.note})` +
+          `${operator ? ` and is operated by ${operator}` : ''}.`,
+        supportingContext: resolved ? `${probe.url} → resolves to ${resolved}` : probe.url,
         confidence: 90,
       });
     }
@@ -347,6 +398,7 @@ function hostOf(href: string): string {
 
 // Named reservation/ordering platforms, matched against the destination host.
 const PLATFORM_PATTERNS: [RegExp, string][] = [
+  [/spothopperapp\.|spothopper|spotapps/i, 'SpotHopper'],
   [/opentable\./i, 'OpenTable'],
   [/resy\./i, 'Resy'],
   [/sevenrooms\./i, 'SevenRooms'],

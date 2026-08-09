@@ -145,12 +145,24 @@ export function analyzeJourney(evidence: EvidenceRecordLike[]): JourneyStageResu
   // RESERVATION
   {
     const res = has(index, 'RESERVATION_PATH');
-    const missing = res.filter((e) => /no public reservation/i.test(e.fact));
+    const widget = res.filter((e) => /widget was detected/i.test(e.fact));
+    const missing = res.filter((e) => /no public reservation pathway was detected/i.test(e.fact));
     const broken = has(index, 'BROKEN_LINK', (e) => /reservation/i.test(e.fact));
     if (res.length === 0) {
       push(stage('RESERVATION', 'UNKNOWN', 'Reservation experience could not be assessed.', 30, true, []));
     } else if (broken.length > 0) {
       push(stage('RESERVATION', 'RISK', 'The reservation link failed when tested — booking-intent customers hit a dead end.', avgConfidence(broken, 85), false, ids([...res, ...broken])));
+    } else if (widget.length > 0) {
+      push(
+        stage(
+          'RESERVATION',
+          'UNKNOWN',
+          'A third-party booking widget was detected, but its destination is rendered in the browser and could not be verified from the public page. Whether customers can actually complete a booking requires manual validation.',
+          avgConfidence(widget, 55),
+          true,
+          ids(res),
+        ),
+      );
     } else if (missing.length > 0) {
       push(
         stage(
@@ -170,7 +182,8 @@ export function analyzeJourney(evidence: EvidenceRecordLike[]): JourneyStageResu
   // ORDERING
   {
     const ord = has(index, 'ORDERING_PATH');
-    const missing = ord.filter((e) => /no public online ordering/i.test(e.fact));
+    const widget = ord.filter((e) => /widget was detected/i.test(e.fact));
+    const missing = ord.filter((e) => /no public online ordering pathway was detected/i.test(e.fact));
     const competing = ord.filter((e) => /competing ordering destinations/i.test(e.fact));
     const broken = has(index, 'BROKEN_LINK', (e) => /ordering/i.test(e.fact));
     if (ord.length === 0) {
@@ -179,6 +192,8 @@ export function analyzeJourney(evidence: EvidenceRecordLike[]): JourneyStageResu
       push(stage('ORDERING', 'RISK', 'An ordering link failed when tested — order-intent customers hit a dead end.', avgConfidence(broken, 85), false, ids([...ord, ...broken])));
     } else if (competing.length > 0) {
       push(stage('ORDERING', 'FRICTION', 'Multiple competing ordering platforms are linked, splitting order-intent traffic and creating potential margin exposure through third-party dependency.', avgConfidence(competing, 75), true, ids(ord)));
+    } else if (widget.length > 0) {
+      push(stage('ORDERING', 'UNKNOWN', 'A third-party ordering widget was detected, but its destination is rendered in the browser and could not be verified from the public page. Whether customers can actually place an order requires manual validation.', avgConfidence(widget, 55), true, ids(ord)));
     } else if (missing.length > 0) {
       push(stage('ORDERING', 'UNKNOWN', 'No public online ordering pathway was detected. The restaurant may be dine-in focused — manual validation required.', avgConfidence(missing, 60), true, ids(ord)));
     } else {
