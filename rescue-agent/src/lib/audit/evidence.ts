@@ -184,8 +184,14 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
     });
   }
 
-  // Widget vendor detected from script/iframe assets across the collected pages.
-  const widgetVendor = detectWidgetVendor(pages.flatMap((p) => p.assetHosts ?? []));
+  // Widget vendors detected from script/iframe assets, resolved per capability:
+  // an OpenTable script says nothing about ordering, and a Toast script says
+  // nothing about reservations.
+  const allAssetHosts = pages.flatMap((p) => p.assetHosts ?? []);
+  const widgetVendorFor: Record<'reservation' | 'ordering', string | null> = {
+    reservation: detectWidgetVendor(allAssetHosts, 'reservation'),
+    ordering: detectWidgetVendor(allAssetHosts, 'ordering'),
+  };
 
   // Path categories -> evidence
   const pathChecks: { key: keyof PageExtract['categorizedLinks']; type: EvidenceInput['evidenceType']; label: string }[] = [
@@ -231,7 +237,7 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
           });
         }
       }
-    } else if ((check.key === 'reservation' || check.key === 'ordering') && widgetVendor) {
+    } else if ((check.key === 'reservation' || check.key === 'ordering') && widgetVendorFor[check.key]) {
       // A vendor's widget is on the page but no anchor was found: its
       // destination is rendered by JavaScript we do not execute. This is NOT a
       // working pathway and must never read as one — it is an explicit unknown
@@ -239,9 +245,9 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
       evidence.push({
         sourceUrl: home.finalUrl,
         evidenceType: check.type,
-        fact: `No public ${check.label} pathway could be resolved, but a ${widgetVendor} widget was detected on the page.`,
+        fact: `No public ${check.label} pathway could be resolved, but a ${widgetVendorFor[check.key]} widget was detected on the page.`,
         supportingContext:
-          `${widgetVendor} assets are loaded by the site, so a ${check.label} option may be presented to customers by a script. ` +
+          `${widgetVendorFor[check.key]} assets are loaded by the site, so a ${check.label} option may be presented to customers by a script. ` +
           'Its destination is rendered in the browser and cannot be verified from the public HTML — manual validation required. ' +
           'This is not evidence that a working pathway exists.',
         confidence: 55,

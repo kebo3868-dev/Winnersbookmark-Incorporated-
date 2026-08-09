@@ -21,7 +21,9 @@ describe('defect 1 — JS-rendered widgets leave no anchor', () => {
       <script src="https://www.spothopperapp.com/widget.js"></script>
     </head><body><h1>Leverocks</h1></body></html>`);
     expect(p.assetHosts).toContain('www.spothopperapp.com');
-    expect(detectWidgetVendor(p.assetHosts)).toBe('SpotHopper');
+    // SpotHopper provides both capabilities, so it resolves for either.
+    expect(detectWidgetVendor(p.assetHosts, 'reservation')).toBe('SpotHopper');
+    expect(detectWidgetVendor(p.assetHosts, 'ordering')).toBe('SpotHopper');
   });
 
   it('reports a detected widget as UNKNOWN with a reason — never as a working pathway', () => {
@@ -76,6 +78,99 @@ describe('defect 2 — vendor credits must never count as customer pathways', ()
     </body></html>`);
     expect(p.categorizedLinks.reservation?.[0].href).toContain('spothopperapp.com');
     expect(detectPlatform(['https://www.spothopperapp.com/reservations/leverocks'])).toBe('SpotHopper');
+    // The assertion this test was missing: a RESERVATION link must not also be
+    // filed as ORDERING just because the vendor happens to offer both.
+    expect(p.categorizedLinks.ordering ?? []).toHaveLength(0);
+  });
+
+  it('files a SpotHopper ordering link as ordering only', () => {
+    const p = page(`<html><body>
+      <a href="https://www.spothopperapp.com/order-online/leverocks">Order Online</a>
+    </body></html>`);
+    expect(p.categorizedLinks.ordering ?? []).toHaveLength(1);
+    expect(p.categorizedLinks.reservation ?? []).toHaveLength(0);
+  });
+
+  it('does not report an ordering pathway for a reservations-only SpotHopper site', () => {
+    const p = page(`<html><body>
+      <a href="https://www.spothopperapp.com/reservations/leverocks">Reserve a Table</a>
+    </body></html>`);
+    const evidence = normalizeEvidence({ pages: [p], failures: [], probes: [] });
+    const ordering = evidence.find((e) => e.evidenceType === 'ORDERING_PATH');
+    expect(ordering?.fact).toMatch(/No public online ordering pathway was detected/i);
+
+    const journey = analyzeJourney(
+      evidence.map((e, i) => ({ id: `e${i}`, evidenceType: e.evidenceType, fact: e.fact, confidence: e.confidence, supportingContext: e.supportingContext ?? null })),
+    );
+    expect(journey.find((s) => s.stage === 'ORDERING')?.status).toBe('UNKNOWN'); // must NOT be HEALTHY
+    expect(journey.find((s) => s.stage === 'RESERVATION')?.status).toBe('HEALTHY');
+  });
+});
+
+describe('widget vendors are matched to the capability they actually provide', () => {
+  it('an OpenTable script does not imply an ordering widget', () => {
+    const p = page(`<html><head>
+      <script src="https://www.opentable.com/widget.js"></script>
+    </head><body><h1>Leverocks</h1></body></html>`);
+    expect(detectWidgetVendor(p.assetHosts, 'reservation')).toBe('OpenTable');
+    expect(detectWidgetVendor(p.assetHosts, 'ordering')).toBeNull();
+
+    const evidence = normalizeEvidence({ pages: [p], failures: [], probes: [] });
+    expect(evidence.find((e) => e.evidenceType === 'RESERVATION_PATH')?.fact).toMatch(/OpenTable widget was detected/i);
+    // Ordering keeps the ordinary no-path wording, not a widget claim.
+    const ordering = evidence.find((e) => e.evidenceType === 'ORDERING_PATH');
+    expect(ordering?.fact).toMatch(/No public online ordering pathway was detected/i);
+    expect(ordering?.fact).not.toMatch(/widget/i);
+  });
+
+  it('a Toast script does not imply a reservation widget', () => {
+    const p = page(`<html><head>
+      <script src="https://www.toasttab.com/widget.js"></script>
+    </head><body><h1>Leverocks</h1></body></html>`);
+    expect(detectWidgetVendor(p.assetHosts, 'ordering')).toBe('Toast');
+    expect(detectWidgetVendor(p.assetHosts, 'reservation')).toBeNull();
+
+    const evidence = normalizeEvidence({ pages: [p], failures: [], probes: [] });
+    const reservation = evidence.find((e) => e.evidenceType === 'RESERVATION_PATH');
+    expect(reservation?.fact).toMatch(/No public reservation pathway was detected/i);
+    expect(reservation?.fact).not.toMatch(/widget/i);
+  });
+
+  it('resolves each category to its own vendor when two widgets are present', () => {
+    const p = page(`<html><head>
+      <script src="https://www.opentable.com/w.js"></script>
+      <script src="https://www.toasttab.com/w.js"></script>
+    </head><body><h1>Leverocks</h1></body></html>`);
+    expect(detectWidgetVendor(p.assetHosts, 'reservation')).toBe('OpenTable');
+    expect(detectWidgetVendor(p.assetHosts, 'ordering')).toBe('Toast');
+  });
+});
+
+describe('vendor-credit detection must not eat ordinary restaurant copy', () => {
+  it('keeps an internal link whose text merely contains "made by"', () => {
+    const p = page(`<html><body>
+      <a href="https://leverocks.example/menu">Pizza made by hand</a>
+    </body></html>`);
+    // Credit-like wording pointing at the restaurant's own site is prose, not a credit.
+    expect(p.vendorCredits).toHaveLength(0);
+    expect(p.categorizedLinks.menu ?? []).toHaveLength(1);
+    expect(p.internalLinks.some((l) => l.href.includes('/menu'))).toBe(true);
+  });
+
+  it('does not report a missing menu because of that wording', () => {
+    const p = page(`<html><body>
+      <a href="https://leverocks.example/menu">Pizza made by hand</a>
+    </body></html>`);
+    const evidence = normalizeEvidence({ pages: [p], failures: [], probes: [] });
+    const menu = evidence.find((e) => e.evidenceType === 'MENU_ACCESS');
+    expect(menu?.fact).not.toMatch(/No public menu/i);
+  });
+
+  it('still treats an off-site "Powered by" link as a credit', () => {
+    const p = page(`<html><body>
+      <a href="https://www.spothopperapp.com/">Powered by SpotHopper</a>
+    </body></html>`);
+    expect(p.vendorCredits).toHaveLength(1);
   });
 });
 
