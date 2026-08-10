@@ -1,4 +1,4 @@
-import { detectWidgetVendor, type PageExtract } from '@/lib/web/collector';
+import { detectWidgetVendor, type CategorizedLink, type PageExtract } from '@/lib/web/collector';
 import type { EvidenceInput } from '@/types/audit';
 
 export interface ProbeResult {
@@ -206,24 +206,36 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
     { key: 'loyalty', type: 'LOYALTY_SIGNAL', label: 'loyalty or rewards' },
   ];
   for (const check of pathChecks) {
-    const found = new Map<string, string>();
+    const found = new Map<string, CategorizedLink>();
     for (const page of pages) {
       for (const link of page.categorizedLinks[check.key] ?? []) {
-        if (!found.has(link.href)) found.set(link.href, link.text);
+        if (!found.has(link.href)) found.set(link.href, link);
       }
     }
     if (found.size > 0) {
-      const [firstHref, firstText] = Array.from(found.entries())[0];
+      // Prefer an ordinary anchor when one exists: it is the pathway a customer
+      // can see without JavaScript, and it makes the better citation.
+      const links = Array.from(found.values());
+      const first = links.find((l) => l.source === 'anchor') ?? links[0];
+      const firstHref = first.href;
       const external = isExternal(firstHref, home.finalUrl);
       const platform = (check.key === 'reservation' || check.key === 'ordering')
         ? detectPlatform(Array.from(found.keys()))
         : null;
+      const fromEmbed = first.source === 'embed';
       evidence.push({
         sourceUrl: firstHref,
         evidenceType: check.type,
-        fact: `A ${check.label} pathway is publicly linked${platform ? ` via ${platform}` : external ? ' to an external platform' : ''} (${found.size} link(s) found).`,
-        supportingContext: `Example link text: "${firstText || '(no text)'}" → ${firstHref}`,
-        confidence: 90,
+        fact:
+          `${indefiniteArticle(check.label)} ${check.label} pathway is publicly ` +
+          `${fromEmbed ? 'reachable through an embedded widget' : 'linked'}` +
+          `${platform ? ` via ${platform}` : external ? ' to an external platform' : ''} (${found.size} link(s) found).`,
+        supportingContext: fromEmbed
+          ? `Destination declared by an embedded widget: "${first.text || '(no text)'}" → ${firstHref}. ` +
+            'The widget itself is drawn by JavaScript this audit does not execute, so how it appears on screen still needs a human look; ' +
+            'the destination above is stated in the public HTML and was resolved from it.'
+          : `Example link text: "${first.text || '(no text)'}" → ${firstHref}`,
+        confidence: fromEmbed ? 85 : 90,
       });
       if (check.key === 'ordering' && found.size >= 3) {
         const hosts = new Set(Array.from(found.keys()).map(hostOf));
@@ -378,6 +390,15 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
   }
 
   return evidence;
+}
+
+/**
+ * "An online ordering pathway", not "A online ordering pathway". Client-facing
+ * copy, so the article has to agree with the label it precedes; FAQ is spelled
+ * out because it reads as "eff-ay-que".
+ */
+function indefiniteArticle(noun: string): 'A' | 'An' {
+  return /^(?:[aeiou]|faq\b)/i.test(noun) ? 'An' : 'A';
 }
 
 function isExternal(href: string, homeUrl: string): boolean {

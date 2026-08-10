@@ -19,6 +19,21 @@ export type LinkCategory =
   | 'about'
   | 'careers';
 
+/**
+ * A categorized customer pathway link.
+ *
+ * `source` records how the destination was obtained: `anchor` is an ordinary
+ * <a href>, `embed` is a destination declared by an embedded widget (iframe
+ * src, data-* URL attribute, or inline open handler). Both are real, publicly
+ * served destinations — but the distinction is carried into the evidence so a
+ * report never implies a visible link where the site only embeds a widget.
+ */
+export interface CategorizedLink {
+  href: string;
+  text: string;
+  source: 'anchor' | 'embed';
+}
+
 export interface PageExtract {
   requestedUrl: string;
   finalUrl: string;
@@ -35,7 +50,7 @@ export interface PageExtract {
   clickToCallLinks: number;
   emails: string[];
   internalLinks: { href: string; text: string }[];
-  categorizedLinks: Partial<Record<LinkCategory, { href: string; text: string }[]>>;
+  categorizedLinks: Partial<Record<LinkCategory, CategorizedLink[]>>;
   /**
    * Links that credit the site's builder/vendor ("Powered by X") rather than
    * offering the customer an action. Kept separately and deliberately EXCLUDED
@@ -99,6 +114,110 @@ const CATEGORY_PATTERNS: Record<LinkCategory, RegExp> = {
 };
 
 const SOCIAL_HOSTS = /facebook\.com|instagram\.com|twitter\.com|x\.com|tiktok\.com|youtube\.com|yelp\.com|linkedin\.com|threads\.net/i;
+
+/**
+ * Query parameters whose value NAMES the destination the link opens.
+ *
+ * Site builders route every call-to-action through one path and state the real
+ * purpose only here — `/-party?source=pop_up&spot_id=78550&destination=private_parties`
+ * is a private-party enquiry, not a table booking, however the button is
+ * labelled. Deliberately narrow: `view`, `page` and `type` are excluded because
+ * they routinely carry pagination and display values that name no destination.
+ */
+const DESTINATION_PARAM_KEYS = ['destination', 'dest', 'goto', 'target', 'action', 'widget', 'modal'];
+
+/**
+ * Normalize a URL fragment for pattern matching.
+ *
+ * Percent-encoding and `_`/`+` separators hide intent from the category
+ * patterns: `destination=private_parties` never matched `private[- ]?part`
+ * because `_` is neither a hyphen nor a space, and — being a word character —
+ * it also defeats the `\b` boundaries. Decoding and flattening separators makes
+ * the URL read the way the pattern expects.
+ */
+function matchable(value: string): string {
+  let decoded = value;
+  try {
+    decoded = decodeURIComponent(value);
+  } catch {
+    /* malformed escape sequence — match against the raw value */
+  }
+  return decoded.replace(/[_+]+/g, ' ');
+}
+
+const ALL_CATEGORIES = Object.keys(CATEGORY_PATTERNS) as LinkCategory[];
+
+/**
+ * The category a URL DECLARES about itself through a destination parameter, or
+ * null when it declares nothing.
+ *
+ * Exported because this precedence is a reporting rule, not an implementation
+ * detail: when a URL states its destination, that statement outranks whatever
+ * the anchor text happens to say.
+ */
+export function declaredDestination(url: URL): LinkCategory | null {
+  for (const key of DESTINATION_PARAM_KEYS) {
+    const raw = url.searchParams.get(key);
+    if (!raw) continue;
+    const token = matchable(raw);
+    for (const category of ALL_CATEGORIES) {
+      if (CATEGORY_PATTERNS[category].test(token)) return category;
+    }
+  }
+  return null;
+}
+
+/**
+ * Categories for one link.
+ *
+ * Two tiers, and the order between them is the fix for a link being filed as a
+ * reservation because its button said "Book Now" while its URL said
+ * `destination=private_parties`:
+ *
+ *   1. A declared destination wins. The URL's own statement of purpose is
+ *      combined only with what the path and host structurally show, and the
+ *      anchor text is ignored — generic CTA wording cannot add a category the
+ *      destination contradicts.
+ *   2. With nothing declared, path, host and anchor text are matched together,
+ *      exactly as before.
+ */
+export function categorizeLink(url: URL, text: string): LinkCategory[] {
+  const structural = matchable(`${url.pathname} ${url.search} ${url.hostname}`);
+  const declared = declaredDestination(url);
+  const categories = new Set<LinkCategory>();
+  if (declared) categories.add(declared);
+  const haystack = declared ? structural : `${structural} ${matchable(text)}`;
+  for (const category of ALL_CATEGORIES) {
+    if (CATEGORY_PATTERNS[category].test(haystack)) categories.add(category);
+  }
+  return Array.from(categories);
+}
+
+/**
+ * Attributes that carry a destination URL for an element a script will turn
+ * into a button. A JavaScript-rendered ordering widget leaves no anchor, but it
+ * routinely leaves its destination here in the served HTML — which is the
+ * difference between naming where the Order button leads and reporting that it
+ * could not be resolved.
+ */
+const URL_ATTRIBUTES = [
+  'data-href',
+  'data-url',
+  'data-link',
+  'data-destination',
+  'data-target-url',
+  'data-order-url',
+  'data-ordering-url',
+  'data-reservation-url',
+  'data-booking-url',
+  'data-widget-url',
+];
+
+/** Inline handlers that open a destination: onclick="window.open('…')" and friends. */
+const INLINE_URL_REGEX = /(?:window\.open|location\.(?:href|assign|replace)|location)\s*(?:=|\(\s*)\s*['"]([^'"]{1,300})['"]/gi;
+
+/** Bound on embedded destinations kept per page — untrusted HTML sets no limit of its own. */
+const MAX_EMBED_TARGETS = 50;
 
 /** Anchor text that marks a link as a builder/vendor credit rather than a customer action. */
 /**
@@ -313,6 +432,38 @@ export function extractPage(
     }
   });
 
+  // Destinations declared by embedded widgets, collected before the scripts go.
+  // Knowing a widget is present is not the same as knowing where its button
+  // leads; an iframe src or a data-* URL states the destination in the served
+  // HTML, so it can be categorized and probed like any other pathway instead of
+  // being reported as unresolvable.
+  const embedTargets = new Map<string, string>();
+  const addEmbedTarget = (raw: string | undefined, label: string) => {
+    if (!raw || embedTargets.size >= MAX_EMBED_TARGETS) return;
+    const trimmed = raw.trim();
+    if (!trimmed || trimmed.startsWith('#') || /^(javascript|mailto|tel|data):/i.test(trimmed)) return;
+    try {
+      const u = new URL(trimmed, base);
+      if (u.protocol !== 'http:' && u.protocol !== 'https:') return;
+      const normalized = normalizeUrl(u);
+      if (!embedTargets.has(normalized)) embedTargets.set(normalized, label);
+    } catch {
+      /* not a URL — ignore */
+    }
+  };
+  $('iframe[src]').each((_, el) => addEmbedTarget($(el).attr('src'), $(el).attr('title')?.trim() || '(embedded widget)'));
+  for (const attribute of URL_ATTRIBUTES) {
+    $(`[${attribute}]`).each((_, el) => {
+      const text = $(el).text().replace(/\s+/g, ' ').trim().slice(0, 120);
+      addEmbedTarget($(el).attr(attribute), text || `(${attribute})`);
+    });
+  }
+  $('[onclick]').each((_, el) => {
+    const handler = $(el).attr('onclick') ?? '';
+    const text = $(el).text().replace(/\s+/g, ' ').trim().slice(0, 120);
+    for (const match of handler.matchAll(INLINE_URL_REGEX)) addEmbedTarget(match[1], text || '(button)');
+  });
+
   $('script, style, noscript').remove();
   const title = $('title').first().text().trim() || null;
   const metaDescription = $('meta[name="description"]').attr('content')?.trim() || null;
@@ -370,17 +521,36 @@ export function extractPage(
     }
 
     // Query string included: booking and ordering widgets routinely carry the
-    // intent there (?action=reservation, ?widget=order) and nowhere else.
-    const haystack = `${abs.pathname} ${abs.search} ${abs.hostname} ${text}`;
-    (Object.keys(CATEGORY_PATTERNS) as LinkCategory[]).forEach((cat) => {
-      if (CATEGORY_PATTERNS[cat].test(haystack)) {
-        (categorizedLinks[cat] ??= []).push({ href: absStr, text });
-      }
-    });
+    // intent there (?action=reservation, ?destination=private_parties) and
+    // nowhere else — and a declared destination outranks the anchor text.
+    for (const cat of categorizeLink(abs, text)) {
+      (categorizedLinks[cat] ??= []).push({ href: absStr, text, source: 'anchor' });
+    }
     if (abs.hostname === base.hostname && internalLinks.length < 200) {
       internalLinks.push({ href: absStr, text });
     }
   });
+
+  // Embedded-widget destinations are categorized on the same rules, but never
+  // enter internalLinks: they are destinations to classify and test, not pages
+  // of this site to crawl.
+  for (const [href, label] of embedTargets) {
+    let abs: URL;
+    try {
+      abs = new URL(href);
+    } catch {
+      continue;
+    }
+    if (SOCIAL_HOSTS.test(abs.hostname)) continue;
+    if (isVendorCredit(label, abs, base.hostname)) continue;
+    const categories = categorizeLink(abs, label);
+    if (categories.length === 0) continue;
+    const link: CategorizedLink = { href, text: label, source: 'embed' };
+    for (const cat of categories) {
+      const existing = (categorizedLinks[cat] ??= []);
+      if (!existing.some((l) => l.href === href)) existing.push(link);
+    }
+  }
 
   $('a, button').each((_, el) => {
     const t = $(el).text().replace(/\s+/g, ' ').trim();

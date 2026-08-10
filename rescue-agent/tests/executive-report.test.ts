@@ -116,6 +116,87 @@ describe('evidence classification preservation', () => {
   });
 });
 
+/**
+ * REGRESSION CASE: Leverock's, second audit.
+ *
+ * Section 02 read "22 EVIDENCE ITEMS · 0 VERIFIED FINDINGS", which invites the
+ * reader to conclude that none of the 22 evidence items were verified. The
+ * counts were never about evidence: they classify the revenue-leak findings in
+ * Section 04, and an audit can hold entirely solid evidence while every leak it
+ * describes still needs owner data to confirm.
+ *
+ * The counts themselves are correct and must not move — the fix is that the
+ * report now publishes the denominator they belong to.
+ */
+describe('finding counters state what they count', () => {
+  it('publishes the finding total the three classifications divide up', () => {
+    const dto = buildExecutiveReport(baseInput());
+    expect(dto.score.findingsCount).toBe(dto.findings.length);
+    expect(dto.score.verifiedCount + dto.score.inferredCount + dto.score.manualValidationCount).toBe(dto.score.findingsCount);
+  });
+
+  it('counts findings, not evidence items — 22 verified-looking items, one unconfirmed leak', () => {
+    const dto = buildExecutiveReport(
+      baseInput({
+        evidence: Array.from({ length: 22 }, (_, i) => ({
+          id: `e${i + 1}`,
+          evidenceType: 'CTA_SIGNAL',
+          fact: `Evidence item ${i + 1}.`,
+          supportingContext: null,
+          confidence: 95,
+          sourceUrl: 'https://testgrill.example',
+        })),
+        opportunities: [
+          {
+            category: 'PHONE-DEPENDENT CUSTOMER JOURNEY',
+            title: 'Phone-dependent journey',
+            problem: 'Common questions are not answered online.',
+            businessImpact: 'Unanswered rings are potential lost bookings.',
+            customerJourneyStage: 'PHONE',
+            evidenceIds: ['e1'],
+            impactScore: 75, urgencyScore: 65, confidenceScore: 72, aiFitScore: 95, rescuePriorityScore: 75,
+            recommendedSolution: 'AI Front Desk after call-volume discovery.',
+            manualValidationRequired: true,
+          },
+        ],
+      }),
+    );
+    expect(dto.score.evidenceCount).toBe(22);
+    // Zero verified findings alongside 22 evidence items is the honest answer,
+    // and the finding total is what makes it legible.
+    expect(dto.score.verifiedCount).toBe(0);
+    expect(dto.score.inferredCount).toBe(0);
+    expect(dto.score.manualValidationCount).toBe(1);
+    expect(dto.score.findingsCount).toBe(1);
+  });
+
+  it('does not inflate the counts when evidence is plentiful', () => {
+    const dto = buildExecutiveReport(baseInput({ opportunities: [] }));
+    expect(dto.score.findingsCount).toBe(0);
+    expect(dto.score.verifiedCount).toBe(0);
+    expect(dto.score.inferredCount).toBe(0);
+    expect(dto.score.manualValidationCount).toBe(0);
+    expect(dto.score.evidenceCount).toBeGreaterThan(0);
+  });
+
+  it('caps the total at the number of findings the report actually prints', () => {
+    const many = Array.from({ length: 9 }, (_, i) => ({
+      category: 'CTA CLARITY',
+      title: `Finding ${i + 1}`,
+      problem: 'Problem.',
+      businessImpact: 'Impact.',
+      customerJourneyStage: 'WEBSITE',
+      evidenceIds: [],
+      impactScore: 50, urgencyScore: 50, confidenceScore: 90, aiFitScore: 30, rescuePriorityScore: 90 - i,
+      recommendedSolution: 'Fix it.',
+      manualValidationRequired: false,
+    }));
+    const dto = buildExecutiveReport(baseInput({ opportunities: many }));
+    expect(dto.score.findingsCount).toBe(dto.findings.length);
+    expect(dto.score.findingsCount).toBeLessThan(many.length);
+  });
+});
+
 describe('buildExecutiveReport', () => {
   it('preserves the stored Rescue Score and never mutates it', () => {
     const input = baseInput();

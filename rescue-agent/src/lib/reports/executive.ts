@@ -246,6 +246,18 @@ export interface ExecutiveReportDTO {
     evidenceCount: number;
     sourcesAnalyzed: number;
     sourcesFailed: number;
+    /**
+     * Denominator for the three classification counts below.
+     *
+     * verified + inferred + manualValidation classify the revenue-leak findings
+     * reported in Section 04 — NOT the evidence items. An audit can hold 22
+     * verified evidence items and still report zero VERIFIED FINDINGS, because
+     * a finding is only verified when the leak it describes was established
+     * without needing owner data. Publishing the total alongside them is what
+     * makes the three numbers add up in the reader's head instead of reading as
+     * a verdict on the evidence.
+     */
+    findingsCount: number;
     verifiedCount: number;
     inferredCount: number;
     manualValidationCount: number;
@@ -423,6 +435,7 @@ export function buildExecutiveReport(input: ExecutiveReportInput): ExecutiveRepo
       evidenceCount: input.evidence.length,
       sourcesAnalyzed: input.sourcesCollected,
       sourcesFailed: input.sourcesFailed,
+      findingsCount: findings.length,
       verifiedCount,
       inferredCount,
       manualValidationCount: manualCount,

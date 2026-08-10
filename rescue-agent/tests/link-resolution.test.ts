@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { extractPage, detectWidgetVendor } from '@/lib/web/collector';
+import { extractPage, detectWidgetVendor, declaredDestination, categorizeLink } from '@/lib/web/collector';
+import { discoverRelevantPages } from '@/lib/web/discovery';
 import { normalizeEvidence, detectPlatform } from '@/lib/audit/evidence';
 import { analyzeJourney } from '@/lib/audit/journey';
 
@@ -218,6 +219,197 @@ describe('destination resolution — where the link actually leads', () => {
     const resolved = ordering.find((e) => /responded successfully/.test(e.fact));
     expect(resolved?.fact).toMatch(/operated by Toast/);
     expect(resolved?.supportingContext).toMatch(/resolves to https:\/\/www\.toasttab\.com\/leverocks/);
+  });
+});
+
+/**
+ * REGRESSION CASE: Leverock's, second audit.
+ *
+ * The pop-up CTA
+ *   /-party?source=pop_up&spot_id=78550&destination=private_parties&promo
+ * was reported as a reservation pathway while the same report said no private
+ * dining pathway was found. Two separate faults: the anchor text ("Book Now")
+ * was allowed to classify a link whose URL states a different destination, and
+ * `private[- ]?part` could never match `private_parties` because `_` is neither
+ * a hyphen nor a space.
+ *
+ * It is a private-party enquiry pathway, not a table-booking pathway. Both can
+ * exist on one site, and reporting the one as the other hides a real gap.
+ */
+describe('a declared destination outranks generic link text', () => {
+  const partyUrl = 'https://leverocks.example/-party?source=pop_up&spot_id=78550&destination=private_parties&promo';
+
+  it('reads the destination out of the query string, underscores and all', () => {
+    expect(declaredDestination(new URL(partyUrl))).toBe('private_dining');
+    // The historic failure: the pattern never saw through the underscore.
+    expect(declaredDestination(new URL('https://x.example/a?destination=private_parties'))).toBe('private_dining');
+    expect(declaredDestination(new URL('https://x.example/a?destination=online_ordering'))).toBe('ordering');
+    expect(declaredDestination(new URL('https://x.example/a?destination=make_a_reservation'))).toBe('reservation');
+  });
+
+  it('files the private-party pop-up as private dining and NOT as a reservation', () => {
+    const p = page(`<html><body><a href="${partyUrl}">Book Now</a></body></html>`);
+    expect(p.categorizedLinks.private_dining ?? []).toHaveLength(1);
+    expect(p.categorizedLinks.reservation ?? []).toHaveLength(0);
+  });
+
+  it('reports private dining as present and reservation as undetected', () => {
+    const p = page(`<html><body><a href="${partyUrl}">Book Now</a></body></html>`);
+    const evidence = normalizeEvidence({ pages: [p], failures: [], probes: [] });
+    expect(evidence.find((e) => e.evidenceType === 'PRIVATE_DINING_PATH')?.fact).toMatch(/private dining pathway is publicly linked/i);
+    expect(evidence.find((e) => e.evidenceType === 'RESERVATION_PATH')?.fact).toMatch(/No public reservation pathway was detected/i);
+
+    const journey = analyzeJourney(
+      evidence.map((e, i) => ({ id: `e${i}`, evidenceType: e.evidenceType, fact: e.fact, confidence: e.confidence, supportingContext: e.supportingContext ?? null })),
+    );
+    // The decisive assertion: a private-party link must not make RESERVATION look answered.
+    expect(journey.find((s) => s.stage === 'RESERVATION')?.status).toBe('UNKNOWN');
+  });
+
+  it('lets the URL keep its own structural category alongside the declared one', () => {
+    // A booking page that also opens private-party enquiries is genuinely both.
+    expect(categorizeLink(new URL('https://x.example/reservations?destination=private_parties'), 'Book')).toEqual(
+      expect.arrayContaining(['reservation', 'private_dining']),
+    );
+  });
+
+  it('still classifies from anchor text when the URL declares no destination', () => {
+    const p = page('<html><body><a href="https://leverocks.example/x?spot_id=1">Book Now</a></body></html>');
+    expect(p.categorizedLinks.reservation ?? []).toHaveLength(1);
+  });
+
+  it('does not treat ordinary query parameters as destinations', () => {
+    // `page`/`view`/`type` carry pagination and display values, not destinations,
+    // so they must never suppress what the anchor text says.
+    expect(declaredDestination(new URL('https://x.example/menu?page=2&view=calendar&type=grid'))).toBeNull();
+    const p = page('<html><body><a href="https://leverocks.example/m?page=2">Menu</a></body></html>');
+    expect(p.categorizedLinks.menu ?? []).toHaveLength(1);
+  });
+});
+
+/**
+ * REGRESSION CASE: Leverock's, second audit.
+ *
+ * The SpotHopper ordering widget was correctly detected, but the report still
+ * said the ordering destination could not be resolved. The collector read
+ * destinations from <a href> only — an iframe src or a data-* URL, both served
+ * in the public HTML, was thrown away after its hostname was noted. Where a
+ * widget states its destination statically, it is now resolved and probed like
+ * any other pathway; where it genuinely only exists after JavaScript runs, the
+ * honest "could not be resolved" answer is unchanged.
+ */
+describe('embedded widget destinations are resolved from the served HTML', () => {
+  it('resolves an iframe-embedded ordering destination', () => {
+    const p = page(`<html><body>
+      <iframe title="Order Online" src="https://www.spothopperapp.com/order-online/leverocks"></iframe>
+    </body></html>`);
+    expect(p.categorizedLinks.ordering ?? []).toHaveLength(1);
+    expect(p.categorizedLinks.ordering?.[0].source).toBe('embed');
+    expect(p.categorizedLinks.reservation ?? []).toHaveLength(0);
+  });
+
+  it('resolves a destination held in a data attribute on a scripted button', () => {
+    const p = page(`<html><body>
+      <button data-order-url="https://order.toasttab.com/online/leverocks">Order Online</button>
+    </body></html>`);
+    expect(p.categorizedLinks.ordering?.[0].href).toContain('order.toasttab.com');
+  });
+
+  it('resolves a destination held in an inline open handler', () => {
+    const p = page(`<html><body>
+      <div onclick="window.open('https://www.spothopperapp.com/order-online/leverocks')">Order Now</div>
+    </body></html>`);
+    expect(p.categorizedLinks.ordering?.[0].href).toContain('spothopperapp.com');
+  });
+
+  it('names the resolved destination and vendor instead of reporting it unresolvable', () => {
+    const p = page(`<html><head>
+      <script src="https://www.spothopperapp.com/widget.js"></script>
+    </head><body>
+      <iframe title="Order Online" src="https://www.spothopperapp.com/order-online/leverocks"></iframe>
+      <button>Order Online</button>
+    </body></html>`);
+    const evidence = normalizeEvidence({ pages: [p], failures: [], probes: [] });
+    const ordering = evidence.find((e) => e.evidenceType === 'ORDERING_PATH');
+    expect(ordering?.fact).toMatch(/An online ordering pathway is publicly reachable through an embedded widget via SpotHopper/i);
+    expect(ordering?.fact).not.toMatch(/could not be resolved/i);
+    expect(ordering?.supportingContext).toContain('https://www.spothopperapp.com/order-online/leverocks');
+    // The claim stays bounded: the destination is public HTML, the on-screen
+    // widget still is not.
+    expect(ordering?.supportingContext).toMatch(/still needs a human look/i);
+    expect(ordering?.confidence).toBeLessThan(90);
+  });
+
+  it('reports the pathway as working only once the destination actually responds', () => {
+    const p = page(`<html><body>
+      <iframe title="Order Online" src="https://www.spothopperapp.com/order-online/leverocks"></iframe>
+    </body></html>`);
+    const evidence = normalizeEvidence({
+      pages: [p],
+      failures: [],
+      probes: [{ url: 'https://www.spothopperapp.com/order-online/leverocks', category: 'ordering', ok: true, httpStatus: 200, note: 'HTTP 200' }],
+    });
+    const journey = analyzeJourney(
+      evidence.map((e, i) => ({ id: `e${i}`, evidenceType: e.evidenceType, fact: e.fact, confidence: e.confidence, supportingContext: e.supportingContext ?? null })),
+    );
+    expect(journey.find((s) => s.stage === 'ORDERING')?.status).toBe('HEALTHY');
+  });
+
+  it('keeps reporting UNKNOWN when the widget leaves no destination in the HTML', () => {
+    const p = page(`<html><head>
+      <script src="https://www.spothopperapp.com/widget.js"></script>
+    </head><body><button>Order Online</button></body></html>`);
+    const evidence = normalizeEvidence({ pages: [p], failures: [], probes: [] });
+    expect(evidence.find((e) => e.evidenceType === 'ORDERING_PATH')?.fact).toMatch(
+      /No public online ordering pathway could be resolved, but a SpotHopper widget was detected/i,
+    );
+    const journey = analyzeJourney(
+      evidence.map((e, i) => ({ id: `e${i}`, evidenceType: e.evidenceType, fact: e.fact, confidence: e.confidence, supportingContext: e.supportingContext ?? null })),
+    );
+    expect(journey.find((s) => s.stage === 'ORDERING')?.status).toBe('UNKNOWN');
+  });
+
+  it('does not crawl embedded destinations as pages of the site', () => {
+    const p = page(`<html><body>
+      <iframe title="Order Online" src="https://leverocks.example/order-widget"></iframe>
+    </body></html>`);
+    expect(p.internalLinks).toHaveLength(0);
+    // Same-host embeds must not consume a page slot either — they are probed.
+    expect(discoverRelevantPages(p)).toHaveLength(0);
+  });
+
+  it('ignores a vendor credit that arrives through a data attribute', () => {
+    const p = page(`<html><body>
+      <span data-href="https://www.spothopperapp.com/">Powered by SpotHopper</span>
+    </body></html>`);
+    expect(p.categorizedLinks.reservation ?? []).toHaveLength(0);
+    expect(p.categorizedLinks.ordering ?? []).toHaveLength(0);
+  });
+
+  it('prefers a visible anchor over an embed when the site offers both', () => {
+    const p = page(`<html><body>
+      <a href="https://www.spothopperapp.com/order-online/leverocks">Order Online</a>
+      <iframe title="Order" src="https://order.toasttab.com/online/leverocks"></iframe>
+    </body></html>`);
+    const evidence = normalizeEvidence({ pages: [p], failures: [], probes: [] });
+    const ordering = evidence.find((e) => e.evidenceType === 'ORDERING_PATH');
+    expect(ordering?.fact).toMatch(/publicly linked/);
+    expect(ordering?.fact).not.toMatch(/embedded widget/);
+  });
+});
+
+describe('client-facing wording', () => {
+  it('uses the right indefinite article for every pathway label', () => {
+    const p = page(`<html><body>
+      <a href="https://leverocks.example/order-online">Order Online</a>
+      <a href="https://leverocks.example/faq">FAQ</a>
+      <a href="https://leverocks.example/menu">Menu</a>
+    </body></html>`);
+    const facts = normalizeEvidence({ pages: [p], failures: [], probes: [] }).map((e) => e.fact);
+    expect(facts).toContain('An online ordering pathway is publicly linked (1 link(s) found).');
+    expect(facts).toContain('An FAQ pathway is publicly linked (1 link(s) found).');
+    expect(facts).toContain('A menu pathway is publicly linked (1 link(s) found).');
+    expect(facts.some((f) => /^A (online|FAQ)/.test(f))).toBe(false);
   });
 });
 
