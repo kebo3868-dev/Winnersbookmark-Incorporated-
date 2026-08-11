@@ -107,5 +107,17 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!api/health|_next/static|_next/image|favicon.ico).*)'],
+  // Two entries, and the first one is load-bearing.
+  //
+  // Matcher strings compile through path-to-regexp, where `(...)` is an
+  // anonymous parameter that must match at least one character. On a request
+  // for `/` the group would have to match the empty string, so the pattern
+  // below does NOT match the root — and the middleware never runs there. The
+  // Command Center lives at `/`, which meant the one page listing client
+  // names, audit history and failure diagnostics was served to anyone who
+  // knew the hostname, while every deeper path was correctly challenged.
+  //
+  // Listing '/' explicitly is the whole fix. Do not merge the two entries
+  // back into one pattern.
+  matcher: ['/', '/((?!api/health|_next/static|_next/image|favicon.ico).*)'],
 };
