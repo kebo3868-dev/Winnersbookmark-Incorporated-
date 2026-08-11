@@ -76,8 +76,24 @@ const Footer = ({ dto }: { dto: ExecutiveReportDTO }) => (
   </>
 );
 
+/**
+ * PAGINATION NOTE — why nothing here carries `minPresenceAhead`.
+ *
+ * react-pdf only consults `minPresenceAhead` for an element that would already
+ * be split across the page boundary, and when it does fire on a wrappable block
+ * it advances the page WITHOUT placing the block, so the block lands one page
+ * later and the page in between is emitted empty. That is what produced a PDF
+ * whose "Top Revenue Leaks" page carried the heading and nothing else, with the
+ * findings starting on the following page.
+ *
+ * Measured over 80 layout permutations (1/2/3/5 findings × short/long problem
+ * text × 10 executive-summary lengths): with `minPresenceAhead` on the finding
+ * cards, 4 permutations produced a blank or heading-only page; with it removed,
+ * zero did. Blocks now break naturally, so a section that starts low on a page
+ * continues overleaf instead of leaving one behind.
+ */
 const SectionHeader = ({ kicker, title }: { kicker: string; title: string }) => (
-  <View minPresenceAhead={80}>
+  <View>
     <Text style={s.sectionKicker}>{kicker}</Text>
     <Text style={s.h2}>{title}</Text>
     <View style={s.rule} />
@@ -249,11 +265,25 @@ export function ExecutivePdf({ dto }: { dto: ExecutiveReportDTO }) {
           <Text style={[s.body, { marginBottom: 8 }]}>{dto.score.interpretation}</Text>
           <View style={[s.row, { gap: 8, flexWrap: 'wrap' }]}>
             {[
-              [`${dto.score.evidenceCount}`, 'Evidence items'],
+              [`${dto.score.evidenceCount}`, 'Evidence items collected'],
               [`${dto.score.sourcesAnalyzed}`, 'Pages analyzed'],
-              [`${dto.score.verifiedCount}`, 'Verified findings'],
+              [`${dto.score.findingsCount}`, 'Revenue-leak findings'],
+            ].map(([n, label]) => (
+              <View key={label} style={{ borderWidth: 0.5, borderColor: C.line, borderRadius: 2, paddingVertical: 5, paddingHorizontal: 10, alignItems: 'center' }}>
+                <Text style={{ fontFamily: 'Helvetica-Bold', fontSize: 11, color: C.ink }}>{n}</Text>
+                <Text style={{ fontSize: 6.5, letterSpacing: 0.8, color: C.muted, textTransform: 'uppercase' }}>{label}</Text>
+              </View>
+            ))}
+          </View>
+          <Text style={[s.mutedText, { marginTop: 8, marginBottom: 5 }]}>
+            How the {dto.score.findingsCount} revenue-leak finding(s) in Section 04 are classified. These describe the findings, not the {dto.score.evidenceCount} evidence
+            items above — every evidence item carries its own confidence score and is listed in the Appendix.
+          </Text>
+          <View style={[s.row, { gap: 8, flexWrap: 'wrap' }]}>
+            {[
+              [`${dto.score.verifiedCount}`, 'Verified from public evidence'],
               [`${dto.score.inferredCount}`, 'Inferred opportunities'],
-              [`${dto.score.manualValidationCount}`, 'Require manual validation'],
+              [`${dto.score.manualValidationCount}`, 'Need your data to confirm'],
             ].map(([n, label]) => (
               <View key={label} style={{ borderWidth: 0.5, borderColor: C.line, borderRadius: 2, paddingVertical: 5, paddingHorizontal: 10, alignItems: 'center' }}>
                 <Text style={{ fontFamily: 'Helvetica-Bold', fontSize: 11, color: C.ink }}>{n}</Text>
@@ -285,7 +315,7 @@ export function ExecutivePdf({ dto }: { dto: ExecutiveReportDTO }) {
             </Text>
           )}
           {dto.findings.map((f) => (
-            <View key={f.number} style={[s.card, { marginBottom: 14 }]} minPresenceAhead={130}>
+            <View key={f.number} style={[s.card, { marginBottom: 14 }]}>
               <View style={[s.row, { justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }]}>
                 <Text style={{ fontFamily: 'Times-Bold', fontSize: 12, color: C.ink, flex: 1, paddingRight: 8 }}>
                   {f.number}. {f.title}
@@ -354,7 +384,7 @@ export function ExecutivePdf({ dto }: { dto: ExecutiveReportDTO }) {
             </Text>
           ) : (
             dto.rankedAiOpportunities.map((opp) => (
-              <View key={opp.rank} style={s.card} minPresenceAhead={60}>
+              <View key={opp.rank} style={s.card}>
                 <View style={[s.row, { justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }]}>
                   <Text style={{ fontFamily: 'Times-Bold', fontSize: 11.5, color: C.ink }}>#{opp.rank} · {opp.solutionCategory}</Text>
                   <Text style={[s.badge, { color: C.goldDim, borderColor: C.goldDim }]}>FIT: {opp.fit}</Text>

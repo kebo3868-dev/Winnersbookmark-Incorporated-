@@ -127,11 +127,24 @@ export default async function ExecutiveReportPage({ params }: { params: Promise<
         <p className="text-ivory-dim text-sm mb-5">{dto.score.interpretation}</p>
         <div className="flex flex-wrap gap-3">
           {[
-            [dto.score.evidenceCount, 'Evidence items'],
+            [dto.score.evidenceCount, 'Evidence items collected'],
             [dto.score.sourcesAnalyzed, 'Pages analyzed'],
-            [dto.score.verifiedCount, 'Verified findings'],
+            [dto.score.findingsCount, 'Revenue-leak findings'],
+          ].map(([n, label]) => (
+            <div key={String(label)} className="border border-obsidian-line rounded px-4 py-2 text-center">
+              <p className="font-display text-lg text-ivory">{n}</p>
+              <p className="label">{label}</p>
+            </div>
+          ))}
+        </div>
+        <p className="text-ivory-faint text-xs mt-5 mb-2">
+          How the {dto.score.findingsCount} revenue-leak finding(s) in Section 04 are classified. These describe the findings, not the {dto.score.evidenceCount} evidence items above — every evidence item carries its own confidence score and is listed in the Appendix.
+        </p>
+        <div className="flex flex-wrap gap-3">
+          {[
+            [dto.score.verifiedCount, 'Verified from public evidence'],
             [dto.score.inferredCount, 'Inferred opportunities'],
-            [dto.score.manualValidationCount, 'Require manual validation'],
+            [dto.score.manualValidationCount, 'Need your data to confirm'],
           ].map(([n, label]) => (
             <div key={String(label)} className="border border-obsidian-line rounded px-4 py-2 text-center">
               <p className="font-display text-lg text-ivory">{n}</p>

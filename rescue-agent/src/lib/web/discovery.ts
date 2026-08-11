@@ -32,6 +32,10 @@ export function discoverRelevantPages(home: PageExtract, limit = MAX_PAGES - 1):
     const links = home.categorizedLinks[category] ?? [];
     for (const link of links) {
       if (selected.length >= limit) break;
+      // Widget endpoints are destinations to probe, not pages to crawl: an
+      // iframe src returns a widget fragment, and collecting it would spend one
+      // of the few page slots on markup no customer browses.
+      if (link.source === 'embed') continue;
       let parsed: URL;
       try {
         parsed = new URL(link.href);
