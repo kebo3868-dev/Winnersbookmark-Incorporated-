@@ -219,6 +219,36 @@ const INLINE_URL_REGEX = /(?:window\.open|location\.(?:href|assign|replace)|loca
 /** Bound on embedded destinations kept per page — untrusted HTML sets no limit of its own. */
 const MAX_EMBED_TARGETS = 50;
 
+/**
+ * Paths that are assets rather than destinations. A vendor bundle proves a
+ * widget loads; it is never somewhere a customer can be sent, so resolving a
+ * pathway from one would be exactly the false claim this audit must not make.
+ */
+const STATIC_ASSET_PATH = /\.(?:js|mjs|cjs|css|png|jpe?g|gif|svg|webp|ico|woff2?|ttf|eot|mp4|webm|map|json|xml|txt)$/i;
+
+/**
+ * URLs inside inline script bodies. Bounded so backtracking stays linear on
+ * untrusted input.
+ *
+ * The scheme is optional because widget configuration routinely omits it:
+ * `//www.spothopperapp.com/order-online/<slug>` is a destination, and matching
+ * only `https?://` would skip it. A bare `//` also begins a JavaScript comment,
+ * so this over-matches by design — the host guard in addWidgetDestination
+ * discards anything that is not a vendor or first-party host, which makes a
+ * matched comment harmless rather than a false pathway.
+ */
+const SCRIPT_URL_REGEX = /(?:https?:)?\/\/[^\s'"<>()\\,]{2,300}/g;
+
+/**
+ * JSON escapes its forward slashes, so a destination embedded in a config blob
+ * arrives as `https:\/\/host\/order-online\/slug` and matches no URL pattern at
+ * all. Unescaping first is what lets the scan see it.
+ */
+const JSON_ESCAPED_SLASH = /\\\//g;
+
+/** Bound on inline script text scanned per page for declared destinations. */
+const MAX_SCRIPT_SCAN = 200_000;
+
 /** Anchor text that marks a link as a builder/vendor credit rather than a customer action. */
 /**
  * Anchor text that may mark a builder/vendor credit.
@@ -462,6 +492,68 @@ export function extractPage(
     const handler = $(el).attr('onclick') ?? '';
     const text = $(el).text().replace(/\s+/g, ' ').trim().slice(0, 120);
     for (const match of handler.matchAll(INLINE_URL_REGEX)) addEmbedTarget(match[1], text || '(button)');
+  });
+
+  // Destinations stated INSIDE widget markup and configuration.
+  //
+  // A vendor script proves a widget is present, never that a pathway exists —
+  // so nothing here treats an asset, a bundle or branding as a pathway. What it
+  // does is read destinations the vendor already states in the public HTML:
+  // SpotHopper routinely names `/order-online/<slug>` or `/reservations/<slug>`
+  // in the widget's own configuration, which is the difference between naming
+  // where the Order button leads and reporting it as unresolvable.
+  //
+  // Three guards keep this honest, and all three must pass:
+  //   1. Static bundles are rejected. `widget.js` is an asset, not a
+  //      destination, and a vendor host alone must never resolve a pathway.
+  //   2. The URL must categorize as reservation or ordering FROM ITSELF —
+  //      categorizeLink is called with empty text, so no button label or
+  //      surrounding copy can talk a URL into a category its path does not
+  //      support.
+  //   3. The host must be a known widget vendor or the site's own. Inline
+  //      scripts carry analytics beacons whose query strings mention "order";
+  //      without this an unrelated third-party URL could be reported as a
+  //      customer ordering pathway.
+  //
+  // A destination that fails any guard is simply not collected, and the audit
+  // continues to report UNKNOWN with the widget-detected reason attached.
+  const isWidgetVendorHost = (hostname: string) =>
+    WIDGET_ASSET_HOSTS.some(([pattern]) => pattern.test(hostname));
+
+  const addWidgetDestination = (raw: string | undefined, label: string) => {
+    if (!raw) return;
+    const trimmed = raw.trim();
+    if (!trimmed) return;
+    let u: URL;
+    try {
+      u = new URL(trimmed, base);
+    } catch {
+      return;
+    }
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') return;
+    // Guard 1 — an asset is not a destination.
+    if (STATIC_ASSET_PATH.test(u.pathname)) return;
+    // Guard 3 — vendor or first-party only.
+    const host = u.hostname.toLowerCase();
+    if (!isWidgetVendorHost(host) && host !== base.hostname.toLowerCase()) return;
+    // Guard 2 — the URL must declare the category by itself.
+    const categories = categorizeLink(u, '');
+    if (!categories.includes('reservation') && !categories.includes('ordering')) return;
+    addEmbedTarget(trimmed, label);
+  };
+
+  $('script[src]').each((_, el) => addWidgetDestination($(el).attr('src'), '(widget script)'));
+
+  let scriptScanned = 0;
+  $('script:not([src])').each((_, el) => {
+    if (scriptScanned >= MAX_SCRIPT_SCAN) return;
+    const body = $(el).text() ?? '';
+    const slice = body.slice(0, MAX_SCRIPT_SCAN - scriptScanned).replace(JSON_ESCAPED_SLASH, '/');
+    scriptScanned += slice.length;
+    for (const match of slice.matchAll(SCRIPT_URL_REGEX)) {
+      // Trailing punctuation is part of the surrounding JS, not the URL.
+      addWidgetDestination(match[0].replace(/[),;.'"\\]+$/, ''), '(widget configuration)');
+    }
   });
 
   $('script, style, noscript').remove();
