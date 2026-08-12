@@ -62,6 +62,32 @@ describe('SpotHopper destination resolution', () => {
     expect(ordering[0].source).toBe('embed');
   });
 
+  it('resolves a destination embedded as JSON, where slashes arrive escaped', () => {
+    // How a config blob actually ships. Before unescaping, `https:\/\/…`
+    // matched no URL pattern at all and the destination was invisible.
+    const p = page(`
+      <script src="https://www.spothopperapp.com/widget.js"></script>
+      <script type="application/json" id="sh-config">
+        {"spotId":78550,"orderUrl":"https:\\/\\/www.spothopperapp.com\\/order-online\\/leverocks-seafood"}
+      </script>
+    `);
+    const ordering = p.categorizedLinks.ordering ?? [];
+    expect(ordering.length).toBeGreaterThan(0);
+    expect(ordering[0].href).toContain('/order-online/leverocks-seafood');
+  });
+
+  it('resolves a protocol-relative destination', () => {
+    const p = page(`
+      <script src="https://www.spothopperapp.com/widget.js"></script>
+      <script>
+        var cfg = { reservationUrl: "//www.spothopperapp.com/reservations/leverocks-seafood" };
+      </script>
+    `);
+    const reservation = p.categorizedLinks.reservation ?? [];
+    expect(reservation.length).toBeGreaterThan(0);
+    expect(reservation[0].href).toContain('/reservations/leverocks-seafood');
+  });
+
   it('reports a resolved pathway as publicly reachable rather than unresolvable', () => {
     const p = page(`
       <script src="https://www.spothopperapp.com/widget.js"></script>
@@ -124,6 +150,17 @@ describe('SpotHopper destination resolution', () => {
       `);
       expect(p.categorizedLinks.ordering ?? []).toHaveLength(0);
       expect(p.categorizedLinks.reservation ?? []).toHaveLength(0);
+    });
+
+    it('does not resolve a pathway from a JavaScript comment', () => {
+      // The URL pattern matches a bare `//`, which also begins a JS comment.
+      // The host guard is what makes that harmless.
+      const p = page(`
+        <script>
+          // order-online rewrite pending
+        </script>
+      `);
+      expect(p.categorizedLinks.ordering ?? []).toHaveLength(0);
     });
 
     it('does not treat a vendor bundle URL as a destination even on a vendor host', () => {

@@ -226,8 +226,25 @@ const MAX_EMBED_TARGETS = 50;
  */
 const STATIC_ASSET_PATH = /\.(?:js|mjs|cjs|css|png|jpe?g|gif|svg|webp|ico|woff2?|ttf|eot|mp4|webm|map|json|xml|txt)$/i;
 
-/** Absolute URLs inside inline script bodies. Bounded so backtracking stays linear on untrusted input. */
-const ABSOLUTE_URL_REGEX = /https?:\/\/[^\s'"<>()\\]{1,300}/g;
+/**
+ * URLs inside inline script bodies. Bounded so backtracking stays linear on
+ * untrusted input.
+ *
+ * The scheme is optional because widget configuration routinely omits it:
+ * `//www.spothopperapp.com/order-online/<slug>` is a destination, and matching
+ * only `https?://` would skip it. A bare `//` also begins a JavaScript comment,
+ * so this over-matches by design — the host guard in addWidgetDestination
+ * discards anything that is not a vendor or first-party host, which makes a
+ * matched comment harmless rather than a false pathway.
+ */
+const SCRIPT_URL_REGEX = /(?:https?:)?\/\/[^\s'"<>()\\,]{2,300}/g;
+
+/**
+ * JSON escapes its forward slashes, so a destination embedded in a config blob
+ * arrives as `https:\/\/host\/order-online\/slug` and matches no URL pattern at
+ * all. Unescaping first is what lets the scan see it.
+ */
+const JSON_ESCAPED_SLASH = /\\\//g;
 
 /** Bound on inline script text scanned per page for declared destinations. */
 const MAX_SCRIPT_SCAN = 200_000;
@@ -531,9 +548,9 @@ export function extractPage(
   $('script:not([src])').each((_, el) => {
     if (scriptScanned >= MAX_SCRIPT_SCAN) return;
     const body = $(el).text() ?? '';
-    const slice = body.slice(0, MAX_SCRIPT_SCAN - scriptScanned);
+    const slice = body.slice(0, MAX_SCRIPT_SCAN - scriptScanned).replace(JSON_ESCAPED_SLASH, '/');
     scriptScanned += slice.length;
-    for (const match of slice.matchAll(ABSOLUTE_URL_REGEX)) {
+    for (const match of slice.matchAll(SCRIPT_URL_REGEX)) {
       // Trailing punctuation is part of the surrounding JS, not the URL.
       addWidgetDestination(match[0].replace(/[),;.'"\\]+$/, ''), '(widget configuration)');
     }
