@@ -170,6 +170,24 @@ describe('finding counters state what they count', () => {
     expect(dto.score.findingsCount).toBe(1);
   });
 
+  it('renders RESOLVED_UNVERIFIED as MANUAL VALIDATION, never blank or HEALTHY', () => {
+    // The status was added so a reachable-but-unverified reservation could stop
+    // being reported as HEALTHY. A client-facing report showing a blank or
+    // mislabelled status would be a worse failure than the bug it fixes, so the
+    // mapping onto the report's existing vocabulary is asserted here.
+    const dto = buildExecutiveReport(
+      baseInput({
+        journey: [
+          { stage: 'RESERVATION', status: 'RESOLVED_UNVERIFIED', finding: 'Reachable, booking availability not verified.', manualValidationRequired: true },
+        ],
+      }),
+    );
+    const reservation = dto.journeyMap.find((s) => s.stage === 'RESERVATION');
+    expect(reservation?.status).toBe('MANUAL VALIDATION');
+    expect(reservation?.status).not.toBe('HEALTHY');
+    expect(reservation?.status).toBeTruthy();
+  });
+
   it('does not inflate the counts when evidence is plentiful', () => {
     const dto = buildExecutiveReport(baseInput({ opportunities: [] }));
     expect(dto.score.findingsCount).toBe(0);

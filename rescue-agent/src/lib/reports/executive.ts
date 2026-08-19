@@ -525,6 +525,12 @@ function buildJourneyMap(journey: ExecutiveReportInput['journey']): JourneyMapSt
     const s = byStage.get(stage)!;
     let status: JourneyMapStage['status'];
     if (s.status === 'UNKNOWN') status = 'INSUFFICIENT DATA';
+    // A resolved-but-unverified destination is exactly what MANUAL VALIDATION
+    // already means to a reader of this report, so it maps onto the existing
+    // vocabulary rather than adding a fifth word to a client-facing document.
+    // Stated explicitly rather than relying on the manualValidationRequired
+    // flag below, so the mapping cannot silently change if that flag does.
+    else if (s.status === 'RESOLVED_UNVERIFIED') status = 'MANUAL VALIDATION';
     else if (s.manualValidationRequired && s.status !== 'HEALTHY') status = 'MANUAL VALIDATION';
     else status = s.status as JourneyMapStage['status'];
     return { stage, label: JOURNEY_LABELS[stage] ?? stage, status, note: firstSentence(s.finding) };

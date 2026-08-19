@@ -104,7 +104,12 @@ describe('defect 2 — vendor credits must never count as customer pathways', ()
       evidence.map((e, i) => ({ id: `e${i}`, evidenceType: e.evidenceType, fact: e.fact, confidence: e.confidence, supportingContext: e.supportingContext ?? null })),
     );
     expect(journey.find((s) => s.stage === 'ORDERING')?.status).toBe('UNKNOWN'); // must NOT be HEALTHY
-    expect(journey.find((s) => s.stage === 'RESERVATION')?.status).toBe('HEALTHY');
+    // Was HEALTHY. Changed deliberately: no probe runs in this fixture, so the
+    // old status came with the finding "publicly linked and responded when
+    // tested" — a claim about a test that never happened. A resolved link with
+    // no verification is RESOLVED_UNVERIFIED. The assertion this test exists
+    // for, that ORDERING is not HEALTHY, is unchanged above.
+    expect(journey.find((s) => s.stage === 'RESERVATION')?.status).toBe('RESOLVED_UNVERIFIED');
   });
 });
 

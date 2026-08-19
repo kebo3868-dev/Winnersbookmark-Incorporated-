@@ -9,6 +9,12 @@ export interface ProbeResult {
   note: string;
   /** Destination reached after redirects, when it differs from the link href. */
   finalUrl?: string;
+  /**
+   * Set when the destination's own page says the service is unavailable —
+   * bookings closed, ordering disabled. Present only as a downgrade; its
+   * absence means "not verified", never "verified working".
+   */
+  disabledSignal?: string;
 }
 
 export interface CollectionSet {
@@ -399,15 +405,53 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
       // "where does this button lead" is the question the audit is answering.
       const resolved = probe.finalUrl && probe.finalUrl !== probe.url ? probe.finalUrl : null;
       const operator = detectPlatform([probe.finalUrl ?? probe.url]);
-      evidence.push({
-        sourceUrl: probe.url,
-        evidenceType: probe.category === 'reservation' ? 'RESERVATION_PATH' : probe.category === 'ordering' ? 'ORDERING_PATH' : 'MENU_ACCESS',
-        fact:
-          `The linked ${probe.category} destination responded successfully when tested (${probe.note})` +
-          `${operator ? ` and is operated by ${operator}` : ''}.`,
-        supportingContext: resolved ? `${probe.url} → resolves to ${resolved}` : probe.url,
-        confidence: 90,
-      });
+      const evidenceType =
+        probe.category === 'reservation' ? 'RESERVATION_PATH' : probe.category === 'ordering' ? 'ORDERING_PATH' : 'MENU_ACCESS';
+
+      if (probe.disabledSignal && probe.category === 'reservation') {
+        // The destination itself says the service is off. A 200 response with
+        // bookings closed is not a working pathway, and reporting it as one was
+        // the false claim this branch exists to prevent.
+        evidence.push({
+          sourceUrl: probe.url,
+          evidenceType,
+          fact: `The linked ${probe.category} destination is reachable but states the service is unavailable (${probe.note}).`,
+          supportingContext:
+            `${resolved ? `${probe.url} → resolves to ${resolved}. ` : `${probe.url}. `}` +
+            `Signal read from the destination page — ${probe.disabledSignal}. ` +
+            'Customers arriving here cannot complete the action.',
+          confidence: 90,
+        });
+      } else if (probe.category === 'reservation') {
+        // Scoped to reservations deliberately. Ordering and menu carry the same
+        // reachability-is-not-functionality flaw, but changing their wording
+        // without also changing their classification would leave evidence
+        // saying "not verified" under a stage still reporting HEALTHY — an
+        // inconsistency worse than the honest gap. Tracked as follow-up.
+        evidence.push({
+          sourceUrl: probe.url,
+          evidenceType,
+          fact:
+            'The linked reservation destination is reachable, but whether a customer can complete a booking ' +
+            `was not verified (${probe.note})` +
+            `${operator ? ` — operated by ${operator}` : ''}.`,
+          supportingContext:
+            `${resolved ? `${probe.url} → resolves to ${resolved}. ` : `${probe.url}. `}` +
+            'The destination responded, which confirms it exists and is reachable. It does not confirm that bookings are ' +
+            'being accepted — a page with reservations switched off responds identically. Manual validation required.',
+          confidence: 80,
+        });
+      } else {
+        evidence.push({
+          sourceUrl: probe.url,
+          evidenceType,
+          fact:
+            `The linked ${probe.category} destination responded successfully when tested (${probe.note})` +
+            `${operator ? ` and is operated by ${operator}` : ''}.`,
+          supportingContext: resolved ? `${probe.url} → resolves to ${resolved}` : probe.url,
+          confidence: 90,
+        });
+      }
     }
   }
 

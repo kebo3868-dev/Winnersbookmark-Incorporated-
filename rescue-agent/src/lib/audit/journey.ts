@@ -148,6 +148,9 @@ export function analyzeJourney(evidence: EvidenceRecordLike[]): JourneyStageResu
     const widget = res.filter((e) => /widget was detected/i.test(e.fact));
     const missing = res.filter((e) => /no public reservation pathway was detected/i.test(e.fact));
     const broken = has(index, 'BROKEN_LINK', (e) => /reservation/i.test(e.fact));
+    // The destination's own page says bookings are off. Worse than unverified:
+    // this is a known dead end for a customer who arrives with booking intent.
+    const unavailable = res.filter((e) => /states the service is unavailable/i.test(e.fact));
     if (res.length === 0) {
       push(stage('RESERVATION', 'UNKNOWN', 'Reservation experience could not be assessed.', 30, true, []));
     } else if (broken.length > 0) {
@@ -174,8 +177,32 @@ export function analyzeJourney(evidence: EvidenceRecordLike[]): JourneyStageResu
           ids(res),
         ),
       );
+    } else if (unavailable.length > 0) {
+      push(
+        stage(
+          'RESERVATION',
+          'RISK',
+          'The reservation destination is reachable but states that bookings are not available — booking-intent customers arrive at a page that cannot take their reservation.',
+          avgConfidence(unavailable, 90),
+          false,
+          ids([...res, ...unavailable]),
+        ),
+      );
     } else {
-      push(stage('RESERVATION', 'HEALTHY', 'A reservation pathway is publicly linked and responded when tested.', avgConfidence(res, 80), false, ids(res)));
+      // Reachability is not functionality. A booking page with reservations
+      // switched off returns 200 and renders normally, so responding proves the
+      // destination exists — never that a customer can book. HEALTHY here would
+      // be a claim the audit has not earned.
+      push(
+        stage(
+          'RESERVATION',
+          'RESOLVED_UNVERIFIED',
+          'A reservation pathway is publicly linked and the destination is reachable, but whether customers can actually complete a booking was not verified — a booking page with reservations switched off responds identically. Manual validation required.',
+          avgConfidence(res, 75),
+          true,
+          ids(res),
+        ),
+      );
     }
   }
 

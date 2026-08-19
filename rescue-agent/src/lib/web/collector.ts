@@ -742,7 +742,7 @@ export function extractPage(
 export async function probeLink(
   url: string,
   options: { timeoutMs?: number; deadline?: number } = {},
-): Promise<{ ok: boolean; httpStatus?: number; note: string; finalUrl?: string }> {
+): Promise<{ ok: boolean; httpStatus?: number; note: string; finalUrl?: string; disabledSignal?: string }> {
   const hop = await followRedirectsSafely(url, options.timeoutMs ?? PROBE_TIMEOUT_MS, options.deadline);
   if (hop.kind === 'failure') {
     if (hop.status === 'BLOCKED' && /safety policy/.test(hop.note)) {
@@ -752,6 +752,12 @@ export async function probeLink(
     return { ok: false, httpStatus: hop.httpStatus, note: hop.note };
   }
   const { response, finalUrl } = hop;
+
+  // Read a bounded slice before discarding the rest. The body used to be
+  // cancelled unread, which is why a booking page with reservations switched
+  // off was indistinguishable from a working one: both return 200.
+  const disabledSignal = await readDisabledSignal(response);
+
   await response.body?.cancel().catch(() => {});
   const redirected = normalizeUrl(new URL(finalUrl)) !== normalizeUrl(new URL(url));
   const suffix = redirected ? ` (redirects to ${finalUrl})` : '';
@@ -763,5 +769,65 @@ export async function probeLink(
       finalUrl,
     };
   }
-  return { ok: response.status < 400, httpStatus: response.status, note: `HTTP ${response.status}${suffix}`, finalUrl };
+  return {
+    ok: response.status < 400,
+    httpStatus: response.status,
+    note: `HTTP ${response.status}${suffix}`,
+    finalUrl,
+    ...(disabledSignal ? { disabledSignal } : {}),
+  };
+}
+
+/**
+ * Bound on probe body read. Disabled-booking notices sit in the visible copy
+ * near the top of the page; this is enough to see them without pulling whole
+ * pages through the audit's time budget.
+ */
+const MAX_PROBE_BODY_BYTES = 64_000;
+
+/**
+ * Phrases a destination uses to say the service is not currently available.
+ *
+ * ONLY EVER DOWNGRADES. Nothing here can promote a destination to HEALTHY — a
+ * missed phrase leaves the honest RESOLVED_UNVERIFIED, while a matched phrase
+ * moves it to RISK. That asymmetry is deliberate: the cost of missing a signal
+ * is a vaguer report, and the cost of inventing one is a false claim.
+ */
+const SERVICE_DISABLED_PATTERNS: [RegExp, string][] = [
+  [/not\s+(?:currently\s+)?(?:accepting|taking)\s+(?:online\s+)?(?:reservations|bookings|orders)/i, 'not accepting reservations/orders'],
+  [/(?:reservations|bookings|online\s+ordering)\s+(?:are\s+|is\s+)?(?:currently\s+)?(?:unavailable|disabled|not\s+available|closed)/i, 'reservations/ordering unavailable'],
+  [/no\s+(?:reservations|bookings)\s+available/i, 'no availability offered'],
+  [/(?:reservations|online\s+ordering)\s+(?:have|has)\s+been\s+(?:disabled|turned\s+off)/i, 'service disabled'],
+  [/this\s+(?:restaurant|venue|location)\s+is\s+not\s+(?:currently\s+)?accepting/i, 'venue not accepting'],
+];
+
+/**
+ * The phrase a destination uses to say its service is off, or undefined.
+ *
+ * Reads at most MAX_PROBE_BODY_BYTES of HTML. Any failure — non-HTML, unreadable
+ * stream, malformed bytes — yields undefined, which leaves the destination
+ * classified as reachable-but-unverified rather than asserting anything.
+ */
+async function readDisabledSignal(response: UndiciResponse): Promise<string | undefined> {
+  const contentType = response.headers.get('content-type') ?? '';
+  if (!/text\/html|application\/xhtml/i.test(String(contentType))) return undefined;
+  const body = response.body;
+  if (!body) return undefined;
+
+  try {
+    const decoder = new TextDecoder('utf-8', { fatal: false });
+    let text = '';
+    for await (const chunk of body) {
+      text += decoder.decode(chunk as Uint8Array, { stream: true });
+      if (text.length >= MAX_PROBE_BODY_BYTES) break;
+    }
+    const haystack = text.slice(0, MAX_PROBE_BODY_BYTES).replace(/<[^>]{0,2000}>/g, ' ').replace(/\s+/g, ' ');
+    for (const [pattern, label] of SERVICE_DISABLED_PATTERNS) {
+      const match = pattern.exec(haystack);
+      if (match) return `${label}: "${match[0].trim().slice(0, 120)}"`;
+    }
+  } catch {
+    /* unreadable body — stays unverified, never asserted */
+  }
+  return undefined;
 }
