@@ -186,10 +186,26 @@ export function analyzeJourney(evidence: EvidenceRecordLike[]): JourneyStageResu
     const missing = ord.filter((e) => /no public online ordering pathway was detected/i.test(e.fact));
     const competing = ord.filter((e) => /competing ordering destinations/i.test(e.fact));
     const broken = has(index, 'BROKEN_LINK', (e) => /ordering/i.test(e.fact));
+    // Telephone ordering is checked before the healthy fallback, and before the
+    // widget branch: a resolved destination must not outrank the action a
+    // customer is actually offered. A dead link still wins, because a broken
+    // pathway is a worse finding than a working phone.
+    const telephone = ord.filter((e) => /ordering is offered by telephone/i.test(e.fact));
     if (ord.length === 0) {
       push(stage('ORDERING', 'UNKNOWN', 'Online ordering experience could not be assessed.', 30, true, []));
     } else if (broken.length > 0) {
       push(stage('ORDERING', 'RISK', 'An ordering link failed when tested — order-intent customers hit a dead end.', avgConfidence(broken, 85), false, ids([...ord, ...broken])));
+    } else if (telephone.length > 0) {
+      push(
+        stage(
+          'ORDERING',
+          'FRICTION',
+          'Ordering is by telephone only — the website\'s ordering call-to-action places a phone call rather than opening an online ordering page. Order-intent customers who will not call are lost, and staff answer the phone during service.',
+          avgConfidence(telephone, 85),
+          true,
+          ids(ord),
+        ),
+      );
     } else if (competing.length > 0) {
       push(stage('ORDERING', 'FRICTION', 'Multiple competing ordering platforms are linked, splitting order-intent traffic and creating potential margin exposure through third-party dependency.', avgConfidence(competing, 75), true, ids(ord)));
     } else if (widget.length > 0) {
