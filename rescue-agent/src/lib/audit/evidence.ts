@@ -205,6 +205,20 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
     { key: 'gift_card', type: 'GIFT_CARD_SIGNAL', label: 'gift card' },
     { key: 'loyalty', type: 'LOYALTY_SIGNAL', label: 'loyalty or rewards' },
   ];
+  // TELEPHONE PRECEDENCE.
+  //
+  // What a customer is actually offered outranks what a widget's configuration
+  // declares. On a site whose "ORDER" button is a tel: link, the resolved
+  // `/order-online/<slug>` URL sitting in the widget config is not the pathway
+  // customers meet — the phone is. Reporting the config URL as functioning
+  // online ordering told an owner they had something their customers cannot
+  // reach, which is the exact false claim this audit exists to avoid.
+  //
+  // Narrow by construction: only tel: links whose wording offers to take an
+  // order count, so "Call us" cannot suppress a genuine ordering pathway.
+  const phoneOrderCtas = pages.flatMap((p) => p.phoneOrderCtas ?? []);
+  const hasPhoneOrdering = phoneOrderCtas.length > 0;
+
   for (const check of pathChecks) {
     const found = new Map<string, CategorizedLink>();
     for (const page of pages) {
@@ -212,7 +226,26 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
         if (!found.has(link.href)) found.set(link.href, link);
       }
     }
-    if (found.size > 0) {
+    if (check.key === 'ordering' && hasPhoneOrdering) {
+      // The ordering call-to-action dials a phone. Any destination resolved
+      // from markup is reported as context, never as the pathway.
+      const resolved = Array.from(found.keys());
+      evidence.push({
+        sourceUrl: home.finalUrl,
+        evidenceType: 'ORDERING_PATH',
+        fact:
+          'Ordering is offered by telephone: the ordering call-to-action on the website places a phone call ' +
+          'rather than opening an online ordering page.',
+        supportingContext:
+          `Call-to-action text: ${phoneOrderCtas.slice(0, 3).map((t) => `"${t}"`).join(', ')} linked to a telephone number. ` +
+          (resolved.length > 0
+            ? `An ordering destination is also declared in the page markup (${resolved[0]}), but the action a customer is ` +
+              'actually offered is the phone call above, so it is recorded as context rather than as a working online ' +
+              'ordering pathway. Whether that destination is reachable for customers requires manual validation.'
+            : 'No browser-based ordering destination was found alongside it.'),
+        confidence: 85,
+      });
+    } else if (found.size > 0) {
       // Prefer an ordinary anchor when one exists: it is the pathway a customer
       // can see without JavaScript, and it makes the better citation.
       const links = Array.from(found.values());

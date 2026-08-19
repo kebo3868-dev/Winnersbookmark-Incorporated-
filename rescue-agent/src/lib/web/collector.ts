@@ -65,6 +65,20 @@ export interface PageExtract {
    * in the static HTML; this is the only trace it was ever there.
    */
   assetHosts: string[];
+  /**
+   * Anchor text of `tel:` links whose wording offers ORDERING — "Order",
+   * "Order Now", "Call to order", "Takeout".
+   *
+   * Recorded because excluding `tel:` from pathway links, while correct for
+   * classification, threw away the page's clearest statement about how ordering
+   * works. A site whose Order button dials the phone was left with only a
+   * widget-configuration URL to judge by, and the audit told the owner they had
+   * functioning online ordering while customers got a dialler.
+   *
+   * A phone number under "Call us" is not ordering intent and is not collected;
+   * only wording that offers to take an order.
+   */
+  phoneOrderCtas: string[];
   socialLinks: string[];
   pdfLinks: string[];
   hoursText: string | null;
@@ -248,6 +262,16 @@ const JSON_ESCAPED_SLASH = /\\\//g;
 
 /** Bound on inline script text scanned per page for declared destinations. */
 const MAX_SCRIPT_SCAN = 200_000;
+
+/**
+ * Anchor text on a `tel:` link that offers to take an ORDER.
+ *
+ * Deliberately narrow. "Call us", "Contact", a bare phone number and location
+ * links are all `tel:` too, and none of them says anything about ordering —
+ * treating them as an ordering signal would suppress a genuine online ordering
+ * pathway elsewhere on the page.
+ */
+const PHONE_ORDER_INTENT = /\border\b|\bordering\b|carry\s?out|take\s?out|to[-\s]?go|pick\s?up/i;
 
 /** Anchor text that marks a link as a builder/vendor credit rather than a customer action. */
 /**
@@ -577,12 +601,14 @@ export function extractPage(
   const vendorCredits: { href: string; text: string }[] = [];
   let clickToCallLinks = 0;
   const ctas: string[] = [];
+  const phoneOrderCtas: string[] = [];
 
   $('a[href]').each((_, el) => {
     const hrefRaw = $(el).attr('href') ?? '';
     const text = $(el).text().replace(/\s+/g, ' ').trim().slice(0, 120);
     if (hrefRaw.startsWith('tel:')) {
       clickToCallLinks++;
+      if (text && PHONE_ORDER_INTENT.test(text) && phoneOrderCtas.length < 10) phoneOrderCtas.push(text);
       return;
     }
     if (hrefRaw.startsWith('mailto:') || hrefRaw.startsWith('javascript:') || hrefRaw === '#') return;
@@ -686,6 +712,7 @@ export function extractPage(
     categorizedLinks,
     vendorCredits: vendorCredits.slice(0, 10),
     assetHosts: Array.from(assetHosts).slice(0, 40),
+    phoneOrderCtas,
     socialLinks: Array.from(socialLinks).slice(0, 10),
     pdfLinks: Array.from(pdfLinks).slice(0, 10),
     hoursText: hoursMatch ? hoursMatch[0].slice(0, 200) : null,
