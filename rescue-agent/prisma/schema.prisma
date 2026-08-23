@@ -355,6 +355,7 @@ model FdTenant {
   rateCounters         FdRateCounter[]
   contactVerifications FdContactVerification[]
   users                FdUser[]
+  bookingAttempts      FdBookingAttempt[]
 
   @@index([status])
 }
@@ -400,32 +401,33 @@ model FdMessage {
 }
 
 model FdLead {
-  id                  String          @id @default(cuid())
+  id                  String             @id @default(cuid())
   tenantId            String
-  tenant              FdTenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant              FdTenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   conversationId      String?
-  conversation        FdConversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+  conversation        FdConversation?    @relation(fields: [conversationId], references: [id], onDelete: SetNull)
   source              String
   customerName        String?
   phone               String?
   email               String?
   category            FdLeadCategory
   intent              String
-  priority            FdPriority      @default(STANDARD)
+  priority            FdPriority         @default(STANDARD)
   partySize           Int?
   requestedDate       String?
   requestedTime       String?
   notes               String?
   /// ESTIMATED opportunity value only. Never rendered as confirmed revenue.
   estimatedValueCents Int?
-  status              FdLeadStatus    @default(NEW)
+  status              FdLeadStatus       @default(NEW)
   assignedTo          String?
   lastContactAt       DateTime?
   followUpDueAt       DateTime?
   resolution          String?
-  demoMode            Boolean         @default(false)
-  createdAt           DateTime        @default(now())
-  updatedAt           DateTime        @updatedAt
+  demoMode            Boolean            @default(false)
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+  bookingAttempts     FdBookingAttempt[]
 
   @@index([tenantId, createdAt])
   @@index([tenantId, status])
@@ -800,4 +802,75 @@ model FdSession {
   lastSeenAt DateTime  @default(now())
 
   @@index([userId, expiresAt])
+}
+
+/// M7a — RESERVATION BOOKING LIFECYCLE (§V, §XXIII)
+///
+/// One row per booking ATTEMPT, not per booking. The distinction matters: the
+/// dangerous moment is a worker dying between "vendor accepted" and "we wrote
+/// it down", and only a durable per-attempt record makes that recoverable
+/// without seating the party twice.
+///
+/// `idempotencyKey` is unique. A retry reuses the key, the vendor recognises
+/// the repeat, and the row is updated rather than duplicated — the same
+/// at-least-once discipline FdNotification uses, with a higher cost of failure:
+/// a duplicate SMS is noise, a duplicate booking consumes a real table.
+enum FdBookingStatus {
+  /// Recorded, not yet sent to a vendor.
+  PENDING
+  /// Claimed and in flight. A row stuck here past the lease timeout is
+  /// reclaimed — that is how a crashed worker is recovered.
+  SENDING
+  /// The vendor took the request; nobody has a table yet. Maps to a REQUESTED
+  /// lead, never BOOKED.
+  ACCEPTED_PENDING
+  /// The vendor returned a confirmation reference. The ONLY status that
+  /// justifies telling a customer they have a booking.
+  CONFIRMED
+  /// The vendor refused, or retries were exhausted. Terminal and
+  /// operator-visible; the lead survives for human follow-up.
+  FAILED
+}
+
+model FdBookingAttempt {
+  id                    String          @id @default(cuid())
+  tenantId              String
+  tenant                FdTenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  leadId                String?
+  lead                  FdLead?         @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  /// Forwarded to the vendor so a retry cannot create a second reservation.
+  idempotencyKey        String          @unique
+  status                FdBookingStatus @default(PENDING)
+  providerName          String
+  /// True when the provider was a mock. Surfaced so a simulated booking can
+  /// never be mistaken for a real one.
+  simulated             Boolean         @default(false)
+  customerName          String
+  phone                 String
+  email                 String?
+  partySize             Int
+  /// ISO 8601 with offset, as supplied. No silent UTC coercion (M5).
+  requestedAt           DateTime
+  notes                 String?
+  /// Vendor's confirmation reference. Present if and only if status is
+  /// CONFIRMED — that reference IS the confirmation.
+  confirmationReference String?
+  providerReference     String?
+  slotId                String?
+  attempts              Int             @default(0)
+  maxAttempts           Int             @default(3)
+  nextAttemptAt         DateTime?
+  lockedAt              DateTime?
+  lockedBy              String?
+  errorCode             String?
+  errorMessage          String?
+  lastAttemptAt         DateTime?
+  confirmedAt           DateTime?
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+
+  @@index([tenantId, status])
+  @@index([status, nextAttemptAt])
+  @@index([status, lockedAt])
+  @@index([tenantId, createdAt])
 }
