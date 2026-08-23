@@ -15,6 +15,7 @@ const CLASSIFICATION_STYLES: Record<string, string> = {
 
 const STATUS_STYLES: Record<string, string> = {
   HEALTHY: 'text-emerald-400 border-emerald-400/40',
+  RESOLVED_UNVERIFIED: 'text-amber-400 border-amber-400/40',
   FRICTION: 'text-amber-400 border-amber-400/40',
   RISK: 'text-red-400 border-red-400/40',
   'MANUAL VALIDATION': 'text-amber-400 border-amber-400/40',

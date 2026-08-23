@@ -59,6 +59,7 @@ function classificationColor(classification: string): string {
 
 function statusColor(status: string): string {
   if (status === 'HEALTHY') return C.green;
+  if (status === 'RESOLVED_UNVERIFIED') return C.amber;
   if (status === 'FRICTION') return C.amber;
   if (status === 'RISK') return C.red;
   if (status === 'MANUAL VALIDATION') return C.amber;

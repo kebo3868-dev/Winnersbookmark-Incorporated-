@@ -49,7 +49,11 @@ export function scoreBand(score: number): string {
   return 'RESTAURANT RESCUE PRIORITY';
 }
 
-const stageStatusScore: Record<string, number> = { HEALTHY: 90, FRICTION: 60, RISK: 30 };
+// RESOLVED_UNVERIFIED sits between HEALTHY and FRICTION deliberately. A
+// destination that resolves and responds is worth more than one with a known
+// problem, and less than one proven to work — scoring it as HEALTHY is what
+// produced a confident claim about a reservation page whose bookings were off.
+const stageStatusScore: Record<string, number> = { HEALTHY: 90, RESOLVED_UNVERIFIED: 70, FRICTION: 60, RISK: 30 };
 
 /**
  * Deterministic category scores derived from journey stage statuses and evidence.

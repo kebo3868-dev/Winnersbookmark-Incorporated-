@@ -46,7 +46,23 @@ export type JourneyStageName =
   | 'REVIEW'
   | 'RETURN';
 
-export type JourneyStatus = 'HEALTHY' | 'FRICTION' | 'RISK' | 'UNKNOWN';
+/**
+ * RESOLVED_UNVERIFIED exists because HEALTHY was being awarded for an HTTP 200.
+ *
+ * A reservation page whose bookings are switched off returns 200 and renders
+ * normally, so "responded when tested" said nothing about whether a customer
+ * could book — and the audit reported a working reservation pathway for a
+ * restaurant that had none. Reachability and functionality are different
+ * claims, and with only four states there was nowhere to put the difference.
+ *
+ *   HEALTHY             — functionality positively verified.
+ *   RESOLVED_UNVERIFIED — destination resolves and responds; whether a customer
+ *                         can complete the action is unknown. The honest
+ *                         default for a reachable destination.
+ *   RISK                — the destination is broken, or says the service is
+ *                         unavailable.
+ */
+export type JourneyStatus = 'HEALTHY' | 'RESOLVED_UNVERIFIED' | 'FRICTION' | 'RISK' | 'UNKNOWN';
 
 export interface JourneyStageResult {
   stage: JourneyStageName;

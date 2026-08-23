@@ -8,6 +8,7 @@ export const dynamic = 'force-dynamic';
 
 const STATUS_COLORS: Record<string, string> = {
   HEALTHY: 'text-emerald-400 border-emerald-400/30',
+  RESOLVED_UNVERIFIED: 'text-amber-400 border-amber-400/30',
   FRICTION: 'text-amber-400 border-amber-400/30',
   RISK: 'text-red-400 border-red-400/30',
   UNKNOWN: 'text-ivory-faint border-obsidian-line',
