@@ -148,6 +148,7 @@ export const demoTenantConfig: TenantConfig = {
   pilot: {
     escalationRota: ['urgent', 'manager', 'events', 'catering'],
   },
+  reviews: { enabled: false, channel: 'SMS' as const },
   retentionDays: 365,
 };
 
@@ -206,5 +207,6 @@ export const demoTenantBConfig: TenantConfig = {
     maxFollowUps: 1,
     optOutKeywords: ['STOP', 'UNSUBSCRIBE', 'CANCEL', 'END', 'QUIT'],
   },
+  reviews: { enabled: false, channel: 'SMS' as const },
   pilot: { escalationRota: ['manager'] },
 };

@@ -356,6 +356,7 @@ model FdTenant {
   contactVerifications FdContactVerification[]
   users                FdUser[]
   bookingAttempts      FdBookingAttempt[]
+  reviewRequests       FdReviewRequest[]
 
   @@index([status])
 }
@@ -374,9 +375,10 @@ model FdConversation {
   startedAt     DateTime  @default(now())
   lastMessageAt DateTime  @default(now())
 
-  messages    FdMessage[]
-  leads       FdLead[]
-  escalations FdEscalation[]
+  messages       FdMessage[]
+  reviewRequests FdReviewRequest[]
+  leads          FdLead[]
+  escalations    FdEscalation[]
 
   @@unique([tenantId, channel, externalRef])
   @@index([tenantId, startedAt])
@@ -872,5 +874,58 @@ model FdBookingAttempt {
   @@index([tenantId, status])
   @@index([status, nextAttemptAt])
   @@index([status, lockedAt])
+  @@index([tenantId, createdAt])
+}
+
+/// M7c — REVIEW REQUEST RECORD (§XIII)
+///
+/// The auditable trace of who was asked, when, through which channel, and what
+/// came back. §XIII requires recording review_request_sent, timestamp, channel
+/// and result — this is that record.
+///
+/// It also makes the compliance property checkable after the fact. Review
+/// gating is invisible in code review but obvious in data: if only some
+/// customers were ever asked, this table shows it. The eligibility rules take
+/// no sentiment input, and these rows are the evidence.
+///
+/// One row per interaction is enforced by a unique index on
+/// (tenantId, conversationId), so a retry or a duplicate webhook cannot ask the
+/// same customer twice for the same visit.
+enum FdReviewRequestStatus {
+  /// Eligible and recorded; nothing sent yet. Sending is not wired up.
+  PENDING
+  /// Handed to a provider. NOT proof it arrived.
+  SENT
+  /// Provider confirmed delivery.
+  DELIVERED
+  /// Provider confirmed it could not deliver, or the attempt was abandoned.
+  FAILED
+  /// Eligibility was refused. Kept, with the reason, so the refusal is
+  /// auditable rather than an absence.
+  SUPPRESSED
+}
+
+model FdReviewRequest {
+  id               String                @id @default(cuid())
+  tenantId         String
+  tenant           FdTenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  conversationId   String?
+  conversation     FdConversation?       @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+  status           FdReviewRequestStatus @default(PENDING)
+  channel          String                @default("SMS")
+  /// Customer destination. Subject to the same retention redaction as leads.
+  destination      String?
+  reviewLink       String?
+  /// Why a request was not sent, when status is SUPPRESSED.
+  suppressedReason String?
+  /// True when the provider was a mock.
+  simulated        Boolean               @default(false)
+  requestedAt      DateTime?
+  deliveredAt      DateTime?
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+
+  @@unique([tenantId, conversationId])
+  @@index([tenantId, status])
   @@index([tenantId, createdAt])
 }
