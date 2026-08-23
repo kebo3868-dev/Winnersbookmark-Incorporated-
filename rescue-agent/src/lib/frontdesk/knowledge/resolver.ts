@@ -1,3 +1,4 @@
+import { routeOrdering } from '../ordering/routing';
 import type { Faq, Location, Pathway, TenantConfig } from '../config/schema';
 import type { AnswerSource, Intent } from '../types';
 import { formatTime, formatWeek, formatWindows, resolveHours, tenantTimezone, weekdayLabel } from './hours';
@@ -196,16 +197,21 @@ function answerDietary(config: TenantConfig): KnowledgeResult {
 
 // --- Commercial pathways ---------------------------------------------------
 
+// Ordering goes through routeOrdering so a recognised vendor can be named
+// ("order through Toast") instead of the customer following an unexplained
+// link. Presentation only: the destination is always the configured URL, and an
+// unrecognised host degrades to the previous plain wording. Returning null
+// still means "not configured", so the honest deferral is untouched.
 function answerTakeout(config: TenantConfig): KnowledgeResult {
-  const text = pathwayText(config.takeout, 'You can order for pickup here:');
-  if (!text) return unresolved('Takeout pathway not configured');
-  return { resolved: true, text, source: 'VERIFIED_PATHWAY' };
+  const route = routeOrdering(config.takeout, 'takeout');
+  if (!route) return unresolved('Takeout pathway not configured');
+  return { resolved: true, text: route.text, source: 'VERIFIED_PATHWAY' };
 }
 
 function answerDelivery(config: TenantConfig): KnowledgeResult {
-  const text = pathwayText(config.delivery, 'You can order delivery here:');
-  if (!text) return unresolved('Delivery pathway not configured');
-  return { resolved: true, text, source: 'VERIFIED_PATHWAY' };
+  const route = routeOrdering(config.delivery, 'delivery');
+  if (!route) return unresolved('Delivery pathway not configured');
+  return { resolved: true, text: route.text, source: 'VERIFIED_PATHWAY' };
 }
 
 function answerGiftCard(config: TenantConfig): KnowledgeResult {
