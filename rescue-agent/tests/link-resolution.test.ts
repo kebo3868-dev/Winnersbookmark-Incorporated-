@@ -221,7 +221,10 @@ describe('destination resolution — where the link actually leads', () => {
       ],
     });
     const ordering = evidence.filter((e) => e.evidenceType === 'ORDERING_PATH');
-    const resolved = ordering.find((e) => /responded successfully/.test(e.fact));
+    // Wording changed with the ordering-functionality fix: a 200 no longer
+    // reads as "responded successfully". The point of this test — that the
+    // evidence names the resolved destination and its operator — is unchanged.
+    const resolved = ordering.find((e) => /is reachable/.test(e.fact));
     expect(resolved?.fact).toMatch(/operated by Toast/);
     expect(resolved?.supportingContext).toMatch(/resolves to https:\/\/www\.toasttab\.com\/leverocks/);
   });
@@ -345,7 +348,10 @@ describe('embedded widget destinations are resolved from the served HTML', () =>
     expect(ordering?.confidence).toBeLessThan(90);
   });
 
-  it('reports the pathway as working only once the destination actually responds', () => {
+  // Renamed: the old title asserted the destination was "working" once it
+  // responded, which is the claim the ordering-functionality fix rejects. A 200
+  // proves the destination exists, never that an order can be placed.
+  it('reports a responding destination as resolved but unverified', () => {
     const p = page(`<html><body>
       <iframe title="Order Online" src="https://www.spothopperapp.com/order-online/leverocks"></iframe>
     </body></html>`);
@@ -357,7 +363,7 @@ describe('embedded widget destinations are resolved from the served HTML', () =>
     const journey = analyzeJourney(
       evidence.map((e, i) => ({ id: `e${i}`, evidenceType: e.evidenceType, fact: e.fact, confidence: e.confidence, supportingContext: e.supportingContext ?? null })),
     );
-    expect(journey.find((s) => s.stage === 'ORDERING')?.status).toBe('HEALTHY');
+    expect(journey.find((s) => s.stage === 'ORDERING')?.status).toBe('RESOLVED_UNVERIFIED');
   });
 
   it('keeps reporting UNKNOWN when the widget leaves no destination in the HTML', () => {

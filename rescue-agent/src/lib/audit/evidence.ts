@@ -15,6 +15,12 @@ export interface ProbeResult {
    * absence means "not verified", never "verified working".
    */
   disabledSignal?: string;
+  /**
+   * Set when a MENU destination loads but says its content is not there yet
+   * ("menu coming soon"). Friction, not a dead end — and separate from
+   * disabledSignal because a menu is read, not transacted.
+   */
+  placeholderSignal?: string;
 }
 
 export interface CollectionSet {
@@ -408,7 +414,7 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
       const evidenceType =
         probe.category === 'reservation' ? 'RESERVATION_PATH' : probe.category === 'ordering' ? 'ORDERING_PATH' : 'MENU_ACCESS';
 
-      if (probe.disabledSignal && probe.category === 'reservation') {
+      if (probe.disabledSignal && (probe.category === 'reservation' || probe.category === 'ordering')) {
         // The destination itself says the service is off. A 200 response with
         // bookings closed is not a working pathway, and reporting it as one was
         // the false claim this branch exists to prevent.
@@ -422,24 +428,38 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
             'Customers arriving here cannot complete the action.',
           confidence: 90,
         });
-      } else if (probe.category === 'reservation') {
-        // Scoped to reservations deliberately. Ordering and menu carry the same
-        // reachability-is-not-functionality flaw, but changing their wording
-        // without also changing their classification would leave evidence
-        // saying "not verified" under a stage still reporting HEALTHY — an
-        // inconsistency worse than the honest gap. Tracked as follow-up.
+      } else if (probe.category === 'reservation' || probe.category === 'ordering') {
+        // Reservations and ordering are transactions the business can switch
+        // off, so a 200 says the page exists and nothing about whether the
+        // customer can complete the action.
+        const action = probe.category === 'reservation' ? 'complete a booking' : 'place an order';
+        const service = probe.category === 'reservation' ? 'bookings are' : 'orders are';
+        const offState = probe.category === 'reservation' ? 'reservations switched off' : 'ordering switched off';
         evidence.push({
           sourceUrl: probe.url,
           evidenceType,
           fact:
-            'The linked reservation destination is reachable, but whether a customer can complete a booking ' +
+            `The linked ${probe.category} destination is reachable, but whether a customer can ${action} ` +
             `was not verified (${probe.note})` +
             `${operator ? ` — operated by ${operator}` : ''}.`,
           supportingContext:
             `${resolved ? `${probe.url} → resolves to ${resolved}. ` : `${probe.url}. `}` +
-            'The destination responded, which confirms it exists and is reachable. It does not confirm that bookings are ' +
-            'being accepted — a page with reservations switched off responds identically. Manual validation required.',
+            `The destination responded, which confirms it exists and is reachable. It does not confirm that ${service} ` +
+            `being accepted — a page with ${offState} responds identically. Manual validation required.`,
           confidence: 80,
+        });
+      } else if (probe.category === 'menu' && probe.placeholderSignal) {
+        // A menu is read, not transacted, so a reachable menu stays healthy.
+        // The one real failure is a page that loads with no menu on it yet.
+        evidence.push({
+          sourceUrl: probe.url,
+          evidenceType,
+          fact: `The linked menu destination is reachable but has no menu published on it yet (${probe.note}).`,
+          supportingContext:
+            `${resolved ? `${probe.url} → resolves to ${resolved}. ` : `${probe.url}. `}` +
+            `Signal read from the destination page — ${probe.placeholderSignal}. ` +
+            'Customers who follow the menu link do not find a menu.',
+          confidence: 85,
         });
       } else {
         evidence.push({
