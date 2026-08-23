@@ -742,7 +742,14 @@ export function extractPage(
 export async function probeLink(
   url: string,
   options: { timeoutMs?: number; deadline?: number } = {},
-): Promise<{ ok: boolean; httpStatus?: number; note: string; finalUrl?: string; disabledSignal?: string }> {
+): Promise<{
+  ok: boolean;
+  httpStatus?: number;
+  note: string;
+  finalUrl?: string;
+  disabledSignal?: string;
+  placeholderSignal?: string;
+}> {
   const hop = await followRedirectsSafely(url, options.timeoutMs ?? PROBE_TIMEOUT_MS, options.deadline);
   if (hop.kind === 'failure') {
     if (hop.status === 'BLOCKED' && /safety policy/.test(hop.note)) {
@@ -756,7 +763,7 @@ export async function probeLink(
   // Read a bounded slice before discarding the rest. The body used to be
   // cancelled unread, which is why a booking page with reservations switched
   // off was indistinguishable from a working one: both return 200.
-  const disabledSignal = await readDisabledSignal(response);
+  const { disabled: disabledSignal, placeholder: placeholderSignal } = await readContentSignals(response);
 
   await response.body?.cancel().catch(() => {});
   const redirected = normalizeUrl(new URL(finalUrl)) !== normalizeUrl(new URL(url));
@@ -775,6 +782,7 @@ export async function probeLink(
     note: `HTTP ${response.status}${suffix}`,
     finalUrl,
     ...(disabledSignal ? { disabledSignal } : {}),
+    ...(placeholderSignal ? { placeholderSignal } : {}),
   };
 }
 
@@ -795,24 +803,57 @@ const MAX_PROBE_BODY_BYTES = 64_000;
  */
 const SERVICE_DISABLED_PATTERNS: [RegExp, string][] = [
   [/not\s+(?:currently\s+)?(?:accepting|taking)\s+(?:online\s+)?(?:reservations|bookings|orders)/i, 'not accepting reservations/orders'],
-  [/(?:reservations|bookings|online\s+ordering)\s+(?:are\s+|is\s+)?(?:currently\s+)?(?:unavailable|disabled|not\s+available|closed)/i, 'reservations/ordering unavailable'],
+  [/(?:reservations|bookings|online\s+ordering|online\s+orders)\s+(?:are\s+|is\s+)?(?:currently\s+)?(?:unavailable|disabled|not\s+available|closed|paused)/i, 'reservations/ordering unavailable'],
   [/no\s+(?:reservations|bookings)\s+available/i, 'no availability offered'],
   [/(?:reservations|online\s+ordering)\s+(?:have|has)\s+been\s+(?:disabled|turned\s+off)/i, 'service disabled'],
   [/this\s+(?:restaurant|venue|location)\s+is\s+not\s+(?:currently\s+)?accepting/i, 'venue not accepting'],
+  // Ordering-specific wording. Same downgrade-only rule as the rest.
+  [/(?:online\s+)?ordering\s+is\s+(?:currently\s+)?(?:closed|offline|suspended)/i, 'ordering closed'],
+  [/(?:we\s+are|we're)\s+not\s+(?:currently\s+)?taking\s+(?:online\s+)?orders/i, 'not taking online orders'],
+  [/order(?:ing)?\s+(?:is\s+)?temporarily\s+(?:unavailable|disabled|suspended)/i, 'ordering temporarily unavailable'],
 ];
 
 /**
- * The phrase a destination uses to say its service is off, or undefined.
+ * A menu destination that loads but has no menu on it yet.
+ *
+ * Kept separate from SERVICE_DISABLED_PATTERNS because the menu case is
+ * genuinely different. Reservations and ordering are transactions the business
+ * can switch off, so reachability proves nothing about them. Reading a menu is
+ * not a transaction: a menu page that loads IS a working menu, which is why
+ * MENU keeps HEALTHY rather than becoming unverified.
+ *
+ * The one real menu failure this misses is the placeholder — a page that loads
+ * and says the menu is coming. That is friction, not a dead end, and it is the
+ * only thing this list is for.
+ */
+const PLACEHOLDER_CONTENT_PATTERNS: [RegExp, string][] = [
+  [/menu\s+(?:is\s+)?coming\s+soon/i, 'menu coming soon'],
+  [/(?:our\s+)?(?:new\s+)?menu\s+will\s+be\s+(?:posted|available|added|up)\s+(?:soon|shortly)/i, 'menu not yet posted'],
+  [/menu\s+(?:is\s+)?(?:currently\s+)?being\s+updated/i, 'menu being updated'],
+  [/check\s+back\s+soon\s+for\s+(?:our\s+)?menu/i, 'menu pending'],
+];
+
+/**
+ * Content-level signals read from a destination's own page.
+ *
+ * `disabled` — the service is switched off (reservations/ordering).
+ * `placeholder` — the page loads but the content is not there yet (menu).
  *
  * Reads at most MAX_PROBE_BODY_BYTES of HTML. Any failure — non-HTML, unreadable
- * stream, malformed bytes — yields undefined, which leaves the destination
+ * stream, malformed bytes — yields nothing, which leaves the destination
  * classified as reachable-but-unverified rather than asserting anything.
+ *
+ * Both signals ONLY EVER DOWNGRADE. Neither can promote a destination to
+ * HEALTHY. Missing a phrase costs a vaguer report; inventing one costs a false
+ * claim, and only one of those is acceptable.
  */
-async function readDisabledSignal(response: UndiciResponse): Promise<string | undefined> {
+async function readContentSignals(
+  response: UndiciResponse,
+): Promise<{ disabled?: string; placeholder?: string }> {
   const contentType = response.headers.get('content-type') ?? '';
-  if (!/text\/html|application\/xhtml/i.test(String(contentType))) return undefined;
+  if (!/text\/html|application\/xhtml/i.test(String(contentType))) return {};
   const body = response.body;
-  if (!body) return undefined;
+  if (!body) return {};
 
   try {
     const decoder = new TextDecoder('utf-8', { fatal: false });
@@ -822,12 +863,18 @@ async function readDisabledSignal(response: UndiciResponse): Promise<string | un
       if (text.length >= MAX_PROBE_BODY_BYTES) break;
     }
     const haystack = text.slice(0, MAX_PROBE_BODY_BYTES).replace(/<[^>]{0,2000}>/g, ' ').replace(/\s+/g, ' ');
-    for (const [pattern, label] of SERVICE_DISABLED_PATTERNS) {
-      const match = pattern.exec(haystack);
-      if (match) return `${label}: "${match[0].trim().slice(0, 120)}"`;
-    }
+
+    const find = (patterns: [RegExp, string][]) => {
+      for (const [pattern, label] of patterns) {
+        const match = pattern.exec(haystack);
+        if (match) return `${label}: "${match[0].trim().slice(0, 120)}"`;
+      }
+      return undefined;
+    };
+
+    return { disabled: find(SERVICE_DISABLED_PATTERNS), placeholder: find(PLACEHOLDER_CONTENT_PATTERNS) };
   } catch {
     /* unreadable body — stays unverified, never asserted */
+    return {};
   }
-  return undefined;
 }

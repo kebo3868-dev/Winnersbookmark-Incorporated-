@@ -128,6 +128,8 @@ export function analyzeJourney(evidence: EvidenceRecordLike[]): JourneyStageResu
     const menu = has(index, 'MENU_ACCESS');
     const missing = menu.filter((e) => /no public menu/i.test(e.fact));
     const pdfOnly = menu.filter((e) => /only detected menu links point to pdf/i.test(e.fact));
+    // A menu page that loads with no menu on it. Friction, not a dead end.
+    const placeholder = menu.filter((e) => /has no menu published on it yet/i.test(e.fact));
     const broken = has(index, 'BROKEN_LINK', (e) => /menu/i.test(e.fact));
     if (menu.length === 0) {
       push(stage('MENU', 'UNKNOWN', 'Menu accessibility could not be assessed.', 30, true, []));
@@ -135,9 +137,14 @@ export function analyzeJourney(evidence: EvidenceRecordLike[]): JourneyStageResu
       push(stage('MENU', 'RISK', 'No public menu pathway was detected — the single most-requested piece of restaurant information is not obviously reachable.', avgConfidence(missing, 65), true, ids(menu)));
     } else if (broken.length > 0) {
       push(stage('MENU', 'RISK', 'A linked menu destination failed when tested.', avgConfidence(broken, 85), false, ids([...menu, ...broken])));
+    } else if (placeholder.length > 0) {
+      push(stage('MENU', 'FRICTION', 'The menu link leads to a page with no menu published on it yet — customers looking for the menu do not find one.', avgConfidence(placeholder, 85), false, ids(menu)));
     } else if (pdfOnly.length > 0) {
       push(stage('MENU', 'FRICTION', 'The menu is only available as PDF downloads, which are slow and hard to read on phones.', avgConfidence(pdfOnly, 75), false, ids(menu)));
     } else {
+      // MENU deliberately keeps HEALTHY. Reading a menu is not a transaction the
+      // business can switch off, so a reachable menu page IS a working menu —
+      // unlike a booking or ordering page, where reachability proves nothing.
       push(stage('MENU', 'HEALTHY', 'A menu pathway is publicly linked and reachable.', avgConfidence(menu, 80), false, ids(menu)));
     }
   }
@@ -218,6 +225,9 @@ export function analyzeJourney(evidence: EvidenceRecordLike[]): JourneyStageResu
     // customer is actually offered. A dead link still wins, because a broken
     // pathway is a worse finding than a working phone.
     const telephone = ord.filter((e) => /ordering is offered by telephone/i.test(e.fact));
+    // The destination's own page says ordering is off — a known dead end, not
+    // merely unverified.
+    const unavailableOrd = ord.filter((e) => /states the service is unavailable/i.test(e.fact));
     if (ord.length === 0) {
       push(stage('ORDERING', 'UNKNOWN', 'Online ordering experience could not be assessed.', 30, true, []));
     } else if (broken.length > 0) {
@@ -233,6 +243,17 @@ export function analyzeJourney(evidence: EvidenceRecordLike[]): JourneyStageResu
           ids(ord),
         ),
       );
+    } else if (unavailableOrd.length > 0) {
+      push(
+        stage(
+          'ORDERING',
+          'RISK',
+          'The ordering destination is reachable but states that ordering is not available — order-intent customers arrive at a page that cannot take their order.',
+          avgConfidence(unavailableOrd, 90),
+          false,
+          ids(ord),
+        ),
+      );
     } else if (competing.length > 0) {
       push(stage('ORDERING', 'FRICTION', 'Multiple competing ordering platforms are linked, splitting order-intent traffic and creating potential margin exposure through third-party dependency.', avgConfidence(competing, 75), true, ids(ord)));
     } else if (widget.length > 0) {
@@ -240,7 +261,19 @@ export function analyzeJourney(evidence: EvidenceRecordLike[]): JourneyStageResu
     } else if (missing.length > 0) {
       push(stage('ORDERING', 'UNKNOWN', 'No public online ordering pathway was detected. The restaurant may be dine-in focused — manual validation required.', avgConfidence(missing, 60), true, ids(ord)));
     } else {
-      push(stage('ORDERING', 'HEALTHY', 'An online ordering pathway is publicly linked and responded when tested.', avgConfidence(ord, 80), false, ids(ord)));
+      // Same rule as RESERVATION: an ordering page with online ordering
+      // switched off returns 200 and renders normally, so responding proves the
+      // destination exists — never that an order can be placed.
+      push(
+        stage(
+          'ORDERING',
+          'RESOLVED_UNVERIFIED',
+          'An online ordering pathway is publicly linked and the destination is reachable, but whether customers can actually place an order was not verified — an ordering page with ordering switched off responds identically. Manual validation required.',
+          avgConfidence(ord, 75),
+          true,
+          ids(ord),
+        ),
+      );
     }
   }
 

@@ -73,11 +73,16 @@ describe('telephone precedence — the Leverock\'s case', () => {
 });
 
 describe('telephone precedence does not suppress genuine online ordering', () => {
-  it('still reports a real browser ordering destination as healthy', () => {
+  it('still reports a real browser ordering destination as a pathway, not telephone', () => {
     const stage = orderingStage(`
       <a href="https://www.spothopperapp.com/order-online/leverocks-seafood">Order Online</a>
     `);
-    expect(stage?.status).toBe('HEALTHY');
+    // RESOLVED_UNVERIFIED rather than HEALTHY since the ordering-functionality
+    // fix: reachability alone no longer proves an order can be placed. What
+    // this test guards is unchanged — telephone precedence must not swallow a
+    // genuine browser ordering pathway.
+    expect(stage?.status).toBe('RESOLVED_UNVERIFIED');
+    expect(stage?.finding).not.toMatch(/telephone/i);
   });
 
   it('ignores a tel: link whose wording is not about ordering', () => {
@@ -86,7 +91,8 @@ describe('telephone precedence does not suppress genuine online ordering', () =>
       <a href="https://www.spothopperapp.com/order-online/leverocks-seafood">Order Online</a>
       <footer><a href="tel:+17275551234">Call Us</a></footer>
     `);
-    expect(stage?.status).toBe('HEALTHY');
+    expect(stage?.status).toBe('RESOLVED_UNVERIFIED');
+    expect(stage?.finding).not.toMatch(/telephone/i);
     expect(page(`<footer><a href="tel:+17275551234">Call Us</a></footer>`).phoneOrderCtas).toHaveLength(0);
   });
 
