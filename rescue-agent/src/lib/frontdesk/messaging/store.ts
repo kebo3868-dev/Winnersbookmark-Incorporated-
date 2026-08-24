@@ -143,7 +143,12 @@ export async function countUnansweredOutbound(
     where: {
       tenantId,
       toNumber: phone,
-      purpose: { in: ['MISSED_CALL_RECOVERY', 'CONVERSATION_REPLY'] },
+      // Review requests count. They are messages into silence like any other,
+      // and §VII's guard against pestering someone who stopped replying does
+      // not get to ignore the one message the customer never asked for. No
+      // effect on any queue predating review requests: there are no rows with
+      // that purpose to count.
+      purpose: { in: ['MISSED_CALL_RECOVERY', 'CONVERSATION_REPLY', 'REVIEW_REQUEST'] },
       status: { in: ['QUEUED', 'SENDING', 'SENT', 'DELIVERED'] },
       ...(since ? { createdAt: { gt: since } } : {}),
     },
