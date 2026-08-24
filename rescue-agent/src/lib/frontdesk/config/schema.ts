@@ -260,6 +260,23 @@ export const tenantConfigSchema = z.object({
   giftCards: pathwaySchema.default({ enabled: false }),
   employment: pathwaySchema.default({ enabled: false }),
   reviewLink: z.string().url().optional(),
+  /**
+   * Review-request settings (§XIII). Disabled by default: a restaurant opts in
+   * to soliciting reviews, and a deployment that merely receives this code must
+   * not start messaging customers.
+   *
+   * There is deliberately no sentiment threshold here. Asking only customers
+   * who seemed pleased is review gating — prohibited by the platforms and the
+   * reason review counts stop meaning anything. The only exclusion is
+   * escalation, and it runs the protective direction.
+   */
+  reviews: z
+    .object({
+      enabled: z.boolean().default(false),
+      /** Channel to use once sending is wired up. */
+      channel: z.enum(['SMS', 'EMAIL']).default('SMS'),
+    })
+    .default({ enabled: false, channel: 'SMS' }),
 
   faqs: z.array(faqSchema).default([]),
   escalationContacts: z.array(escalationContactSchema).default([]),
