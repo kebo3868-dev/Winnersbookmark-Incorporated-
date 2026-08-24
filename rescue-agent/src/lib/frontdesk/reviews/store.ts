@@ -277,3 +277,39 @@ async function lastRequestTo(db: PrismaClient, tenantId: string, destination: st
 function isUniqueViolation(error: unknown): boolean {
   return typeof error === 'object' && error !== null && (error as { code?: string }).code === 'P2002';
 }
+
+/**
+ * Recorded review requests for a set of conversations, keyed by conversation.
+ *
+ * READ ONLY, and the Command Center's source of truth for what it displays.
+ * After an operator acts, the page re-reads through this rather than trusting
+ * the response it just received — so what is on screen is the stored row, not
+ * an optimistic guess about it.
+ *
+ * Tenant-scoped like every other read here. An empty id list short-circuits so
+ * a page with no conversations issues no query.
+ */
+export async function listReviewRequestsForConversations(
+  tenantId: string,
+  conversationIds: string[],
+  db: PrismaClient = prisma,
+): Promise<Map<string, { status: string; suppressedReason: string | null; requestedAt: Date | null }>> {
+  const ids = conversationIds.filter(Boolean);
+  if (ids.length === 0) return new Map();
+
+  const rows = await db.fdReviewRequest.findMany({
+    where: { tenantId, conversationId: { in: ids } },
+    select: { conversationId: true, status: true, suppressedReason: true, requestedAt: true },
+  });
+
+  const byConversation = new Map<string, { status: string; suppressedReason: string | null; requestedAt: Date | null }>();
+  for (const row of rows) {
+    if (!row.conversationId) continue;
+    byConversation.set(row.conversationId, {
+      status: row.status,
+      suppressedReason: row.suppressedReason,
+      requestedAt: row.requestedAt,
+    });
+  }
+  return byConversation;
+}

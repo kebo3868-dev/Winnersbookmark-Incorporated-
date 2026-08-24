@@ -17,7 +17,9 @@ import {
   listEscalationsForTenant,
   listLeadsForTenant,
 } from '@/lib/frontdesk/store';
+import { listReviewRequestsForConversations } from '@/lib/frontdesk/reviews/store';
 import { LeadStatusControl } from './LeadStatusControl';
+import { ReviewRequestControl } from './ReviewRequestControl';
 
 export const dynamic = 'force-dynamic';
 
@@ -74,6 +76,14 @@ export default async function FrontDeskTenantPage({
   ]);
 
   const report = buildCompletenessReport(tenant.config);
+
+  // Review requests already recorded for the leads on screen. Read AFTER the
+  // leads so the control renders what the database holds rather than what a
+  // previous click reported — the reconciliation the action depends on.
+  const reviewRequests = await listReviewRequestsForConversations(
+    tenant.id,
+    leads.map((lead) => lead.conversationId).filter((id): id is string => Boolean(id)),
+  );
 
   return (
     <div className="space-y-8">
@@ -361,6 +371,21 @@ export default async function FrontDeskTenantPage({
                   {lead.demoMode && (
                     <span className="text-[10px] uppercase tracking-wider text-gold-dim">Demo</span>
                   )}
+                  {/*
+                    Manual, one lead at a time, and it decides nothing: the
+                    server runs eligibility and this renders the answer. A demo
+                    lead still shows the control, and the server still refuses
+                    it — the refusal is the honest thing to show, and hiding the
+                    button would teach an operator the wrong rule.
+                  */}
+                  <ReviewRequestControl
+                    tenantSlug={tenant.slug}
+                    conversationId={lead.conversationId}
+                    reviewsEnabled={Boolean(tenant.config.reviews?.enabled)}
+                    existing={
+                      lead.conversationId ? (reviewRequests.get(lead.conversationId) ?? null) : null
+                    }
+                  />
                 </div>
               </div>
             ))}
