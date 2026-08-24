@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { prisma } from '@/lib/db';
 import { dispatchBatch, type DispatchSummary } from './dispatch';
+import { buildEmailCopyChannel } from './emailChannel';
 import { getSmsProvider, SmsProviderNotConfigured } from './provider';
 import { claimDueNotifications, recordFailure, releaseClaims, updateNotification } from './store';
 
@@ -93,15 +94,37 @@ export async function runDispatchCycle(options: CycleOptions = {}): Promise<Cycl
     return { ok: true, ...(await observe()), processed: 0, sent: 0, retryScheduled: 0, abandoned: 0 };
   }
 
+  // Optional second channel. Built AFTER the batch is claimed and never
+  // allowed to fail the cycle: staff email is an addition to SMS alerting, and
+  // a problem with it must not stop a food-safety alert from being sent.
+  let emailCopy;
   try {
-    const summary = await dispatchBatch(claimed, provider, {
-      updateNotification: (id, update) =>
-        // The tenant comes from the row this worker claimed, so the write is
-        // scoped to it rather than trusting the id alone.
-        updateNotification(id, update, prisma, claimed.find((n) => n.id === id)?.tenantId),
-      recordFailure: (failure) => recordFailure(failure, prisma),
-      now: () => new Date(),
+    emailCopy = (await buildEmailCopyChannel(env)) ?? undefined;
+  } catch (error) {
+    emailCopy = undefined;
+    await recordFailure({
+      tenantId: null,
+      category: 'FAILED_INTEGRATION',
+      operation: 'notifications.emailCopy',
+      detail: 'Email copies are not being sent; SMS alerting is unaffected.',
+      lastError: error instanceof Error ? error.message.slice(0, 200) : 'Email provider could not be loaded',
     });
+  }
+
+  try {
+    const summary = await dispatchBatch(
+      claimed,
+      provider,
+      {
+        updateNotification: (id, update) =>
+          // The tenant comes from the row this worker claimed, so the write is
+          // scoped to it rather than trusting the id alone.
+          updateNotification(id, update, prisma, claimed.find((n) => n.id === id)?.tenantId),
+        recordFailure: (failure) => recordFailure(failure, prisma),
+        now: () => new Date(),
+      },
+      emailCopy,
+    );
     return { ok: true, ...(await observe()), ...summary };
   } catch (error) {
     // dispatchBatch already isolates per-notification failures, so reaching

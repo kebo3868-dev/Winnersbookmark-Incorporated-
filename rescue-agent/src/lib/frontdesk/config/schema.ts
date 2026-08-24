@@ -191,6 +191,22 @@ export const messagingSchema = z.object({
   maxFollowUps: z.number().int().min(0).max(3).default(1),
   optOutKeywords: z.array(z.string()).default(['STOP', 'UNSUBSCRIBE', 'CANCEL', 'END', 'QUIT']),
   /**
+   * Whether staff escalation alerts are ALSO emailed.
+   *
+   * Off by default and deliberately independent of `smsEnabled`: a restaurant
+   * that gains this code must not begin emailing anyone. Email is a copy of the
+   * SMS alert, never a replacement for it — the SMS path is what reaches a
+   * manager who is on the floor, and nothing here changes when or whether it
+   * sends.
+   */
+  emailEnabled: z.boolean().default(false),
+  /**
+   * Envelope sender for staff alerts. Validated as an address, but an address
+   * that parses is not an address a domain is authorised to send from — SPF and
+   * DKIM decide that, and only the provider can report it.
+   */
+  fromEmail: z.string().email().optional(),
+  /**
    * Send caps per rolling hour. Per-number protects a customer from being
    * messaged repeatedly; per-tenant caps a restaurant's spend and contains the
    * blast radius of a misconfiguration. Both fall back to conservative
