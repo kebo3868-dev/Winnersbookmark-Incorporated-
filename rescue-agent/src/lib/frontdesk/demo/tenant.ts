@@ -135,6 +135,9 @@ export const demoTenantConfig: TenantConfig = {
     // the simulated provider, so nothing can reach a real handset.
     smsEnabled: true,
     missedCallRecoveryEnabled: true,
+    // Off even for the demo. The fictional numbers above cannot reach anyone;
+    // an email address in a demo fixture would be a real inbox somewhere.
+    emailEnabled: false,
     fromNumber: '(555) 010-0100',
     maxFollowUps: 1,
     optOutKeywords: ['STOP', 'UNSUBSCRIBE', 'CANCEL', 'END', 'QUIT'],
@@ -204,6 +207,7 @@ export const demoTenantBConfig: TenantConfig = {
   messaging: {
     smsEnabled: false,
     missedCallRecoveryEnabled: false,
+    emailEnabled: false,
     maxFollowUps: 1,
     optOutKeywords: ['STOP', 'UNSUBSCRIBE', 'CANCEL', 'END', 'QUIT'],
   },

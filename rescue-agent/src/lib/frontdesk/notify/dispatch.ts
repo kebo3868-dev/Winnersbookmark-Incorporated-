@@ -2,6 +2,7 @@ import type { TenantConfig } from '../config/schema';
 import type { EscalationDraft } from '../types';
 import { maskNumber, normaliseNumber, type SmsProvider } from './provider';
 import { classifyResult, decideRetry, MAX_ATTEMPTS } from './retry';
+import { maybeSendEmailCopy, type EmailCopyChannel } from './emailCopy';
 
 /**
  * ESCALATION → SMS DISPATCH
@@ -260,11 +261,34 @@ export interface DispatchSummary {
  *
  * One failing notification never stops the batch — the loop is the thing that
  * gets a manager told, so it has to survive a bad row.
+ *
+ * ── THE EMAIL COPY ───────────────────────────────────────────────────────────
+ *
+ * `emailCopy` is optional and omitted by default, so a deployment that merely
+ * gains this code emails nobody. When supplied, it sends a SECOND copy of a
+ * staff escalation alert to the routed contact's inbox.
+ *
+ * Three structural properties, in the order they matter:
+ *
+ *  1. It runs AFTER `attemptSend` has returned and the SMS outcome has been
+ *     recorded. Email cannot delay an SMS that has already been sent, and
+ *     cannot suppress one that has already happened. This ordering — not a
+ *     comment, not a flag — is the guarantee.
+ *  2. Its own try/catch swallows everything, and `maybeSendEmailCopy` is itself
+ *     written never to throw. Two layers, because an email problem becoming an
+ *     SMS problem is the one failure mode this must not have.
+ *  3. It touches no field of `summary`. The counts mean what they meant before:
+ *     SMS outcomes, and nothing else.
+ *
+ * `attemptSend` and `prepareEscalationNotification` are untouched. The email
+ * path cannot reach the code that decides whether a manager hears about an
+ * allergy report.
  */
 export async function dispatchBatch(
   due: NotificationRecord[],
   provider: SmsProvider,
   ports: DispatchPorts,
+  emailCopy?: EmailCopyChannel,
 ): Promise<DispatchSummary> {
   const summary: DispatchSummary = { processed: 0, sent: 0, retryScheduled: 0, abandoned: 0 };
 
@@ -285,6 +309,17 @@ export async function dispatchBatch(
         referenceId: notification.id,
         lastError: error instanceof Error ? error.message.slice(0, 200) : 'Unknown error',
       });
+    }
+
+    // Strictly downstream of the SMS outcome above, and unable to influence it.
+    if (emailCopy) {
+      try {
+        await maybeSendEmailCopy(notification, emailCopy, ports);
+      } catch {
+        // Unreachable by design — maybeSendEmailCopy does not throw. Kept
+        // because "by design" is a claim about today's code, and the cost of
+        // being wrong is an unsent food-safety alert.
+      }
     }
   }
 
