@@ -22,7 +22,18 @@ import type { TenantConfig } from '../config/schema';
 
 export type ConsentStatus = 'UNKNOWN' | 'IMPLIED' | 'OPTED_IN' | 'OPTED_OUT';
 
-export type MessagePurpose = 'ESCALATION_ALERT' | 'MISSED_CALL_RECOVERY' | 'CONVERSATION_REPLY';
+export type MessagePurpose =
+  | 'ESCALATION_ALERT'
+  | 'MISSED_CALL_RECOVERY'
+  | 'CONVERSATION_REPLY'
+  /**
+   * A review request (§XIII). Customer-directed, so it inherits every gate
+   * below unchanged: STOP wins, a number we have never heard from is refused
+   * for want of a basis, and the follow-up cap applies. Nothing about it is
+   * exempt, and it is never `critical` — a review request must never be the
+   * message that consumes the budget a food-safety alert needed.
+   */
+  | 'REVIEW_REQUEST';
 
 /** Standard opt-out keywords. Matched on the whole message, case-insensitive. */
 const DEFAULT_STOP_KEYWORDS = ['STOP', 'STOPALL', 'UNSUBSCRIBE', 'CANCEL', 'END', 'QUIT', 'OPTOUT', 'OPT-OUT'];

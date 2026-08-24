@@ -680,6 +680,11 @@ enum FdMessagePurpose {
   MISSED_CALL_RECOVERY
   /// A front desk reply inside a conversation the customer started.
   CONVERSATION_REPLY
+  /// A request for a review, sent to a customer after an interaction.
+  /// Customer-directed and the lowest-priority message the platform sends:
+  /// consent, the follow-up cap and rate limits all apply, and it yields to
+  /// every other purpose when a restaurant is near its hourly cap.
+  REVIEW_REQUEST
 }
 
 /// One consent record per (restaurant, phone number). Consent is per tenant,

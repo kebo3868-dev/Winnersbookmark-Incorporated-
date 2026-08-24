@@ -1,6 +1,7 @@
 import type { Prisma, PrismaClient } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import type { FailureInput, NotificationRecord, NotificationUpdate } from './dispatch';
+import type { MessagePurpose } from '../messaging/consent';
 
 /**
  * Persistence for notifications and the failure queue.
@@ -25,7 +26,7 @@ export async function enqueueNotification(
     fromNumber: string;
     body: string;
     maxAttempts?: number;
-    purpose?: 'ESCALATION_ALERT' | 'MISSED_CALL_RECOVERY' | 'CONVERSATION_REPLY';
+    purpose?: MessagePurpose;
     conversationId?: string | null;
   },
   db: Db = prisma,
@@ -74,6 +75,19 @@ export const LEASE_MINUTES = 5;
  * restaurant's queue. Each row carries its own tenantId, which scopes every
  * write that follows — a tenant filter here would just mean some restaurants'
  * alerts never get sent.
+ *
+ * ORDERING. Review requests sort last; everything else stays strict FIFO.
+ *
+ * The batch is capped, so whatever fills it delays whatever does not. Without
+ * the first sort key, a restaurant that queued twenty-five review requests
+ * would push a food-safety alert into the next cycle — review solicitation
+ * delaying an escalation, which is exactly backwards.
+ *
+ * `(purpose = 'REVIEW_REQUEST')` is constant-false across any set of rows
+ * containing no review requests, so for every queue that existed before this
+ * feature the ordering is byte-for-byte the old `createdAt ASC`. The relative
+ * order of alerts, missed-call recovery and conversation replies is untouched;
+ * only review requests move, and only ever backwards.
  */
 export async function claimDueNotifications(
   now: Date,
@@ -105,7 +119,7 @@ export async function claimDueNotifications(
         WHERE (c.status = 'QUEUED'
                 AND (c."nextAttemptAt" IS NULL OR c."nextAttemptAt" <= ${now}))
            OR (c.status = 'SENDING' AND c."lockedAt" < ${staleBefore})
-        ORDER BY c."createdAt" ASC
+        ORDER BY (c.purpose = 'REVIEW_REQUEST') ASC, c."createdAt" ASC
         LIMIT ${limit}
         FOR UPDATE SKIP LOCKED
      )
