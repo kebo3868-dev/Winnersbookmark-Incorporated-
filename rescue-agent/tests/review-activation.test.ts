@@ -373,13 +373,89 @@ describe('a review request never costs an escalation', () => {
 });
 
 describe('review failures cannot reach the SMS paths that matter', () => {
-  it('never throws, even when the database fails mid-request', async () => {
+  it('never throws when the database fails on the ELIGIBLE path', async () => {
+    // Covers the awaited insert at the idempotency anchor.
     const fake = fakeDb();
     vi.spyOn(fake.raw.fdReviewRequest, 'create').mockRejectedValue(new Error('connection reset'));
     const result = await run(config(), fake);
     expect(result.outcome).toBe('SUPPRESSED');
     if (result.outcome === 'SUPPRESSED') expect(result.reason).toBe('ERROR');
     expect(fake.failures.some((f) => f.operation === 'reviews.request')).toBe(true);
+  });
+
+  /**
+   * THE REFUSAL PATHS — the gap the test above left open.
+   *
+   * Each of these returns through `record()`, and each was written as
+   * `return record(...)` rather than `return await record(...)`. In an async
+   * function `return promise` inside a `try` is NOT covered by the enclosing
+   * `catch`, so a SUPPRESSED-row insert failing with anything other than P2002
+   * escaped to the caller and the module's "never throws" guarantee was false.
+   *
+   * The eligible-path test above passed throughout, which is precisely why it
+   * gave false assurance: it exercises the one insert that WAS awaited.
+   *
+   * Every refusal path is enumerated here rather than sampled — the defect was
+   * per-call-site, so a sample would have left three of four uncovered.
+   */
+  describe.each([
+    ['CHANNEL_UNAVAILABLE', () => config({ reviews: { enabled: true, channel: 'EMAIL' } }), {}],
+    ['eligibility refusal (ESCALATED)', () => config(), { escalated: true }],
+    ['NO_DESTINATION', () => config(), { phone: null }],
+    [
+      'TENANT_BUDGET_RESERVED',
+      () => config(),
+      { tenantSends: (demoTenantConfig.messaging.rateLimitPerTenantPerHour ?? 200) - REVIEW_TENANT_HEADROOM },
+    ],
+  ] as const)('refusal path: %s', (_label, cfg, dbOptions) => {
+    it('returns an outcome instead of throwing when the audit insert fails', async () => {
+      const fake = fakeDb(dbOptions as Record<string, never>);
+      vi.spyOn(fake.raw.fdReviewRequest, 'create').mockRejectedValue(new Error('connection reset'));
+
+      let threw: unknown = null;
+      let result: Awaited<ReturnType<typeof run>> | null = null;
+      try {
+        result = await run(cfg(), fake);
+      } catch (error) {
+        threw = error;
+      }
+
+      expect(threw, 'the refusal path must not reject').toBeNull();
+      expect(result?.outcome).toBe('SUPPRESSED');
+      if (result?.outcome === 'SUPPRESSED') expect(result.reason).toBe('ERROR');
+      expect(fake.failures.some((f) => f.operation === 'reviews.request')).toBe(true);
+      expect(fake.notifications).toHaveLength(0);
+    });
+
+    it('still refuses without sending when the audit insert SUCCEEDS', async () => {
+      // The ordinary case, asserted alongside the failure so the pair proves
+      // the await changed only what happens when the insert breaks.
+      const fake = fakeDb(dbOptions as Record<string, never>);
+      const result = await run(cfg(), fake);
+      expect(result.outcome).toBe('SUPPRESSED');
+      expect(fake.notifications).toHaveLength(0);
+      expect(fake.reviewRequests[0].status).toBe('SUPPRESSED');
+    });
+  });
+
+  it('keeps a duplicate refusal idempotent — P2002 is still not an error', async () => {
+    // The await must not change how the unique violation is classified: a
+    // second refusal for the same conversation is ALREADY_REQUESTED, not ERROR.
+    const fake = fakeDb({ escalated: true });
+    await run(config(), fake);
+    vi.spyOn(fake.raw.fdReviewRequest, 'findUnique').mockResolvedValue(null as never);
+    const second = await run(config(), fake);
+    expect(second.outcome).toBe('ALREADY_REQUESTED');
+    expect(fake.notifications).toHaveLength(0);
+  });
+
+  it('awaits every record() call site, so none can escape the catch', () => {
+    // A structural guard. `no-return-await` style rules offer to remove these,
+    // and removing one silently restores the defect on that path only.
+    const code = codeOf('src/lib/frontdesk/reviews/store.ts');
+    const calls = code.match(/return\s+(await\s+)?record\(/g) ?? [];
+    expect(calls).toHaveLength(4);
+    expect(calls.every((c) => c.includes('await')), 'every record() return is awaited').toBe(true);
   });
 
   it('leaves an escalation queueable after a review request has failed', async () => {

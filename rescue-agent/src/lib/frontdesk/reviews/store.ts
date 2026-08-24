@@ -95,7 +95,7 @@ export async function requestReviewForConversation(
     // asked for something that does not exist yet, and silently substituting a
     // different channel would be answering a question they did not ask.
     if (config.reviews?.enabled && config.reviews.channel !== 'SMS') {
-      return record(db, tenantId, conversationId, null, 'CHANNEL_UNAVAILABLE',
+      return await record(db, tenantId, conversationId, null, 'CHANNEL_UNAVAILABLE',
         `Review channel "${config.reviews.channel}" is not implemented; SMS is the only channel today.`);
     }
 
@@ -119,21 +119,21 @@ export async function requestReviewForConversation(
     });
 
     if (!eligibility.eligible) {
-      return record(db, tenantId, conversationId, destination, eligibility.reason, eligibility.detail);
+      return await record(db, tenantId, conversationId, destination, eligibility.reason, eligibility.detail);
     }
 
     // Checked after eligibility so a refusal names the customer-facing reason
     // rather than a budget one, but before the insert so the row's final state
     // is decided in one place.
     if (!destination) {
-      return record(db, tenantId, conversationId, null, 'NO_DESTINATION',
+      return await record(db, tenantId, conversationId, null, 'NO_DESTINATION',
         'The conversation has no usable customer phone number.');
     }
 
     const counts = await getRateCounts(tenantId, destination, now, db);
     const limits = resolveLimits(config);
     if (counts.tenant + REVIEW_TENANT_HEADROOM >= limits.perTenantPerHour) {
-      return record(db, tenantId, conversationId, destination, 'TENANT_BUDGET_RESERVED',
+      return await record(db, tenantId, conversationId, destination, 'TENANT_BUDGET_RESERVED',
         `Restaurant has used ${counts.tenant} of ${limits.perTenantPerHour} sends this hour; ` +
           `the last ${REVIEW_TENANT_HEADROOM} are reserved for alerts and replies.`);
     }
@@ -221,6 +221,15 @@ export async function requestReviewForConversation(
  * The row is the point. §XIII's audit requirement is not satisfied by sending
  * correctly — it is satisfied by being able to show, later, why each customer
  * was or was not asked.
+ *
+ * CALL THIS AS `return await record(...)`, NEVER `return record(...)`.
+ *
+ * In an async function, `return promise` inside a `try` is not covered by the
+ * enclosing `catch` — only `return await promise` is. Dropping the await here
+ * is what made this function's "never throws" guarantee false: an insert
+ * failing with anything other than P2002 escaped to the caller. The four call
+ * sites are the whole reason that guarantee holds, and `no-return-await` style
+ * rules will offer to remove them.
  */
 async function record(
   db: PrismaClient,
