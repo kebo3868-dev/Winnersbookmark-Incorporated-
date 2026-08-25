@@ -40,8 +40,18 @@ import { buildSecretReport, messagingIsReal, type SecretStatus } from './secrets
  *                           daily reviewer exists outside this system.
  *                           Always blocks, because the honest default for
  *                           "unknown" on a safety check is "no".
+ *   ATTESTED              — the platform still cannot determine it, but a
+ *                           NAMED HUMAN has certified it on the record. Does
+ *                           not block.
+ *
+ * ATTESTED is deliberately not PASS. PASS means the system checked and the
+ * answer was yes. ATTESTED means a person said yes and the system is
+ * repeating them, with their name attached. Collapsing the two would let a
+ * dashboard report "verified" about something no software verified — the
+ * exact false assurance this gate exists to prevent — so the distinction is
+ * carried in the type rather than in a comment.
  */
-export type CheckState = 'PASS' | 'FAIL' | 'NOT_APPLICABLE' | 'REQUIRES_CONFIRMATION';
+export type CheckState = 'PASS' | 'FAIL' | 'NOT_APPLICABLE' | 'REQUIRES_CONFIRMATION' | 'ATTESTED';
 
 export type CheckOwner =
   /** Fixable in this repository. */
@@ -92,6 +102,27 @@ export interface ReadinessReport {
   /** Configuration gaps carried through from the completeness report. */
   configGaps: ConfigGap[];
   secretBlockers: SecretStatus[];
+}
+
+/**
+ * The telecom configuration an attestation certifies, as a comparable string.
+ *
+ * Deliberately readable rather than hashed: when an attestation goes stale, an
+ * operator needs to see WHAT changed, and "attested for +15550100100, now
+ * +15550100200" answers that where a pair of digests does not.
+ *
+ * Covers the three things a carrier registration is actually about — which
+ * vendor sends, from which number, under which campaign. Change any of them
+ * and the certification no longer describes reality, so it stops counting.
+ */
+export function telecomFingerprint(
+  config: TenantConfig,
+  env: Record<string, string | undefined> = process.env,
+): string {
+  const provider = (env.SMS_PROVIDER || '').toLowerCase().trim() || 'none';
+  const from = (config.messaging.fromNumber || '').replace(/\D/g, '') || 'none';
+  const campaign = (config.pilot.carrierCampaignId || '').trim() || 'none';
+  return `${provider}|${from}|${campaign}`.slice(0, 200);
 }
 
 export function buildReadinessReport(config: TenantConfig, facts: PlatformFacts): ReadinessReport {
@@ -160,15 +191,37 @@ export function buildReadinessReport(config: TenantConfig, facts: PlatformFacts)
     action: secrets.ready ? undefined : 'Set the listed environment variables. Never commit them to the repository.',
   });
 
+  // --- Telecom registration -------------------------------------------------
+  // The platform cannot verify a carrier registration and never claims to. It
+  // can record that a named administrator certified one, bound to the exact
+  // telecom setup they were certifying.
+  const currentTelecom = telecomFingerprint(config, env);
+  const attestedFingerprint = config.pilot.telecomAttestedFingerprint?.trim();
+  const telecomAttested = Boolean(
+    config.pilot.telecomAttestedAt &&
+      config.pilot.telecomAttestedBy?.trim() &&
+      attestedFingerprint,
+  );
+  // Stale rather than absent: somebody certified something, but not this.
+  const telecomStale = telecomAttested && attestedFingerprint !== currentTelecom;
+
   add({
     id: 'phone.registered',
     label: 'Sending number is carrier-registered for business messaging',
-    state: 'REQUIRES_CONFIRMATION',
+    state: telecomAttested && !telecomStale ? 'ATTESTED' : 'REQUIRES_CONFIRMATION',
     blocking: true,
     owner: 'EXTERNAL',
-    detail:
-      'US A2P 10DLC registration (brand + campaign) cannot be verified from inside this system, and unregistered traffic is filtered or blocked by carriers.',
-    action: 'Complete 10DLC brand and campaign registration with the provider, then record the campaign id.',
+    detail: !telecomAttested
+      ? 'US A2P 10DLC registration (brand + campaign) cannot be verified from inside this system, and unregistered traffic is filtered or blocked by carriers. No administrator has certified it.'
+      : telecomStale
+        ? `Certified by ${config.pilot.telecomAttestedBy} on ${config.pilot.telecomAttestedAt} for a DIFFERENT telecom setup (${attestedFingerprint}); the configuration is now ${currentTelecom}. The earlier certification does not cover it.`
+        : `Certified by ${config.pilot.telecomAttestedBy} on ${config.pilot.telecomAttestedAt} for ${currentTelecom}. Recorded on their authority — the platform has NOT verified this with any carrier.`,
+    action:
+      telecomAttested && !telecomStale
+        ? undefined
+        : telecomStale
+          ? 'The sending number, provider or campaign changed after certification. Re-certify against the current configuration.'
+          : 'Complete 10DLC brand and campaign registration with the provider, then have a platform administrator certify it against this configuration.',
   });
 
   // --- Delivery receipts ----------------------------------------------------
@@ -216,7 +269,21 @@ export function buildReadinessReport(config: TenantConfig, facts: PlatformFacts)
   });
 
   // --- Escalation rota ------------------------------------------------------
-  const rotaConfigured = facts.rota.order.length > 0;
+  //
+  // Read from the CONFIG, not from `facts.rota.order`.
+  //
+  // `getRotaStatus` fills an empty rota with every phone-bearing contact,
+  // because during an emergency reaching *someone* beats refusing over a
+  // missing list — correct for dispatch. But it made this check pass on that
+  // fallback, so a restaurant could reach pilot believing it had chosen who
+  // gets woken first when nobody had, and discover the ordering during an
+  // incident. The check's own failure text describes exactly the situation it
+  // was failing to detect.
+  //
+  // Dispatch behaviour is unchanged: `orderedFallbackContacts` still falls
+  // back. Only the evidence that a human decided is now read from where a
+  // human would have put it.
+  const rotaConfigured = config.pilot.escalationRota.length > 0;
   add({
     id: 'rota.configured',
     label: 'An escalation rota is configured',
@@ -275,19 +342,29 @@ export function buildReadinessReport(config: TenantConfig, facts: PlatformFacts)
         : 'Fix the escalation routing that caused this, then resolve the failure.',
   });
 
+  const reviewOwner = config.pilot.failureReviewOwner?.trim();
+  const reviewAttested = Boolean(reviewOwner && config.pilot.failureReviewAttestedAt);
   add({
     id: 'ops.dailyReview',
     label: 'Daily failure-queue review is assigned to a named person',
-    state: 'REQUIRES_CONFIRMATION',
+    state: reviewAttested ? 'ATTESTED' : 'REQUIRES_CONFIRMATION',
     blocking: true,
     owner: 'EXTERNAL',
-    detail:
-      'Every safety guarantee in this system ends at "and an operator sees it in the failure queue". Nobody reading the queue means those guarantees stop at a database row.',
-    action: 'Name the person who reviews the failure queue daily, and agree what they do when it is not empty.',
+    detail: reviewAttested
+      ? `${reviewOwner} reviews the failure queue daily, agreed ${config.pilot.failureReviewAttestedAt}. Recorded on that authority — the platform cannot observe whether anyone reads it.`
+      : 'Every safety guarantee in this system ends at "and an operator sees it in the failure queue". Nobody reading the queue means those guarantees stop at a database row.',
+    action: reviewAttested
+      ? undefined
+      : 'Name the person who reviews the failure queue daily, and agree what they do when it is not empty.',
   });
 
   // NOT_APPLICABLE never blocks — it means the question does not arise.
   // REQUIRES_CONFIRMATION always can, because unknown is not a pass.
+  // ATTESTED does not block: a named human accepted responsibility on the
+  // record, which is the most any software can obtain about a fact that lives
+  // outside it. Note what this means in practice — `canActivate` is reachable
+  // ONLY through an affirmative human act, and no combination of configuration
+  // values can substitute for one.
   const blockers = checks.filter(
     (c) => c.blocking && (c.state === 'FAIL' || c.state === 'REQUIRES_CONFIRMATION'),
   );

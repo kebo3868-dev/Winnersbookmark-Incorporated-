@@ -250,7 +250,20 @@ describe('pilot-readiness gate', () => {
   });
 
   it('blocks when no rota is configured at all', () => {
-    const report = buildReadinessReport(pilotReadyConfig(), facts({ rota: { order: [], verifiedKeys: [] } }));
+    // Updated with the rota-evidence fix: "no rota" now means an empty
+    // `pilot.escalationRota` in the CONFIG, which is where a human would put
+    // one. Emptying the derived facts (as this test used to) no longer
+    // expresses the case, because `getRotaStatus` fills an empty rota with
+    // every phone-bearing contact — and reading that fallback as evidence of a
+    // decision was the defect. Same intent, asserted where the decision lives.
+    const noRota = config({
+      pilot: {
+        escalationRota: [],
+        ownerVerifiedAt: '2026-08-01T12:00:00.000Z',
+        ownerVerifiedBy: 'Dana Whitfield, owner',
+      },
+    });
+    const report = buildReadinessReport(noRota, facts({ rota: { order: ['urgent', 'manager'], verifiedKeys: [] } }));
     expect(report.blockers.map((b) => b.id)).toContain('rota.configured');
   });
 

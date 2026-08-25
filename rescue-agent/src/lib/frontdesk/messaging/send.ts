@@ -5,6 +5,7 @@ import { maskNumber, normaliseNumber } from '../notify/provider';
 import { enqueueNotification, recordFailure } from '../notify/store';
 import { isCustomerDirected, maySend, type MessagePurpose } from './consent';
 import { checkRate, resolveLimits } from './rateLimit';
+import { messagingIsReal } from '../config/secrets';
 import { countUnansweredOutbound, getConsent, getRateCounts, recordSend } from './store';
 
 /**
@@ -63,6 +64,34 @@ export async function queueMessage(request: SendRequest, db: PrismaClient = pris
       : 'No sending number is configured';
     await fileBlocked(tenantId, purpose, 'SMS_UNAVAILABLE', detail, toNumber, db);
     return { queued: false, reason: 'SMS_UNAVAILABLE', detail };
+  }
+
+  // --- Demo restaurants may never reach a real provider --------------------
+  //
+  // Demo tenants deliberately have SMS enabled so the escalation-alert
+  // pipeline is visible in a demo, and their contacts carry 555-01xx numbers
+  // from the range reserved for fiction. Until now that fiction was the ONLY
+  // thing standing between a demo escalation and a real carrier: nothing in
+  // this file, the queue, the worker or the dispatcher checked demoMode.
+  //
+  // That held while every deployment ran the mock. It stops holding the moment
+  // a pilot binds a real provider — then every demo escalation is handed to
+  // that provider, rejected as unroutable, and filed as FAILED_SMS into the
+  // failure queue. The failure queue is where every safety guarantee in this
+  // system terminates, so burying it under demo noise has a real cost. And a
+  // demo contact edited to a real number would text a real person.
+  //
+  // The guard is narrow on purpose: refuse only when the tenant is a demo AND
+  // the provider is real. Under the mock a demo behaves exactly as before, so
+  // this is inert in every deployment that exists today and active precisely
+  // where the risk appears.
+  if (messagingIsReal()) {
+    const tenant = await db.fdTenant.findUnique({ where: { id: tenantId }, select: { demoMode: true } });
+    if (tenant?.demoMode) {
+      const detail = 'Demo restaurants are fictional and must never be sent through a real provider';
+      await fileBlocked(tenantId, purpose, 'DEMO_TENANT', detail, toNumber, db);
+      return { queued: false, reason: 'DEMO_TENANT', detail };
+    }
   }
 
   const now = new Date();
