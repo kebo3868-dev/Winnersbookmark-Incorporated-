@@ -64,6 +64,21 @@ export class SmsProviderNotConfigured extends Error {
 }
 
 /**
+ * Provider names `getSmsProvider` below can actually construct.
+ *
+ * Exported so the readiness gate answers "is a real provider configured?"
+ * from the same list this function dispatches on. They were separate before,
+ * and the readiness answer was "any value that is not `mock`" — so a typo'd
+ * `SMS_PROVIDER=twilioo` reported a real provider on the dashboard while
+ * `getSmsProvider` threw on every dispatch cycle and nothing could send. A
+ * readiness gate is worthless if it can be green while delivery is impossible,
+ * and that is the one direction it must never fail in.
+ *
+ * `mock` is deliberately absent: it is constructible, but it is not real.
+ */
+export const REAL_SMS_PROVIDERS = ['twilio'] as const;
+
+/**
  * Resolve the configured provider.
  *
  * Returns null rather than throwing when nothing is configured: a deployment

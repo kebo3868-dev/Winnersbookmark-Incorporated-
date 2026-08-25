@@ -1,3 +1,5 @@
+import { REAL_SMS_PROVIDERS } from '../notify/provider';
+
 /**
  * SECRET AND CREDENTIAL CONFIGURATION
  *
@@ -190,11 +192,23 @@ export function buildSecretReport(env: Record<string, string | undefined> = proc
  * Used by the readiness gate and the dashboard banner. A restaurant must never
  * be told its front desk is live while the mock is quietly absorbing every
  * alert, so this is answered from configuration rather than assumed.
+ *
+ * ── WHY MEMBERSHIP, NOT "ANYTHING THAT IS NOT MOCK" ──────────────────────────
+ *
+ * This previously returned true for any non-empty value other than `mock`. So
+ * `SMS_PROVIDER=twilioo` reported a real provider — the readiness gate went
+ * green, the dashboard said the front desk was armed, and `getSmsProvider`
+ * threw `SmsProviderNotConfigured` on every dispatch cycle. Nothing could send.
+ *
+ * That is the one direction this function must never fail in. A false negative
+ * makes an operator check their configuration; a false positive tells a
+ * restaurant its food-safety alerts are being delivered when no message can
+ * leave the building. So the answer now comes from the same list
+ * `getSmsProvider` dispatches on, and an unrecognised value is not real.
  */
 export function messagingIsReal(env: Record<string, string | undefined> = process.env): boolean {
   const provider = (env.SMS_PROVIDER || '').toLowerCase().trim();
-  if (!provider || provider === 'mock') return false;
-  return true;
+  return (REAL_SMS_PROVIDERS as readonly string[]).includes(provider);
 }
 
 /**

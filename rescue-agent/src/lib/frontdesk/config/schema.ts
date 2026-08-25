@@ -245,6 +245,54 @@ export const pilotSchema = z.object({
    * product refuses to give.
    */
   carrierCampaignId: z.string().max(120).optional(),
+
+  /**
+   * TELECOM ATTESTATION — the human certification that carrier registration
+   * is done.
+   *
+   * ── WHY THIS IS NOT DERIVED FROM CONFIGURATION ───────────────────────────
+   *
+   * The obvious shortcut is to treat a present `carrierCampaignId` as proof.
+   * It is not. Anyone can type a string into a config field, and a gate that
+   * accepts one has not learned anything about whether a carrier approved
+   * anything — it has only learned that somebody typed. That is the false
+   * assurance this product exists to refuse, and it would be worse here than
+   * almost anywhere else: the thing being falsely asserted is that a
+   * restaurant's food-safety alerts will actually be delivered.
+   *
+   * So the attestation is an affirmative act by a named platform
+   * administrator, recorded separately from the configuration it certifies. It
+   * asserts "a human confirmed this", never "the system verified this", and
+   * `ATTESTED` is a distinct state from `PASS` precisely so nothing downstream
+   * can conflate the two.
+   *
+   * The platform still makes NO claim that 10DLC was approved. It records who
+   * said so and when.
+   */
+  telecomAttestedAt: z.string().datetime().optional(),
+  /** The platform administrator who certified it. An identity, not a role. */
+  telecomAttestedBy: z.string().min(1).max(200).optional(),
+  /**
+   * The telecom configuration the certification covers, as a fingerprint.
+   *
+   * Binds the attestation to what was actually certified. Swapping the sending
+   * number or the campaign id afterwards changes the fingerprint, the
+   * attestation stops matching, and the gate closes again — so a certification
+   * for one telecom setup can never be silently reused for a different one.
+   * Compare with `telecomFingerprint()` in config/readiness.ts.
+   */
+  telecomAttestedFingerprint: z.string().min(1).max(200).optional(),
+
+  /**
+   * Who reviews the failure queue daily, and when that was agreed.
+   *
+   * Every safety guarantee in this system ends at "and an operator sees it in
+   * the failure queue". Nobody named means those guarantees stop at a database
+   * row. Software cannot observe whether a person reads a dashboard, so this
+   * is an attestation too.
+   */
+  failureReviewOwner: z.string().min(1).max(200).optional(),
+  failureReviewAttestedAt: z.string().datetime().optional(),
 });
 
 export const tenantConfigSchema = z.object({
