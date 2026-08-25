@@ -73,7 +73,11 @@ export function Simulator({
       const response = await fetch(`/api/frontdesk/${tenantSlug}/message`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ message: trimmed, conversationId, channel: 'WEB' }),
+        body: JSON.stringify({
+          message: trimmed,
+          channel: 'WEB',
+          ...(conversationId ? { conversationId } : {}),
+        }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error ?? 'The front desk could not respond');
