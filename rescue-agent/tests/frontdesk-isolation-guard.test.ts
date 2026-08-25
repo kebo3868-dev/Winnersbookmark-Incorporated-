@@ -179,6 +179,7 @@ describe('every front desk surface authorizes itself', () => {
     'authenticateTenantRequest', // per-tenant API key path
     'requireAdmin',            // platform-admin-only routes
     'verifyWebhook',           // HMAC-signed provider callbacks
+    'verifyTwilioWebhook',     // Twilio-signed inbound, bound to the tenant's own number
     'cronSecretMatches',       // scheduler secret
   ];
 

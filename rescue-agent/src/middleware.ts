@@ -39,6 +39,14 @@ const SIGNED_WEBHOOK_ROUTES = [
   // Inbound customer SMS and missed-call events. Same HMAC verification as the
   // delivery webhook, and equally fails closed without a configured secret.
   /^\/api\/frontdesk\/sms\/inbound$/,
+  // The Twilio-shaped equivalents, one per event type. Both verify
+  // `X-Twilio-Signature` over the full URL and refuse without it, then bind the
+  // payload's `To` to the named restaurant's own sending number — an account
+  // signature proves the account, never which restaurant. A provider webhook
+  // has to be reachable for inbound messaging to work at all, and neither has
+  // any useful surface without a valid signature.
+  /^\/api\/frontdesk\/[^/]+\/sms\/twilio$/,
+  /^\/api\/frontdesk\/[^/]+\/voice\/twilio-status$/,
   // Sign-in and sign-out. A login endpoint cannot sit behind the credential it
   // exists to replace. It authenticates itself by definition, and carries its
   // own per-account attempt limit so being reachable is not being open.

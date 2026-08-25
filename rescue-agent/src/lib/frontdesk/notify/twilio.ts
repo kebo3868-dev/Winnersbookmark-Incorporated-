@@ -359,3 +359,96 @@ export function twilioFromEnv(env: Record<string, string | undefined>): TwilioSm
     statusCallbackUrl: env.TWILIO_STATUS_CALLBACK_URL?.trim() || undefined,
   });
 }
+
+// ---------------------------------------------------------------------------
+// INBOUND EVENTS
+//
+// Two parsers, deliberately never one.
+//
+// A customer text and an unanswered call are different events with different
+// consequences: a text opens a conversation the engine answers, an unanswered
+// call sends an unprompted recovery message to someone who did not write to us.
+// Deriving one from the other — or accepting a payload that could be read as
+// either — is how a customer who texted "table for 4?" receives "Sorry we
+// missed your call".
+//
+// So each parser reads only the fields its own event carries, and returns null
+// for anything else. A payload cannot satisfy both.
+// ---------------------------------------------------------------------------
+
+export interface TwilioInboundSms {
+  /** Twilio's message id, used as the deduplication key. */
+  eventId: string;
+  /** The customer. */
+  from: string;
+  /** The restaurant's Twilio number this arrived on. */
+  to: string;
+  body: string;
+}
+
+/**
+ * Parse an inbound SMS webhook.
+ *
+ * Requires `Body` — a call status callback never carries one, so a call event
+ * cannot be parsed as a message however it is shaped. Requires `MessageSid`
+ * specifically rather than accepting `CallSid`, for the same reason.
+ */
+export function parseTwilioInboundSms(params: URLSearchParams): TwilioInboundSms | null {
+  const eventId = params.get('MessageSid') ?? params.get('SmsSid');
+  const from = params.get('From');
+  const to = params.get('To');
+  const body = params.get('Body');
+
+  // A call event carries CallSid and CallStatus and no Body. Refusing here is
+  // what stops a voice payload arriving on the SMS route and being treated as
+  // a customer message.
+  if (params.get('CallStatus') || params.get('CallSid')) return null;
+
+  if (!eventId || eventId.length > 200) return null;
+  if (!from || !to) return null;
+  if (body === null || body.trim().length === 0 || body.length > 2000) return null;
+
+  return { eventId, from, to, body };
+}
+
+/**
+ * Call outcomes that mean a customer rang and nobody answered.
+ *
+ * `completed` is deliberately absent: a completed call was answered, and
+ * texting "sorry we missed you" to someone the restaurant just spoke to is
+ * worse than sending nothing. `canceled` is absent too — the caller hung up
+ * before it rang out, which is not the restaurant failing to answer.
+ */
+export const MISSED_CALL_STATUSES = new Set(['no-answer', 'busy', 'failed']);
+
+export interface TwilioMissedCall {
+  /** Twilio's call id, used as the deduplication key. */
+  eventId: string;
+  from: string;
+  to: string;
+  status: string;
+}
+
+/**
+ * Parse a voice status callback, and only a qualifying missed outcome.
+ *
+ * Returns null for an answered call, for a non-terminal status, and for
+ * anything carrying a message Body — so an SMS payload can never be parsed as
+ * a missed call.
+ */
+export function parseTwilioCallStatus(params: URLSearchParams): TwilioMissedCall | null {
+  // Symmetric with the guard above: a message payload is not a call event.
+  if (params.get('Body') !== null || params.get('MessageSid')) return null;
+
+  const eventId = params.get('CallSid');
+  const from = params.get('From');
+  const to = params.get('To');
+  // DialCallStatus is what a <Dial> verb reports; CallStatus is the call's own.
+  const status = (params.get('DialCallStatus') ?? params.get('CallStatus') ?? '').toLowerCase();
+
+  if (!eventId || eventId.length > 200) return null;
+  if (!from || !to) return null;
+  if (!MISSED_CALL_STATUSES.has(status)) return null;
+
+  return { eventId, from, to, status };
+}
