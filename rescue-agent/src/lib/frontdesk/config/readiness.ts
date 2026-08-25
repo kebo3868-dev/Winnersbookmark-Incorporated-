@@ -125,6 +125,69 @@ export function telecomFingerprint(
   return `${provider}|${from}|${campaign}`.slice(0, 200);
 }
 
+/**
+ * Whether inbound webhooks can actually be authenticated — asked of the
+ * provider that is configured, not of one fixed mechanism.
+ *
+ * ── WHY THIS IS PROVIDER-AWARE ───────────────────────────────────────────────
+ *
+ * This check used to demand a per-tenant secret unconditionally. Under Twilio
+ * that secret authenticates nothing: Twilio signs with the ACCOUNT auth token
+ * over the request URL, and the tenant secret is never consulted. So the gate
+ * was asking for a credential the deployment does not use — which is worse
+ * than useless, because generating one to clear the gate produces a green
+ * light backed by an unused string while the credential that genuinely gates
+ * inbound goes unchecked here.
+ *
+ * A gate must ask about the mechanism actually in force. Twilio deployments
+ * are asked for the auth token; platform-scheme deployments are asked for the
+ * per-tenant secret; a deployment with no real provider is not asked at all,
+ * because there is no inbound webhook to authenticate yet.
+ *
+ * Either way a MISSING credential fails. Nothing here is waved through.
+ */
+function inboundAuthState(
+  env: Record<string, string | undefined>,
+  tenantSecretStored: boolean,
+): { state: CheckState; detail: string; action?: string } {
+  const provider = (env.SMS_PROVIDER || '').toLowerCase().trim();
+
+  if (!provider || provider === 'mock') {
+    return {
+      state: 'NOT_APPLICABLE',
+      detail: 'No real provider is configured, so nothing is posting inbound webhooks yet.',
+    };
+  }
+
+  if (provider === 'twilio') {
+    const token = env.TWILIO_AUTH_TOKEN?.trim();
+    return token
+      ? {
+          state: 'PASS',
+          detail:
+            'Twilio signs inbound webhooks with the account auth token over the request URL, and it is set. ' +
+            'The per-tenant webhook secret is not used on this provider and is not required.',
+        }
+      : {
+          state: 'FAIL',
+          detail:
+            'TWILIO_AUTH_TOKEN is not set, so no inbound Twilio webhook can be verified. Every inbound ' +
+            'customer message and missed call would be refused.',
+          action: 'Set TWILIO_AUTH_TOKEN to the auth token of the account that owns the sending number.',
+        };
+  }
+
+  // Any other real provider uses the platform HMAC scheme, which is keyed on
+  // the restaurant's own secret.
+  return tenantSecretStored
+    ? { state: 'PASS', detail: `Provider "${provider}" uses the platform webhook scheme, and a per-tenant secret digest is stored.` }
+    : {
+        state: 'FAIL',
+        detail: `Provider "${provider}" uses the platform webhook scheme, and this restaurant has no secret stored. Inbound events fail closed.`,
+        action: 'Generate a webhook secret for this restaurant and give it to the provider.',
+      };
+}
+
 export function buildReadinessReport(config: TenantConfig, facts: PlatformFacts): ReadinessReport {
   const env = facts.env ?? process.env;
   const checks: ReadinessCheck[] = [];
@@ -242,15 +305,11 @@ export function buildReadinessReport(config: TenantConfig, facts: PlatformFacts)
   });
 
   add({
-    id: 'webhook.secret',
-    label: 'This restaurant has its own inbound webhook secret',
-    state: facts.webhookSecretConfigured ? 'PASS' : 'FAIL',
+    id: 'webhook.inboundAuth',
+    label: 'Inbound webhooks are authenticated',
+    ...inboundAuthState(env, facts.webhookSecretConfigured),
     blocking: true,
     owner: 'OPERATOR',
-    detail: facts.webhookSecretConfigured
-      ? 'A per-tenant secret digest is stored.'
-      : 'Inbound events for this restaurant fail closed, so inbound SMS and delivery receipts are rejected.',
-    action: facts.webhookSecretConfigured ? undefined : 'Generate a webhook secret for this restaurant and give it to the provider.',
   });
 
   // --- The thing that actually sends ---------------------------------------

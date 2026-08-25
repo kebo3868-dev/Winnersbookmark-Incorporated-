@@ -280,9 +280,31 @@ describe('pilot-readiness gate', () => {
     expect(report.blockers.map((b) => b.id)).not.toContain('failures.reviewed');
   });
 
-  it('blocks when the tenant has no webhook secret', () => {
+  it('blocks when a platform-scheme provider has no tenant webhook secret', () => {
+    // Updated with the provider-aware inbound-auth fix. The check is now
+    // `webhook.inboundAuth` and asks about the mechanism actually in force.
+    // The per-tenant secret keys the PLATFORM HMAC scheme, so this case needs a
+    // provider that uses it — `goodEnv` sets SMS_PROVIDER=twilio, where the
+    // secret authenticates nothing and demanding it would be theatre.
+    const report = buildReadinessReport(
+      pilotReadyConfig(),
+      facts({ webhookSecretConfigured: false, env: { ...goodEnv, SMS_PROVIDER: 'other-provider' } }),
+    );
+    expect(report.blockers.map((b) => b.id)).toContain('webhook.inboundAuth');
+  });
+
+  it('does NOT demand a tenant webhook secret on Twilio, which does not use one', () => {
+    // The point of making the gate provider-aware: generating an unused secret
+    // to clear it would be a green light backed by a string nothing reads.
     const report = buildReadinessReport(pilotReadyConfig(), facts({ webhookSecretConfigured: false }));
-    expect(report.blockers.map((b) => b.id)).toContain('webhook.secret');
+    expect(report.blockers.map((b) => b.id)).not.toContain('webhook.inboundAuth');
+    expect(report.checks.find((c) => c.id === 'webhook.inboundAuth')?.state).toBe('PASS');
+  });
+
+  it('blocks on Twilio when the auth token that DOES gate inbound is missing', () => {
+    const { TWILIO_AUTH_TOKEN: _omitted, ...withoutToken } = goodEnv;
+    const report = buildReadinessReport(pilotReadyConfig(), facts({ env: withoutToken }));
+    expect(report.blockers.map((b) => b.id)).toContain('webhook.inboundAuth');
   });
 
   it('blocks when delivery receipts are not wired up', () => {
