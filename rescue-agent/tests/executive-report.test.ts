@@ -112,7 +112,13 @@ describe('evidence classification preservation', () => {
 
   it('verified requires >=80 confidence without a manual flag', () => {
     expect(classifyFinding({ manualValidationRequired: false, confidenceScore: 95 })).toBe('VERIFIED FINDING');
-    expect(classifyFinding({ manualValidationRequired: false, confidenceScore: 79 })).toBe('INFERRED OPPORTUNITY');
+    // The invariant this test exists for: below 80 is NOT verified. Since the
+    // canonical evidence ladder was centralised, 65–79 lands in its own STRONG
+    // EVIDENCE band rather than being flattened in with a 40 — a distinction the
+    // report can now show, and one that still licenses no definitive language.
+    expect(classifyFinding({ manualValidationRequired: false, confidenceScore: 79 })).toBe('STRONG EVIDENCE');
+    expect(classifyFinding({ manualValidationRequired: false, confidenceScore: 79 })).not.toBe('VERIFIED FINDING');
+    expect(classifyFinding({ manualValidationRequired: false, confidenceScore: 40 })).toBe('INFERRED OPPORTUNITY');
   });
 });
 
