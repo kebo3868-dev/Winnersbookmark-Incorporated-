@@ -103,21 +103,44 @@ const LEGAL_TEXT_OR_PATH =
  * Vendor-property paths: the platform's own marketing, account and corporate
  * pages.
  *
- * A platform host is demoted ONLY when its path looks like this (or is the bare
- * root). `spothopperapp.com/spots/12345-leverocks` names a specific restaurant
- * and stays a candidate pathway, because demoting an unrecognised
- * restaurant-specific URL would throw away real destinations to catch footer
- * credits — the wrong trade in the wrong direction.
+ * Matched against the FIRST PATH SEGMENT ONLY, which is where a vendor's product
+ * pages live (`/pricing`, `/restaurant-online-ordering/`) and where a customer
+ * destination does not (`/order-online/<slug>`, `/reservations/<slug>`,
+ * `/r/<slug>`). Matching the whole path would demote a real ordering page for a
+ * restaurant called Design Bar; matching the first segment cannot.
+ *
+ * `restaurant-` prefixed slugs are the giveaway for this vendor's marketing
+ * pages: `restaurant-online-ordering` is a page ABOUT online ordering sold to
+ * restaurant owners, not a page a diner ever orders from. Those slugs name a
+ * customer capability, so without this rule they were categorized as the
+ * restaurant's own ordering and reservation pathways.
+ *
+ * `spothopperapp.com/spots/12345-leverocks` still stays a candidate pathway:
+ * demoting an unrecognised restaurant-specific URL would throw away real
+ * destinations to catch footer credits — the wrong trade in the wrong direction.
  */
-const VENDOR_PROPERTY_PATH =
-  /^\/?$|website|web-?design|design|marketing|seo|pricing|features|demo|sign-?up|signup|login|log-?in|about|contact|blog|careers|partners|press|support|help|solutions|products|why-|for-restaurants/i;
+const VENDOR_PROPERTY_SEGMENT =
+  /^$|^restaurant-|^web-?site|^web-?design|^design$|^marketing|^seo$|^pricing|^features|^demo|^sign-?up|^signup|^login|^log-?in|^about|^contact|^blog|^careers|^partners|^press|^support|^help|^solutions|^products|^software|^platform|^why-|^for-restaurants/i;
+
+/** The first path segment, which is what the vendor-property rule reads. */
+function firstSegment(pathname: string): string {
+  return pathname.split('/').filter(Boolean)[0] ?? '';
+}
 
 /** Ways a customer reaches a human at the restaurant, or resolves a visit question. */
 const CUSTOMER_CONTACT_TEXT_OR_PATH =
   /contact|get[- ]in[- ]touch|reach[- ]us|email[- ]us|call[- ]us|\bhours\b|location|directions|find[- ]us|visit[- ]us/i;
 
+/**
+ * Social profile hosts, anchored to a HOST BOUNDARY.
+ *
+ * The unanchored form matched any hostname merely CONTAINING one of these —
+ * `x\.com` matches `bentobox.com`, so a restaurant-tech vendor was filed as a
+ * social profile and dropped out of every pathway check. A host pattern has to
+ * be anchored or it is a substring search wearing a domain's clothes.
+ */
 const SOCIAL_HOSTS =
-  /facebook\.com|instagram\.com|twitter\.com|x\.com|tiktok\.com|youtube\.com|yelp\.com|linkedin\.com|threads\.net|pinterest\./i;
+  /(^|\.)(?:facebook|instagram|twitter|x|tiktok|youtube|linkedin|pinterest)\.com$|(^|\.)threads\.net$|(^|\.)yelp\.[a-z]{2,4}$/i;
 
 /** Link categories that mean a customer is transacting. */
 const TRANSACTIONAL_CATEGORIES = new Set(['reservation', 'ordering', 'gift_card']);
@@ -163,13 +186,18 @@ export function classifyLinkRole(input: {
     return { role: 'VENDOR_CREDIT', reason: `anchor text "${text.slice(0, 60)}" credits an off-site builder or agency` };
   }
 
-  // A platform host whose path is the vendor's own marketing or account area,
-  // and which declares no customer action, is the vendor's front door however
-  // the link is labelled.
-  if (offSite && PLATFORM_HOSTS.test(host) && !declaresCustomerAction && VENDOR_PROPERTY_PATH.test(url.pathname)) {
+  // A platform host whose first path segment is the vendor's own marketing or
+  // account area is the vendor's front door however the link is labelled.
+  //
+  // This is checked BEFORE `declaresCustomerAction` on purpose. A page called
+  // `/restaurant-online-ordering/` declares "ordering" perfectly well — it is a
+  // sales page about ordering, aimed at the owner. Letting the declared action
+  // win here is exactly how a vendor's marketing page became a restaurant's
+  // ordering pathway.
+  if (offSite && PLATFORM_HOSTS.test(host) && VENDOR_PROPERTY_SEGMENT.test(firstSegment(url.pathname))) {
     return {
       role: 'DEVELOPER_PLATFORM',
-      reason: `points at the vendor's own property on ${host} rather than a customer action`,
+      reason: `points at the vendor's own property on ${host} rather than a customer destination`,
     };
   }
 

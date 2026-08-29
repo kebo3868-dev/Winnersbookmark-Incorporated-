@@ -94,10 +94,17 @@ export function generateSalesBrief(input: {
 
   const discoveryQuestions = buildDiscoveryQuestions(topLeaks, journey);
 
+  // The finding's own title is written in plain assertive form ("...is
+  // failing"), which is correct for a verified finding and a false claim for
+  // anything else. Quoting it unchanged is how a hedge gets lost even though the
+  // sentence around it is careful, so the title is rewritten to match the state
+  // it was actually established at.
+  const leadTitle = topLeak ? (canAssert ? topLeak.title : stripDefinitive(topLeak.title)) : null;
+
   const bestSalesAngle = topLeak
     ? canAssert
       ? `Lead with the audit evidence: "${topLeak.title}". It is verified, concrete, and about their money — not about our product. State it plainly.`
-      : `Lead with the audit evidence: "${topLeak.title}". [${leadState}] Public evidence suggests this and it is NOT confirmed — open it as an observation and a question, never as a statement of fact. ${validationInstruction(leadState, 'this finding')}`
+      : `Lead with the audit evidence: "${leadTitle}". [${leadState}] Public evidence suggests this and it is NOT confirmed — open it as an observation and a question, never as a statement of fact. ${validationInstruction(leadState, 'this finding')}`
     : 'Lead with the clean audit: their public presence is solid, so the open question is what happens off-line (calls, follow-up, repeat visits) — which only they can answer.';
 
   const likelyObjection = aiFitLeaks.length > 0
@@ -134,7 +141,7 @@ export function generateSalesBrief(input: {
     objectionStrategy,
     recommendedOffer: recommendedTier,
     outreachAngle: topLeak
-      ? `Reference the specific finding (${topLeak.title.toLowerCase()}) with its evidence, offer the full audit free, and anchor the ask to a 15-minute review. Evidence first, product second.`
+      ? `Reference the specific finding (${(leadTitle ?? topLeak.title).toLowerCase()}) with its evidence, offer the full audit free, and anchor the ask to a 15-minute review. Evidence first, product second.${canAssert ? '' : ' Frame it as a question — this finding is not confirmed.'}`
       : 'Compliment what the audit confirmed they do well, then raise the unverifiable areas as open questions worth 15 minutes.',
     emailOpener: topLeak
       ? `Subject: Found something on the ${restaurantName} website\n\nI ran a digital audit of ${restaurantName} and ${leadClaim}. I put the full findings in a short report — happy to send it over, no strings. Worth 15 minutes?`
@@ -142,11 +149,11 @@ export function generateSalesBrief(input: {
     callOpener: topLeak
       ? canAssert
         ? `"Hi, this is [name] with Winners Bookmark — I put together a digital audit of ${restaurantName} and found something I think you'd want to know about: ${lowerFirst(topLeak.title)}. Do you have 90 seconds for the short version?"`
-        : `"Hi, this is [name] with Winners Bookmark — I put together a digital audit of ${restaurantName}. One thing I could not check from the outside: ${lowerFirst(stripDefinitive(topLeak.title))}. Can I ask you about it — 90 seconds?"`
+        : `"Hi, this is [name] with Winners Bookmark — I put together a digital audit of ${restaurantName}. One thing I could not check from the outside: ${lowerFirst(leadTitle ?? topLeak.title)}. Can I ask you about it — 90 seconds?"`
       : `"Hi, this is [name] with Winners Bookmark — I ran a digital audit of ${restaurantName}. Good news: most of it is solid. I've got two questions the audit couldn't answer that usually decide whether a restaurant is leaking repeat business. 90 seconds?"`,
     talkTrack: buildTalkTrack(restaurantName, overallScore, topLeaks, phoneStage, followUpStage, recommendedTier),
     followUpAngle: topLeak
-      ? `If no response in 4–5 days: send one specific evidence item (${evidenceHook.slice(0, 120)}) as a screenshot/quote with a one-line question. No pitch${canAssert ? '' : ', and keep it as a question — this finding is not confirmed'}. Then a final value-add follow-up a week later.`
+      ? `If no response in 4–5 days: send one specific evidence item (${(canAssert ? evidenceHook : stripDefinitive(evidenceHook)).slice(0, 120)}) as a screenshot/quote with a one-line question. No pitch${canAssert ? '' : ', and keep it as a question — this finding is not confirmed'}. Then a final value-add follow-up a week later.`
       : 'If no response: follow up once with a single useful observation from the audit, then move to nurture cadence.',
     priority,
   };
@@ -248,7 +255,7 @@ function buildTalkTrack(
         const state = stateForOpportunity(l);
         return mayStateDefinitively(state)
           ? `"${l.title}" — VERIFIED, state it plainly`
-          : `"${l.title}" — ${state}, ask about it, do not assert it`;
+          : `"${stripDefinitive(l.title)}" — ${state}, ask about it, do not assert it`;
       })
       .join('; ');
     lines.push(
@@ -262,7 +269,8 @@ function buildTalkTrack(
     if (!mayStateDefinitively(combined)) {
       lines.push(
         `EVIDENCE DISCIPLINE — the strongest claim this brief supports overall is ${combined}. ` +
-          `${validationInstruction(combined, 'these findings')} Do not describe anything here as broken, failing, unavailable or a dead end.`,
+          `${validationInstruction(combined, 'these findings')} ` +
+          'Present every finding above as an observation to check with the owner, never as a confirmed defect.',
       );
     }
   } else {

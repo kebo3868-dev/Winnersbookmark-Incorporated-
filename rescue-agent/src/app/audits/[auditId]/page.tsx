@@ -3,6 +3,8 @@ import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/db';
 import AuditProgress from '@/components/AuditProgress';
 import { scoreBand } from '@/lib/scoring/rescueScore';
+import { displayDomain } from '@/lib/validation/urlSanitize';
+import { presentFailure, shortRunId } from '@/lib/audit/failurePresentation';
 
 export const dynamic = 'force-dynamic';
 
@@ -58,12 +60,29 @@ export default async function AuditDetailPage({ params }: { params: Promise<{ au
 
       {running && <AuditProgress auditId={audit.id} />}
 
-      {audit.status === 'FAILED' && (
-        <div className="card border-red-400/40 p-8">
-          <p className="font-display text-xl text-red-300 mb-2">AUDIT FAILED</p>
-          <p className="text-ivory-dim text-sm">{audit.failureReason}</p>
-        </div>
-      )}
+      {audit.status === 'FAILED' && (() => {
+        // The restaurant and the reason lead. The raw stored text is kept, but
+        // demoted to diagnostics — a percent-encoded invisible character is
+        // unreadable, and putting it where the failure state belongs made every
+        // failed audit look identical and unexplained.
+        const failure = presentFailure(audit.failureReason);
+        return (
+          <div className="card border-red-400/40 p-8 space-y-3">
+            <p className="font-display text-xl text-red-300">{failure.state.toUpperCase()}</p>
+            <p className="text-ivory">
+              {audit.restaurant.name} · {displayDomain(audit.restaurant.websiteUrl)}
+            </p>
+            <p className="text-ivory-dim text-sm">{failure.reason}</p>
+            {failure.nextStep && <p className="text-ivory-dim text-sm">{failure.nextStep}</p>}
+            <details className="pt-2">
+              <summary className="label cursor-pointer hover:text-gold">Diagnostics</summary>
+              <p className="text-ivory-faint text-xs mt-2 break-all">Audited URL: {audit.restaurant.websiteUrl}</p>
+              <p className="text-ivory-faint text-xs mt-1">Run: #{shortRunId(audit.id)}</p>
+              {audit.failureReason && <p className="text-ivory-faint text-xs mt-1">Recorded reason: {audit.failureReason}</p>}
+            </details>
+          </div>
+        );
+      })()}
 
       {audit.status === 'PARTIALLY_COMPLETED' && (
         <div className="card border-amber-400/40 p-6">

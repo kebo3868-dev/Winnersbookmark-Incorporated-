@@ -145,9 +145,17 @@ export function sanitizeUrlInput(raw: string): UrlSanitizationResult {
 
   value = value.normalize('NFC');
 
-  // A URL containing no non-ASCII characters cannot be an internationalized
-  // one, which is what makes joiner removal safe in that case and only that case.
-  const asciiOnly = !/[^\u0000-\u007F]/.test(value);
+  // A URL with no non-ASCII characters cannot be an internationalized one, so a
+  // zero-width joiner in it is a paste artifact and safe to remove.
+  //
+  // The test has to IGNORE the invisible characters themselves. Asking "is this
+  // string pure ASCII" while a U+200D sits inside it always answers no, so the
+  // joiner would protect itself from removal — the exact case this rule is for.
+  const withoutInvisibles = [...ALWAYS_INVISIBLE, ...ZERO_WIDTH_JOINERS].reduce(
+    (acc, [char]) => acc.split(char).join(''),
+    value,
+  );
+  const asciiOnly = !/[^\u0000-\u007F]/.test(withoutInvisibles);
   const table = asciiOnly ? [...ALWAYS_INVISIBLE, ...ZERO_WIDTH_JOINERS] : ALWAYS_INVISIBLE;
 
   for (const [char, name] of table) {

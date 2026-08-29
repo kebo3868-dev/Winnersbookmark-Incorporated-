@@ -142,7 +142,16 @@ const CATEGORY_PATTERNS: Record<LinkCategory, RegExp> = {
   careers: /careers?|jobs?|join[- ]?(our[- ]?)?team|hiring/i,
 };
 
-const SOCIAL_HOSTS = /facebook\.com|instagram\.com|twitter\.com|x\.com|tiktok\.com|youtube\.com|yelp\.com|linkedin\.com|threads\.net/i;
+/**
+ * Social profile hosts, anchored to a HOST BOUNDARY.
+ *
+ * The unanchored form matched any hostname merely CONTAINING one of these —
+ * `x\.com` matches `bentobox.com`, so a restaurant-tech vendor was filed as a
+ * social profile and dropped out of every pathway check. A host pattern has to
+ * be anchored or it is a substring search wearing a domain's clothes.
+ */
+const SOCIAL_HOSTS =
+  /(^|\.)(?:facebook|instagram|twitter|x|tiktok|youtube|linkedin|pinterest)\.com$|(^|\.)threads\.net$|(^|\.)yelp\.[a-z]{2,4}$/i;
 
 /**
  * Query parameters whose value NAMES the destination the link opens.
