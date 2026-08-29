@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { extractPage } from '@/lib/web/collector';
-import { normalizeEvidence } from '@/lib/audit/evidence';
+import { normalizeEvidence, type ProbeResult } from '@/lib/audit/evidence';
 import { analyzeJourney } from '@/lib/audit/journey';
 
 /**
@@ -108,14 +108,8 @@ describe('telephone precedence does not suppress genuine online ordering', () =>
 });
 
 describe('a broken ordering link still outranks the phone', () => {
-  it('reports RISK rather than telephone friction when a link failed', () => {
-    const evidence = normalizeEvidence({
-      pages: [page(`<a href="tel:+17275551234">ORDER</a>`)],
-      failures: [],
-      probes: [
-        { url: 'https://www.spothopperapp.com/order-online/x', category: 'ordering', ok: false, note: 'HTTP 500' },
-      ],
-    });
+  const journeyWithProbe = (html: string, probes: ProbeResult[]) => {
+    const evidence = normalizeEvidence({ pages: [page(html)], failures: [], probes });
     const records = evidence.map((e, i) => ({
       id: `e${i}`,
       evidenceType: e.evidenceType,
@@ -123,8 +117,32 @@ describe('a broken ordering link still outranks the phone', () => {
       confidence: e.confidence,
       supportingContext: e.supportingContext ?? null,
     }));
-    const stage = analyzeJourney(records).find((s) => s.stage === 'ORDERING');
+    return analyzeJourney(records).find((s) => s.stage === 'ORDERING');
+  };
+
+  it('reports RISK rather than telephone friction when a link a customer is offered failed', () => {
+    // The failing destination is ON THE PAGE, which is what makes it a customer
+    // dead end. Before the ordering-channel fix the fixture omitted the link and
+    // still asserted RISK — the audit was willing to call ordering broken on the
+    // strength of a URL no visitor is ever shown.
+    const stage = journeyWithProbe(
+      `<a href="tel:+17275551234">ORDER</a>
+       <a href="https://www.spothopperapp.com/order-online/x">Order Online</a>`,
+      [{ url: 'https://www.spothopperapp.com/order-online/x', category: 'ordering', ok: false, httpStatus: 500, note: 'HTTP 500' }],
+    );
     // A dead end is a worse finding than a working phone, so it takes priority.
     expect(stage?.status).toBe('RISK');
+  });
+
+  it('does NOT report a failure for a destination no customer is offered', () => {
+    // Same probe result, but the URL appears nowhere in the served markup — it
+    // came from an owner-supplied hint or leftover configuration. A customer
+    // never meets it, so its 500 says nothing about the customer journey.
+    const stage = journeyWithProbe(`<a href="tel:+17275551234">ORDER</a>`, [
+      { url: 'https://www.spothopperapp.com/order-online/x', category: 'ordering', ok: false, httpStatus: 500, note: 'HTTP 500' },
+    ]);
+    expect(stage?.status).toBe('FRICTION');
+    expect(stage?.finding).toMatch(/telephone only/i);
+    expect(stage?.status).not.toBe('RISK');
   });
 });

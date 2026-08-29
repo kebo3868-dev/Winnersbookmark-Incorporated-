@@ -2,6 +2,8 @@ import * as cheerio from 'cheerio';
 import type { Response as UndiciResponse } from 'undici';
 import { validateUrlTarget, normalizeUrl } from '@/lib/validation/url';
 import { safeFetchHop, readBodyCapped } from '@/lib/web/safeFetch';
+import { classifyLinkRole, contributesToCustomerPathway } from '@/lib/web/linkTaxonomy';
+import { classifyDestination, isMethodSemanticsRefusal, type DestinationKind, type ProbeFailureKind } from '@/lib/audit/destination';
 
 export type LinkCategory =
   | 'menu'
@@ -43,6 +45,19 @@ export interface PageExtract {
   metaDescription: string | null;
   hasViewportMeta: boolean;
   hasStructuredData: boolean;
+  /**
+   * `name` values from schema.org Restaurant / LocalBusiness / Organization
+   * blocks, in document order. The business stating its own name in a field it
+   * maintains deliberately — the most authoritative identity signal a public
+   * page carries, and the reason the audit no longer has to trust whatever an
+   * operator typed into the intake form.
+   */
+  structuredNames: string[];
+  /** `og:site_name`, then `og:title` — the next-best identity statements. */
+  ogSiteName: string | null;
+  ogTitle: string | null;
+  /** First `<h1>`, used only when metadata yields no usable name. */
+  h1: string | null;
   https: boolean;
   headings: string[];
   ctas: string[];
@@ -580,9 +595,18 @@ export function extractPage(
     }
   });
 
+  // Business identity, read BEFORE the scripts are stripped: schema.org
+  // metadata lives inside <script type="application/ld+json">, which the next
+  // line removes. Reading it after was why the audit never saw the site's own
+  // statement of its name.
+  const structuredNames = extractStructuredNames($);
+
   $('script, style, noscript').remove();
   const title = $('title').first().text().trim() || null;
   const metaDescription = $('meta[name="description"]').attr('content')?.trim() || null;
+  const ogSiteName = $('meta[property="og:site_name"]').attr('content')?.trim() || null;
+  const ogTitle = $('meta[property="og:title"]').attr('content')?.trim() || null;
+  const h1 = $('h1').first().text().replace(/\s+/g, ' ').trim() || null;
   const hasViewportMeta = $('meta[name="viewport"]').length > 0;
   const hasStructuredData = html.includes('application/ld+json') || $('[itemtype]').length > 0;
 
@@ -626,15 +650,23 @@ export function extractPage(
     }
     if (/\.pdf(\?|$)/i.test(abs.pathname)) pdfLinks.add(absStr);
 
-    // Vendor credit, not a customer action. "Powered by SpotHopper" points at a
-    // booking vendor but books nothing — categorizing it would turn an honest
-    // UNKNOWN into a confidently wrong HEALTHY.
+    // Who is this link FOR? A vendor credit, an agency's marketing page or a
+    // privacy policy is not a customer pathway, and counting one as contact
+    // health is how a footer credit ended up improving a restaurant's score.
     //
-    // Matched on the anchor TEXT only, deliberately not on being inside a
+    // `selfCategories` is the URL judged with EMPTY anchor text, so a button
+    // label can never talk a vendor's homepage into looking like an ordering
+    // page. Matched on text and destination, deliberately not on being inside a
     // footer: plenty of restaurants put a real "Order Online" link in the
     // footer, and excluding by location would discard genuine pathways.
-    if (isVendorCredit(text, abs, base.hostname)) {
-      vendorCredits.push({ href: absStr, text });
+    const role = classifyLinkRole({
+      href: absStr,
+      text,
+      siteHost: base.hostname,
+      selfCategories: categorizeLink(abs, ''),
+    }).role;
+    if (!contributesToCustomerPathway(role)) {
+      if (role === 'VENDOR_CREDIT' || role === 'DEVELOPER_PLATFORM') vendorCredits.push({ href: absStr, text });
       return;
     }
 
@@ -660,7 +692,15 @@ export function extractPage(
       continue;
     }
     if (SOCIAL_HOSTS.test(abs.hostname)) continue;
-    if (isVendorCredit(label, abs, base.hostname)) continue;
+    // Same taxonomy as the anchor loop: a widget-declared destination pointing
+    // at the vendor's own marketing page is still the vendor's marketing page.
+    const embedRole = classifyLinkRole({
+      href,
+      text: label,
+      siteHost: base.hostname,
+      selfCategories: categorizeLink(abs, ''),
+    }).role;
+    if (!contributesToCustomerPathway(embedRole)) continue;
     const categories = categorizeLink(abs, label);
     if (categories.length === 0) continue;
     const link: CategorizedLink = { href, text: label, source: 'embed' };
@@ -702,6 +742,10 @@ export function extractPage(
     metaDescription,
     hasViewportMeta,
     hasStructuredData,
+    structuredNames,
+    ogSiteName,
+    ogTitle,
+    h1,
     https: base.protocol === 'https:',
     headings,
     ctas: Array.from(new Set(ctas)),
@@ -723,6 +767,72 @@ export function extractPage(
     giftCardSignal,
     textSample: bodyText.slice(0, 4000),
   };
+}
+
+/**
+ * Business `name` values published as schema.org metadata.
+ *
+ * Walks JSON-LD (including `@graph` collections and nested `@type` arrays) plus
+ * microdata, and keeps only names attached to a business type. A `name` on a
+ * WebPage or a BreadcrumbList is the page's name, not the restaurant's, and
+ * accepting one would replace a correct name with a section heading.
+ *
+ * Never throws: a site with malformed JSON-LD simply yields nothing and the
+ * next identity source in the precedence list is used.
+ */
+const BUSINESS_SCHEMA_TYPES =
+  /^(?:Restaurant|LocalBusiness|FoodEstablishment|BarOrPub|CafeOrCoffeeShop|Bakery|Brewery|Winery|NightClub|Organization|Corporation)$/i;
+
+const MAX_STRUCTURED_NAMES = 5;
+const MAX_JSONLD_NODES = 500;
+
+function extractStructuredNames($: cheerio.CheerioAPI): string[] {
+  const names: string[] = [];
+  let visited = 0;
+
+  const visit = (node: unknown): void => {
+    if (names.length >= MAX_STRUCTURED_NAMES || visited >= MAX_JSONLD_NODES) return;
+    if (Array.isArray(node)) {
+      for (const item of node) visit(item);
+      return;
+    }
+    if (!node || typeof node !== 'object') return;
+    visited += 1;
+    const record = node as Record<string, unknown>;
+
+    const rawType = record['@type'];
+    const types = Array.isArray(rawType) ? rawType : [rawType];
+    const isBusiness = types.some((t) => typeof t === 'string' && BUSINESS_SCHEMA_TYPES.test(t));
+    if (isBusiness && typeof record.name === 'string') {
+      const value = record.name.replace(/\s+/g, ' ').trim();
+      if (value && !names.includes(value)) names.push(value);
+    }
+    for (const value of Object.values(record)) {
+      if (value && typeof value === 'object') visit(value);
+    }
+  };
+
+  $('script[type="application/ld+json"]').each((_, el) => {
+    if (names.length >= MAX_STRUCTURED_NAMES) return;
+    const body = $(el).text();
+    if (!body || body.length > 200_000) return;
+    try {
+      visit(JSON.parse(body));
+    } catch {
+      /* malformed JSON-LD — the next identity source is used */
+    }
+  });
+
+  $('[itemtype]').each((_, el) => {
+    if (names.length >= MAX_STRUCTURED_NAMES) return;
+    const itemtype = $(el).attr('itemtype') ?? '';
+    const type = itemtype.split('/').pop() ?? '';
+    if (!BUSINESS_SCHEMA_TYPES.test(type)) return;
+    const value = $(el).find('[itemprop="name"]').first().text().replace(/\s+/g, ' ').trim();
+    if (value && !names.includes(value)) names.push(value);
+  });
+
+  return names;
 }
 
 /**
@@ -749,16 +859,35 @@ export async function probeLink(
   finalUrl?: string;
   disabledSignal?: string;
   placeholderSignal?: string;
+  /** Whether the destination tested is a page a customer can open, or a machine interface. */
+  destinationKind: DestinationKind;
+  /** Why the probe did not succeed, when it did not. */
+  failureKind?: ProbeFailureKind;
+  /** The destination exists and refused the audit's GET. Never a customer-facing failure. */
+  methodNotAllowed?: boolean;
 }> {
+  const requestedKind = classifyDestination(url).kind;
   const hop = await followRedirectsSafely(url, options.timeoutMs ?? PROBE_TIMEOUT_MS, options.deadline);
   if (hop.kind === 'failure') {
     if (hop.status === 'BLOCKED' && /safety policy/.test(hop.note)) {
-      return { ok: false, httpStatus: hop.httpStatus, note: hop.note };
+      return { ok: false, httpStatus: hop.httpStatus, note: hop.note, destinationKind: requestedKind, failureKind: 'BLOCKED' };
     }
-    if (hop.status === 'TIMEOUT') return { ok: false, note: 'Timed out' };
-    return { ok: false, httpStatus: hop.httpStatus, note: hop.note };
+    if (hop.status === 'TIMEOUT') {
+      return { ok: false, note: 'Timed out', destinationKind: requestedKind, failureKind: 'TIMEOUT' };
+    }
+    return {
+      ok: false,
+      httpStatus: hop.httpStatus,
+      note: hop.note,
+      destinationKind: requestedKind,
+      failureKind: typeof hop.httpStatus === 'number' ? 'HTTP' : 'NETWORK',
+    };
   }
   const { response, finalUrl } = hop;
+  // Classified on where the probe ACTUALLY ended up. A customer-facing link
+  // that redirects into an API endpoint is an API endpoint by the time it
+  // answers, and the status it returns has to be read that way.
+  const destinationKind = classifyDestination(finalUrl).kind;
 
   // Read a bounded slice before discarding the rest. The body used to be
   // cancelled unread, which is why a booking page with reservations switched
@@ -774,13 +903,41 @@ export async function probeLink(
       httpStatus: response.status,
       note: `Access-restricted destination (treated as reachable, not verified)${suffix}`,
       finalUrl,
+      destinationKind,
     };
   }
+
+  // HTTP METHOD SEMANTICS.
+  //
+  // 405 and 501 are the server saying it understood the address and refused the
+  // VERB. The resource is there; this prober only speaks GET. Reading either as
+  // a broken customer journey reports the audit's own limitation as the
+  // restaurant's defect — which is exactly what happened when a SpotHopper
+  // reservation API answered 405 and the audit declared bookings dead on a site
+  // whose booking widget worked.
+  //
+  // Reported as reachable-but-unverified, never as reachable-and-working: the
+  // downstream classification still requires manual validation.
+  if (isMethodSemanticsRefusal(response.status)) {
+    return {
+      ok: true,
+      httpStatus: response.status,
+      note:
+        `HTTP ${response.status} — the destination exists and does not accept GET requests; ` +
+        `it was not verified from the customer's side${suffix}`,
+      finalUrl,
+      destinationKind,
+      methodNotAllowed: true,
+    };
+  }
+
   return {
     ok: response.status < 400,
     httpStatus: response.status,
     note: `HTTP ${response.status}${suffix}`,
     finalUrl,
+    destinationKind,
+    ...(response.status >= 400 ? { failureKind: 'HTTP' as const } : {}),
     ...(disabledSignal ? { disabledSignal } : {}),
     ...(placeholderSignal ? { placeholderSignal } : {}),
   };

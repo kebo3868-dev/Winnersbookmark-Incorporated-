@@ -23,6 +23,16 @@ export type EvidenceType =
   | 'REVIEW_SIGNAL'
   | 'RESERVATION_PLATFORM'
   | 'ORDERING_PLATFORM'
+  /**
+   * The canonical answer to "how does this restaurant take orders" — one record
+   * per audit, carrying a machine-readable OrderingChannelState token.
+   *
+   * Separate from ORDERING_PATH because the two say different things.
+   * ORDERING_PATH records what was found on the page; ORDERING_CHANNEL records
+   * the decision made about it, so the journey, the report and the sales brief
+   * all read one verdict instead of each re-deriving one from prose.
+   */
+  | 'ORDERING_CHANNEL'
   | 'COLLECTION_FAILURE'
   | 'UNKNOWN';
 
