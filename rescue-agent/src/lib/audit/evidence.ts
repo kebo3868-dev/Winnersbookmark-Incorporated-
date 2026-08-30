@@ -1,5 +1,18 @@
 import { detectWidgetVendor, type CategorizedLink, type PageExtract } from '@/lib/web/collector';
 import type { EvidenceInput } from '@/types/audit';
+import {
+  classifyDestination,
+  isMethodSemanticsRefusal,
+  mayClaimVerifiedBroken,
+  type DestinationKind,
+  type ProbeFailureKind,
+} from '@/lib/audit/destination';
+import {
+  formatOrderingChannelFact,
+  resolveOrderingChannel,
+  type OrderingDestination,
+  type OrderingProbe,
+} from '@/lib/audit/orderingChannel';
 
 export interface ProbeResult {
   url: string;
@@ -7,6 +20,18 @@ export interface ProbeResult {
   ok: boolean;
   httpStatus?: number;
   note: string;
+  /** Page a customer can open, or a machine interface. Decides what a failure may be called. */
+  destinationKind?: DestinationKind;
+  /** Why the probe did not succeed, when it did not. */
+  failureKind?: ProbeFailureKind;
+  /** The destination exists and refused the audit's GET. Never a customer-facing failure. */
+  methodNotAllowed?: boolean;
+  /**
+   * True when this destination is offered to customers in the served markup,
+   * rather than merely supplied as an owner hint. A destination no customer is
+   * ever shown cannot demonstrate anything about the customer journey.
+   */
+  exposedInCustomerJourney?: boolean;
   /** Destination reached after redirects, when it differs from the link href. */
   finalUrl?: string;
   /**
@@ -309,6 +334,31 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
           'This is not evidence that a working pathway exists.',
         confidence: 55,
       });
+    } else if (check.key === 'contact' && (anyPhone || clickToCall)) {
+      // A PHONE NUMBER IS A CONTACT PATHWAY.
+      //
+      // The audit reported "No public contact pathway was detected" on a site
+      // that publishes its number and offers click-to-call — while the very same
+      // evidence chain, two entries above, recorded both. Saying a restaurant
+      // cannot be contacted when it plainly can is the kind of error an owner
+      // spots instantly, and it costs the whole report its credibility.
+      //
+      // The real finding is narrower and still worth making: everything routes
+      // through the phone, and there is no way to ask a question in writing.
+      evidence.push({
+        sourceUrl: home.finalUrl,
+        evidenceType: 'CONTACT_PATH',
+        fact:
+          'A contact pathway is publicly available by telephone, but no non-phone contact route ' +
+          '(contact page, enquiry form, or published email) was detected.',
+        supportingContext:
+          `${anyPhone ? `Phone number published: ${anyPhone.phones[0]}. ` : ''}` +
+          `${clickToCall ? 'Click-to-call (tel:) links are present. ' : ''}` +
+          'Customers can reach the restaurant; every enquiry has to become a phone call, so questions that arrive ' +
+          'outside service hours have nowhere to go. ' +
+          analyzedNote,
+        confidence: 85,
+      });
     } else {
       evidence.push({
         sourceUrl: home.finalUrl,
@@ -318,6 +368,85 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
         confidence: 65,
       });
     }
+  }
+
+  // ── ORDERING CHANNEL ──────────────────────────────────────────────────────
+  //
+  // The canonical statement of how this restaurant takes orders, written as a
+  // machine-readable token so every downstream layer reads the same decision
+  // instead of re-deriving one from prose. Phone ordering is a real ordering
+  // pathway and is NOT online ordering; a vendor URL that returned 404 is not
+  // an ordering failure unless a customer is actually offered it.
+  {
+    const orderingLinks = new Map<string, CategorizedLink>();
+    for (const page of pages) {
+      for (const link of page.categorizedLinks.ordering ?? []) {
+        if (!orderingLinks.has(link.href)) orderingLinks.set(link.href, link);
+      }
+    }
+    // EXPOSURE MEANS A VISIBLE ANCHOR, NOT A URL IN THE MARKUP.
+    //
+    // `source: 'anchor'` is a link a visitor can see and tap. `source: 'embed'`
+    // is a destination the audit READ OUT of an iframe, a data-attribute or an
+    // inline widget config — it proves the URL is written on the page, never
+    // that anyone is offered it. Stale slugs left over from a redesign live
+    // there too.
+    //
+    // Treating an embed destination as exposed is what let a URL nobody clicks
+    // become a "customer-facing failed transaction link". Only anchors count;
+    // embeds stay unverified until customer exposure is actually proven.
+    const visibleAnchors = new Map<string, CategorizedLink>();
+    for (const [href, link] of orderingLinks) {
+      if (link.source === 'anchor') visibleAnchors.set(href, link);
+    }
+    const exposedUrls = new Set(visibleAnchors.keys());
+    const destinations: OrderingDestination[] = Array.from(orderingLinks.entries()).map(([url, link]) => ({
+      url,
+      exposedInCustomerJourney: link.source === 'anchor',
+      platform: detectPlatform([url]),
+      host: hostOf(url),
+      // Provenance: the visible call-to-action that leads here, when there is one.
+      ctaText: link.source === 'anchor' ? link.text || '(no link text)' : null,
+      discoveredVia: link.source === 'anchor' ? 'VISIBLE_LINK' : 'PAGE_MARKUP',
+    }));
+
+    const orderingProbes: OrderingProbe[] = [];
+    for (const probe of probes) {
+      if (probe.category !== 'ordering') continue;
+      const exposed =
+        probe.exposedInCustomerJourney ?? (exposedUrls.has(probe.url) || (probe.finalUrl ? exposedUrls.has(probe.finalUrl) : false));
+      if (!exposed && !destinations.some((d) => d.url === probe.url)) {
+        destinations.push({
+          url: probe.url,
+          exposedInCustomerJourney: false,
+          platform: detectPlatform([probe.finalUrl ?? probe.url]),
+          host: hostOf(probe.finalUrl ?? probe.url),
+        });
+      }
+      orderingProbes.push({
+        url: probe.url,
+        finalUrl: probe.finalUrl,
+        ok: probe.ok,
+        httpStatus: probe.httpStatus,
+        failureKind: probe.failureKind,
+        disabledSignal: probe.disabledSignal,
+        exposedInCustomerJourney: exposed,
+      });
+    }
+
+    const channel = resolveOrderingChannel({
+      phoneOrderCtas,
+      destinations,
+      probes: orderingProbes,
+      widgetVendor: widgetVendorFor.ordering,
+    });
+    evidence.push({
+      sourceUrl: destinations.find((d) => d.exposedInCustomerJourney)?.url ?? home.finalUrl,
+      evidenceType: 'ORDERING_CHANNEL',
+      fact: formatOrderingChannelFact(channel),
+      supportingContext: `${channel.detail} Evidence confidence: ${channel.evidenceState}.`,
+      confidence: channel.evidenceState === 'VERIFIED' ? 90 : channel.evidenceState === 'STRONG_EVIDENCE' ? 75 : 55,
+    });
   }
 
   // Menu format
@@ -396,14 +525,110 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
     });
   }
 
+  // Destinations that exist ONLY as page markup — an iframe src, a data
+  // attribute, an inline widget config — with no visible anchor anywhere
+  // pointing at them.
+  //
+  // A URL in this set is written on the page and offered to nobody. It cannot
+  // become a customer-facing failed transaction link however it responds, which
+  // is the rule the probe loop below enforces. Anchors win: a URL that appears
+  // both as an embed and as a real link is a real link.
+  const anchorUrls = new Set<string>();
+  const embedUrls = new Set<string>();
+  for (const page of pages) {
+    for (const links of Object.values(page.categorizedLinks)) {
+      for (const link of links ?? []) {
+        (link.source === 'anchor' ? anchorUrls : embedUrls).add(link.href);
+      }
+    }
+  }
+  const markupOnly = (url: string | undefined) => Boolean(url) && embedUrls.has(url as string) && !anchorUrls.has(url as string);
+
   // Probes (broken links)
   for (const probe of probes) {
+    const target = probe.finalUrl ?? probe.url;
+    // Explicit flag wins; otherwise a destination is assumed exposed unless it
+    // is demonstrably markup-only. Defaulting to exposed keeps every genuine
+    // discovered-link failure reporting exactly as before.
+    const exposed = probe.exposedInCustomerJourney ?? !(markupOnly(probe.url) || markupOnly(probe.finalUrl));
+    const destination = classifyDestination(target);
+    const kind = probe.destinationKind ?? destination.kind;
+
+    // ── NOT A CUSTOMER DESTINATION ────────────────────────────────────────
+    //
+    // An API endpoint, a static asset or an unparseable target is not somewhere
+    // a customer is ever sent, so nothing it returns can demonstrate anything
+    // about the customer journey. The raw result is preserved as a technical
+    // signal for debugging — that is what "preserve the raw evidence" means —
+    // and it is kept out of BROKEN_LINK entirely, because BROKEN_LINK is what
+    // the journey and the leak rules read to declare a dead end.
+    if (kind !== 'CUSTOMER_FACING') {
+      evidence.push({
+        sourceUrl: probe.url,
+        evidenceType: 'TECHNICAL_SIGNAL',
+        fact:
+          `A ${probe.category} endpoint referenced by the site was tested and is not a customer-facing destination ` +
+          `(${probe.note}).`,
+        supportingContext:
+          `${probe.url}${probe.finalUrl && probe.finalUrl !== probe.url ? ` → ${probe.finalUrl}` : ''}. ` +
+          `Classified as ${kind} — ${destination.reason}. ` +
+          'Raw result retained for debugging. It is deliberately excluded from the customer-journey assessment: no ' +
+          'customer opens this URL, so its response says nothing about whether the pathway works or fails.',
+        confidence: 85,
+      });
+      continue;
+    }
+
+    // ── METHOD SEMANTICS ──────────────────────────────────────────────────
+    //
+    // 405/501 on a customer-facing URL still describes the request method, not
+    // the resource. The destination answered — it simply refused GET. This is
+    // an explicit unknown, never a failure.
+    if (isMethodSemanticsRefusal(probe.httpStatus)) {
+      evidence.push({
+        sourceUrl: probe.url,
+        evidenceType:
+          probe.category === 'reservation' ? 'RESERVATION_PATH' : probe.category === 'ordering' ? 'ORDERING_PATH' : 'MENU_ACCESS',
+        fact:
+          `The ${probe.category} destination exists but could not be verified from the public page ` +
+          `(HTTP ${probe.httpStatus} Method Not Allowed) — manual validation required.`,
+        supportingContext:
+          `${probe.url}${probe.finalUrl && probe.finalUrl !== probe.url ? ` → ${probe.finalUrl}` : ''}. ` +
+          `HTTP ${probe.httpStatus} means the server understood the address and rejected the audit's GET request. ` +
+          'That confirms the destination is live and tells us nothing about whether a customer can complete the ' +
+          'action, so it is recorded as unverified rather than as a failure.',
+        confidence: 60,
+      });
+      continue;
+    }
+
     if (!probe.ok) {
+      const verdict = exposed
+        ? mayClaimVerifiedBroken(probe)
+        : {
+            allowed: false,
+            reason:
+              'the destination appears only in the page markup — no visible link or button points customers to it, ' +
+              'so nothing here shows a customer ever reaches it',
+          };
+      if (!verdict.allowed) {
+        // Reached only for an audit-side limitation — a timeout, or the SSRF
+        // policy declining to follow. Recorded honestly as unresolved.
+        evidence.push({
+          sourceUrl: probe.url,
+          evidenceType:
+            probe.category === 'reservation' ? 'RESERVATION_PATH' : probe.category === 'ordering' ? 'ORDERING_PATH' : 'MENU_ACCESS',
+          fact: `The ${probe.category} destination could not be verified when tested (${probe.note}) — manual validation required.`,
+          supportingContext: `${probe.url}. Not reported as a failure because ${verdict.reason}.`,
+          confidence: 55,
+        });
+        continue;
+      }
       evidence.push({
         sourceUrl: probe.url,
         evidenceType: 'BROKEN_LINK',
         fact: `The linked ${probe.category} destination failed when tested (${probe.note}).`,
-        supportingContext: probe.url,
+        supportingContext: `${probe.url}. Verified as a customer-facing failure: ${verdict.reason}.`,
         confidence: probe.httpStatus ? 95 : 75,
       });
     } else {

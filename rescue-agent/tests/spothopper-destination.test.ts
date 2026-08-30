@@ -227,14 +227,32 @@ describe('Rescue Score is derived from the corrected evidence', () => {
     expect(resolved.overall.overallScore).toBeGreaterThan(unresolved.overall.overallScore as number);
   });
 
-  it('turns UNKNOWN reservation and ordering stages into known ones once resolved', () => {
+  it('turns an UNKNOWN reservation stage into a known one once resolved', () => {
     const unresolvedStages = scoreFor(WIDGET_ONLY).journey;
     const resolvedStages = scoreFor(WIDGET_WITH_DESTINATIONS).journey;
 
-    for (const name of ['RESERVATION', 'ORDERING']) {
-      expect(unresolvedStages.find((s) => s.stage === name)?.status).toBe('UNKNOWN');
-      expect(resolvedStages.find((s) => s.stage === name)?.status).not.toBe('UNKNOWN');
-    }
+    expect(unresolvedStages.find((s) => s.stage === 'RESERVATION')?.status).toBe('UNKNOWN');
+    expect(resolvedStages.find((s) => s.stage === 'RESERVATION')?.status).not.toBe('UNKNOWN');
+  });
+
+  it('keeps ORDERING unknown from widget config alone, but says something different about it', () => {
+    // ORDERING is deliberately no longer promoted out of UNKNOWN by a URL found
+    // only in widget configuration. A config value is not a visible
+    // call-to-action, so nothing here shows a customer is offered the
+    // destination — and an ordering finding is a transaction claim, which needs
+    // proven customer exposure.
+    //
+    // Resolving the URL still changes the OUTPUT, which is what this test now
+    // guards: the finding moves from "no pathway detected" to a specific,
+    // actionable "here is the URL, confirm whether anyone is shown it".
+    const unresolved = scoreFor(WIDGET_ONLY).journey.find((s) => s.stage === 'ORDERING');
+    const resolved = scoreFor(WIDGET_WITH_DESTINATIONS).journey.find((s) => s.stage === 'ORDERING');
+
+    expect(unresolved?.status).toBe('UNKNOWN');
+    expect(resolved?.status).toBe('UNKNOWN');
+    expect(resolved?.manualValidationRequired).toBe(true);
+    expect(resolved?.finding).not.toBe(unresolved?.finding);
+    expect(resolved?.finding).toMatch(/markup/i);
   });
 
   it('is not pinned to any constant — 75 included', () => {

@@ -1,5 +1,7 @@
 import { prisma } from '@/lib/db';
 import { validateUrlTarget, normalizeUrl } from '@/lib/validation/url';
+import { sanitizeUrlInput, describeRemovals } from '@/lib/validation/urlSanitize';
+import { resolveRestaurantName, shouldReplaceStoredName } from '@/lib/audit/restaurantName';
 import { fetchPage, probeLink, type PageExtract } from '@/lib/web/collector';
 import { discoverRelevantPages } from '@/lib/web/discovery';
 import { normalizeEvidence, type CollectionSet, type ProbeResult } from '@/lib/audit/evidence';
@@ -38,22 +40,37 @@ export interface CreateAuditInput {
 
 const clean = (v?: string): string | null => v?.trim() || null;
 
-/** Accept an optional owner-supplied http(s) URL; return normalized or null (never throws on bad input). */
+/**
+ * Accept an optional owner-supplied http(s) URL; return the sanitized canonical
+ * form or null. Never throws on bad input.
+ *
+ * Runs the same sanitizer as the primary website URL: a pathway hint pasted out
+ * of a browser carries exactly the same invisible characters, and a hint that
+ * 404s because of one produces a false ordering finding rather than a false
+ * homepage failure.
+ */
 function cleanOptionalUrl(v?: string): string | null {
-  const t = v?.trim();
-  if (!t) return null;
-  const withScheme = /^https?:\/\//i.test(t) ? t : `https://${t}`;
-  try {
-    return new URL(withScheme).toString();
-  } catch {
-    return null;
-  }
+  if (!v) return null;
+  const result = sanitizeUrlInput(v);
+  return result.ok ? result.normalized : null;
 }
 
 export async function createAudit(input: CreateAuditInput): Promise<{ auditId: string } | { error: string }> {
-  const validation = await validateUrlTarget(input.websiteUrl);
+  // SANITIZE BEFORE ANYTHING ELSE.
+  //
+  // `https://leverocks.com/%E2%81%A0` is a healthy site plus an invisible
+  // WORD JOINER that rode along with a copy-paste. Validated as-is it resolves,
+  // passes every safety check, and then 404s — and the audit reports a website
+  // failure against a restaurant whose website is fine. Everything downstream
+  // (persistence, crawling, display) uses the sanitized form; the raw input is
+  // kept in the audit log for diagnostics.
+  const sanitized = sanitizeUrlInput(input.websiteUrl);
+  if (!sanitized.ok) return { error: sanitized.reason };
+
+  const validation = await validateUrlTarget(sanitized.normalized);
   if (!validation.ok) return { error: validation.reason };
   const websiteUrl = normalizeUrl(validation.url);
+  const sanitizationNote = describeRemovals(sanitized.removals);
 
   const restaurant = await prisma.restaurant.upsert({
     where: { websiteUrl },
@@ -95,6 +112,18 @@ export async function createAudit(input: CreateAuditInput): Promise<{ auditId: s
       job: { create: { status: 'PENDING', currentStage: 'INITIALIZING' } },
     },
   });
+
+  // The raw input is retained for diagnostics without being allowed anywhere
+  // near the crawl or the report. When a support question is "why did this
+  // audit behave oddly", the answer is usually right here.
+  if (sanitizationNote) {
+    await log(
+      audit.id,
+      'INFO',
+      'The submitted website URL was sanitized before the audit ran.',
+      `Raw input: ${JSON.stringify(sanitized.raw)}. Normalized: ${websiteUrl}. Removed: ${sanitizationNote}.`,
+    );
+  }
 
   // Lead capture: only when the prospect actually gave contact details.
   const contactName = clean(input.contactName);
@@ -210,6 +239,37 @@ export async function runAudit(auditId: string): Promise<void> {
     });
     sourceIdByUrl.set(home.finalUrl, homeSource.id);
 
+    // ---- RESOLVE THE RESTAURANT'S OWN NAME ----
+    //
+    // Until now the name came from whatever an operator typed, so a business
+    // called Leverock's Great Seafood was reported — on the cover of the PDF the
+    // owner is handed — as "Leverocks Great Seafood". The homepage states its
+    // own name in structured data and metadata; that statement outranks a typed
+    // one, and reading it is the whole fix.
+    //
+    // An operator-typed name is never overwritten by another typed name, and a
+    // resolved name identical to the stored one is not written at all.
+    const resolvedName = resolveRestaurantName({
+      structuredNames: home.structuredNames,
+      ogSiteName: home.ogSiteName,
+      ogTitle: home.ogTitle,
+      pageTitle: home.title,
+      h1: home.h1,
+      userProvided: audit.restaurant.name,
+      hostname: validation.url.hostname,
+    });
+    let restaurantName = audit.restaurant.name;
+    if (shouldReplaceStoredName(audit.restaurant.name, resolvedName)) {
+      await prisma.restaurant.update({ where: { id: audit.restaurantId }, data: { name: resolvedName.name } });
+      await log(
+        auditId,
+        'INFO',
+        `Restaurant name resolved from the website itself: "${resolvedName.name}".`,
+        `Source: ${resolvedName.source} — ${resolvedName.reason}. Previously stored: "${audit.restaurant.name}".`,
+      );
+      restaurantName = resolvedName.name;
+    }
+
     // ---- COLLECT RELEVANT PAGES (bounded) ----
     await setStage(auditId, 'COLLECTING_EVIDENCE');
     const targets = discoverRelevantPages(home);
@@ -253,7 +313,11 @@ export async function runAudit(auditId: string): Promise<void> {
 
     // ---- PROBE KEY TRANSACTIONAL LINKS ----
     const probes: ProbeResult[] = [];
-    const probeTargets: { url: string; category: ProbeResult['category'] }[] = [];
+    // `exposed` records whether a customer is actually OFFERED this destination
+    // in the served markup. An owner-supplied hint is not: a URL nobody is shown
+    // cannot demonstrate anything about the customer journey, and treating one
+    // as proof is how a discovered 404 became a reported ordering failure.
+    const probeTargets: { url: string; category: ProbeResult['category']; exposed: boolean }[] = [];
     const seenProbe = new Set<string>();
     // Owner-supplied pathway URLs are probed first so they are never dropped.
     for (const [url, category] of [
@@ -262,7 +326,7 @@ export async function runAudit(auditId: string): Promise<void> {
     ] as const) {
       if (url && !seenProbe.has(url)) {
         seenProbe.add(url);
-        probeTargets.push({ url, category });
+        probeTargets.push({ url, category, exposed: false });
       }
     }
     for (const [category, key] of [
@@ -275,7 +339,10 @@ export async function runAudit(auditId: string): Promise<void> {
           if (probeTargets.filter((p) => p.category === category).length >= 2) break;
           if (seenProbe.has(link.href) || sourceIdByUrl.has(link.href)) continue;
           seenProbe.add(link.href);
-          probeTargets.push({ url: link.href, category });
+          // Only a visible anchor proves a customer is offered this destination.
+          // An `embed` source was read out of markup or widget config, which is
+          // not the same thing — see the exposure note in evidence.ts.
+          probeTargets.push({ url: link.href, category, exposed: link.source === 'anchor' });
         }
       }
     }
@@ -286,7 +353,7 @@ export async function runAudit(auditId: string): Promise<void> {
         continue;
       }
       const result = await probeLink(target.url, { timeoutMs: probeTimeout, deadline: budget.deadline });
-      probes.push({ url: target.url, category: target.category, ...result });
+      probes.push({ url: target.url, category: target.category, exposedInCustomerJourney: target.exposed, ...result });
     }
     if (skippedForBudget > 0) {
       await log(
@@ -412,7 +479,7 @@ export async function runAudit(auditId: string): Promise<void> {
           systemPrompt:
             'You are writing the executive summary of a restaurant digital audit for the restaurant owner. You may ONLY use facts present in the supplied evidence and findings. Never introduce numbers, revenue estimates, or facts not present in the input. Professional, direct, respectful tone. Return JSON: {"executiveSummary": string}.',
           userPrompt: JSON.stringify({
-            restaurant: audit.restaurant.name,
+            restaurant: restaurantName,
             overallScore: overall.overallScore,
             coverageScore: overall.coverageScore,
             topLeaks: topLeaks.map((l) => ({ title: l.title, problem: l.problem, recommendation: l.recommendedSolution })),
@@ -434,7 +501,7 @@ export async function runAudit(auditId: string): Promise<void> {
     const partial = failures.length > 0 || skippedForBudget > 0;
     const finalStatus: AuditStatus = partial ? 'PARTIALLY_COMPLETED' : 'COMPLETED';
     const ownerReport = generateOwnerReport({
-      restaurantName: audit.restaurant.name,
+      restaurantName,
       websiteUrl: audit.restaurant.websiteUrl,
       location,
       auditStatus: finalStatus,
@@ -457,7 +524,7 @@ export async function runAudit(auditId: string): Promise<void> {
     // ---- INTERNAL SALES BRIEF ----
     await setStage(auditId, 'GENERATING_SALES_BRIEF');
     const brief = generateSalesBrief({
-      restaurantName: audit.restaurant.name,
+      restaurantName,
       overallScore: overall.overallScore,
       coverageScore: overall.coverageScore,
       topLeaks,

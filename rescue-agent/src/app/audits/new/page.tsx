@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { sanitizeUrlInput, describeRemovals } from '@/lib/validation/urlSanitize';
 
 const INITIAL = {
   websiteUrl: '',
@@ -31,6 +32,16 @@ export default function NewAuditPage() {
 
   const set = (key: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setForm((f) => ({ ...f, [key]: e.target.value }));
+
+  // Show the operator the URL the audit will actually use. Runs the SAME
+  // sanitizer the server runs, so the preview cannot promise one thing and the
+  // pipeline do another.
+  const sanitizedInput = form.websiteUrl.trim() ? sanitizeUrlInput(form.websiteUrl) : null;
+  const urlPreview =
+    sanitizedInput?.ok && sanitizedInput.normalized !== form.websiteUrl.trim()
+      ? { normalized: sanitizedInput.normalized, removed: describeRemovals(sanitizedInput.removals) }
+      : null;
+  const urlError = sanitizedInput && !sanitizedInput.ok ? sanitizedInput.reason : null;
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -109,6 +120,22 @@ export default function NewAuditPage() {
           <div>
             <label className="label block mb-2">Restaurant Website URL — required</label>
             <input required value={form.websiteUrl} onChange={set('websiteUrl')} placeholder="https://example-restaurant.com" />
+            {/* The URL that will actually be crawled, shown only when it differs
+                from what was typed. A pasted URL can carry invisible characters
+                that make it 404; without this the operator sees a healthy site
+                fail an audit and has nothing on screen to explain why. */}
+            {urlPreview && (
+              <p className="text-xs mt-2 text-amber-300/90">
+                Will be audited as <span className="text-ivory break-all">{urlPreview.normalized}</span>
+                {urlPreview.removed && (
+                  <>
+                    {' '}
+                    — removed invisible characters from the pasted URL ({urlPreview.removed}).
+                  </>
+                )}
+              </p>
+            )}
+            {urlError && <p className="text-xs mt-2 text-red-300">{urlError}</p>}
           </div>
           <div className="grid sm:grid-cols-3 gap-4">
             <div>

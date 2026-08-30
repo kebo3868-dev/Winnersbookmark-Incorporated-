@@ -2,6 +2,8 @@ import { scoreBand } from '@/lib/scoring/rescueScore';
 import { CATEGORY_LABELS } from '@/lib/reports/owner';
 import { COMPANY, type Contact } from '@/lib/config';
 import { buildScenario, scenarioKindFor, withAverageTicket, type RevenueScenario } from '@/lib/reports/scenarios';
+import { STATE_LABEL, stateForOpportunity, type EvidenceState } from '@/lib/audit/evidenceState';
+import { safeDisplayName } from '@/lib/audit/restaurantName';
 
 export type { RevenueScenario } from '@/lib/reports/scenarios';
 
@@ -27,17 +29,30 @@ export const confidenceLabel = (n: number): 'Preliminary' | 'Moderate' | 'Strong
 export const automationLabel = (n: number): 'Limited' | 'Moderate' | 'Strong' => (n >= 70 ? 'Strong' : n >= 40 ? 'Moderate' : 'Limited');
 export const priorityLabel = (n: number): 'Critical' | 'High' | 'Moderate' | 'Monitor' => (n >= 80 ? 'Critical' : n >= 65 ? 'High' : n >= 50 ? 'Moderate' : 'Monitor');
 
-export type EvidenceClassification = 'VERIFIED FINDING' | 'INFERRED OPPORTUNITY' | 'MANUAL VALIDATION REQUIRED' | 'INSUFFICIENT DATA';
+export type EvidenceClassification =
+  | 'VERIFIED FINDING'
+  | 'STRONG EVIDENCE'
+  | 'INFERRED OPPORTUNITY'
+  | 'MANUAL VALIDATION REQUIRED'
+  | 'INSUFFICIENT DATA';
 
 /**
- * Classification preserves the engine's own uncertainty flags — it can only
- * ever be as confident as the stored finding, never more:
- * manualValidationRequired always wins; confidence ≥80 with no manual flag is
- * VERIFIED; anything else is an INFERRED OPPORTUNITY.
+ * Classification preserves the engine's own uncertainty flags — it can only ever
+ * be as confident as the stored finding, never more.
+ *
+ * The rule now lives in one place for the whole system (`stateForOpportunity`),
+ * so the Executive Report, the PDF and the Internal Sales Brief cannot drift
+ * into three slightly different opinions about the same finding. These strings
+ * are the client-facing rendering of that single state; the state itself is
+ * what every layer reasons about.
  */
 export function classifyFinding(opp: { manualValidationRequired: boolean; confidenceScore: number }): EvidenceClassification {
-  if (opp.manualValidationRequired) return 'MANUAL VALIDATION REQUIRED';
-  return opp.confidenceScore >= 80 ? 'VERIFIED FINDING' : 'INFERRED OPPORTUNITY';
+  return STATE_LABEL[stateForOpportunity(opp)] as EvidenceClassification;
+}
+
+/** The canonical evidence state behind a report classification, for callers that need to reason about it. */
+export function evidenceStateForFinding(opp: { manualValidationRequired: boolean; confidenceScore: number }): EvidenceState {
+  return stateForOpportunity(opp);
 }
 
 // "What we do not yet know" — deterministic per finding category. These
@@ -340,8 +355,19 @@ export function buildExecutiveReport(input: ExecutiveReportInput): ExecutiveRepo
     };
   });
 
+  // Three published counters, and they must still sum to the number of findings
+  // printed — a reader who cannot make the numbers add up stops trusting all of
+  // them.
+  //
+  // STRONG EVIDENCE is counted with the inferred findings, not the verified
+  // ones. The buckets are "may be stated as fact" / "an opportunity, not a
+  // confirmed defect" / "needs a human", and strong-but-not-completed evidence
+  // belongs to the second. Each finding still carries its own STRONG EVIDENCE
+  // badge, so nothing is hidden by the grouping — only the promotion is refused.
   const verifiedCount = findings.filter((f) => f.classification === 'VERIFIED FINDING').length;
-  const inferredCount = findings.filter((f) => f.classification === 'INFERRED OPPORTUNITY').length;
+  const inferredCount = findings.filter(
+    (f) => f.classification === 'INFERRED OPPORTUNITY' || f.classification === 'STRONG EVIDENCE',
+  ).length;
   const manualCount = findings.filter((f) => f.classification === 'MANUAL VALIDATION REQUIRED').length;
 
   const stageOrder = Object.keys(JOURNEY_LABELS);
@@ -389,7 +415,10 @@ export function buildExecutiveReport(input: ExecutiveReportInput): ExecutiveRepo
       company: COMPANY.name,
       productName: COMPANY.productName,
       subtitle: COMPANY.reportSubtitle,
-      restaurantName: input.restaurantName,
+      // Never renders a null, empty or serialised-junk name to a client. The
+      // resolver runs at audit time; this report may be built from a row written
+      // by an older build, so the guard lives here too.
+      restaurantName: safeDisplayName(input.restaurantName, input.websiteUrl),
       websiteUrl: input.websiteUrl,
       location: input.location,
       auditDate: input.auditDate,

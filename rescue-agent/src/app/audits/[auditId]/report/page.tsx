@@ -7,6 +7,9 @@ export const dynamic = 'force-dynamic';
 
 const CLASSIFICATION_STYLES: Record<string, string> = {
   'VERIFIED FINDING': 'text-emerald-400 border-emerald-400/40',
+  // Between verified and inferred: consistent, high-confidence public evidence
+  // where the customer flow itself was not completed end to end.
+  'STRONG EVIDENCE': 'text-emerald-300/90 border-emerald-300/30',
   'INFERRED OPPORTUNITY': 'text-gold border-gold/40',
   'MANUAL VALIDATION REQUIRED': 'text-amber-400 border-amber-400/40',
   'INSUFFICIENT DATA': 'text-ivory-faint border-obsidian-line',

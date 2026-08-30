@@ -52,6 +52,7 @@ const s = StyleSheet.create({
 
 function classificationColor(classification: string): string {
   if (classification === 'VERIFIED FINDING') return C.green;
+  if (classification === 'STRONG EVIDENCE') return C.green;
   if (classification === 'MANUAL VALIDATION REQUIRED') return C.amber;
   if (classification === 'INSUFFICIENT DATA') return C.muted;
   return C.goldDim;

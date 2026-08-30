@@ -1,4 +1,5 @@
 import type { EvidenceRecordLike, JourneyStageResult, JourneyStageName } from '@/types/audit';
+import { parseOrderingChannelFact } from '@/lib/audit/orderingChannel';
 
 type EvidenceIndex = Map<string, EvidenceRecordLike[]>;
 
@@ -158,6 +159,12 @@ export function analyzeJourney(evidence: EvidenceRecordLike[]): JourneyStageResu
     // The destination's own page says bookings are off. Worse than unverified:
     // this is a known dead end for a customer who arrives with booking intent.
     const unavailable = res.filter((e) => /states the service is unavailable/i.test(e.fact));
+    // A destination that exists but could not be driven from the public page —
+    // an endpoint that refused the audit's GET, a timeout, a safety block.
+    // Checked before the reachable-and-unverified fallback and never treated as
+    // a failure: the evidence layer has already refused to call it broken, and
+    // re-deriving a dead end here would put the false positive straight back.
+    const unverified = res.filter((e) => /manual validation required/i.test(e.fact));
     if (res.length === 0) {
       push(stage('RESERVATION', 'UNKNOWN', 'Reservation experience could not be assessed.', 30, true, []));
     } else if (broken.length > 0) {
@@ -195,6 +202,22 @@ export function analyzeJourney(evidence: EvidenceRecordLike[]): JourneyStageResu
           ids([...res, ...unavailable]),
         ),
       );
+    } else if (unverified.length > 0) {
+      // An embedded widget, or an endpoint that exists and could not be driven
+      // from the public HTML. This is the MANUAL_VALIDATION_REQUIRED case: a
+      // real thing was seen, and what a customer experiences is unresolved.
+      // Emphatically not a failure — an HTTP 405 from a booking API is the
+      // server refusing the audit's GET, not a customer hitting a dead end.
+      push(
+        stage(
+          'RESERVATION',
+          'UNKNOWN',
+          'A reservation destination exists, but the customer booking flow could not be completed from the public page, so whether a customer can book is unresolved. This is not evidence that booking is broken — it is evidence that a human needs to open the page and try. Manual validation required.',
+          avgConfidence(unverified, 60),
+          true,
+          ids(res),
+        ),
+      );
     } else {
       // Reachability is not functionality. A booking page with reservations
       // switched off returns 200 and renders normally, so responding proves the
@@ -214,7 +237,63 @@ export function analyzeJourney(evidence: EvidenceRecordLike[]): JourneyStageResu
   }
 
   // ORDERING
+  //
+  // Driven by the canonical ORDERING_CHANNEL record when one is present. The
+  // channel decision is made once, in the evidence layer, against the raw
+  // signals; the branches here present that decision rather than making a
+  // second, slightly different judgement out of prose.
+  //
+  // Phone ordering is a legitimate ordering pathway and is NOT online ordering,
+  // which is the distinction the single-status model kept losing.
+  //
+  // The prose-matching chain below is the fallback for evidence sets produced
+  // without a channel record — stored audits, and direct callers. It is
+  // unreachable whenever a channel record exists.
   {
+    const channelRecord = (index.get('ORDERING_CHANNEL') ?? [])[0];
+    const channel = channelRecord ? parseOrderingChannelFact(channelRecord.fact) : null;
+    if (channelRecord && channel) {
+      const evidenceIds = ids([...has(index, 'ORDERING_PATH'), channelRecord]);
+      const confidence = channelRecord.confidence;
+      const summary = channelRecord.fact.replace(/^ORDERING CHANNEL:\s*[A-Z_]+(\s*\[DESTINATION_RESOLVED\])?\s*—\s*/, '');
+      if (channel.state === 'ONLINE_ORDERING_BROKEN_CONFIRMED') {
+        // The channel summary states the failure; this adds the consequence
+        // once. Both used to carry a dead-end clause, so the card said it twice.
+        push(stage('ORDERING', 'RISK', `${summary} Order-intent customers hit a dead end.`, confidence, false, evidenceIds));
+      } else if (channel.state === 'PHONE_ORDERING_ONLY') {
+        push(
+          stage(
+            'ORDERING',
+            'FRICTION',
+            `${summary} Order-intent customers who will not call are lost, and staff answer the phone during service.`,
+            confidence,
+            true,
+            evidenceIds,
+          ),
+        );
+      } else if (channel.state === 'THIRD_PARTY_ORDERING') {
+        push(
+          stage(
+            'ORDERING',
+            'FRICTION',
+            `${summary} Third-party platforms take a commission and own the customer relationship, and whether an order can be completed on them was not verified.`,
+            confidence,
+            true,
+            evidenceIds,
+          ),
+        );
+      } else if (channel.state === 'ONLINE_ORDERING_WORKING') {
+        push(stage('ORDERING', 'HEALTHY', summary, confidence, false, evidenceIds));
+      } else if (channel.destinationResolved) {
+        // A destination WAS resolved and responded; only order placement is
+        // unverified. RESOLVED_UNVERIFIED, not UNKNOWN — the distinction is
+        // scored, and collapsing it would drop the ordering category out of the
+        // Rescue Score entirely for a restaurant that has an ordering page.
+        push(stage('ORDERING', 'RESOLVED_UNVERIFIED', `${summary} Manual validation required.`, confidence, true, evidenceIds));
+      } else {
+        push(stage('ORDERING', 'UNKNOWN', `${summary} Manual validation required.`, confidence, true, evidenceIds));
+      }
+    } else {
     const ord = has(index, 'ORDERING_PATH');
     const widget = ord.filter((e) => /widget was detected/i.test(e.fact));
     const missing = ord.filter((e) => /no public online ordering pathway was detected/i.test(e.fact));
@@ -275,6 +354,7 @@ export function analyzeJourney(evidence: EvidenceRecordLike[]): JourneyStageResu
         ),
       );
     }
+    }
   }
 
   // CONTACT
@@ -284,8 +364,23 @@ export function analyzeJourney(evidence: EvidenceRecordLike[]): JourneyStageResu
     const address = has(index, 'ADDRESS_VISIBILITY');
     const gaps = [...contact.filter(negative), ...hours.filter(negative), ...address.filter(negative)];
     const all = [...contact, ...hours, ...address];
+    // Reachable by phone, with no written route in. A real finding — and a
+    // different one from "no contact pathway exists", which was what the audit
+    // used to say about a restaurant that publishes its number.
+    const phoneOnlyContact = contact.filter((e) => /no non-phone contact route/i.test(e.fact));
     if (all.length === 0) {
       push(stage('CONTACT', 'UNKNOWN', 'Contact accessibility could not be assessed.', 30, true, []));
+    } else if (phoneOnlyContact.length > 0) {
+      push(
+        stage(
+          'CONTACT',
+          'FRICTION',
+          'Customers can reach the restaurant by phone, and the phone is the only route in — no contact page, enquiry form, or published email was detected. Every question becomes a call, and anything asked outside service hours waits.',
+          avgConfidence(phoneOnlyContact, 85),
+          false,
+          ids(all),
+        ),
+      );
     } else if (gaps.length >= 2) {
       push(stage('CONTACT', 'RISK', 'Multiple core contact facts (contact path, hours, address) were not detected on the analyzed pages.', avgConfidence(gaps, 60), true, ids(all)));
     } else if (gaps.length === 1) {

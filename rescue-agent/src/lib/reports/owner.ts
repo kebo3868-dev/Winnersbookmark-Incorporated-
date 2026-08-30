@@ -1,5 +1,6 @@
 import type { CategoryScoreInput, EvidenceRecordLike, JourneyStageResult } from '@/types/audit';
 import { scoreBand } from '@/lib/scoring/rescueScore';
+import { safeDisplayName } from '@/lib/audit/restaurantName';
 
 export interface RankedOpportunity {
   category: string;
@@ -126,7 +127,8 @@ export function generateOwnerReport(input: {
 
   return {
     header: {
-      restaurantName: input.restaurantName,
+      // Same guard as the executive report — see safeDisplayName.
+      restaurantName: safeDisplayName(input.restaurantName, input.websiteUrl),
       websiteUrl: input.websiteUrl,
       location: input.location,
       auditDate: new Date().toISOString().slice(0, 10),
