@@ -78,8 +78,19 @@ const TAGLINE_MARKERS =
  *
  * A page whose title is "Home" tells the audit nothing, and using it would
  * replace a correct operator-typed name with a wrong one.
+ *
+ * ── WHY `null` IS IN THIS LIST ───────────────────────────────────────────────
+ *
+ * A live audit rendered the literal word "null" above the restaurant's URL on
+ * the cover of a client report. The cause was not a null value: the site's CMS
+ * had emitted `<meta property="og:site_name" content="null">`, so a four-letter
+ * STRING called "null" flowed through every guard designed to catch an absent
+ * one and became the business's name. Serialised junk values are ordinary
+ * output from template engines, and they have to be rejected by content, not by
+ * type.
  */
-const NOT_A_NAME = /^(?:home|homepage|welcome|index|untitled|menu|about|contact|loading\.{0,3}|404|page not found)$/i;
+const NOT_A_NAME =
+  /^(?:home|homepage|welcome|index|untitled|menu|about|contact|loading\.{0,3}|404|page not found|null|undefined|nan|n\/?a|none|false|true|0|-|—|\.+)$/i;
 
 const MIN_NAME_LENGTH = 2;
 const MAX_NAME_LENGTH = 80;
@@ -167,6 +178,36 @@ export function resolveRestaurantName(candidates: NameCandidates): ResolvedName 
     source: 'HOSTNAME',
     reason: 'no business name was published on the site and none was entered',
   };
+}
+
+/**
+ * LAST LINE OF DEFENCE before a name reaches a client's eyes.
+ *
+ * `resolveRestaurantName` runs once, at audit time, and writes to the database.
+ * Report rendering happens later, from whatever is stored — a row written by an
+ * older build, an import, or a manual edit. So the report layer cannot assume
+ * the name it was handed went through the resolver, and a report that prints
+ * "null" where a restaurant's name belongs has already lost the reader.
+ *
+ * Falls back to the website's domain, which is always true and never empty.
+ * Deliberately dumb and total: it takes anything, including null and undefined,
+ * and always returns something printable.
+ */
+export function safeDisplayName(name: string | null | undefined, websiteUrl?: string | null): string {
+  const cleaned = typeof name === 'string' ? normalizeNameText(name) : '';
+  if (cleaned && !NOT_A_NAME.test(cleaned)) return cleaned;
+
+  const fallback = domainOf(websiteUrl);
+  return fallback || 'Restaurant';
+}
+
+function domainOf(websiteUrl: string | null | undefined): string {
+  if (!websiteUrl) return '';
+  try {
+    return new URL(/^https?:\/\//i.test(websiteUrl) ? websiteUrl : `https://${websiteUrl}`).hostname.replace(/^www\./, '');
+  } catch {
+    return '';
+  }
 }
 
 /**

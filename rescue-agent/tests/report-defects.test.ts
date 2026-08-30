@@ -1,0 +1,261 @@
+import { describe, expect, it } from 'vitest';
+import { extractPage, formatPhoneNumber } from '@/lib/web/collector';
+import { normalizeEvidence, type ProbeResult } from '@/lib/audit/evidence';
+import { analyzeJourney } from '@/lib/audit/journey';
+import { safeDisplayName, resolveRestaurantName } from '@/lib/audit/restaurantName';
+import { parseOrderingChannelFact, resolveOrderingChannel, type OrderingChannelInput } from '@/lib/audit/orderingChannel';
+import { buildExecutiveReport } from '@/lib/reports/executive';
+import { generateOwnerReport } from '@/lib/reports/owner';
+import { getContact } from '@/lib/config';
+
+/**
+ * DEFECTS FOUND IN A LIVE LEVEROCK'S AUDIT
+ *
+ * Seven faults observed on a real run of the preview, each pinned here so the
+ * report cannot regress into them.
+ */
+
+const page = (html: string, url = 'https://leverocks.example/') => extractPage(url, url, 200, 'text/html', html);
+
+const records = (html: string, probes: ProbeResult[] = []) =>
+  normalizeEvidence({ pages: [page(html)], failures: [], probes }).map((e, i) => ({
+    id: `e${i}`,
+    evidenceType: e.evidenceType,
+    fact: e.fact,
+    supportingContext: e.supportingContext ?? null,
+    confidence: e.confidence,
+    sourceUrl: e.sourceUrl,
+  }));
+
+const stageIn = (html: string, name: string, probes: ProbeResult[] = []) =>
+  analyzeJourney(records(html, probes)).find((s) => s.stage === name);
+
+// ── 1. Restaurant identity binding ─────────────────────────────────────────
+
+describe('a null business name can never reach a client report', () => {
+  it('rejects the literal string "null" from site metadata', () => {
+    // The live cause: a CMS emitted <meta property="og:site_name" content="null">.
+    // A four-letter STRING passed every guard written for an absent value.
+    const resolved = resolveRestaurantName({
+      ogSiteName: 'null',
+      pageTitle: "Leverock's Great Seafood | Waterfront Dining",
+      hostname: 'leverocks.com',
+    });
+    expect(resolved.name).toBe("Leverock's Great Seafood");
+    expect(resolved.source).toBe('PAGE_TITLE');
+  });
+
+  it('safeDisplayName falls back to the domain for every junk value', () => {
+    for (const junk of [null, undefined, '', '   ', 'null', 'undefined', 'NaN', 'N/A', 'none', '0', '-']) {
+      expect(safeDisplayName(junk as string | null, 'https://leverocks.com'), String(junk)).toBe('leverocks.com');
+    }
+  });
+
+  it('keeps a real name untouched, apostrophe and all', () => {
+    expect(safeDisplayName("Leverock's Great Seafood", 'https://leverocks.com')).toBe("Leverock's Great Seafood");
+  });
+
+  it('never renders empty even with no URL to fall back on', () => {
+    expect(safeDisplayName(null, null)).toBe('Restaurant');
+  });
+
+  it('guards the executive report cover and the owner report header', () => {
+    const base = {
+      restaurantName: 'null',
+      websiteUrl: 'https://leverocks.com',
+      location: null,
+      auditStatus: 'COMPLETED',
+      demoMode: false,
+      overallScore: 74,
+      coverageScore: 90,
+    };
+    const owner = generateOwnerReport({
+      ...base,
+      scoreExplanation: 'x',
+      categories: [],
+      journey: [],
+      topLeaks: [],
+      evidence: [],
+      aiNarrative: null,
+    });
+    expect(owner.header.restaurantName).toBe('leverocks.com');
+
+    const exec = buildExecutiveReport({
+      ...base,
+      auditId: 'clxnullnamecheck',
+      auditDate: '2026-08-29',
+      contact: getContact({}),
+      bookingQrDataUrl: null,
+      avgTicket: null,
+      sourcesCollected: 1,
+      sourcesFailed: 0,
+      evidence: [],
+      opportunities: [],
+      journey: [],
+      categoryScores: [],
+      storedSummary: null,
+      storedSummaryWasAiEnhanced: false,
+      storedRecommendation: null,
+    });
+    expect(exec.cover.restaurantName).toBe('leverocks.com');
+    expect(exec.cover.restaurantName).not.toMatch(/null|undefined/i);
+  });
+});
+
+// ── 2. Contact classification ──────────────────────────────────────────────
+
+describe('a phone number is a contact pathway', () => {
+  const PHONE_SITE = `
+    <h1>Leverock&rsquo;s</h1>
+    <a href="tel:+17273674588">Call (727) 367-4588</a>
+    <p>Call us on (727) 367-4588.</p>
+  `;
+
+  it('never says no contact pathway exists when a phone is published', () => {
+    const contact = records(PHONE_SITE).find((e) => e.evidenceType === 'CONTACT_PATH');
+    expect(contact?.fact).not.toMatch(/no public contact pathway was detected/i);
+    expect(contact?.fact).toMatch(/available by telephone/i);
+  });
+
+  it('names the real gap: no non-phone route in', () => {
+    const contact = records(PHONE_SITE).find((e) => e.evidenceType === 'CONTACT_PATH');
+    expect(contact?.fact).toMatch(/no non-phone contact route/i);
+    expect(contact?.supportingContext).toMatch(/click-to-call|Phone number published/i);
+  });
+
+  it('reports the CONTACT stage as phone dependency, not absence', () => {
+    const stage = stageIn(PHONE_SITE, 'CONTACT');
+    expect(stage?.status).toBe('FRICTION');
+    expect(stage?.finding).toMatch(/can reach the restaurant by phone/i);
+    expect(stage?.finding).toMatch(/only route in/i);
+  });
+
+  it('still reports a genuine absence when there is no phone at all', () => {
+    const contact = records('<h1>Leverock&rsquo;s</h1>').find((e) => e.evidenceType === 'CONTACT_PATH');
+    expect(contact?.fact).toMatch(/no public contact pathway was detected/i);
+  });
+});
+
+// ── 3. Ordering exposure ───────────────────────────────────────────────────
+
+describe('a markup-only URL is not a customer-facing failed transaction link', () => {
+  const MARKUP_ONLY = `
+    <a href="tel:+17273674588">ORDER</a>
+    <script>window.SH = { orderUrl: "https://www.spothopperapp.com/order-online/leverocks" };</script>
+  `;
+  const failing: ProbeResult = {
+    url: 'https://www.spothopperapp.com/order-online/leverocks',
+    category: 'ordering',
+    ok: false,
+    httpStatus: 404,
+    note: 'HTTP 404',
+    failureKind: 'HTTP',
+  };
+
+  it('does not produce a broken-ordering finding from a config URL that 404s', () => {
+    const stage = stageIn(MARKUP_ONLY, 'ORDERING', [failing]);
+    expect(stage?.status).not.toBe('RISK');
+    expect(records(MARKUP_ONLY, [failing]).filter((e) => e.evidenceType === 'BROKEN_LINK')).toHaveLength(0);
+  });
+
+  it('classifies ordering as phone-based when the visible CTA is tel:', () => {
+    const stage = stageIn(MARKUP_ONLY, 'ORDERING', [failing]);
+    expect(stage?.finding).toMatch(/telephone only/i);
+  });
+
+  it('labels a markup URL with no tel: CTA as unverified exposure', () => {
+    const html = '<script>window.SH = { orderUrl: "https://www.spothopperapp.com/order-online/leverocks" };</script>';
+    const stage = stageIn(html, 'ORDERING');
+    expect(stage?.manualValidationRequired).toBe(true);
+    expect(stage?.finding).toMatch(/no visible link or button/i);
+    expect(stage?.finding).not.toMatch(/could not be resolved/i);
+  });
+
+  it('a VISIBLE link that 404s is still a confirmed failure', () => {
+    // The rule must not have blunted the real finding.
+    const html = '<a href="https://www.spothopperapp.com/order-online/leverocks">Order Online</a>';
+    const stage = stageIn(html, 'ORDERING', [failing]);
+    expect(stage?.status).toBe('RISK');
+  });
+});
+
+// ── 4. Provenance ──────────────────────────────────────────────────────────
+
+describe('a high-severity transaction finding carries its full chain', () => {
+  it('records visible CTA → URL → HTTP test → outcome', () => {
+    const input: OrderingChannelInput = {
+      phoneOrderCtas: [],
+      destinations: [
+        {
+          url: 'https://leverocks.example/order-online',
+          exposedInCustomerJourney: true,
+          platform: null,
+          host: 'leverocks.example',
+          ctaText: 'Order Online',
+          discoveredVia: 'VISIBLE_LINK',
+        },
+      ],
+      probes: [
+        {
+          url: 'https://leverocks.example/order-online',
+          ok: false,
+          httpStatus: 404,
+          failureKind: 'HTTP',
+          exposedInCustomerJourney: true,
+        },
+      ],
+      widgetVendor: null,
+    };
+    const result = resolveOrderingChannel(input);
+    expect(result.state).toBe('ONLINE_ORDERING_BROKEN_CONFIRMED');
+    expect(result.detail).toMatch(/visible link "Order Online"/);
+    expect(result.detail).toContain('https://leverocks.example/order-online');
+    expect(result.detail).toMatch(/HTTP GET returned 404/);
+    expect(result.detail).toMatch(/returned HTTP 404/);
+  });
+});
+
+// ── 5. Duplicated copy ─────────────────────────────────────────────────────
+
+describe('the ordering card does not say the same thing twice', () => {
+  it('states the dead-end consequence exactly once', () => {
+    const html = '<a href="https://leverocks.example/order-online">Order Online</a>';
+    const stage = stageIn(html, 'ORDERING', [
+      { url: 'https://leverocks.example/order-online', category: 'ordering', ok: false, httpStatus: 404, note: 'HTTP 404', failureKind: 'HTTP' },
+    ]);
+    const deadEnds = (stage?.finding.match(/dead end/gi) ?? []).length;
+    expect(deadEnds).toBe(1);
+  });
+});
+
+// ── 6. Phone formatting ────────────────────────────────────────────────────
+
+describe('phone numbers render in one shape', () => {
+  it('normalizes every punctuation style the web produces', () => {
+    for (const raw of ['(727)-367-4588', '727-367-4588', '727.367.4588', '727 367 4588']) {
+      expect(formatPhoneNumber(raw), raw).toBe('(727) 367-4588');
+    }
+    expect(formatPhoneNumber('+1 727 367 4588')).toBe('+1 (727) 367-4588');
+    expect(formatPhoneNumber('1-727-367-4588')).toBe('+1 (727) 367-4588');
+  });
+
+  it('leaves an unparseable number alone rather than dropping it', () => {
+    expect(formatPhoneNumber('call 555 HELP')).toBe('call 555 HELP');
+  });
+
+  it('never produces the doubled brackets seen in the live report', () => {
+    const fact = records('<p>Call (727)-367-4588 today.</p>').find((e) => e.evidenceType === 'PHONE_VISIBILITY');
+    expect(fact?.fact).toContain('((727) 367-4588)');
+    expect(fact?.fact).not.toContain('((727)-367-4588)');
+  });
+});
+
+// ── 7. Channel marker still round-trips after the copy changes ─────────────
+
+describe('the ordering marker survives the copy edits', () => {
+  it('parses back out of the reworded summary', () => {
+    const html = '<a href="tel:+17273674588">Order Now</a>';
+    const record = records(html).find((e) => e.evidenceType === 'ORDERING_CHANNEL');
+    expect(parseOrderingChannelFact(record!.fact)?.state).toBe('PHONE_ORDERING_ONLY');
+  });
+});

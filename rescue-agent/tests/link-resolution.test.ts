@@ -348,12 +348,50 @@ describe('embedded widget destinations are resolved from the served HTML', () =>
     expect(ordering?.confidence).toBeLessThan(90);
   });
 
-  // Renamed: the old title asserted the destination was "working" once it
-  // responded, which is the claim the ordering-functionality fix rejects. A 200
-  // proves the destination exists, never that an order can be placed.
-  it('reports a responding destination as resolved but unverified', () => {
+  // Renamed twice, for two separate corrections.
+  //
+  // First: the original title asserted the destination was "working" once it
+  // responded — a 200 proves the destination exists, never that an order can be
+  // placed.
+  //
+  // Now: a destination read out of an IFRAME is markup, not a visible
+  // call-to-action. Nothing here shows a customer is offered it, so exposure is
+  // unverified and the stage stays UNKNOWN with manual validation required.
+  // A stale URL left behind by a redesign is indistinguishable from a live one
+  // at this level of evidence.
+  const embeddedOnly = () => {
     const p = page(`<html><body>
       <iframe title="Order Online" src="https://www.spothopperapp.com/order-online/leverocks"></iframe>
+    </body></html>`);
+    const evidence = normalizeEvidence({
+      pages: [p],
+      failures: [],
+      probes: [{ url: 'https://www.spothopperapp.com/order-online/leverocks', category: 'ordering', ok: true, httpStatus: 200, note: 'HTTP 200' }],
+    });
+    return analyzeJourney(
+      evidence.map((e, i) => ({ id: `e${i}`, evidenceType: e.evidenceType, fact: e.fact, confidence: e.confidence, supportingContext: e.supportingContext ?? null })),
+    );
+  };
+
+  it('never calls a responding embedded destination working ordering', () => {
+    const stage = embeddedOnly().find((s) => s.stage === 'ORDERING');
+    expect(stage?.status).not.toBe('HEALTHY');
+    expect(stage?.status).not.toBe('RISK');
+  });
+
+  it('marks a markup-only destination as unverified exposure, not a customer pathway', () => {
+    const stage = embeddedOnly().find((s) => s.stage === 'ORDERING');
+    expect(stage?.status).toBe('UNKNOWN');
+    expect(stage?.manualValidationRequired).toBe(true);
+    expect(stage?.finding).toMatch(/no visible link or button|unverified/i);
+  });
+
+  it('BUT a visible anchor to the same destination IS a resolved pathway', () => {
+    // The distinction the exposure rule turns on: a customer can see and tap
+    // this one. Without this case the rule would be indistinguishable from
+    // simply ignoring ordering destinations.
+    const p = page(`<html><body>
+      <a href="https://www.spothopperapp.com/order-online/leverocks">Order Online</a>
     </body></html>`);
     const evidence = normalizeEvidence({
       pages: [p],

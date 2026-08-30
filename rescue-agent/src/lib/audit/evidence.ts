@@ -334,6 +334,31 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
           'This is not evidence that a working pathway exists.',
         confidence: 55,
       });
+    } else if (check.key === 'contact' && (anyPhone || clickToCall)) {
+      // A PHONE NUMBER IS A CONTACT PATHWAY.
+      //
+      // The audit reported "No public contact pathway was detected" on a site
+      // that publishes its number and offers click-to-call — while the very same
+      // evidence chain, two entries above, recorded both. Saying a restaurant
+      // cannot be contacted when it plainly can is the kind of error an owner
+      // spots instantly, and it costs the whole report its credibility.
+      //
+      // The real finding is narrower and still worth making: everything routes
+      // through the phone, and there is no way to ask a question in writing.
+      evidence.push({
+        sourceUrl: home.finalUrl,
+        evidenceType: 'CONTACT_PATH',
+        fact:
+          'A contact pathway is publicly available by telephone, but no non-phone contact route ' +
+          '(contact page, enquiry form, or published email) was detected.',
+        supportingContext:
+          `${anyPhone ? `Phone number published: ${anyPhone.phones[0]}. ` : ''}` +
+          `${clickToCall ? 'Click-to-call (tel:) links are present. ' : ''}` +
+          'Customers can reach the restaurant; every enquiry has to become a phone call, so questions that arrive ' +
+          'outside service hours have nowhere to go. ' +
+          analyzedNote,
+        confidence: 85,
+      });
     } else {
       evidence.push({
         sourceUrl: home.finalUrl,
@@ -359,12 +384,30 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
         if (!orderingLinks.has(link.href)) orderingLinks.set(link.href, link);
       }
     }
-    const exposedUrls = new Set(orderingLinks.keys());
-    const destinations: OrderingDestination[] = Array.from(orderingLinks.keys()).map((url) => ({
+    // EXPOSURE MEANS A VISIBLE ANCHOR, NOT A URL IN THE MARKUP.
+    //
+    // `source: 'anchor'` is a link a visitor can see and tap. `source: 'embed'`
+    // is a destination the audit READ OUT of an iframe, a data-attribute or an
+    // inline widget config — it proves the URL is written on the page, never
+    // that anyone is offered it. Stale slugs left over from a redesign live
+    // there too.
+    //
+    // Treating an embed destination as exposed is what let a URL nobody clicks
+    // become a "customer-facing failed transaction link". Only anchors count;
+    // embeds stay unverified until customer exposure is actually proven.
+    const visibleAnchors = new Map<string, CategorizedLink>();
+    for (const [href, link] of orderingLinks) {
+      if (link.source === 'anchor') visibleAnchors.set(href, link);
+    }
+    const exposedUrls = new Set(visibleAnchors.keys());
+    const destinations: OrderingDestination[] = Array.from(orderingLinks.entries()).map(([url, link]) => ({
       url,
-      exposedInCustomerJourney: true,
+      exposedInCustomerJourney: link.source === 'anchor',
       platform: detectPlatform([url]),
       host: hostOf(url),
+      // Provenance: the visible call-to-action that leads here, when there is one.
+      ctaText: link.source === 'anchor' ? link.text || '(no link text)' : null,
+      discoveredVia: link.source === 'anchor' ? 'VISIBLE_LINK' : 'PAGE_MARKUP',
     }));
 
     const orderingProbes: OrderingProbe[] = [];
@@ -482,9 +525,32 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
     });
   }
 
+  // Destinations that exist ONLY as page markup — an iframe src, a data
+  // attribute, an inline widget config — with no visible anchor anywhere
+  // pointing at them.
+  //
+  // A URL in this set is written on the page and offered to nobody. It cannot
+  // become a customer-facing failed transaction link however it responds, which
+  // is the rule the probe loop below enforces. Anchors win: a URL that appears
+  // both as an embed and as a real link is a real link.
+  const anchorUrls = new Set<string>();
+  const embedUrls = new Set<string>();
+  for (const page of pages) {
+    for (const links of Object.values(page.categorizedLinks)) {
+      for (const link of links ?? []) {
+        (link.source === 'anchor' ? anchorUrls : embedUrls).add(link.href);
+      }
+    }
+  }
+  const markupOnly = (url: string | undefined) => Boolean(url) && embedUrls.has(url as string) && !anchorUrls.has(url as string);
+
   // Probes (broken links)
   for (const probe of probes) {
     const target = probe.finalUrl ?? probe.url;
+    // Explicit flag wins; otherwise a destination is assumed exposed unless it
+    // is demonstrably markup-only. Defaulting to exposed keeps every genuine
+    // discovered-link failure reporting exactly as before.
+    const exposed = probe.exposedInCustomerJourney ?? !(markupOnly(probe.url) || markupOnly(probe.finalUrl));
     const destination = classifyDestination(target);
     const kind = probe.destinationKind ?? destination.kind;
 
@@ -537,7 +603,14 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
     }
 
     if (!probe.ok) {
-      const verdict = mayClaimVerifiedBroken(probe);
+      const verdict = exposed
+        ? mayClaimVerifiedBroken(probe)
+        : {
+            allowed: false,
+            reason:
+              'the destination appears only in the page markup — no visible link or button points customers to it, ' +
+              'so nothing here shows a customer ever reaches it',
+          };
       if (!verdict.allowed) {
         // Reached only for an audit-side limitation — a timeout, or the SSRF
         // policy declining to follow. Recorded honestly as unresolved.

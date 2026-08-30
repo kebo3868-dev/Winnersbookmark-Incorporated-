@@ -3,6 +3,7 @@ import { CATEGORY_LABELS } from '@/lib/reports/owner';
 import { COMPANY, type Contact } from '@/lib/config';
 import { buildScenario, scenarioKindFor, withAverageTicket, type RevenueScenario } from '@/lib/reports/scenarios';
 import { STATE_LABEL, stateForOpportunity, type EvidenceState } from '@/lib/audit/evidenceState';
+import { safeDisplayName } from '@/lib/audit/restaurantName';
 
 export type { RevenueScenario } from '@/lib/reports/scenarios';
 
@@ -414,7 +415,10 @@ export function buildExecutiveReport(input: ExecutiveReportInput): ExecutiveRepo
       company: COMPANY.name,
       productName: COMPANY.productName,
       subtitle: COMPANY.reportSubtitle,
-      restaurantName: input.restaurantName,
+      // Never renders a null, empty or serialised-junk name to a client. The
+      // resolver runs at audit time; this report may be built from a row written
+      // by an older build, so the guard lives here too.
+      restaurantName: safeDisplayName(input.restaurantName, input.websiteUrl),
       websiteUrl: input.websiteUrl,
       location: input.location,
       auditDate: input.auditDate,

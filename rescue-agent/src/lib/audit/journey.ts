@@ -257,6 +257,8 @@ export function analyzeJourney(evidence: EvidenceRecordLike[]): JourneyStageResu
       const confidence = channelRecord.confidence;
       const summary = channelRecord.fact.replace(/^ORDERING CHANNEL:\s*[A-Z_]+(\s*\[DESTINATION_RESOLVED\])?\s*—\s*/, '');
       if (channel.state === 'ONLINE_ORDERING_BROKEN_CONFIRMED') {
+        // The channel summary states the failure; this adds the consequence
+        // once. Both used to carry a dead-end clause, so the card said it twice.
         push(stage('ORDERING', 'RISK', `${summary} Order-intent customers hit a dead end.`, confidence, false, evidenceIds));
       } else if (channel.state === 'PHONE_ORDERING_ONLY') {
         push(
@@ -362,8 +364,23 @@ export function analyzeJourney(evidence: EvidenceRecordLike[]): JourneyStageResu
     const address = has(index, 'ADDRESS_VISIBILITY');
     const gaps = [...contact.filter(negative), ...hours.filter(negative), ...address.filter(negative)];
     const all = [...contact, ...hours, ...address];
+    // Reachable by phone, with no written route in. A real finding — and a
+    // different one from "no contact pathway exists", which was what the audit
+    // used to say about a restaurant that publishes its number.
+    const phoneOnlyContact = contact.filter((e) => /no non-phone contact route/i.test(e.fact));
     if (all.length === 0) {
       push(stage('CONTACT', 'UNKNOWN', 'Contact accessibility could not be assessed.', 30, true, []));
+    } else if (phoneOnlyContact.length > 0) {
+      push(
+        stage(
+          'CONTACT',
+          'FRICTION',
+          'Customers can reach the restaurant by phone, and the phone is the only route in — no contact page, enquiry form, or published email was detected. Every question becomes a call, and anything asked outside service hours waits.',
+          avgConfidence(phoneOnlyContact, 85),
+          false,
+          ids(all),
+        ),
+      );
     } else if (gaps.length >= 2) {
       push(stage('CONTACT', 'RISK', 'Multiple core contact facts (contact path, hours, address) were not detected on the analyzed pages.', avgConfidence(gaps, 60), true, ids(all)));
     } else if (gaps.length === 1) {

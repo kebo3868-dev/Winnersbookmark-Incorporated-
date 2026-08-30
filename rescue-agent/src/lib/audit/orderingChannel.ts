@@ -58,6 +58,17 @@ export interface OrderingDestination {
   platform: string | null;
   /** Host, used to count how many distinct platforms compete for order intent. */
   host: string;
+  /**
+   * Anchor text of the visible call-to-action that leads here, or null when the
+   * destination was only read out of the page markup.
+   *
+   * This is the first link in the provenance chain a high-severity transaction
+   * finding must carry: VISIBLE CTA → exact URL → HTTP test → outcome. A finding
+   * that cannot name the CTA cannot claim a customer ever met the URL.
+   */
+  ctaText?: string | null;
+  /** How the destination was found. Only VISIBLE_LINK proves customer exposure. */
+  discoveredVia?: 'VISIBLE_LINK' | 'PAGE_MARKUP';
 }
 
 /** The result of testing one ordering destination. */
@@ -198,19 +209,29 @@ export function resolveOrderingChannel(input: OrderingChannelInput): OrderingCha
     return mayClaimVerifiedBroken(probe).allowed; // conditions 1 and 4
   });
   if (confirmedFailures.length > 0) {
+    // PROVENANCE CHAIN. Each failing destination is reported as
+    // visible CTA → exact URL → HTTP test → outcome, so a reader can retrace
+    // every step of a high-severity claim without leaving the report.
+    const chain = confirmedFailures
+      .map((probe) => {
+        const destination = destinations.find((d) => d.url === probe.url);
+        const cta = destination?.ctaText ? `visible link "${destination.ctaText}"` : 'visible ordering link';
+        const resolved = probe.finalUrl && probe.finalUrl !== probe.url ? ` → resolves to ${probe.finalUrl}` : '';
+        const test = typeof probe.httpStatus === 'number' ? `HTTP GET returned ${probe.httpStatus}` : 'HTTP GET could not connect';
+        return `${cta} → ${probe.url}${resolved} → ${test} → ${mayClaimVerifiedBroken(probe).reason}`;
+      })
+      .join('; ');
     return {
       state: 'ONLINE_ORDERING_BROKEN_CONFIRMED',
       evidenceState: 'VERIFIED',
       destinationResolved: true,
-      summary:
-        'An online ordering destination that customers are offered on the website fails when opened, so order-intent ' +
-        'customers reach a dead end.',
+      // Ends without a dead-end clause on purpose: the journey layer adds the
+      // customer consequence, and having both produced the same sentence twice
+      // in one card.
+      summary: 'An online ordering destination that customers are offered on the website fails when opened.',
       detail:
-        confirmedFailures
-          .map((p) => `${p.url}${p.finalUrl && p.finalUrl !== p.url ? ` → ${p.finalUrl}` : ''}: ${mayClaimVerifiedBroken(p).reason}`)
-          .join('; ') +
-        '. Verified against all four conditions: the destination is customer-facing, it is exposed in the customer ' +
-        'journey, it is intended for ordering, and it failed when opened.',
+        `${chain}. Verified against all four conditions: the destination is customer-facing, it is exposed in the ` +
+        'customer journey through a visible link, it is intended for ordering, and it failed when opened.',
       failingUrls: confirmedFailures.map((p) => p.url),
     };
   }
@@ -299,6 +320,28 @@ export function resolveOrderingChannel(input: OrderingChannelInput): OrderingCha
       detail:
         `Destination: ${exposed[0].url}. An ordering page with ordering switched off responds identically to a working ` +
         'one, so reaching it proves the page exists and nothing about whether an order can be placed.',
+      failingUrls: [],
+    };
+  }
+  // A destination WAS read out of the markup — an iframe, a data attribute, an
+  // inline widget config. Checked BEFORE the widget-vendor branch, because
+  // "here is the URL, exposure unproven" is strictly more useful than "a widget
+  // is present and we could not resolve it" — and saying it could not be
+  // resolved when it plainly was is simply untrue.
+  const fromMarkup = destinations.filter((d) => d.discoveredVia === 'PAGE_MARKUP');
+  if (fromMarkup.length > 0) {
+    return {
+      state: 'ORDERING_PATH_UNCLEAR',
+      evidenceState: 'MANUAL_VALIDATION_REQUIRED',
+      destinationResolved: false,
+      summary:
+        'An ordering destination is written into the page markup, but no visible link or button was found pointing ' +
+        'customers to it, so whether anyone is offered it is unverified.',
+      detail:
+        `Destination declared in the markup: ${fromMarkup[0].url}. It was read out of an embedded widget, a data ` +
+        'attribute or an inline script — none of which proves a customer is shown it. A stale URL left behind by a ' +
+        'site redesign looks identical from the outside. Open the site in a browser and confirm whether an ordering ' +
+        'button leads here before treating it as a customer pathway.',
       failingUrls: [],
     };
   }

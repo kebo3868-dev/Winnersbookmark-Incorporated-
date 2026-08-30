@@ -32,7 +32,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <SiteNav items={NAV} />
           </div>
         </header>
-        <main className="max-w-6xl mx-auto px-5 sm:px-6 py-8 sm:py-10">{children}</main>
+        {/* Extra bottom padding on phones so a floating control anchored to the
+            bottom-right — a preview toolbar, a browser action bar — cannot sit
+            on top of the last audit card's text. Desktop is unchanged. */}
+        <main className="max-w-6xl mx-auto px-5 sm:px-6 py-8 sm:py-10 pb-28 sm:pb-10">{children}</main>
         <footer className="border-t border-obsidian-line mt-16">
           <div className="max-w-6xl mx-auto px-6 py-8 flex flex-wrap justify-between gap-4">
             <p className="label">Designed by Winnersbookmark Incorporated</p>

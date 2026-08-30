@@ -339,7 +339,10 @@ export async function runAudit(auditId: string): Promise<void> {
           if (probeTargets.filter((p) => p.category === category).length >= 2) break;
           if (seenProbe.has(link.href) || sourceIdByUrl.has(link.href)) continue;
           seenProbe.add(link.href);
-          probeTargets.push({ url: link.href, category, exposed: true });
+          // Only a visible anchor proves a customer is offered this destination.
+          // An `embed` source was read out of markup or widget config, which is
+          // not the same thing — see the exposure note in evidence.ts.
+          probeTargets.push({ url: link.href, category, exposed: link.source === 'anchor' });
         }
       }
     }

@@ -359,6 +359,27 @@ export function detectWidgetVendor(assetHosts: string[], capability: WidgetCapab
 }
 
 const PHONE_REGEX = /(?:\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]\d{3}[-.\s]\d{4}\b/g;
+
+/**
+ * One display shape for every phone number the audit reports.
+ *
+ * Pages punctuate numbers however they like — `(727)-367-4588`, `727.367.4588`,
+ * `+1 727 367 4588`. Interpolating the raw match into a sentence that already
+ * wraps it in brackets produced `((727)-367-4588)` on a client report.
+ *
+ * Ten digits become `(727) 367-4588`; eleven with a leading 1 become
+ * `+1 (727) 367-4588`. Anything else is returned untouched with its whitespace
+ * tidied — a number this cannot parse is still the restaurant's number, and
+ * dropping it would be worse than printing it oddly.
+ */
+export function formatPhoneNumber(raw: string): string {
+  const digits = raw.replace(/\D/g, '');
+  if (digits.length === 10) return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+  if (digits.length === 11 && digits.startsWith('1')) {
+    return `+1 (${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7)}`;
+  }
+  return raw.replace(/\s+/g, ' ').trim();
+}
 // Quantifiers are bounded so backtracking stays linear even on pathological
 // multi-megabyte unbroken text runs (extraction regexes run on untrusted HTML).
 const EMAIL_REGEX = /\b[a-zA-Z0-9._%+-]{1,64}@[a-zA-Z0-9-]{1,63}(?:\.[a-zA-Z0-9-]{1,63}){1,4}/g;
@@ -727,7 +748,11 @@ export function extractPage(
     }
   });
 
-  const phones = Array.from(new Set(bodyText.match(PHONE_REGEX) ?? [])).slice(0, 5);
+  // Formatted at extraction, so every downstream consumer — evidence facts, the
+  // report, the PDF — shows one shape. A number scraped as "((727)-367-4588)"
+  // reached a client report verbatim, and punctuation the page happened to carry
+  // is not information about the restaurant.
+  const phones = Array.from(new Set((bodyText.match(PHONE_REGEX) ?? []).map(formatPhoneNumber))).slice(0, 5);
   const emails = Array.from(new Set(bodyText.match(EMAIL_REGEX) ?? []))
     .filter((e) => !/\.(png|jpg|jpeg|gif|webp|svg)$/i.test(e))
     .slice(0, 5);
