@@ -244,9 +244,39 @@ describe('phone numbers render in one shape', () => {
   });
 
   it('never produces the doubled brackets seen in the live report', () => {
+    // My first fix corrected the number's own punctuation and left the sentence
+    // wrapping it in a second pair of brackets — and this test asserted that
+    // doubled form, so it passed while the reported defect was still on screen.
+    // The number's area code already supplies brackets; the sentence uses a colon.
     const fact = records('<p>Call (727)-367-4588 today.</p>').find((e) => e.evidenceType === 'PHONE_VISIBILITY');
-    expect(fact?.fact).toContain('((727) 367-4588)');
-    expect(fact?.fact).not.toContain('((727)-367-4588)');
+    expect(fact?.fact).toBe('A phone number is publicly displayed: (727) 367-4588.');
+    expect(fact?.fact).not.toContain('((');
+  });
+
+  it('normalizes phone numbers inside QUOTED page text, not just extracted ones', () => {
+    // The extraction path was already correct. These three quote the page
+    // verbatim, which is how the raw form kept reaching the report.
+    const ev = records(`
+      <p>Mon - Sun 11:30 AM - 10:00 PM. 4801 37th Street South, St. Petersburg, FL. Call (727)-367-4588 today.</p>
+      <a href="tel:+17273674588">Call (727)-367-4588</a>
+      <a href="/menu">Menu</a>
+    `);
+    for (const type of ['ADDRESS_VISIBILITY', 'HOURS_VISIBILITY', 'CTA_SIGNAL']) {
+      const entry = ev.find((e) => e.evidenceType === type);
+      const blob = `${entry?.fact ?? ''} ${entry?.supportingContext ?? ''}`;
+      expect(blob, type).not.toContain('(727)-367-4588');
+    }
+    const address = ev.find((e) => e.evidenceType === 'ADDRESS_VISIBILITY');
+    expect(address?.supportingContext).toContain('(727) 367-4588');
+  });
+
+  it('does not start an address snippet mid-timestamp', () => {
+    // "Mon - Sun 11:30 AM - 10:00 PM. 4801 37th Street South" made the house
+    // number "00", so the quoted snippet opened with "00 PM.".
+    const ev = records('<p>Mon - Sun 11:30 AM - 10:00 PM. 4801 37th Street South, St. Petersburg, FL.</p>');
+    const address = ev.find((e) => e.evidenceType === 'ADDRESS_VISIBILITY');
+    expect(address?.supportingContext).toContain('4801 37th Street South');
+    expect(address?.supportingContext).not.toMatch(/"\s*\d{2} (AM|PM)/i);
   });
 });
 

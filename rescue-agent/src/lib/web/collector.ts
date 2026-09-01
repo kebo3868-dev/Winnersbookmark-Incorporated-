@@ -361,6 +361,22 @@ export function detectWidgetVendor(assetHosts: string[], capability: WidgetCapab
 const PHONE_REGEX = /(?:\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]\d{3}[-.\s]\d{4}\b/g;
 
 /**
+ * Normalise every phone-shaped substring inside a block of quoted page text.
+ *
+ * `formatPhoneNumber` fixes the numbers the audit EXTRACTS. It does nothing for
+ * the numbers the audit QUOTES — an address snippet, a call-to-action label —
+ * because those are copied out of the page verbatim. That gap is how
+ * `(727)-367-4588` kept reaching the report after the extraction path was
+ * already correct.
+ *
+ * Only the phone substring is rewritten; the surrounding words are left exactly
+ * as the page wrote them, because the quote is evidence and must stay faithful.
+ */
+export function normalizePhonesInText(text: string): string {
+  return text.replace(new RegExp(PHONE_REGEX.source, 'g'), (match) => formatPhoneNumber(match));
+}
+
+/**
  * One display shape for every phone number the audit reports.
  *
  * Pages punctuate numbers however they like — `(727)-367-4588`, `727.367.4588`,
@@ -388,7 +404,10 @@ const EMAIL_REGEX = /\b[a-zA-Z0-9._%+-]{1,64}@[a-zA-Z0-9-]{1,63}(?:\.[a-zA-Z0-9-
 const MAX_SCAN_TEXT = 300_000;
 const HOURS_REGEX =
   /((mon|tue|wed|thu|fri|sat|sun)[a-z]*\.?\s*(–|-|to|through|thru)?\s*(mon|tue|wed|thu|fri|sat|sun)?[a-z]*\.?[:\s]*\d{1,2}(:\d{2})?\s*(am|pm)\s*(–|-|to)\s*\d{1,2}(:\d{2})?\s*(am|pm))/i;
-const ADDRESS_REGEX = /\d{1,6}\s+[A-Za-z0-9.'\- ]{3,40}\s(street|st\.?|avenue|ave\.?|boulevard|blvd\.?|road|rd\.?|drive|dr\.?|lane|ln\.?|way|highway|hwy\.?|parkway|pkwy\.?|court|ct\.?|place|pl\.?)\b[^\n]{0,60}/i;
+// The lookbehind stops the house number matching mid-token. Without it,
+// "Mon - Sun 11:30 AM - 10:00 PM. 4801 37th Street South" starts the address at
+// the "00" of "10:00", and the report quotes a snippet beginning "00 PM.".
+const ADDRESS_REGEX = /(?<![\d:.])\d{1,6}\s+[A-Za-z0-9.'\- ]{3,40}\s(street|st\.?|avenue|ave\.?|boulevard|blvd\.?|road|rd\.?|drive|dr\.?|lane|ln\.?|way|highway|hwy\.?|parkway|pkwy\.?|court|ct\.?|place|pl\.?)\b[^\n]{0,60}/i;
 
 type HopResult =
   | { kind: 'response'; response: UndiciResponse; finalUrl: string }
