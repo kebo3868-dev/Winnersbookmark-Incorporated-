@@ -1,4 +1,4 @@
-import { detectWidgetVendor, type CategorizedLink, type PageExtract } from '@/lib/web/collector';
+import { detectWidgetVendor, normalizePhonesInText, type CategorizedLink, type PageExtract } from '@/lib/web/collector';
 import type { EvidenceInput } from '@/types/audit';
 import {
   classifyDestination,
@@ -147,7 +147,9 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
     evidence.push({
       sourceUrl: anyPhone.finalUrl,
       evidenceType: 'PHONE_VISIBILITY',
-      fact: `A phone number is publicly displayed (${anyPhone.phones[0]}).`,
+      // Colon, not brackets. The number is already parenthesised by its own area
+      // code, so wrapping the sentence in another pair produced "((727) 367-4588)".
+      fact: `A phone number is publicly displayed: ${anyPhone.phones[0]}.`,
       supportingContext: anyPhone.finalUrl === home.finalUrl ? 'Displayed on the homepage.' : 'Displayed on a secondary page.',
       confidence: 95,
     });
@@ -188,7 +190,9 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
     fact: hoursPage
       ? 'Business hours are published on the website.'
       : 'Business hours were not detected in the text of the analyzed pages.',
-    supportingContext: hoursPage ? `Detected hours text: "${hoursPage.hoursText}"` : analyzedNote,
+    supportingContext: hoursPage
+      ? `Detected hours text: "${normalizePhonesInText(hoursPage.hoursText as string)}"`
+      : analyzedNote,
     confidence: hoursPage ? 90 : 60,
   });
   const addressPage = pages.find((p) => p.addressText);
@@ -198,7 +202,9 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
     fact: addressPage
       ? 'A street address is published on the website.'
       : 'A street address was not detected in the text of the analyzed pages.',
-    supportingContext: addressPage ? `Detected address text: "${addressPage.addressText}"` : analyzedNote,
+    supportingContext: addressPage
+      ? `Detected address text: "${normalizePhonesInText(addressPage.addressText as string)}"`
+      : analyzedNote,
     confidence: addressPage ? 90 : 60,
   });
 
@@ -512,7 +518,7 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
     fact: homeCtas.length > 0
       ? `Homepage presents ${homeCtas.length} action-oriented CTA(s).`
       : 'No clear action-oriented CTAs (order, reserve, call, menu) were detected on the homepage.',
-    supportingContext: homeCtas.length > 0 ? `Examples: ${homeCtas.slice(0, 6).join(' | ')}` : null,
+    supportingContext: homeCtas.length > 0 ? `Examples: ${normalizePhonesInText(homeCtas.slice(0, 6).join(' | '))}` : null,
     confidence: 80,
   });
   if (homeCtas.length > 8) {
@@ -520,7 +526,7 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
       sourceUrl: home.finalUrl,
       evidenceType: 'CTA_SIGNAL',
       fact: `Homepage presents ${homeCtas.length} competing CTAs, which can dilute the primary next action.`,
-      supportingContext: homeCtas.slice(0, 10).join(' | '),
+      supportingContext: normalizePhonesInText(homeCtas.slice(0, 10).join(' | ')),
       confidence: 70,
     });
   }
