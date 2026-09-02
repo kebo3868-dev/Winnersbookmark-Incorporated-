@@ -335,6 +335,33 @@ describe('a labelled address is still an address', () => {
   });
 });
 
+describe('address evidence stops at the postal-code boundary', () => {
+  it('does not include unrelated page text after a ZIP code', () => {
+    const ev = records(`
+      <p>840 Pasadena Avenue South, St. Petersburg, FL 33707</p>
+      <span>map marker pin</span><a href="/about">About us</a><p>Leverock's story</p>
+    `);
+    const address = ev.find((e) => e.evidenceType === 'ADDRESS_VISIBILITY');
+    expect(address?.supportingContext).toContain('840 Pasadena Avenue South, St. Petersburg, FL 33707');
+    expect(address?.supportingContext).not.toMatch(/map marker pin|About us|Leverock's story/i);
+  });
+
+  it('keeps a complete ZIP+4 and stops at its boundary', () => {
+    const ev = records('<p>840 Pasadena Avenue South, St. Petersburg, FL 33707-1234</p><p>About us</p>');
+    const address = ev.find((e) => e.evidenceType === 'ADDRESS_VISIBILITY');
+    expect(address?.supportingContext).toContain('FL 33707-1234');
+    expect(address?.supportingContext).not.toContain('About us');
+  });
+});
+
+describe('adjacent DOM text nodes retain a word boundary', () => {
+  it('does not concatenate pinAbout us in extracted page text', () => {
+    const extracted = page('<span>map marker pin</span><a href="/about">About us</a>');
+    expect(extracted.textSample).toContain('map marker pin About us');
+    expect(extracted.textSample).not.toContain('pinAbout us');
+  });
+});
+
 describe('the Check D fixes that passed live still hold', () => {
   it('renders PHONE_VISIBILITY and CTA_SIGNAL in the shape the live audit showed', () => {
     const ev = records(`

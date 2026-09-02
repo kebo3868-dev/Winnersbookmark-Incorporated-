@@ -1,4 +1,5 @@
 import * as cheerio from 'cheerio';
+import type { AnyNode } from 'domhandler';
 import type { Response as UndiciResponse } from 'undici';
 import { validateUrlTarget, normalizeUrl } from '@/lib/validation/url';
 import { safeFetchHop, readBodyCapped } from '@/lib/web/safeFetch';
@@ -418,6 +419,44 @@ const HOURS_REGEX =
 // "Address:4801 37th Street South", where the colon follows a letter.
 const ADDRESS_REGEX = /(?<![\d.])(?<!\d:)\d{1,6}\s+[A-Za-z0-9.'\- ]{3,40}\s(street|st\.?|avenue|ave\.?|boulevard|blvd\.?|road|rd\.?|drive|dr\.?|lane|ln\.?|way|highway|hwy\.?|parkway|pkwy\.?|court|ct\.?|place|pl\.?)\b[^\n]{0,60}/i;
 
+/** Stop a matched address at the first complete US ZIP or ZIP+4. */
+function terminateAddressAtZip(address: string): string {
+  const postalCode = address.match(/\b\d{5}(?:-\d{4})?(?![\d-])/);
+  if (postalCode?.index === undefined) return address;
+  return address.slice(0, postalCode.index + postalCode[0].length);
+}
+
+/**
+ * Read visible text without collapsing adjacent DOM text nodes into one token.
+ * Cheerio's `.text()` concatenates siblings verbatim, so separate elements such
+ * as `pin</span><a>About us` became `pinAbout us` before whitespace cleanup.
+ */
+function textWithNodeBoundaries(root: AnyNode | undefined): string {
+  if (!root) return '';
+  const chunks: string[] = [];
+  const visit = (node: AnyNode): void => {
+    if (node.type === 'text') {
+      const value = node.data;
+      if (!value) return;
+      const previous = chunks.at(-1) ?? '';
+      const needsSeparator =
+        previous.length > 0 &&
+        !/\s$/.test(previous) &&
+        !/^\s/.test(value) &&
+        !/[([{/'"“‘-]$/.test(previous) &&
+        !/^[,.;:!?)}\]'"”’-]/.test(value);
+      if (needsSeparator) chunks.push(' ');
+      chunks.push(value);
+      return;
+    }
+    if ('children' in node) {
+      for (const child of node.children) visit(child);
+    }
+  };
+  visit(root);
+  return chunks.join('');
+}
+
 type HopResult =
   | { kind: 'response'; response: UndiciResponse; finalUrl: string }
   | { kind: 'failure'; status: 'UNAVAILABLE' | 'BLOCKED' | 'TIMEOUT' | 'ERROR'; httpStatus?: number; note: string };
@@ -674,7 +713,7 @@ export function extractPage(
     if (t && t.length <= 140 && headings.length < 40) headings.push(t);
   });
 
-  const bodyText = $('body').text().replace(/\s+/g, ' ').trim().slice(0, MAX_SCAN_TEXT);
+  const bodyText = textWithNodeBoundaries($('body').get(0)).replace(/\s+/g, ' ').trim().slice(0, MAX_SCAN_TEXT);
 
   const internalLinks: { href: string; text: string }[] = [];
   const socialLinks = new Set<string>();
@@ -822,7 +861,7 @@ export function extractPage(
     socialLinks: Array.from(socialLinks).slice(0, 10),
     pdfLinks: Array.from(pdfLinks).slice(0, 10),
     hoursText: hoursMatch ? hoursMatch[0].slice(0, 200) : null,
-    addressText: addressMatch ? addressMatch[0].slice(0, 200) : null,
+    addressText: addressMatch ? terminateAddressAtZip(addressMatch[0]).slice(0, 200) : null,
     emailCaptureSignal,
     smsCaptureSignal,
     loyaltySignal,
