@@ -358,7 +358,11 @@ export function detectWidgetVendor(assetHosts: string[], capability: WidgetCapab
   return null;
 }
 
-const PHONE_REGEX = /(?:\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]\d{3}[-.\s]\d{4}\b/g;
+// The leading lookbehind stops a match starting mid-number. The optional `1`
+// country-code prefix is otherwise happy to begin on the last digit of a
+// preceding number, so "FL 33701 (727)-367-4588" matched "1 (727)-367-4588" —
+// eleven digits, read as +1, and the replacement ate the ZIP code's final digit.
+const PHONE_REGEX = /(?<!\d)(?:\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]\d{3}[-.\s]\d{4}\b/g;
 
 /**
  * Normalise every phone-shaped substring inside a block of quoted page text.
@@ -404,10 +408,15 @@ const EMAIL_REGEX = /\b[a-zA-Z0-9._%+-]{1,64}@[a-zA-Z0-9-]{1,63}(?:\.[a-zA-Z0-9-
 const MAX_SCAN_TEXT = 300_000;
 const HOURS_REGEX =
   /((mon|tue|wed|thu|fri|sat|sun)[a-z]*\.?\s*(–|-|to|through|thru)?\s*(mon|tue|wed|thu|fri|sat|sun)?[a-z]*\.?[:\s]*\d{1,2}(:\d{2})?\s*(am|pm)\s*(–|-|to)\s*\d{1,2}(:\d{2})?\s*(am|pm))/i;
-// The lookbehind stops the house number matching mid-token. Without it,
+// The lookbehinds stop the house number matching mid-token. Without them,
 // "Mon - Sun 11:30 AM - 10:00 PM. 4801 37th Street South" starts the address at
 // the "00" of "10:00", and the report quotes a snippet beginning "00 PM.".
-const ADDRESS_REGEX = /(?<![\d:.])\d{1,6}\s+[A-Za-z0-9.'\- ]{3,40}\s(street|st\.?|avenue|ave\.?|boulevard|blvd\.?|road|rd\.?|drive|dr\.?|lane|ln\.?|way|highway|hwy\.?|parkway|pkwy\.?|court|ct\.?|place|pl\.?)\b[^\n]{0,60}/i;
+//
+// The colon guard is deliberately narrow: it rejects a colon that FOLLOWS A
+// DIGIT, which is what a clock time looks like ("10:"). Rejecting every colon
+// also threw away legitimate addresses written straight after a label, as in
+// "Address:4801 37th Street South", where the colon follows a letter.
+const ADDRESS_REGEX = /(?<![\d.])(?<!\d:)\d{1,6}\s+[A-Za-z0-9.'\- ]{3,40}\s(street|st\.?|avenue|ave\.?|boulevard|blvd\.?|road|rd\.?|drive|dr\.?|lane|ln\.?|way|highway|hwy\.?|parkway|pkwy\.?|court|ct\.?|place|pl\.?)\b[^\n]{0,60}/i;
 
 type HopResult =
   | { kind: 'response'; response: UndiciResponse; finalUrl: string }
