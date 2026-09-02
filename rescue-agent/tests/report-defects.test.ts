@@ -360,6 +360,54 @@ describe('adjacent DOM text nodes retain a word boundary', () => {
     expect(extracted.textSample).toContain('map marker pin About us');
     expect(extracted.textSample).not.toContain('pinAbout us');
   });
+
+  /**
+   * Separating adjacent text nodes is right, but a separator is not always
+   * right. Inserting one wherever two nodes meet corrupted three other
+   * text-derived paths, so each is pinned here in both directions: the token
+   * that must survive the boundary, and the improvement that must not be lost.
+   */
+
+  it('keeps an email address whole when the markup splits it at the @', () => {
+    // Splitting the local part from the domain is a routine anti-scraper trick.
+    // A separator at the @ produced "info@ leverocks.com" and no email at all.
+    const extracted = page('<p><span>info@</span><span>leverocks.com</span></p>');
+    expect(extracted.textSample).toContain('info@leverocks.com');
+    expect(extracted.emails).toContain('info@leverocks.com');
+  });
+
+  it('keeps an email whole when the split falls before the @', () => {
+    const extracted = page('<p><span>info</span><span>@leverocks.com</span></p>');
+    expect(extracted.emails).toContain('info@leverocks.com');
+  });
+
+  it('never manufactures a phone number from adjacent numeric cells', () => {
+    // Three numeric cells satisfy PHONE_REGEX's 3-3-4 grouping once separated,
+    // so a price grid or nutrition table reported a phone number that appears
+    // nowhere on the page. Digit runs meeting at a boundary are one number.
+    const extracted = page('<table><tr><td>123</td><td>456</td><td>7890</td></tr></table>');
+    expect(extracted.textSample).toContain('1234567890');
+    expect(extracted.phones).toHaveLength(0);
+  });
+
+  it('still finds hours when the markup splits a time after its colon', () => {
+    // "11:" + "30" became "11: 30", which HOURS_REGEX does not match, so
+    // published hours were reported as absent.
+    const extracted = page('<p><span>Mon - Sun 11:</span><span>30</span> AM - 10:00 PM</p>');
+    expect(extracted.hoursText).toBe('Mon - Sun 11:30 AM - 10:00 PM');
+  });
+
+  it('still gains the split-phone improvement the separator was added for', () => {
+    // The reason node boundaries are honoured at all: "(727)367-4588" carries
+    // no separator and matched nothing. This must survive the guards above.
+    const extracted = page('<p><span>(727)</span><span>367-4588</span></p>');
+    expect(extracted.phones).toContain('(727) 367-4588');
+  });
+
+  it('leaves a phone split at a hyphen exactly as it was', () => {
+    const extracted = page('<p><span>727</span><span>-367-4588</span></p>');
+    expect(extracted.phones).toContain('(727) 367-4588');
+  });
 });
 
 describe('the Check D fixes that passed live still hold', () => {

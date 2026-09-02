@@ -443,8 +443,19 @@ function textWithNodeBoundaries(root: AnyNode | undefined): string {
         previous.length > 0 &&
         !/\s$/.test(previous) &&
         !/^\s/.test(value) &&
-        !/[([{/'"“‘-]$/.test(previous) &&
-        !/^[,.;:!?)}\]'"”’-]/.test(value);
+        // `@` and `:` bind the tokens on either side of them. Splitting an
+        // address at the `@` is a routine anti-scraper trick, and a separator
+        // there turned "info@leverocks.com" into "info@ leverocks.com", which
+        // matches no email pattern. The same for a time broken after its colon:
+        // "11:" + "30" became "11: 30" and the page's hours stopped being found.
+        !/[([{/'"“‘@:-]$/.test(previous) &&
+        !/^[,.;:!?)}\]'"”’@-]/.test(value) &&
+        // Two digit runs meeting at a node boundary are one number, not two
+        // words. Separating them let three adjacent numeric cells — a price
+        // grid, a nutrition table — satisfy the 3-3-4 grouping of PHONE_REGEX,
+        // so the audit reported a phone number that appears nowhere on the page.
+        // Joining them preserves the pre-existing "1234567890" behaviour exactly.
+        !(/\d$/.test(previous) && /^\d/.test(value));
       if (needsSeparator) chunks.push(' ');
       chunks.push(value);
       return;
