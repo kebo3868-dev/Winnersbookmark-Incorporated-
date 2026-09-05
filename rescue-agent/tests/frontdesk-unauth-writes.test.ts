@@ -1020,17 +1020,21 @@ describe('structural guard: the exempt-route list is pinned', () => {
    */
   const middleware = readFileSync(join(process.cwd(), 'src/middleware.ts'), 'utf8');
 
-  it('exempts exactly the four known signed routes', () => {
+  it('exempts exactly the five known self-authenticating routes', () => {
     const block = middleware.slice(
       middleware.indexOf('const SIGNED_WEBHOOK_ROUTES'),
       middleware.indexOf('const SELF_AUTHORIZING_AREA'),
     );
     const patterns = [...block.matchAll(/\/\^\\\/([^/]*(?:\\\/[^/]*)*)\$\//g)].map((m) => m[0]);
-    expect(patterns).toHaveLength(4);
+    expect(patterns).toHaveLength(5);
     expect(block).toContain('notifications\\/webhook');
     expect(block).toContain('notifications\\/cron');
     expect(block).toContain('sms\\/inbound');
     expect(block).toContain('auth\\/(login|logout)');
+    // The marketing website posts enquiries here server-to-server with its own
+    // shared secret. It cannot present the operator credential, and it writes
+    // only to MarketingLead.
+    expect(block).toContain('api\\/marketing\\/leads');
   });
 
   it('keeps the public message endpoint behind an explicit opt-in', () => {
@@ -1043,6 +1047,7 @@ describe('structural guard: the exempt-route list is pinned', () => {
       'src/app/api/frontdesk/notifications/cron/route.ts',
       'src/app/api/frontdesk/sms/inbound/route.ts',
       'src/app/api/frontdesk/auth/login/route.ts',
+      'src/app/api/marketing/leads/route.ts',
     ]) {
       const source = readFileSync(join(process.cwd(), file), 'utf8');
       expect(source, `${file} does not use the bounded recorder`).toContain('noteRejection');
