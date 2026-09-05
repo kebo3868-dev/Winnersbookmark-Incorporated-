@@ -25,6 +25,14 @@ export default function SiteHeader() {
   const panelRef = useRef<HTMLDivElement>(null);
   const toggleRef = useRef<HTMLButtonElement>(null);
 
+  // Safety net: if a navigation happens by some route other than a drawer link
+  // (a browser back button, a redirect), the drawer must still close.
+  //
+  // It is NOT the primary mechanism. Waiting for the pathname to change leaves
+  // the drawer covering the page the visitor just asked for for the whole
+  // duration of the route transition — measured at over a second on a slow
+  // connection, which reads as a stuck menu. Drawer links close it on click
+  // instead; this only catches what that misses.
   useEffect(() => {
     setOpen(false);
   }, [pathname]);
@@ -59,7 +67,11 @@ export default function SiteHeader() {
   return (
     <header className="sticky top-0 z-50 border-b border-night-line bg-night/85 backdrop-blur-md">
       <div className="shell flex h-[68px] items-center justify-between gap-4">
-        <Link href="/" aria-label={`${'Winners Bookmark Incorporated'} — home`} className="shrink-0">
+        <Link
+          href="/"
+          aria-label="Winners Bookmark Incorporated — home"
+          className="-my-1.5 flex shrink-0 items-center py-1.5"
+        >
           <Wordmark />
         </Link>
 
@@ -115,6 +127,7 @@ export default function SiteHeader() {
               key={item.href}
               href={item.href}
               aria-current={isCurrent(item.href) ? 'page' : undefined}
+              onClick={() => setOpen(false)}
               className={`rounded-lg px-3 py-3.5 text-[15px] font-medium transition-colors ${
                 isCurrent(item.href) ? 'bg-night-card text-white' : 'text-snow-dim hover:bg-night-card hover:text-white'
               }`}
@@ -122,7 +135,7 @@ export default function SiteHeader() {
               {item.label}
             </Link>
           ))}
-          <Link href="/contact" className="btn-primary mt-3 w-full">
+          <Link href="/contact" onClick={() => setOpen(false)} className="btn-primary mt-3 w-full">
             Book a Strategy Call
           </Link>
         </nav>

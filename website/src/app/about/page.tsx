@@ -96,7 +96,7 @@ export default function AboutPage() {
         <div className="mt-10 max-w-prose space-y-4">
           {agentsByOrder.map((agent) => (
             <div key={agent.slug} className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-night-line pb-4">
-              <Link href={`/solutions/${agent.slug}`} className="text-[15px] font-semibold text-snow transition-colors hover:text-electric-light">
+              <Link href={`/solutions/${agent.slug}`} className="inline-block py-1 text-[15px] font-semibold text-snow transition-colors hover:text-electric-light">
                 {agent.name}
               </Link>
               <span className="text-sm text-snow-faint">{agent.statusLabel}</span>

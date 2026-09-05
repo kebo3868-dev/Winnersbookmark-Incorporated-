@@ -22,10 +22,16 @@ export default function SiteFooter() {
               <h2 className="text-[11px] font-semibold uppercase tracking-[0.16em] text-snow-faint">
                 {group.heading}
               </h2>
-              <ul className="mt-4 space-y-2.5">
+              {/* `py-1.5` + `inline-block` gives each link a ~32px tap target
+                  in a stacked list. Padding rather than margin, so the target
+                  grows instead of just the gap between targets. */}
+              <ul className="mt-3 space-y-0.5">
                 {group.links.map((link) => (
                   <li key={link.href}>
-                    <Link href={link.href} className="text-sm text-snow-dim transition-colors hover:text-white">
+                    <Link
+                      href={link.href}
+                      className="inline-block py-1.5 text-sm text-snow-dim transition-colors hover:text-white"
+                    >
                       {link.label}
                     </Link>
                   </li>

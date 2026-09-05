@@ -38,10 +38,10 @@ export default function FounderPage() {
       <section className="border-b border-night-line">
         <div className="shell py-16 sm:py-24">
           <nav aria-label="Breadcrumb" className="mb-7">
-            <ol className="flex flex-wrap items-center gap-2 text-xs text-snow-faint">
-              <li><Link href="/" className="transition-colors hover:text-snow-dim">Home</Link></li>
+            <ol className="flex flex-wrap items-center gap-x-2 text-xs text-snow-faint">
+              <li><Link href="/" className="inline-block py-1.5 transition-colors hover:text-snow-dim">Home</Link></li>
               <li aria-hidden="true">/</li>
-              <li><Link href="/about" className="transition-colors hover:text-snow-dim">About</Link></li>
+              <li><Link href="/about" className="inline-block py-1.5 transition-colors hover:text-snow-dim">About</Link></li>
               <li aria-hidden="true">/</li>
               <li className="text-snow-dim">Founder</li>
             </ol>

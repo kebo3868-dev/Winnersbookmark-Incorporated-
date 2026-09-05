@@ -78,7 +78,7 @@ export default function ContactPage() {
               </p>
               <a
                 href={`mailto:${contact.email}`}
-                className="mt-4 inline-block break-all text-sm font-semibold text-electric-light underline underline-offset-4 transition-colors hover:text-white"
+                className="mt-3 inline-block break-all py-1.5 text-sm font-semibold text-electric-light underline underline-offset-4 transition-colors hover:text-white"
               >
                 {contact.email}
               </a>

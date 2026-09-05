@@ -95,9 +95,12 @@ body {
            disabled:opacity-55 disabled:cursor-not-allowed;
   }
 
+  /* A standalone action, not inline prose — so it carries a real tap target.
+     `-my-1.5` pulls the added padding back out of the layout, so the control
+     grows without the surrounding spacing changing. */
   .btn-ghost {
-    @apply inline-flex items-center gap-1.5 text-sm font-semibold text-electric-light
-           transition-colors hover:text-white;
+    @apply -my-1.5 inline-flex min-h-[34px] items-center gap-1.5 py-1.5 text-sm
+           font-semibold text-electric-light transition-colors hover:text-white;
   }
 
   /* Forms ----------------------------------------------------------------- */

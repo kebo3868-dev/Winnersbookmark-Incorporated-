@@ -1,8 +1,15 @@
 name: CI
 
-# Gates every change to the Restaurant Rescue Agent before it can reach
+# Gates every change to the two deployed applications before it can reach
 # production. Vercel deploys on merge, so this is the only place broken code
 # gets caught first.
+#
+# Two Vercel projects are served from this one repository, each pinned to its
+# own Root Directory:
+#   rescue-agent/ -> the internal operator console (Basic Auth, holds the data)
+#   website/      -> the public marketing site (no credentials, no database)
+# The repo root holds a third, undeployed app (the Daily Blogs product), which
+# is preserved but not gated here.
 on:
   push:
     branches: [main, 'claude/**']
@@ -18,14 +25,13 @@ concurrency:
 permissions:
   contents: read
 
-defaults:
-  run:
-    working-directory: rescue-agent
-
 jobs:
   build:
-    name: Typecheck, tests, build
+    name: Rescue Agent — typecheck, tests, build
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: rescue-agent
     env:
       # The app never connects during typecheck/tests/build (all pages are
       # force-dynamic and the unit suite is hermetic), but the Prisma client is
@@ -56,9 +62,42 @@ jobs:
       - name: Production build
         run: npm run build
 
+  website:
+    name: Marketing site — typecheck, tests, build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: website
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      # Includes the honesty-contract assertions: a change that publishes an
+      # invented statistic, promotes an unbuilt agent to "available", or adds
+      # an unattributed case study fails here rather than shipping.
+      - name: Tests
+        run: npm test
+
+      - name: Production build
+        run: npm run build
+
   migrations:
     name: Migrations apply cleanly with zero drift
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: rescue-agent
     services:
       postgres:
         image: postgres:16

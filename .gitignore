@@ -26,3 +26,6 @@ yarn-error.log*
 next-env.d.ts
 out/
 .vercel/
+
+# TypeScript incremental build cache — machine-local, never shared
+*.tsbuildinfo
