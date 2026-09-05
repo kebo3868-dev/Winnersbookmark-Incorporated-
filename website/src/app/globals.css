@@ -1,0 +1,127 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ---------------------------------------------------------------------------
+   BASE
+   The site commits to a dark presentation. `color-scheme: dark` tells the
+   browser to render form controls and scrollbars to match, which is what stops
+   a native <select> rendering as a white slab in the middle of a black page.
+--------------------------------------------------------------------------- */
+:root {
+  color-scheme: dark;
+}
+
+html {
+  scroll-behavior: smooth;
+  /* An anchored section must not land under the sticky header. */
+  scroll-padding-top: 5rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+body {
+  @apply bg-night text-snow-soft font-sans antialiased;
+  /* One restrained wash of blue at the top of the page. This is the only
+     decorative gradient in the system — the brief explicitly ruled out cheap
+     gradients, and the way to honour that is to have exactly one and keep it
+     subtle enough to read as depth rather than decoration. */
+  background-image: radial-gradient(ellipse 90% 45% at 50% -10%, rgba(37, 99, 235, 0.13), transparent 70%);
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+}
+
+/* Visible focus everywhere, on every interactive element. Removing this to
+   tidy up the visuals is an accessibility regression, not a design choice. */
+:where(a, button, input, textarea, select, [tabindex]):focus-visible {
+  @apply outline-none ring-2 ring-electric-light ring-offset-2 ring-offset-night rounded-sm;
+}
+
+/* ---------------------------------------------------------------------------
+   COMPONENTS
+--------------------------------------------------------------------------- */
+@layer components {
+  /* Layout ---------------------------------------------------------------- */
+  .shell {
+    @apply mx-auto w-full max-w-6xl px-5 sm:px-8;
+  }
+
+  .section {
+    @apply py-16 sm:py-24;
+  }
+
+  /* Typography ------------------------------------------------------------ */
+  .eyebrow {
+    @apply text-[11px] font-semibold uppercase tracking-[0.2em] text-electric-light;
+  }
+
+  .lede {
+    @apply text-base sm:text-lg leading-relaxed text-snow-dim;
+  }
+
+  /* Surfaces -------------------------------------------------------------- */
+  .card {
+    @apply rounded-xl border border-night-line bg-night-card;
+  }
+
+  .card-hover {
+    @apply transition-colors duration-200 hover:border-night-edge;
+  }
+
+  /* Actions --------------------------------------------------------------- */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-6 py-3.5
+           text-sm font-semibold tracking-tight transition-colors duration-200
+           min-h-[48px];
+  }
+
+  /* PRIMARY — one per view. This is the only solid blue element on a page. */
+  .btn-primary {
+    @apply btn bg-electric text-white shadow-action
+           hover:bg-electric-bright
+           disabled:opacity-55 disabled:cursor-not-allowed disabled:hover:bg-electric;
+  }
+
+  .btn-secondary {
+    @apply btn border border-night-edge bg-transparent text-snow-soft
+           hover:border-electric hover:text-white
+           disabled:opacity-55 disabled:cursor-not-allowed;
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center gap-1.5 text-sm font-semibold text-electric-light
+           transition-colors hover:text-white;
+  }
+
+  /* Forms ----------------------------------------------------------------- */
+  .field-label {
+    @apply block text-xs font-semibold uppercase tracking-[0.12em] text-snow-faint mb-2;
+  }
+
+  .field-input {
+    @apply w-full rounded-lg border border-night-line bg-night-soft px-4 py-3
+           text-[16px] text-snow placeholder:text-snow-faint
+           transition-colors focus:border-electric;
+    /* 16px minimum prevents iOS Safari zooming the viewport on focus, which is
+       what makes a mobile form feel broken even when it works. */
+  }
+
+  .field-error {
+    @apply border-red-500/70 focus:border-red-500;
+  }
+
+  .field-hint {
+    @apply mt-2 text-xs text-snow-faint;
+  }
+
+  .field-message {
+    @apply mt-2 text-xs font-medium text-red-400;
+  }
+}
