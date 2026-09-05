@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Section, SectionHeading } from '@/components/Section';
 import { StatusBadge, FeatureStateBadge } from '@/components/StatusBadge';
-import { getAgent, agentSlugs, agentsByOrder } from '@/data/agents';
+import { getAgent, agentSlugs, agentsByOrder, STATUS_PRESENTATION } from '@/data/agents';
 import { SITE_URL, company } from '@/data/site';
 
 /**
@@ -126,10 +126,10 @@ export default async function AgentPage({ params }: { params: Promise<{ slug: st
 
             {/* The status note is prominent, not buried. A visitor should not
                 have to read to the FAQ to discover something is not for sale. */}
+            {/* The rule takes its colour from the agent's own status, so it can
+                never disagree with the badge directly above it. */}
             <div
-              className={`mt-8 rounded-lg border-l-2 bg-night-card/60 p-4 sm:p-5 ${
-                isAvailable ? 'border-status-live/60' : 'border-status-planned/60'
-              }`}
+              className={`mt-8 rounded-lg border-l-2 bg-night-card/60 p-4 sm:p-5 ${STATUS_PRESENTATION[agent.status].rule}`}
             >
               <p className="text-xs font-semibold uppercase tracking-[0.12em] text-snow-faint">
                 {agent.statusLabel}

@@ -135,3 +135,16 @@ describe('honesty contract', () => {
     }
   });
 });
+
+describe('status presentation consistency', () => {
+  it('gives every status a badge colour AND a matching rule colour', () => {
+    // The callout rule and the badge must always answer the same question.
+    // A green rule beside an amber "Private pilot" badge was a real defect.
+    for (const [status, p] of Object.entries(STATUS_PRESENTATION)) {
+      expect(p.rule, status).toBeTruthy();
+      const badgeTone = p.text.replace('text-status-', '');
+      const ruleTone = p.rule.replace('border-status-', '').split('/')[0];
+      expect(ruleTone, `${status}: rule tone must match badge tone`).toBe(badgeTone);
+    }
+  });
+});

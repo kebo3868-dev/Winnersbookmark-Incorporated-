@@ -99,33 +99,47 @@ export interface Agent {
   order: number;
 }
 
+/**
+ * One definition per status, used by every status-coloured surface.
+ *
+ * `rule` is the heavier left-border used on the status callout. It exists here
+ * rather than being chosen at the call site because the callout previously
+ * picked its colour from a binary "is this available" test, which rendered a
+ * GREEN rule beside an AMBER "Private pilot" badge — two different answers to
+ * the same question, six inches apart. Deriving both from this map makes that
+ * class of mismatch impossible.
+ */
 export const STATUS_PRESENTATION: Record<
   AgentStatus,
-  { label: string; dot: string; text: string; border: string }
+  { label: string; dot: string; text: string; border: string; rule: string }
 > = {
   LIVE: {
     label: 'Live',
     dot: 'bg-status-live',
     text: 'text-status-live',
     border: 'border-status-live/40',
+    rule: 'border-status-live/70',
   },
   PILOT: {
     label: 'Private pilot',
     dot: 'bg-status-building',
     text: 'text-status-building',
     border: 'border-status-building/40',
+    rule: 'border-status-building/70',
   },
   IN_DEVELOPMENT: {
     label: 'In development',
     dot: 'bg-status-building',
     text: 'text-status-building',
     border: 'border-status-building/40',
+    rule: 'border-status-building/70',
   },
   COMING_SOON: {
     label: 'Coming soon',
     dot: 'bg-status-planned',
     text: 'text-status-planned',
     border: 'border-status-planned/40',
+    rule: 'border-status-planned/70',
   },
 };
 
