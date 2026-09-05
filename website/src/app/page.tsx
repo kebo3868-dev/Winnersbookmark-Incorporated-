@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { Section, SectionHeading } from '@/components/Section';
 import AgentCard from '@/components/AgentCard';
 import { featuredAgents, agentsByOrder, availableAgents } from '@/data/agents';
-import { company } from '@/data/site';
+import { company, SITE_URL, contact } from '@/data/site';
 
 /**
  * HOMEPAGE
@@ -70,8 +70,34 @@ const PRINCIPLES = [
 ];
 
 export default function HomePage() {
+  /**
+   * Organisation structured data. Deliberately minimal: name, description,
+   * founder, contact route. No aggregateRating, no review markup, no employee
+   * count — every one of those would be an unverifiable claim, and search
+   * engines penalise exactly that.
+   */
+  const organisationLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Organization',
+    name: company.legalName,
+    alternateName: company.shortName,
+    url: SITE_URL,
+    description: company.positioning,
+    founder: { '@type': 'Person', name: company.founder },
+    contactPoint: {
+      '@type': 'ContactPoint',
+      contactType: 'sales',
+      email: contact.email,
+      url: `${SITE_URL}/contact`,
+    },
+  };
+
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(organisationLd) }}
+      />
       {/* ── HERO ──────────────────────────────────────────────────────────── */}
       <section className="relative overflow-hidden border-b border-night-line">
         <div className="shell py-20 sm:py-28 lg:py-32">
