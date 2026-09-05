@@ -934,3 +934,65 @@ model FdReviewRequest {
   @@index([tenantId, status])
   @@index([tenantId, createdAt])
 }
+
+/// Where a marketing-site enquiry came from. Distinct from AuditLeadStatus so
+/// the two pipelines can diverge without one breaking the other.
+enum MarketingLeadStatus {
+  NEW
+  CONTACTED
+  QUALIFIED
+  WON
+  LOST
+}
+
+/// An enquiry submitted through the public marketing website.
+///
+/// WHY THIS IS A SEPARATE TABLE FROM AuditLead
+/// ------------------------------------------
+/// AuditLead is structurally bound to an audit: `auditId` is required AND
+/// unique, and `restaurantId` is required. It models "someone who asked to be
+/// contacted about THIS audit of THIS restaurant", which is a different thing
+/// from "someone filled in the contact form".
+///
+/// Routing website enquiries into it would have meant fabricating an Audit and
+/// a Restaurant row for every enquiry — which would inflate the Command
+/// Center's audit counts, pollute the average Rescue Score, and put phantom
+/// records into the stale-audit sweep. The reporting surface operators rely on
+/// would have started lying.
+///
+/// So: a new table, additive only. Nothing about the audit pipeline changes.
+model MarketingLead {
+  id           String              @id @default(cuid())
+  name         String
+  email        String
+  /// Optional throughout — an enquiry with only a name and an email is still
+  /// a lead, and demanding more fields costs more conversions than the extra
+  /// data is worth.
+  company      String?
+  phone        String?
+  websiteUrl   String?
+  /// Which offer generated the enquiry (an agent slug, "ai-business-audit",
+  /// or null for a general enquiry). Free text rather than an enum: the
+  /// marketing site's offers change faster than a migration cycle, and an
+  /// unrecognised value must never reject a real lead.
+  interest     String?
+  message      String
+  status       MarketingLeadStatus @default(NEW)
+  notes        String?
+  /// Whether the founder's notification email was successfully handed to a
+  /// provider. Deliberately nullable with three states: null = never attempted
+  /// (no provider configured), false = attempted and failed, true = accepted.
+  /// "Accepted" is not "delivered" — see lib/frontdesk/email/provider.ts.
+  notifiedAt   DateTime?
+  notifyFailed Boolean             @default(false)
+  /// Coarse spam signal recorded at submission, kept for review rather than
+  /// used to silently discard. A false positive that deletes a real customer
+  /// enquiry is far more costly than one that files it for a human to check.
+  flaggedSpam  Boolean             @default(false)
+  sourcePath   String?
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+
+  @@index([status, createdAt])
+  @@index([createdAt])
+}

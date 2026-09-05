@@ -51,6 +51,13 @@ const SIGNED_WEBHOOK_ROUTES = [
   // exists to replace. It authenticates itself by definition, and carries its
   // own per-account attempt limit so being reachable is not being open.
   /^\/api\/frontdesk\/auth\/(login|logout)$/,
+  // Marketing lead ingest. The public website posts enquiries here
+  // server-to-server, and a separate deployment cannot present this app's
+  // operator credential. It authenticates with its own shared secret,
+  // compared in constant time, and fails closed (503) when that secret is
+  // absent or too short — so being reachable is not being open. It only ever
+  // writes to MarketingLead and can read nothing.
+  /^\/api\/marketing\/leads$/,
 ];
 
 /**
