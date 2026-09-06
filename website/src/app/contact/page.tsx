@@ -51,7 +51,7 @@ export default function ContactPage() {
               <h2 className="text-base font-semibold text-text-bright">What happens after you send it</h2>
               <ol className="mt-5 space-y-4">
                 {[
-                  { t: 'Keith reads it', d: 'Enquiries go to the founder, not a shared inbox or a sales team.' },
+                  { t: 'Keith reads it', d: 'Inquiries go to the founder, not a shared inbox or a sales team.' },
                   { t: 'You get an honest reply', d: 'A first read on whether this is something we can help with, usually within one business day.' },
                   { t: 'We talk, if it fits', d: 'A call to go deeper. No obligation, and no pressure afterwards.' },
                 ].map((step, i) => (

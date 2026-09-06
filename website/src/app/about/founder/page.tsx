@@ -101,7 +101,7 @@ export default function FounderPage() {
         <div className="surface p-8 text-center sm:p-12">
           <h2 className="text-display-2 font-bold text-text-bright">Talk to Keith directly.</h2>
           <p className="lede mx-auto mt-4 max-w-xl">
-            Enquiries to Winners Bookmark reach the founder. If you want to talk about what AI
+            Inquiries to Winners Bookmark reach the founder. If you want to talk about what AI
             could do for your business, start here.
           </p>
           <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">

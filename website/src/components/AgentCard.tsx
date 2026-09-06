@@ -11,7 +11,7 @@ import type { Agent } from '@/data/agents';
  *
  *  1. A monitor-style readout with its own chrome, so the card contains a piece
  *     of the product rather than only describing it.
- *  2. A relative proportion bar — deliberately unlabelled. It shows the SHAPE
+ *  2. A relative proportion bar — deliberately unlabeled. It shows the SHAPE
  *     of what the system handles without asserting a measured quantity, which
  *     the company has no data to support.
  *  3. Real operational status, read from the registry.
@@ -59,7 +59,7 @@ export default function AgentCard({ agent, index = 0 }: { agent: Agent; index?: 
             ))}
           </ul>
 
-          {/* Unlabelled proportion bar — a shape, never a claimed number. */}
+          {/* Unlabeled proportion bar — a shape, never a claimed number. */}
           {bars.length > 0 && (
             <div className="px-4 pb-4 pt-3.5">
               <div className="flex h-1 gap-[3px] overflow-hidden rounded-full" aria-hidden="true">

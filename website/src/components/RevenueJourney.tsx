@@ -11,7 +11,7 @@ import { BookmarkNotch } from './Logo';
  *
  * Honesty constraints, deliberately observed:
  *  - The widths are a SHAPE, not measured data. They carry no percentages and
- *    no axis, and the caption says so in plain words. A funnel labelled
+ *    no axis, and the caption says so in plain words. A funnel labeled
  *    "68% lost at ordering" would be inventing a statistic.
  *  - Leak causes are the failure modes the audit engine genuinely detects.
  *
@@ -38,7 +38,7 @@ const STAGES = [
     label: 'Response',
     body: 'Someone answers — or nobody does.',
     width: 55,
-    leak: { cause: 'After-hours enquiry goes unanswered', system: 'AI Front Desk' },
+    leak: { cause: 'After-hours inquiry goes unanswered', system: 'AI Front Desk' },
   },
   {
     id: 'conversion',

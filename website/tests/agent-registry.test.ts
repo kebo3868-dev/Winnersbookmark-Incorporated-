@@ -46,6 +46,7 @@ describe('agent registry integrity', () => {
       expect(agent.faqs.length, agent.slug).toBeGreaterThan(0);
       expect(agent.cta.primaryLabel.length, agent.slug).toBeGreaterThan(0);
       expect(agent.cta.primaryHref.startsWith('/'), agent.slug).toBe(true);
+      expect(agent.purpose.length, `${agent.slug} needs a purpose line`).toBeGreaterThan(30);
     }
   });
 
@@ -126,6 +127,32 @@ describe('honesty contract', () => {
     const currency = serialised.match(/[$£€]\s?\d/g) ?? [];
     expect(percentages, `found percentage claims: ${percentages.join(', ')}`).toHaveLength(0);
     expect(currency, `found currency claims: ${currency.join(', ')}`).toHaveLength(0);
+  });
+
+  it('never states an unshipped agent\'s purpose in the present tense', () => {
+    // The purpose line is the first plain-language sentence a visitor reads,
+    // and on the ecosystem list it may be the ONLY one. For an agent that does
+    // not exist, present-tense grammar ("Works the follow-up...") implies a
+    // working product regardless of the badge beside it. Forward-looking
+    // phrasing plus an explicit unavailability statement is the requirement.
+    for (const agent of agents.filter((a) => a.status === 'COMING_SOON')) {
+      expect(agent.purpose, `${agent.slug}: purpose must be forward-looking`).toMatch(
+        /being designed|will |planned|in development/i,
+      );
+      expect(agent.purpose, `${agent.slug}: purpose must state it is unavailable`).toMatch(
+        /not yet available/i,
+      );
+    }
+  });
+
+  it('uses American English in customer-facing registry copy', () => {
+    // The registry is the single largest body of copy on the site, so a
+    // regression here spreads to every page that reads from it.
+    const serialised = JSON.stringify(agents);
+    const british = serialised.match(
+      /enquir|specialis(?!t)|recognis|analyse|behaviour|colour|labelled|centre(?![a-z])/gi,
+    );
+    expect(british ?? [], `British spellings found: ${(british ?? []).join(', ')}`).toHaveLength(0);
   });
 
   it('marks every agent with an unambiguous status note', () => {

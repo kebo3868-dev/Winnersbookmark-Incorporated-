@@ -2,11 +2,11 @@
  * THE WINNERS BOOKMARK MARK
  *
  * A bookmark reduced to its essential geometry: a vertical plane with a notched
- * foot. The notch is the recognisable element, and it is reused throughout the
+ * foot. The notch is the recognizable element, and it is reused throughout the
  * site — as the eyebrow's leading mark, as node markers in the system
  * visualization, as section dividers, and as list bullets.
  *
- * That reuse is the point. The brief asks for a brand recognisable even with
+ * That reuse is the point. The brief asks for a brand recognizable even with
  * the company name removed, and a logo repeated at large size does not achieve
  * that — a repeated *geometry* does.
  *
@@ -73,7 +73,7 @@ export function Wordmark({ className = '' }: { className?: string }) {
 }
 
 /**
- * A section divider carrying the mark at its centre. Used sparingly — it is a
+ * A section divider carrying the mark at its center. Used sparingly — it is a
  * punctuation device, not a decoration to sprinkle between every block.
  */
 export function BrandRule({ className = '' }: { className?: string }) {

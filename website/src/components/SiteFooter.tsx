@@ -53,8 +53,23 @@ export default function SiteFooter() {
         </div>
 
         <div className="mt-14 border-t border-ink-line pt-7">
-          <div className="flex flex-col gap-3 text-[0.8125rem] text-text-muted sm:flex-row sm:items-center sm:justify-between">
-            <p>© {year} {company.legalName}. All rights reserved.</p>
+          <div className="flex flex-col gap-4 text-[0.8125rem] text-text-muted sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+              <p>© {year} {company.legalName}. All rights reserved.</p>
+              <span aria-hidden="true" className="hidden text-ink-steel sm:inline">·</span>
+              <Link
+                href="/privacy"
+                className="-my-1.5 inline-block py-1.5 transition-colors duration-200 hover:text-text-secondary"
+              >
+                Privacy Policy
+              </Link>
+              <Link
+                href="/terms"
+                className="-my-1.5 inline-block py-1.5 transition-colors duration-200 hover:text-text-secondary"
+              >
+                Terms of Use
+              </Link>
+            </div>
             <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
               <span>Founded by {company.founder}</span>
               <span aria-hidden="true" className="text-ink-steel">·</span>

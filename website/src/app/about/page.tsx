@@ -6,7 +6,7 @@ import { agentsByOrder } from '@/data/agents';
 
 export const metadata: Metadata = {
   title: 'About',
-  description: `${company.legalName} is an AI consulting and automation company building specialised AI agents for restaurants and local service businesses.`,
+  description: `${company.legalName} is an AI consulting and automation company building specialized AI agents for restaurants and local service businesses.`,
   alternates: { canonical: '/about' },
   openGraph: {
     title: `About | ${company.shortName}`,
@@ -90,24 +90,30 @@ export default function AboutPage() {
       <Section>
         <SectionHeading
           eyebrow="Where we are"
-          title="An honest picture of the company today."
-          body="We are early. Rather than dress that up, here is exactly what exists."
+          title="Exactly what exists today."
+          body="Every system we build is published with its real stage, down to individual capabilities. Here is the whole roster, current as of today."
         />
         <div className="mt-10 max-w-prose space-y-4">
           {agentsByOrder.map((agent) => (
-            <div key={agent.slug} className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-ink-line pb-4">
+            <div key={agent.slug} className="border-b border-ink-line pb-4">
+              <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
               <Link href={`/solutions/${agent.slug}`} className="inline-block py-1 text-[15px] font-semibold text-text-bright transition-colors hover:text-cobalt-light">
                 {agent.name}
               </Link>
-              <span className="text-sm text-text-muted">{agent.statusLabel}</span>
+                <span className="text-sm text-text-muted">{agent.statusLabel}</span>
+              </div>
+              <p className="mt-1.5 max-w-prose text-[0.8125rem] leading-relaxed text-text-muted">
+                {agent.purpose}
+              </p>
             </div>
           ))}
         </div>
         <p className="mt-8 max-w-prose text-sm leading-relaxed text-text-muted">
-          We have no client logos to show you and no case studies published yet. When we have
-          customer results we are permitted to share, they will appear on this site with the
-          customer named. Until then, what we can offer is the reasoning behind how we work and a
-          conversation where we tell you the truth about whether we can help.
+          We publish case studies only when we have customer results we are permitted to share,
+          attributed to the customer by name. That standard is why this section is short — and it
+          is the same standard every finding in our audits has to meet. What we can show you now
+          is the method, a worked example of the output, and a conversation about whether the
+          problem you have is one we can actually solve.
         </p>
       </Section>
 

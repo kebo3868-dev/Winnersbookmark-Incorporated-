@@ -67,14 +67,14 @@ export const company = {
  * SavvyCal, HubSpot) is configured anywhere in this repository, and inventing a
  * URL would produce a dead primary CTA — the single most damaging bug a
  * marketing site can ship. Until one is configured, the contact form IS the
- * booking path: it captures the enquiry and tells the prospect what happens
+ * booking path: it captures the inquiry and tells the prospect what happens
  * next. Set NEXT_PUBLIC_BOOKING_URL to switch every "book a call" affordance
  * over to a real scheduler.
  */
 const bookingUrl = process.env.NEXT_PUBLIC_BOOKING_URL?.trim() || null;
 
 export const contact = {
-  /** Fallback address shown when the enquiry form cannot reach the pipeline.
+  /** Fallback address shown when the inquiry form cannot reach the pipeline.
    *  Overridable so it can be corrected without a code change. */
   email: process.env.NEXT_PUBLIC_CONTACT_EMAIL?.trim() || 'keith@winnersbookmark.com',
   bookingUrl,

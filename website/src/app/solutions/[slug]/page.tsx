@@ -123,10 +123,15 @@ export default async function AgentPage({ params }: { params: Promise<{ slug: st
             <StatusBadge status={agent.status} />
             <h1 className="mt-5 text-display-1 font-bold text-text-bright">{agent.name}</h1>
             <p className="lede mt-5 max-w-2xl text-lg">{agent.tagline}</p>
+            {/* The plain-language "what is this for" line, before any
+                positioning. A visitor who reads only this should still
+                understand the product — and, for an unshipped agent, should
+                not come away thinking it is available. */}
+            <p className="mt-4 max-w-measure text-body text-text-muted">{agent.purpose}</p>
 
             {/* The status note is prominent, not buried. A visitor should not
                 have to read to the FAQ to discover something is not for sale. */}
-            {/* The rule takes its colour from the agent's own status, so it can
+            {/* The rule takes its color from the agent's own status, so it can
                 never disagree with the badge directly above it. */}
             <div
               className={`mt-8 rounded-lg border-l-2 bg-ink-panel/60 p-4 sm:p-5 ${STATUS_PRESENTATION[agent.status].rule}`}
@@ -160,7 +165,7 @@ export default async function AgentPage({ params }: { params: Promise<{ slug: st
           </div>
           <div className="surface p-6 sm:p-7">
             <h3 className="text-sm font-semibold uppercase tracking-[0.1em] text-text-muted">
-              You might recognise this
+              You might recognize this
             </h3>
             <ul className="mt-5 space-y-3.5">
               {agent.problem.symptoms.map((symptom) => (

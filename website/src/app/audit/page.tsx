@@ -19,7 +19,7 @@ const INCLUDED = [
   'A confidence level on each finding, stated openly',
   'Revenue leaks ranked by what to fix first',
   'The ordering and booking paths tested, not assumed',
-  'A clear statement of anything we could not analyse, and why',
+  'A clear statement of anything we could not analyze, and why',
   'Recommendations in plain English, with no obligation to buy anything',
 ];
 

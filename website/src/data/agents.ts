@@ -70,12 +70,21 @@ export interface AgentSignal {
   /** Monitor heading, e.g. "Detects". */
   caption: string;
   rows: string[];
-  /** 2-4 relative weights, rendered as an unlabelled proportion bar. */
+  /** 2-4 relative weights, rendered as an unlabeled proportion bar. */
   weights: number[];
 }
 
 export interface Agent {
   slug: string;
+  /**
+   * One line answering "what is this for?" in plain language.
+   *
+   * Written in the present tense for shipped agents and in explicitly
+   * forward-looking terms for unshipped ones ("is being designed to"), so the
+   * grammar itself cannot imply a capability exists. This is what a visitor
+   * scanning the ecosystem list reads before anything else.
+   */
+  purpose: string;
   name: string;
   /** One line. Appears on cards and as the page's subtitle. */
   tagline: string;
@@ -90,7 +99,7 @@ export interface Agent {
   problem: {
     headline: string;
     body: string;
-    /** Concrete symptoms an owner recognises in their own business. */
+    /** Concrete symptoms an owner recognizes in their own business. */
     symptoms: string[];
   };
 
@@ -111,7 +120,7 @@ export interface Agent {
   cta: {
     primaryLabel: string;
     /** Where the primary action goes. Contact routes carry the agent slug so
-     *  an enquiry arrives already attributed to the offer that generated it. */
+     *  an inquiry arrives already attributed to the offer that generated it. */
     primaryHref: string;
     secondaryLabel?: string;
     secondaryHref?: string;
@@ -123,11 +132,11 @@ export interface Agent {
 }
 
 /**
- * One definition per status, used by every status-coloured surface.
+ * One definition per status, used by every status-colored surface.
  *
  * `rule` is the heavier left-border used on the status callout. It exists here
  * rather than being chosen at the call site because the callout previously
- * picked its colour from a binary "is this available" test, which rendered a
+ * picked its color from a binary "is this available" test, which rendered a
  * GREEN rule beside an AMBER "Private pilot" badge — two different answers to
  * the same question, six inches apart. Deriving both from this map makes that
  * class of mismatch impossible.
@@ -176,12 +185,13 @@ export const agents: Agent[] = [
   // ─────────────────────────────────────────────────────────────────────────
   {
     slug: 'restaurant-rescue-agent',
+    purpose: 'Audits a restaurant’s public customer journey and reports, with evidence, where orders and bookings are being lost.',
     name: 'Restaurant Rescue Agent',
     tagline: 'Find the revenue your restaurant is losing before a customer ever calls.',
     status: 'LIVE',
     statusLabel: 'Live — running real audits today',
     statusNote:
-      'This system is built, tested and in service. It analyses a real restaurant website and produces a real audit.',
+      'This system is built, tested and in service. It analyzes a real restaurant website and produces a real audit.',
     description:
       'A revenue intelligence system that examines a restaurant the way a first-time customer does — the website, the menu, the ordering path, the booking path, the phone — and reports exactly where that journey breaks. Every finding is tied to a specific page it was found on, so the report is evidence, not opinion.',
     problem: {
@@ -236,7 +246,7 @@ export const agents: Agent[] = [
       {
         title: 'Honest failure reporting',
         description:
-          'When a site cannot be fully analysed, the audit says so and explains why. It never fills the gap with an assumption.',
+          'When a site cannot be fully analyzed, the audit says so and explains why. It never fills the gap with an assumption.',
         state: 'LIVE',
       },
       {
@@ -297,7 +307,7 @@ export const agents: Agent[] = [
           'No, and that is deliberate. Any dollar figure would be a guess dressed up as data. The audit describes exposure — where customers are being lost — and shows the evidence, so you can judge the value against numbers you actually have.',
       },
       {
-        question: 'What happens if my site cannot be fully analysed?',
+        question: 'What happens if my site cannot be fully analyzed?',
         answer:
           'The audit tells you so, explains what blocked it, and reports on what it did reach. It never fills a gap with an assumption to make the report look more complete.',
       },
@@ -326,6 +336,7 @@ export const agents: Agent[] = [
   // ─────────────────────────────────────────────────────────────────────────
   {
     slug: 'ai-front-desk',
+    purpose: 'Answers the calls and messages a business cannot get to, resolves what it can, and captures the rest as a lead.',
     name: 'AI Front Desk',
     tagline: 'Every missed call answered. Every question handled. Nothing falls through.',
     status: 'PILOT',
@@ -342,7 +353,7 @@ export const agents: Agent[] = [
         'The phone rings during service and nobody can get to it',
         'Callers after hours reach nothing and never come back',
         'Staff answer the same five questions all day',
-        'Enquiries arrive by text, voicemail and email with no single place to see them',
+        'Inquiries arrive by text, voicemail and email with no single place to see them',
         'Nobody knows how many customers were lost to an unanswered phone',
       ],
     },
@@ -362,7 +373,7 @@ export const agents: Agent[] = [
       {
         title: 'Lead capture',
         description:
-          'When the agent cannot resolve something, it captures the customer’s details and what they wanted, so the enquiry survives instead of evaporating.',
+          'When the agent cannot resolve something, it captures the customer’s details and what they wanted, so the inquiry survives instead of evaporating.',
         state: 'LIVE',
       },
       {
@@ -438,7 +449,7 @@ export const agents: Agent[] = [
     outcomes: [
       'Missed calls get a response instead of a silence',
       'Common questions stop interrupting staff during service',
-      'Enquiries are captured in one place rather than scattered across channels',
+      'Inquiries are captured in one place rather than scattered across channels',
       'After-hours interest is answered instead of lost',
       'You can see what customers are actually asking for',
     ],
@@ -446,12 +457,12 @@ export const agents: Agent[] = [
       {
         question: 'Does this replace my staff?',
         answer:
-          'No. It covers the moments your staff cannot — a phone ringing mid-rush, an enquiry at 11pm. Anything that needs a person is escalated to one.',
+          'No. It covers the moments your staff cannot — a phone ringing mid-rush, an inquiry at 11pm. Anything that needs a person is escalated to one.',
       },
       {
         question: 'What stops it from making something up?',
         answer:
-          'It answers only from the information you configure. When it does not know something, it says so and captures the question rather than guessing. That behaviour is enforced in the system, not left to chance.',
+          'It answers only from the information you configure. When it does not know something, it says so and captures the question rather than guessing. That behavior is enforced in the system, not left to chance.',
       },
       {
         question: 'Do I need to change my phone number?',
@@ -466,7 +477,7 @@ export const agents: Agent[] = [
       {
         question: 'Can it take a reservation?',
         answer:
-          'Not end-to-end yet — that is in development and honestly labelled as such. Today it captures the booking request and routes the customer to your existing booking path or to a member of staff.',
+          'Not end-to-end yet — that is in development and honestly labeled as such. Today it captures the booking request and routes the customer to your existing booking path or to a member of staff.',
       },
     ],
     caseStudies: [],
@@ -488,6 +499,7 @@ export const agents: Agent[] = [
   // ─────────────────────────────────────────────────────────────────────────
   {
     slug: 'ai-sales-agent',
+    purpose: 'Being designed to work the follow-up that never happens — new leads, quiet leads, and customers who have not returned. Not yet available.',
     name: 'AI Sales Agent',
     tagline: 'Follow up with every lead, every time, without adding headcount.',
     status: 'COMING_SOON',
@@ -495,7 +507,7 @@ export const agents: Agent[] = [
     statusNote:
       'This agent is being designed and is not yet available. Nothing on this page describes a system you can buy today. If it addresses a problem you have, tell us — early conversations shape what gets built first.',
     description:
-      'An outbound agent that works the follow-up nobody has time for: leads that went quiet, customers who have not returned, enquiries that were never called back. Designed to extend the same evidence and safety discipline as the rest of the ecosystem to outbound contact.',
+      'An outbound agent that works the follow-up nobody has time for: leads that went quiet, customers who have not returned, inquiries that were never called back. Designed to extend the same evidence and safety discipline as the rest of the ecosystem to outbound contact.',
     problem: {
       headline: 'Most leads are not lost. They are never followed up.',
       body:
@@ -562,14 +574,15 @@ export const agents: Agent[] = [
   // ─────────────────────────────────────────────────────────────────────────
   {
     slug: 'gigi',
+    purpose: 'Being designed as the coordinating layer above the other agents, holding the context of a whole business rather than one conversation. Not yet available.',
     name: 'Gigi',
-    tagline: 'The next-generation AI system at the centre of the Winners Bookmark ecosystem.',
+    tagline: 'The next-generation AI system at the center of the Winners Bookmark ecosystem.',
     status: 'COMING_SOON',
     statusLabel: 'Coming soon — next-generation system in development',
     statusNote:
       'Gigi is the long-term direction of the Winners Bookmark AI ecosystem and is not yet available. This page describes intent, not a shipped product. We are publishing it because the direction matters to how the other agents are built — not to sell something that does not exist.',
     description:
-      'Where the other agents each solve one problem, Gigi is being designed to work across them — holding the context of an entire business rather than a single conversation, and coordinating the specialised agents underneath it.',
+      'Where the other agents each solve one problem, Gigi is being designed to work across them — holding the context of an entire business rather than a single conversation, and coordinating the specialized agents underneath it.',
     problem: {
       headline: 'Individual AI tools do not add up to an intelligent business.',
       body:
@@ -584,7 +597,7 @@ export const agents: Agent[] = [
     features: [
       {
         title: 'Cross-agent coordination',
-        description: 'Directing the specialised WBI agents rather than duplicating them.',
+        description: 'Directing the specialized WBI agents rather than duplicating them.',
         state: 'PLANNED',
       },
       {

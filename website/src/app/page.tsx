@@ -3,6 +3,8 @@ import { Section, SectionHeading } from '@/components/Section';
 import AgentCard from '@/components/AgentCard';
 import SystemVisualization from '@/components/SystemVisualization';
 import RevenueJourney from '@/components/RevenueJourney';
+import RescueProof from '@/components/RescueProof';
+import EvidenceStandard from '@/components/EvidenceStandard';
 import Reveal from '@/components/Reveal';
 import { BookmarkNotch, BrandRule } from '@/components/Logo';
 import { featuredAgents, agentsByOrder, availableAgents } from '@/data/agents';
@@ -28,7 +30,7 @@ import { company, SITE_URL, contact } from '@/data/site';
 
 const TRUST = [
   { label: 'Revenue Recovery', detail: 'Find what the business is losing' },
-  { label: 'AI Front Desk', detail: 'Answer every enquiry' },
+  { label: 'AI Front Desk', detail: 'Answer every inquiry' },
   { label: 'Restaurant Intelligence', detail: 'Built for food service' },
   { label: '24/7 Lead Capture', detail: 'Nothing falls through' },
 ];
@@ -51,7 +53,7 @@ const PAINS = [
   },
   {
     n: '04',
-    title: 'Enquiries arrive everywhere and get lost',
+    title: 'Inquiries arrive everywhere and get lost',
     body: 'Texts, voicemails, emails, form submissions. Nothing joins them up, so follow-up depends on whoever happens to remember.',
   },
 ];
@@ -62,28 +64,14 @@ const RESTAURANT_INTELLIGENCE = [
   { title: 'Reservation friction', body: 'Booking flows that ask for an account before they ask for a date.' },
   { title: 'Website conversion leakage', body: 'PDF menus, untappable numbers, hours nobody can find.' },
   { title: 'Repetitive questions', body: 'The same five answers, given by staff, all day, every day.' },
-  { title: 'Uncaptured leads', body: 'Enquiries that arrive somewhere nobody is watching.' },
+  { title: 'Uncaptured leads', body: 'Inquiries that arrive somewhere nobody is watching.' },
   { title: 'Review opportunities', body: 'Happy customers who were never asked at the right moment.' },
   { title: 'Visibility gaps', body: 'Information customers need that is not published anywhere.' },
 ];
 
-const PRINCIPLES = [
-  {
-    title: 'Evidence, not opinion',
-    body: 'Every finding is tied to something we can show you — the page it came from and the context around it. If we cannot evidence it, we do not claim it.',
-  },
-  {
-    title: 'We say what is not built yet',
-    body: 'Every system on this site carries its real status. Live means live. In development means in development. You will never discover after signing that a capability was aspirational.',
-  },
-  {
-    title: 'No invented numbers',
-    body: 'You will not find a revenue guarantee or a recovery percentage anywhere on this site, because we have no data that would make one honest.',
-  },
-];
 
 export default function HomePage() {
-  const organisationLd = {
+  const organizationLd = {
     '@context': 'https://schema.org',
     '@type': 'Organization',
     name: company.legalName,
@@ -101,15 +89,15 @@ export default function HomePage() {
 
   return (
     <>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(organisationLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationLd) }} />
 
       {/* ═══ HERO ══════════════════════════════════════════════════════════ */}
       <section className="relative overflow-hidden">
         {/* Grid texture, masked so it dissolves rather than stopping abruptly */}
         <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-grid opacity-[0.55] mask-fade-b" />
 
-        <div className="shell relative pb-20 pt-14 sm:pb-24 sm:pt-20 lg:pb-32 lg:pt-24">
-          <div className="grid items-center gap-14 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16 xl:gap-20">
+        <div className="shell relative pb-16 pt-12 sm:pb-24 sm:pt-20 lg:pb-32 lg:pt-24">
+          <div className="grid items-center gap-11 sm:gap-14 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16 xl:gap-20">
             {/* `min-w-0` on both columns is load-bearing, not defensive tidiness.
                 Grid items default to `min-width: auto`, so a column refuses to
                 shrink below its widest child's intrinsic minimum. The
@@ -127,16 +115,16 @@ export default function HomePage() {
 
               <Reveal as="p" delay={160} className="lede mt-8 max-w-measure">
                 {company.legalName} builds AI systems that answer the calls businesses miss,
-                uncover revenue leaking from their websites, and capture enquiries that would
+                uncover revenue leaking from their websites, and capture inquiries that would
                 otherwise disappear.
               </Reveal>
 
               <Reveal delay={240} className="mt-10 flex flex-col gap-3 sm:flex-row">
-                <Link href="/contact" className="btn-primary">
-                  Book a Strategy Call
+                <Link href="/contact?interest=ai-business-audit" className="btn-primary">
+                  Find My Revenue Leaks
                 </Link>
-                <Link href="/solutions" className="btn-secondary">
-                  Explore the AI Agents
+                <Link href="/contact" className="btn-secondary">
+                  Book a Strategy Call
                 </Link>
               </Reveal>
 
@@ -183,7 +171,7 @@ export default function HomePage() {
           body="Nobody sends you a report about the customer who called and got no answer, or the one who could not read your menu on a phone. These losses are invisible from inside the business — which is exactly why they persist."
         />
 
-        <div className="mt-14 grid gap-px overflow-hidden rounded-panel border border-ink-line bg-ink-line sm:grid-cols-2">
+        <div className="mt-11 grid sm:mt-14 gap-px overflow-hidden rounded-panel border border-ink-line bg-ink-line sm:grid-cols-2">
           {PAINS.map((pain, i) => (
             <Reveal key={pain.n} delay={i * 70} className="bg-ink-panel p-6 sm:p-8">
               <span className="font-mono text-[0.6875rem] tracking-[0.1em] text-cobalt-light">{pain.n}</span>
@@ -202,20 +190,32 @@ export default function HomePage() {
           body="You need to stop losing the customers already reaching you. More marketing sends more people into the same leaking funnel; we find where they are falling out and put a system at exactly that point."
         />
 
-        <Reveal delay={120} className="mt-14">
+        <Reveal delay={120} className="mt-11 sm:mt-14">
           <RevenueJourney />
         </Reveal>
+
+        <div className="mt-16">
+          <SectionHeading
+            eyebrow="What a finding looks like"
+            title="Evidence you can open and check."
+            body="This is the level of detail an audit returns: the problem, the page it was found on, why it costs you customers, and what to do about it."
+            as="h3"
+          />
+          <Reveal delay={120} className="mt-10">
+            <RescueProof />
+          </Reveal>
+        </div>
       </Section>
 
       {/* ═══ THE ECOSYSTEM ═════════════════════════════════════════════════ */}
       <Section>
         <SectionHeading
           eyebrow="The WBI AI ecosystem"
-          title="Specialised agents, built to work together."
+          title="Specialized agents, built to work together."
           body="Each agent solves one problem properly rather than solving many badly. Every one carries its real availability — so you always know what you can use today."
         />
 
-        <div className="mt-14 grid gap-6 lg:grid-cols-2">
+        <div className="mt-11 grid sm:mt-14 gap-6 lg:grid-cols-2">
           {featuredAgents.map((agent, i) => (
             <Reveal key={agent.slug} delay={i * 90}>
               <AgentCard agent={agent} index={i} />
@@ -238,17 +238,23 @@ export default function HomePage() {
                   <li key={agent.slug} className="bg-ink-base">
                     <Link
                       href={`/solutions/${agent.slug}`}
-                      className="group flex items-center justify-between gap-3 px-4 py-3.5 transition-colors duration-200 hover:bg-ink-panel"
+                      className="group flex items-start justify-between gap-3 px-4 py-4 transition-colors duration-200 hover:bg-ink-panel"
                     >
                       <span className="min-w-0">
-                        <span className="block truncate text-[0.875rem] font-medium text-text-primary">
-                          {agent.name}
+                        <span className="flex flex-wrap items-baseline gap-x-2.5">
+                          <span className="text-[0.875rem] font-medium text-text-primary">
+                            {agent.name}
+                          </span>
+                          <span className="text-[0.6875rem] uppercase tracking-[0.1em] text-signal-planned">
+                            {agent.statusLabel.split('—')[0].trim()}
+                          </span>
                         </span>
-                        <span className="block truncate text-[0.75rem] text-text-muted">
-                          {agent.statusLabel.split('—')[0].trim()}
+                        {/* The purpose line, so "Gigi" is not just a name. */}
+                        <span className="mt-1 block text-[0.75rem] leading-relaxed text-text-muted">
+                          {agent.purpose}
                         </span>
                       </span>
-                      <span aria-hidden="true" className="shrink-0 text-text-faint transition-transform duration-300 ease-out group-hover:translate-x-0.5">
+                      <span aria-hidden="true" className="mt-0.5 shrink-0 text-text-faint transition-transform duration-300 ease-out group-hover:translate-x-0.5">
                         →
                       </span>
                     </Link>
@@ -308,7 +314,7 @@ export default function HomePage() {
           body="We do not start by selling you software. We start by establishing what is actually costing you money — and sometimes the honest answer is that you do not need us."
         />
 
-        <ol className="mt-14 grid gap-6 md:grid-cols-3">
+        <ol className="mt-11 grid sm:mt-14 gap-6 md:grid-cols-3">
           {[
             { step: '01', title: 'We audit what you have', body: 'We examine your business the way a customer experiences it and produce evidence of where that experience breaks down. You get the findings whether or not you work with us further.' },
             { step: '02', title: 'We agree what is worth fixing', body: 'Findings ranked by impact, in plain English. You decide what matters. If the fix is a cheap change to your website rather than an AI system, we will say so.' },
@@ -326,29 +332,12 @@ export default function HomePage() {
         </ol>
       </Section>
 
-      {/* ═══ TRUST ═════════════════════════════════════════════════════════ */}
+      {/* ═══ EVIDENCE STANDARD ════════════════════════════════════════════ */}
       <Section className="border-y border-ink-line bg-ink-base/40">
-        <div className="grid gap-12 lg:grid-cols-[1fr_1.1fr] lg:gap-16">
-          <div>
-            <SectionHeading
-              eyebrow="Why trust us"
-              title="We would rather lose the sale than overstate the product."
-              body="Winners Bookmark is a young company. We do not have a wall of client logos, and we are not going to invent one. What we can show you is how we work."
-            />
-            <Reveal delay={180}>
-              <Link href="/about" className="btn-secondary mt-9">About the company</Link>
-            </Reveal>
-          </div>
-
-          <div className="space-y-5">
-            {PRINCIPLES.map((p, i) => (
-              <Reveal key={p.title} delay={i * 90} className="surface p-6 sm:p-7">
-                <h3 className="text-title text-text-bright">{p.title}</h3>
-                <p className="mt-2.5 text-body text-text-secondary">{p.body}</p>
-              </Reveal>
-            ))}
-          </div>
-        </div>
+        <EvidenceStandard />
+        <Reveal delay={180} className="mt-10">
+          <Link href="/about" className="btn-secondary">About the company</Link>
+        </Reveal>
       </Section>
 
       {/* ═══ FINAL CTA ═════════════════════════════════════════════════════ */}
@@ -372,12 +361,30 @@ export default function HomePage() {
                 and what we would do first.
               </p>
               <div className="mt-10 flex flex-col justify-center gap-3 sm:flex-row">
-                <Link href="/contact" className="btn-primary">Book a Strategy Call</Link>
-                <Link href="/audit" className="btn-secondary">Request an AI Business Audit</Link>
+                <Link href="/contact?interest=ai-business-audit" className="btn-primary">
+                  Request a Revenue Leak Review
+                </Link>
+                <Link href="/contact" className="btn-secondary">Book a Strategy Call</Link>
               </div>
-              <p className="mt-8 text-[0.8125rem] text-text-muted">
-                {availableAgents.length} of our AI agents are available today. The rest are
-                labelled honestly.
+
+              {/* What the click actually commits you to. */}
+              <ol className="mx-auto mt-10 grid max-w-xl gap-px overflow-hidden rounded-[10px] border border-ink-line bg-ink-line text-left sm:grid-cols-3">
+                {[
+                  { n: '1', t: 'You send the form', d: 'Your website address and what is not working. Nothing else is required.' },
+                  { n: '2', t: 'Keith reads it', d: 'It reaches the founder directly, not a shared inbox or a sales team.' },
+                  { n: '3', t: 'You get an honest read', d: 'Usually within one business day — including if we think you do not need us.' },
+                ].map((step) => (
+                  <li key={step.n} className="bg-ink-panel p-4">
+                    <span className="font-mono text-[0.6875rem] text-cobalt-light">0{step.n}</span>
+                    <p className="mt-2 text-[0.8125rem] font-semibold text-text-primary">{step.t}</p>
+                    <p className="mt-1 text-[0.75rem] leading-relaxed text-text-muted">{step.d}</p>
+                  </li>
+                ))}
+              </ol>
+
+              <p className="mt-7 text-[0.8125rem] text-text-muted">
+                No cost, no obligation, and no follow-up sequence. {availableAgents.length} of our
+                AI agents are available today; the rest are labeled honestly.
               </p>
             </div>
           </div>

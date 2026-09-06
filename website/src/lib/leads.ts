@@ -8,7 +8,7 @@ import { z } from 'zod';
  * ever imported into a client component. The ingest secret lives here, and a
  * stray import would ship it to the browser.
  *
- * This site holds NO database credentials. Enquiries are forwarded
+ * This site holds NO database credentials. Inquiries are forwarded
  * server-to-server to the Restaurant Rescue Agent, which owns the leads
  * schema. See its api/marketing/leads route for why the boundary is drawn
  * there.
@@ -37,8 +37,8 @@ export type SubmitResult =
   /** Per-field messages for a validation failure. */
   | { ok: false; kind: 'validation'; fieldErrors: Record<string, string> }
   /**
-   * The enquiry was NOT stored. The form must show the direct email fallback
-   * and must never render a success state — an enquiry that silently vanishes
+   * The inquiry was NOT stored. The form must show the direct email fallback
+   * and must never render a success state — an inquiry that silently vanishes
    * is the single worst failure a contact form can have.
    */
   | { ok: false; kind: 'unavailable'; message: string };
@@ -61,7 +61,7 @@ export async function submitLead(
     return {
       ok: false,
       kind: 'unavailable',
-      message: 'Our enquiry system is not reachable right now.',
+      message: 'Our inquiry system is not reachable right now.',
     };
   }
 
@@ -88,14 +88,14 @@ export async function submitLead(
     return {
       ok: false,
       kind: 'unavailable',
-      message: 'We could not record your enquiry.',
+      message: 'We could not record your inquiry.',
     };
   } catch (error) {
     console.error('Lead ingest was unreachable', error);
     return {
       ok: false,
       kind: 'unavailable',
-      message: 'We could not reach our enquiry system.',
+      message: 'We could not reach our inquiry system.',
     };
   } finally {
     clearTimeout(timer);

@@ -12,7 +12,7 @@ export const metadata: Metadata = {
   alternates: { canonical: '/solutions' },
   openGraph: {
     title: 'AI Agents | Winners Bookmark',
-    description: 'Specialised AI agents for restaurants and local service businesses.',
+    description: 'Specialized AI agents for restaurants and local service businesses.',
     url: '/solutions',
   },
 };
@@ -27,11 +27,11 @@ export default function SolutionsPage() {
           <div className="max-w-3xl">
             <p className="eyebrow">The ecosystem</p>
             <h1 className="mt-5 text-display-1 font-bold text-text-bright">
-              Specialised AI agents, each solving one problem properly.
+              Specialized AI agents, each solving one problem properly.
             </h1>
             <p className="lede mt-6 max-w-2xl">
               Every agent below shows exactly where it stands. {availableAgents.length} are
-              available to businesses today; the rest are in development and labelled as such. We
+              available to businesses today; the rest are in development and labeled as such. We
               would rather you know that here than find out later.
             </p>
           </div>
@@ -66,6 +66,7 @@ export default function SolutionsPage() {
                   <StatusBadge status={agent.status} />
                 </div>
                 <p className="mt-3 text-[15px] leading-relaxed text-text-secondary">{agent.tagline}</p>
+                <p className="mt-2.5 text-[0.8125rem] leading-relaxed text-text-muted">{agent.purpose}</p>
                 <div className="mt-auto pt-7">
                   <Link href={`/solutions/${agent.slug}`} className="btn-text">
                     Read the direction <span aria-hidden="true">→</span>
