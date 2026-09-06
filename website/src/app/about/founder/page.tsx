@@ -1,11 +1,12 @@
 import type { Metadata } from 'next';
+import Image from 'next/image';
 import Link from 'next/link';
 import { Section } from '@/components/Section';
 import { company, contact } from '@/data/site';
 
 export const metadata: Metadata = {
   title: 'About the Founder',
-  description: `${company.founder} is the founder of ${company.legalName}, building AI systems for restaurants and local service businesses.`,
+  description: `${company.founder} is the founder of ${company.legalName}, building practical AI systems for restaurants and local service businesses.`,
   alternates: { canonical: '/about/founder' },
   openGraph: {
     title: `${company.founder} | ${company.shortName}`,
@@ -14,24 +15,6 @@ export const metadata: Metadata = {
   },
 };
 
-/**
- * FOUNDER PAGE — CONTENT GAP, DELIBERATELY UNFILLED
- *
- * This page contains no biography, because no verifiable biographical
- * information about the founder exists anywhere in this repository, and a
- * founder page is the single worst place on a website to invent detail. A
- * fabricated career history is both a trust problem and a legal one, and it is
- * the kind of thing a prospect checks.
- *
- * What IS here is true and sourced from the codebase itself: the company, the
- * founder's name and role, and the philosophy that is genuinely evidenced by
- * how the products are built. That makes the page publishable today rather
- * than a placeholder.
- *
- * TO COMPLETE: supply the founder's background, the origin story, and a
- * photograph. Everything below the "In his own words" heading is written to be
- * replaced wholesale once that copy exists.
- */
 export default function FounderPage() {
   return (
     <>
@@ -47,61 +30,86 @@ export default function FounderPage() {
             </ol>
           </nav>
 
-          <div className="max-w-3xl">
-            <p className="eyebrow">{company.founderRole}</p>
-            <h1 className="mt-5 text-display-lg font-bold text-snow">{company.founder}</h1>
-            <p className="lede mt-5 max-w-2xl text-lg">
-              Founder of {company.legalName}, building the AI systems that keep restaurants and
-              local service businesses from losing the customers they have already earned.
-            </p>
+          <div className="grid items-center gap-10 lg:grid-cols-[1fr_0.78fr] lg:gap-16">
+            <div className="max-w-3xl">
+              <p className="eyebrow">Our founder</p>
+              <h1 className="mt-5 text-display-lg font-bold text-snow">Keith Warren</h1>
+              <p className="mt-3 text-sm font-semibold uppercase tracking-[0.18em] text-electric-light">
+                Founder, Winners Bookmark Incorporated
+              </p>
+              <p className="lede mt-6 max-w-2xl text-lg">
+                I founded Winners Bookmark Incorporated to help local businesses recover missed
+                revenue, answer every inquiry, and implement practical AI systems that solve real
+                business problems.
+              </p>
+              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+                <Link href="/contact" className="btn-primary">Book a Strategy Call</Link>
+                <Link href="/about" className="btn-secondary">About the company</Link>
+              </div>
+            </div>
+
+            <div className="relative mx-auto w-full max-w-sm overflow-hidden rounded-2xl border border-night-line bg-night-card shadow-2xl shadow-black/30 lg:max-w-none">
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_18%,rgba(37,99,235,0.18),transparent_42%)]" />
+              <Image
+                src="/images/keith-warren-founder.webp"
+                alt="Keith Warren, founder of Winners Bookmark Incorporated"
+                width={540}
+                height={920}
+                priority
+                className="relative h-auto w-full object-cover"
+              />
+            </div>
           </div>
         </div>
       </section>
 
       <Section>
-        <div className="max-w-prose">
-          <h2 className="text-display-sm font-bold text-snow">The approach</h2>
-          <div className="mt-6 space-y-5 text-[15px] leading-relaxed text-snow-dim">
-            <p>
-              Winners Bookmark was founded on a specific conviction: that the AI tools sold to
-              small businesses are mostly generic software with a sales layer on top, and that the
-              businesses buying them deserve systems built around how they actually operate.
-            </p>
-            <p>
-              That conviction shows up in unusual places in the products. The Restaurant Rescue
-              Agent is architecturally forbidden from stating a finding it cannot attach evidence
-              to. The AI Front Desk refuses to answer questions outside what it has been told,
-              rather than generating something plausible. Neither product will produce a revenue
-              projection, because a projection would be a guess wearing the costume of data.
-            </p>
-            <p>
-              Those are not marketing positions. They are enforced in the code, and they cost
-              features that would be easier to sell.
-            </p>
+        <div className="grid gap-12 lg:grid-cols-[0.9fr_1.1fr] lg:gap-16">
+          <div>
+            <p className="eyebrow">Why WBI exists</p>
+            <h2 className="mt-4 text-display-sm font-bold text-snow">Practical AI. Measurable business problems.</h2>
           </div>
 
-          <h2 className="mt-14 text-display-sm font-bold text-snow">Building in public, honestly</h2>
-          <div className="mt-6 space-y-5 text-[15px] leading-relaxed text-snow-dim">
+          <div className="space-y-5 text-[15px] leading-relaxed text-snow-dim">
             <p>
-              Winners Bookmark is an early company, and this site says so throughout. Every agent
-              carries its real status. There are no client logos, no testimonials and no case
-              studies, because there are none to publish yet — not because they are being saved
-              for a redesign.
+              My focus is simple: give business owners the tools, support and AI expertise they
+              need to operate more smoothly, serve more customers and grow with confidence.
             </p>
             <p>
-              The intention is that the first customers get a company that tells them the truth
-              about what it can do, and that this remains true when there are considerably more
-              of them.
+              Winners Bookmark starts with the problem, not the software. We examine where a
+              customer journey breaks down, prove what is happening with evidence, and only then
+              recommend the system worth building.
+            </p>
+            <p>
+              That approach is why our agents are designed to stay inside what they can verify.
+              The Restaurant Rescue Agent ties findings to evidence. The AI Front Desk is built to
+              answer from approved business information rather than inventing an answer that sounds
+              plausible.
             </p>
           </div>
         </div>
       </Section>
 
-      <Section className="border-t border-night-line">
+      <Section className="border-y border-night-line bg-night-soft/30">
+        <div className="grid gap-5 md:grid-cols-3">
+          {[
+            ['Evidence over hype', 'We would rather show you the proof than make a claim we cannot support.'],
+            ['Business outcomes first', 'The goal is not more software. The goal is fewer missed customers and better operations.'],
+            ['Build what is useful', 'If a simple fix beats an AI system, that is the recommendation we will make.'],
+          ].map(([title, body]) => (
+            <div key={title} className="card p-6 sm:p-7">
+              <h3 className="text-base font-semibold text-snow">{title}</h3>
+              <p className="mt-2.5 text-sm leading-relaxed text-snow-dim">{body}</p>
+            </div>
+          ))}
+        </div>
+      </Section>
+
+      <Section>
         <div className="card p-8 text-center sm:p-12">
           <h2 className="text-display-md font-bold text-snow">Talk to Keith directly.</h2>
           <p className="lede mx-auto mt-4 max-w-xl">
-            Enquiries to Winners Bookmark reach the founder. If you want to talk about what AI
+            Inquiries to Winners Bookmark reach the founder. If you want to talk about what AI
             could do for your business, start here.
           </p>
           <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
