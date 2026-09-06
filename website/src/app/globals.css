@@ -2,129 +2,263 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ---------------------------------------------------------------------------
+/* ===========================================================================
    BASE
-   The site commits to a dark presentation. `color-scheme: dark` tells the
-   browser to render form controls and scrollbars to match, which is what stops
-   a native <select> rendering as a white slab in the middle of a black page.
---------------------------------------------------------------------------- */
+   =========================================================================== */
 :root {
   color-scheme: dark;
+  /* Atmospheric lighting, defined once and referenced by the page ground.
+     Two offset cobalt washes at very low alpha read as a lit room rather than
+     a gradient laid over black — which is the difference between "premium
+     depth" and the cheap gradient the brief rules out. */
+  --glow-primary: radial-gradient(1100px 520px at 50% -8%, rgba(36, 84, 235, 0.16), transparent 68%);
+  --glow-secondary: radial-gradient(760px 420px at 88% 4%, rgba(36, 84, 235, 0.075), transparent 62%);
 }
 
 html {
   scroll-behavior: smooth;
-  /* An anchored section must not land under the sticky header. */
-  scroll-padding-top: 5rem;
+  scroll-padding-top: 6rem;
+  -webkit-text-size-adjust: 100%;
 }
 
+body {
+  @apply bg-ink-void text-text-primary font-sans antialiased;
+  background-image: var(--glow-primary), var(--glow-secondary);
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+  font-feature-settings: 'cv02', 'cv03', 'cv04', 'ss01';
+  text-rendering: optimizeLegibility;
+}
+
+/* Visible focus on everything interactive. Removing this to tidy the visuals
+   is an accessibility regression, not a design decision. */
+:where(a, button, input, textarea, select, summary, [tabindex]):focus-visible {
+  @apply outline-none ring-2 ring-cobalt-light ring-offset-2 ring-offset-ink-void;
+  border-radius: 6px;
+}
+
+::selection {
+  background: rgba(36, 84, 235, 0.34);
+  color: #fff;
+}
+
+/* Honour the OS setting. Every animation below is decorative-or-informational
+   enhancement; none of it is required to understand the page. */
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
+  /* Scroll-revealed content must be visible, not stuck at opacity 0. */
+  [data-reveal] { opacity: 1 !important; transform: none !important; }
 }
 
-body {
-  @apply bg-night text-snow-soft font-sans antialiased;
-  /* One restrained wash of blue at the top of the page. This is the only
-     decorative gradient in the system — the brief explicitly ruled out cheap
-     gradients, and the way to honour that is to have exactly one and keep it
-     subtle enough to read as depth rather than decoration. */
-  background-image: radial-gradient(ellipse 90% 45% at 50% -10%, rgba(37, 99, 235, 0.13), transparent 70%);
-  background-repeat: no-repeat;
-  background-attachment: fixed;
+/* ===========================================================================
+   KEYFRAMES — declared here, not only in tailwind.config.ts
+   ---------------------------------------------------------------------------
+   Tailwind only emits an @keyframes block when the matching `animate-*` UTILITY
+   is found by its content scanner. Several animations here are referenced by
+   raw name instead — from component CSS (.status-dot::after) and from inline
+   styles (the pipeline packets, the staggered node pulses) — so Tailwind never
+   saw a class for them and never emitted the keyframes.
+   The result was silent and total: `animation: reveal ...` matched nothing, so
+   every [data-reveal] element stayed at opacity 0 and the entire hero rendered
+   blank. Declaring them in plain CSS makes them independent of what the
+   scanner happens to find.
+   =========================================================================== */
+
+@keyframes reveal {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
-/* Visible focus everywhere, on every interactive element. Removing this to
-   tidy up the visuals is an accessibility regression, not a design choice. */
-:where(a, button, input, textarea, select, [tabindex]):focus-visible {
-  @apply outline-none ring-2 ring-electric-light ring-offset-2 ring-offset-night rounded-sm;
+@keyframes pulse-node {
+  0%, 100% { opacity: 0.42; transform: scale(1); }
+  50%      { opacity: 1;    transform: scale(1.12); }
 }
 
-/* ---------------------------------------------------------------------------
-   COMPONENTS
---------------------------------------------------------------------------- */
+/* A packet travelling one connector of the recovery pipeline. */
+@keyframes flow {
+  0%   { offset-distance: 0%;   opacity: 0; }
+  12%  { opacity: 1; }
+  88%  { opacity: 1; }
+  100% { offset-distance: 100%; opacity: 0; }
+}
+
+@keyframes trace-in {
+  from { stroke-dashoffset: var(--dash, 100); }
+  to   { stroke-dashoffset: 0; }
+}
+
+@keyframes sweep {
+  0%   { transform: translateX(-120%); }
+  100% { transform: translateX(220%); }
+}
+
+@keyframes count-bar {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
+}
+
 @layer components {
-  /* Layout ---------------------------------------------------------------- */
-  .shell {
-    @apply mx-auto w-full max-w-6xl px-5 sm:px-8;
-  }
+  /* =========================================================================
+     LAYOUT
+     ========================================================================= */
+  .shell { @apply mx-auto w-full max-w-shell px-5 sm:px-7 lg:px-10; }
+  .section { @apply py-20 sm:py-28 lg:py-36; }
+  .section-tight { @apply py-16 sm:py-20 lg:py-24; }
 
-  .section {
-    @apply py-16 sm:py-24;
-  }
-
-  /* Typography ------------------------------------------------------------ */
+  /* =========================================================================
+     TYPOGRAPHY
+     ========================================================================= */
+  /* The eyebrow carries the bookmark motif as a leading mark — the brand
+     should be recognisable from its geometry even without the name. */
   .eyebrow {
-    @apply text-[11px] font-semibold uppercase tracking-[0.2em] text-electric-light;
+    @apply inline-flex items-center gap-2.5 text-micro font-semibold uppercase text-cobalt-light;
+  }
+  .eyebrow::before {
+    content: '';
+    @apply block h-3 w-[3px] shrink-0 rounded-[1px] bg-cobalt-core;
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 78%, 0 100%);
   }
 
-  .lede {
-    @apply text-base sm:text-lg leading-relaxed text-snow-dim;
+  .lede { @apply text-lede text-text-secondary; }
+  .prose-measure { @apply max-w-measure; }
+
+  /* =========================================================================
+     SURFACES
+     A card is a raised plane with a hairline top highlight — the same trick
+     real UI uses to suggest a light source above the interface.
+     ========================================================================= */
+  .surface {
+    @apply relative rounded-card border border-ink-line bg-ink-panel;
+    box-shadow: 0 1px 0 0 rgba(255, 255, 255, 0.035) inset;
   }
 
-  /* Surfaces -------------------------------------------------------------- */
-  .card {
-    @apply rounded-xl border border-night-line bg-night-card;
+  .surface-raised {
+    @apply relative rounded-panel border border-ink-line bg-ink-raised shadow-panel;
   }
 
-  .card-hover {
-    @apply transition-colors duration-200 hover:border-night-edge;
+  /* Interactive card: the border warms toward cobalt and the plane lifts 1px.
+     Restrained on purpose — a card that jumps reads as a template. */
+  .surface-interactive {
+    @apply surface transition-all duration-300 ease-out;
+  }
+  .surface-interactive:hover {
+    @apply border-ink-border bg-ink-elevated;
+    transform: translateY(-2px);
+    box-shadow: 0 1px 0 0 rgba(255, 255, 255, 0.06) inset, 0 20px 44px -28px rgba(0, 0, 0, 0.95);
   }
 
-  /* Actions --------------------------------------------------------------- */
+  /* Hairline rules that fade at the ends. */
+  .rule { @apply h-px w-full bg-rule-fade; }
+  .rule-accent { @apply h-px w-full bg-rule-cobalt; }
+
+  /* =========================================================================
+     ACTIONS
+     ========================================================================= */
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg px-6 py-3.5
-           text-sm font-semibold tracking-tight transition-colors duration-200
-           min-h-[48px];
+    @apply relative inline-flex select-none items-center justify-center gap-2
+           rounded-[10px] text-[0.9375rem] font-semibold tracking-[-0.01em]
+           transition-all duration-200 ease-out;
+    min-height: 52px;
+    padding-inline: 1.5rem;
   }
 
-  /* PRIMARY — one per view. This is the only solid blue element on a page. */
+  /* PRIMARY — the only solid cobalt fill on any given view.
+     Depth comes from three stacked cues: a subtle vertical gradient in the
+     fill, a 1px inner top highlight, and a coloured cast beneath. */
   .btn-primary {
-    @apply btn bg-electric text-white shadow-action
-           hover:bg-electric-bright
-           disabled:opacity-55 disabled:cursor-not-allowed disabled:hover:bg-electric;
+    @apply btn text-white shadow-action;
+    background-image: linear-gradient(180deg, theme('colors.cobalt.bright') 0%, theme('colors.cobalt.core') 55%, theme('colors.cobalt.deep') 100%);
+  }
+  .btn-primary:hover { @apply shadow-action-hover; transform: translateY(-1px); }
+  .btn-primary:active { transform: translateY(0); }
+  .btn-primary:disabled {
+    @apply cursor-not-allowed opacity-55 shadow-none;
+    transform: none;
   }
 
+  /* SECONDARY — bordered, understated. Lifts its border and background a step
+     on hover rather than changing colour. */
   .btn-secondary {
-    @apply btn border border-night-edge bg-transparent text-snow-soft
-           hover:border-electric hover:text-white
-           disabled:opacity-55 disabled:cursor-not-allowed;
+    @apply btn border border-ink-border bg-ink-panel/70 text-text-primary backdrop-blur-sm;
+  }
+  .btn-secondary:hover { @apply border-ink-steel bg-ink-elevated text-white; transform: translateY(-1px); }
+  .btn-secondary:active { transform: translateY(0); }
+
+  .btn-sm { min-height: 44px; padding-inline: 1.125rem; @apply text-[0.875rem]; }
+
+  /* Inline text action with a travelling arrow. */
+  .btn-text {
+    @apply inline-flex min-h-[36px] items-center gap-1.5 py-1.5 text-[0.875rem]
+           font-semibold text-cobalt-light transition-colors duration-200 ease-out
+           hover:text-white;
+  }
+  .btn-text .arrow { @apply transition-transform duration-300 ease-out; }
+  .btn-text:hover .arrow { transform: translateX(3px); }
+
+  /* =========================================================================
+     DATA + STATUS
+     ========================================================================= */
+  .metric-label { @apply text-[0.6875rem] font-semibold uppercase tracking-[0.13em] text-text-muted; }
+  .metric-value { @apply font-mono text-[1.375rem] font-semibold tracking-[-0.02em] text-text-bright; }
+
+  /* A live indicator: solid core plus an expanding halo. */
+  .status-dot { @apply relative inline-block h-1.5 w-1.5 shrink-0 rounded-full; }
+  .status-dot::after {
+    content: '';
+    @apply absolute inset-0 rounded-full;
+    background: inherit;
+    animation: pulse-node 2.6s cubic-bezier(0.65, 0, 0.35, 1) infinite;
   }
 
-  /* A standalone action, not inline prose — so it carries a real tap target.
-     `-my-1.5` pulls the added padding back out of the layout, so the control
-     grows without the surrounding spacing changing. */
-  .btn-ghost {
-    @apply -my-1.5 inline-flex min-h-[34px] items-center gap-1.5 py-1.5 text-sm
-           font-semibold text-electric-light transition-colors hover:text-white;
-  }
-
-  /* Forms ----------------------------------------------------------------- */
-  .field-label {
-    @apply block text-xs font-semibold uppercase tracking-[0.12em] text-snow-faint mb-2;
-  }
-
+  /* =========================================================================
+     FORMS
+     ========================================================================= */
+  .field-label { @apply mb-2 block text-[0.75rem] font-semibold uppercase tracking-[0.11em] text-text-muted; }
   .field-input {
-    @apply w-full rounded-lg border border-night-line bg-night-soft px-4 py-3
-           text-[16px] text-snow placeholder:text-snow-faint
-           transition-colors focus:border-electric;
-    /* 16px minimum prevents iOS Safari zooming the viewport on focus, which is
-       what makes a mobile form feel broken even when it works. */
+    @apply w-full rounded-[10px] border border-ink-line bg-ink-base px-4 py-3.5
+           text-[16px] text-text-bright placeholder:text-text-faint
+           transition-colors duration-200 ease-out;
+    /* 16px floor stops iOS Safari zooming the viewport on focus. */
+  }
+  .field-input:focus { @apply border-cobalt-core bg-ink-raised; }
+  .field-error { @apply border-signal-loss/70; }
+  .field-hint { @apply mt-2 text-[0.8125rem] text-text-muted; }
+  .field-message { @apply mt-2 text-[0.8125rem] font-medium text-signal-loss; }
+}
+
+@layer utilities {
+  /* Scroll reveal. Elements start hidden and are released by an
+     IntersectionObserver adding [data-revealed]. Kept in CSS so the animation
+     never runs on the main thread as JS. */
+  [data-reveal] { opacity: 0; transform: translateY(16px); }
+  [data-reveal][data-revealed] {
+    animation: reveal 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-delay: var(--reveal-delay, 0ms);
   }
 
-  .field-error {
-    @apply border-red-500/70 focus:border-red-500;
+  /* Grid texture for section grounds — 1px lines at 3% alpha. Reads as
+     engineering paper, not as a pattern. */
+  .bg-grid {
+    background-image:
+      linear-gradient(rgba(40, 50, 74, 0.28) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(40, 50, 74, 0.28) 1px, transparent 1px);
+    background-size: 64px 64px;
   }
 
-  .field-hint {
-    @apply mt-2 text-xs text-snow-faint;
+  /* Masks a decorative layer so it fades out rather than ending on a hard
+     edge — the single most common tell of an unfinished background. */
+  .mask-fade-b {
+    -webkit-mask-image: linear-gradient(180deg, #000 0%, #000 55%, transparent 100%);
+    mask-image: linear-gradient(180deg, #000 0%, #000 55%, transparent 100%);
   }
-
-  .field-message {
-    @apply mt-2 text-xs font-medium text-red-400;
+  .mask-fade-radial {
+    -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 40%, #000 40%, transparent 100%);
+    mask-image: radial-gradient(ellipse 70% 60% at 50% 40%, #000 40%, transparent 100%);
   }
 }

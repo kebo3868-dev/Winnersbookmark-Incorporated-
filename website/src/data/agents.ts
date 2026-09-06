@@ -55,6 +55,25 @@ export interface CaseStudy {
   href?: string;
 }
 
+/**
+ * A small, honest data display for the agent card.
+ *
+ * `rows` are SYSTEM CAPABILITIES rendered as a monitor-style readout — what the
+ * system does, not what it has achieved. There are no counts, currencies or
+ * percentages here and the honesty tests forbid adding them: a card that shows
+ * "1,284 calls recovered" would be inventing proof.
+ *
+ * `weights` drive a relative bar with no axis and no units. It communicates the
+ * SHAPE of a distribution, not a measured quantity.
+ */
+export interface AgentSignal {
+  /** Monitor heading, e.g. "Detects". */
+  caption: string;
+  rows: string[];
+  /** 2-4 relative weights, rendered as an unlabelled proportion bar. */
+  weights: number[];
+}
+
 export interface Agent {
   slug: string;
   name: string;
@@ -84,6 +103,10 @@ export interface Agent {
   outcomes: string[];
   faqs: AgentFaq[];
   caseStudies: CaseStudy[];
+
+  /** Card readout. Optional: an agent with nothing truthful to show omits it
+   *  rather than displaying a placeholder. */
+  signal?: AgentSignal;
 
   cta: {
     primaryLabel: string;
@@ -285,6 +308,11 @@ export const agents: Agent[] = [
       },
     ],
     caseStudies: [],
+    signal: {
+      caption: 'Detects',
+      rows: ['Broken ordering paths', 'Menu access friction', 'Reservation drop-off', 'Untappable phone numbers'],
+      weights: [38, 27, 21, 14],
+    },
     cta: {
       primaryLabel: 'Request a Restaurant Audit',
       primaryHref: '/contact?interest=restaurant-rescue-agent',
@@ -442,6 +470,11 @@ export const agents: Agent[] = [
       },
     ],
     caseStudies: [],
+    signal: {
+      caption: 'Handles',
+      rows: ['Missed-call text-back', 'Hours & location questions', 'Lead capture', 'Escalation to staff'],
+      weights: [41, 24, 20, 15],
+    },
     cta: {
       primaryLabel: 'Apply for the Pilot',
       primaryHref: '/contact?interest=ai-front-desk',

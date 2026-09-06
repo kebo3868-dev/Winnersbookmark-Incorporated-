@@ -3,18 +3,22 @@ import { STATUS_PRESENTATION, FEATURE_STATE_LABEL, type AgentStatus, type Featur
 /**
  * The honesty system, made visible.
  *
- * Every place an agent or a capability appears, its real state appears with it.
- * This is the component that stops the site implying that four agents are for
- * sale when two are — and it is why the status lives in the registry as data
- * rather than being written into each page's copy, where it would rot.
+ * Wherever an agent or capability appears, its real state appears with it. This
+ * is what stops the site implying four agents are purchasable when two are —
+ * and it reads from the registry rather than page copy, so it cannot rot.
  */
 export function StatusBadge({ status, className = '' }: { status: AgentStatus; className?: string }) {
   const s = STATUS_PRESENTATION[status];
+  const live = status === 'LIVE' || status === 'PILOT';
+
   return (
     <span
-      className={`inline-flex items-center gap-2 rounded-full border ${s.border} bg-night-soft/80 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.1em] ${s.text} ${className}`}
+      className={`inline-flex shrink-0 items-center gap-2 rounded-full border ${s.border} bg-ink-base/80 py-1 pl-2 pr-3 text-[0.625rem] font-semibold uppercase tracking-[0.11em] ${s.text} ${className}`}
     >
-      <span className={`h-1.5 w-1.5 rounded-full ${s.dot}`} aria-hidden="true" />
+      {/* Only genuinely operational systems get the animated halo. A
+          "coming soon" concept pulsing like a live service would be the
+          animation lying about status. */}
+      <span className={`${live ? 'status-dot' : 'inline-block h-1.5 w-1.5 rounded-full'} ${s.dot}`} />
       {s.label}
     </span>
   );
@@ -23,14 +27,14 @@ export function StatusBadge({ status, className = '' }: { status: AgentStatus; c
 export function FeatureStateBadge({ state }: { state: FeatureState }) {
   const tone =
     state === 'LIVE'
-      ? 'text-status-live border-status-live/35'
+      ? 'text-signal-live border-signal-live/30 bg-signal-live/[0.07]'
       : state === 'IN_DEVELOPMENT'
-        ? 'text-status-building border-status-building/35'
-        : 'text-status-planned border-status-planned/35';
+        ? 'text-signal-building border-signal-building/30 bg-signal-building/[0.07]'
+        : 'text-signal-planned border-signal-planned/30 bg-signal-planned/[0.07]';
 
   return (
     <span
-      className={`inline-flex shrink-0 items-center rounded border ${tone} px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em]`}
+      className={`inline-flex shrink-0 items-center rounded-[5px] border ${tone} px-2 py-0.5 text-[0.625rem] font-semibold uppercase tracking-[0.09em]`}
     >
       {FEATURE_STATE_LABEL[state]}
     </span>

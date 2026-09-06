@@ -1,13 +1,10 @@
 import type { ReactNode } from 'react';
+import Reveal from './Reveal';
 
 /**
- * Section scaffolding. Every marketing section on the site is built from this
- * so vertical rhythm, heading levels and max-widths stay consistent — and so a
- * spacing change is one edit rather than forty.
- *
- * `as` exists because heading level is a document-structure decision, not a
- * styling one: a section heading is <h2> on a page with an <h1> hero, but the
- * same visual treatment is sometimes needed at <h3>.
+ * Section scaffolding. Every marketing section is built from these, so vertical
+ * rhythm, heading level and measure stay consistent — and a spacing change is
+ * one edit rather than forty.
  */
 export function SectionHeading({
   eyebrow,
@@ -17,7 +14,7 @@ export function SectionHeading({
   as: Heading = 'h2',
 }: {
   eyebrow?: string;
-  title: string;
+  title: ReactNode;
   body?: string;
   align?: 'left' | 'center';
   as?: 'h2' | 'h3';
@@ -25,9 +22,19 @@ export function SectionHeading({
   const centered = align === 'center';
   return (
     <div className={`max-w-2xl ${centered ? 'mx-auto text-center' : ''}`}>
-      {eyebrow && <p className="eyebrow mb-3">{eyebrow}</p>}
-      <Heading className="text-display-md font-bold text-snow">{title}</Heading>
-      {body && <p className="lede mt-4">{body}</p>}
+      {eyebrow && (
+        <Reveal as="p" className={`eyebrow mb-5 ${centered ? 'justify-center' : ''}`}>
+          {eyebrow}
+        </Reveal>
+      )}
+      <Reveal as={Heading} delay={60} className="text-display-2 text-text-bright">
+        {title}
+      </Reveal>
+      {body && (
+        <Reveal as="p" delay={120} className="lede mt-5">
+          {body}
+        </Reveal>
+      )}
     </div>
   );
 }
@@ -36,13 +43,15 @@ export function Section({
   children,
   className = '',
   id,
+  tight = false,
 }: {
   children: ReactNode;
   className?: string;
   id?: string;
+  tight?: boolean;
 }) {
   return (
-    <section id={id} className={`section ${className}`}>
+    <section id={id} className={`${tight ? 'section-tight' : 'section'} ${className}`}>
       <div className="shell">{children}</div>
     </section>
   );

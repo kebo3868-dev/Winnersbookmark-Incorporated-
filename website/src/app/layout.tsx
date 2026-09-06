@@ -1,8 +1,36 @@
 import type { Metadata } from 'next';
+import { Inter, JetBrains_Mono } from 'next/font/google';
 import './globals.css';
 import SiteHeader from '@/components/SiteHeader';
 import SiteFooter from '@/components/SiteFooter';
 import { SITE_URL, company } from '@/data/site';
+
+/**
+ * TYPEFACES
+ *
+ * Loaded through next/font, which is part of Next itself — no new dependency.
+ * The font files are downloaded at BUILD time and served from our own origin,
+ * so there is no request to Google at runtime, no third-party connection for a
+ * visitor to be tracked by, and no flash of unstyled text.
+ *
+ * `display: 'swap'` plus next/font's automatic size-adjust fallback metrics
+ * means the fallback face occupies the same space as Inter, so swapping causes
+ * NO layout shift — which is what protects the CLS score the brief asks for.
+ */
+const inter = Inter({
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-inter',
+  // Only the weights actually used. Each extra weight is a real download.
+  weight: ['400', '500', '600', '700'],
+});
+
+const mono = JetBrains_Mono({
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-mono',
+  weight: ['400', '500', '600'],
+});
 
 /**
  * Root metadata. `metadataBase` makes every relative Open Graph and canonical
@@ -42,7 +70,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport = {
-  themeColor: '#05070d',
+  themeColor: '#04060c',
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover' as const,
@@ -50,13 +78,13 @@ export const viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" className={`${inter.variable} ${mono.variable}`}>
       <body className="flex min-h-screen flex-col">
         {/* Keyboard users must be able to reach the content without tabbing the
             whole navigation on every page. Visually hidden until focused. */}
         <a
           href="#main"
-          className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[100] focus:rounded-lg focus:bg-electric focus:px-4 focus:py-2.5 focus:text-sm focus:font-semibold focus:text-white"
+          className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[100] focus:rounded-lg focus:bg-cobalt-core focus:px-4 focus:py-2.5 focus:text-sm focus:font-semibold focus:text-white"
         >
           Skip to content
         </a>
