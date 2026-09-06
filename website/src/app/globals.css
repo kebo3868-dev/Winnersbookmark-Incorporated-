@@ -108,8 +108,8 @@ body {
      LAYOUT
      ========================================================================= */
   .shell { @apply mx-auto w-full max-w-shell px-5 sm:px-7 lg:px-10; }
-  .section { @apply py-20 sm:py-28 lg:py-36; }
-  .section-tight { @apply py-16 sm:py-20 lg:py-24; }
+  .section { @apply py-16 sm:py-24 lg:py-28; }
+  .section-tight { @apply py-14 sm:py-20 lg:py-24; }
 
   /* =========================================================================
      TYPOGRAPHY

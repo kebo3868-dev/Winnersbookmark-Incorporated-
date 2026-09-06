@@ -6,7 +6,7 @@ export default function NotFound() {
     <div className="shell flex min-h-[60vh] flex-col justify-center py-20">
       <div className="max-w-xl">
         <p className="eyebrow">404</p>
-        <h1 className="mt-4 text-display-lg font-bold text-snow">This page does not exist.</h1>
+        <h1 className="mt-4 text-display-1 font-bold text-text-bright">This page does not exist.</h1>
         <p className="lede mt-5">
           The link may be out of date, or the page may have moved. Here is where to go instead.
         </p>
@@ -16,7 +16,7 @@ export default function NotFound() {
             <li key={item.href}>
               <Link
                 href={item.href}
-                className="inline-block rounded-lg border border-night-line bg-night-card px-4 py-2.5 text-sm text-snow-dim transition-colors hover:border-night-edge hover:text-white"
+                className="inline-block rounded-lg border border-ink-line bg-ink-panel px-4 py-2.5 text-sm text-text-secondary transition-colors hover:border-ink-border hover:text-white"
               >
                 {item.label}
               </Link>

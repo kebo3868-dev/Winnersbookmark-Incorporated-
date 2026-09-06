@@ -198,8 +198,8 @@ export default function HomePage() {
       <Section className="border-y border-ink-line bg-ink-base/40">
         <SectionHeading
           eyebrow="Revenue intelligence"
-          title={<>You probably do not need more traffic.<br className="hidden sm:block" /> You need to stop losing the customers already reaching you.</>}
-          body="More marketing sends more people into the same leaking funnel. We find where they are falling out, and put a system at exactly that point."
+          title="You probably do not need more traffic."
+          body="You need to stop losing the customers already reaching you. More marketing sends more people into the same leaking funnel; we find where they are falling out and put a system at exactly that point."
         />
 
         <Reveal delay={120} className="mt-14">

@@ -1,36 +1,47 @@
 import Link from 'next/link';
-import { Wordmark } from './Logo';
+import { Wordmark, BookmarkNotch } from './Logo';
 import { company, footerNav, contact } from '@/data/site';
+import { availableAgents } from '@/data/agents';
 
 export default function SiteFooter() {
   const year = new Date().getFullYear();
 
   return (
-    <footer className="mt-auto border-t border-night-line bg-night-soft/40">
-      <div className="shell py-14 sm:py-16">
-        <div className="grid gap-10 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
-          <div>
+    <footer className="relative mt-auto border-t border-ink-line bg-ink-base/50">
+      {/* A cobalt hairline along the very top edge — the site's closing mark. */}
+      <div aria-hidden="true" className="absolute inset-x-0 top-0 h-px bg-rule-cobalt" />
+
+      <div className="shell py-16 sm:py-20">
+        <div className="grid gap-12 md:grid-cols-[1.5fr_1fr_1fr_1fr] md:gap-8">
+          <div className="min-w-0">
             <Wordmark />
-            <p className="lede mt-5 max-w-xs text-sm">{company.shortPositioning}</p>
-            <Link href="/contact" className="btn-primary mt-6 !min-h-[44px] !px-5 !py-2.5">
+            <p className="mt-6 max-w-xs text-body text-text-secondary">
+              {company.shortPositioning}
+            </p>
+            <Link href="/contact" className="btn-primary btn-sm mt-7">
               Book a Strategy Call
             </Link>
+
+            {/* An honest, verifiable count — it reads from the registry, so it
+                cannot drift from what the site actually offers. */}
+            <p className="mt-6 flex items-center gap-2 text-[0.75rem] text-text-muted">
+              <span className="status-dot bg-signal-live" />
+              {availableAgents.length} AI agents available today
+            </p>
           </div>
 
           {footerNav.map((group) => (
-            <nav key={group.heading} aria-label={group.heading}>
-              <h2 className="text-[11px] font-semibold uppercase tracking-[0.16em] text-snow-faint">
+            <nav key={group.heading} aria-label={group.heading} className="min-w-0">
+              <h2 className="flex items-center gap-2 text-[0.6875rem] font-semibold uppercase tracking-[0.15em] text-text-muted">
+                <BookmarkNotch size={9} className="text-ink-steel" />
                 {group.heading}
               </h2>
-              {/* `py-1.5` + `inline-block` gives each link a ~32px tap target
-                  in a stacked list. Padding rather than margin, so the target
-                  grows instead of just the gap between targets. */}
-              <ul className="mt-3 space-y-0.5">
+              <ul className="mt-4 space-y-0.5">
                 {group.links.map((link) => (
                   <li key={link.href}>
                     <Link
                       href={link.href}
-                      className="inline-block py-1.5 text-sm text-snow-dim transition-colors hover:text-white"
+                      className="inline-block py-1.5 text-[0.875rem] text-text-secondary transition-colors duration-200 hover:text-text-bright"
                     >
                       {link.label}
                     </Link>
@@ -41,16 +52,20 @@ export default function SiteFooter() {
           ))}
         </div>
 
-        <div className="mt-12 flex flex-col gap-3 border-t border-night-line pt-7 text-xs text-snow-faint sm:flex-row sm:items-center sm:justify-between">
-          <p>
-            © {year} {company.legalName}. All rights reserved.
-          </p>
-          <p>
-            Founded by {company.founder} ·{' '}
-            <a href={`mailto:${contact.email}`} className="transition-colors hover:text-snow-dim">
-              {contact.email}
-            </a>
-          </p>
+        <div className="mt-14 border-t border-ink-line pt-7">
+          <div className="flex flex-col gap-3 text-[0.8125rem] text-text-muted sm:flex-row sm:items-center sm:justify-between">
+            <p>© {year} {company.legalName}. All rights reserved.</p>
+            <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              <span>Founded by {company.founder}</span>
+              <span aria-hidden="true" className="text-ink-steel">·</span>
+              <a
+                href={`mailto:${contact.email}`}
+                className="break-all transition-colors duration-200 hover:text-text-secondary"
+              >
+                {contact.email}
+              </a>
+            </p>
+          </div>
         </div>
       </div>
     </footer>

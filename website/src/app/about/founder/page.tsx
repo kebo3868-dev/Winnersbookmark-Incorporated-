@@ -35,21 +35,21 @@ export const metadata: Metadata = {
 export default function FounderPage() {
   return (
     <>
-      <section className="border-b border-night-line">
+      <section className="border-b border-ink-line">
         <div className="shell py-16 sm:py-24">
           <nav aria-label="Breadcrumb" className="mb-7">
-            <ol className="flex flex-wrap items-center gap-x-2 text-xs text-snow-faint">
-              <li><Link href="/" className="inline-block py-1.5 transition-colors hover:text-snow-dim">Home</Link></li>
+            <ol className="flex flex-wrap items-center gap-x-2 text-xs text-text-muted">
+              <li><Link href="/" className="inline-block py-1.5 transition-colors hover:text-text-secondary">Home</Link></li>
               <li aria-hidden="true">/</li>
-              <li><Link href="/about" className="inline-block py-1.5 transition-colors hover:text-snow-dim">About</Link></li>
+              <li><Link href="/about" className="inline-block py-1.5 transition-colors hover:text-text-secondary">About</Link></li>
               <li aria-hidden="true">/</li>
-              <li className="text-snow-dim">Founder</li>
+              <li className="text-text-secondary">Founder</li>
             </ol>
           </nav>
 
           <div className="max-w-3xl">
             <p className="eyebrow">{company.founderRole}</p>
-            <h1 className="mt-5 text-display-lg font-bold text-snow">{company.founder}</h1>
+            <h1 className="mt-5 text-display-1 font-bold text-text-bright">{company.founder}</h1>
             <p className="lede mt-5 max-w-2xl text-lg">
               Founder of {company.legalName}, building the AI systems that keep restaurants and
               local service businesses from losing the customers they have already earned.
@@ -60,8 +60,8 @@ export default function FounderPage() {
 
       <Section>
         <div className="max-w-prose">
-          <h2 className="text-display-sm font-bold text-snow">The approach</h2>
-          <div className="mt-6 space-y-5 text-[15px] leading-relaxed text-snow-dim">
+          <h2 className="text-display-3 font-bold text-text-bright">The approach</h2>
+          <div className="mt-6 space-y-5 text-[15px] leading-relaxed text-text-secondary">
             <p>
               Winners Bookmark was founded on a specific conviction: that the AI tools sold to
               small businesses are mostly generic software with a sales layer on top, and that the
@@ -80,8 +80,8 @@ export default function FounderPage() {
             </p>
           </div>
 
-          <h2 className="mt-14 text-display-sm font-bold text-snow">Building in public, honestly</h2>
-          <div className="mt-6 space-y-5 text-[15px] leading-relaxed text-snow-dim">
+          <h2 className="mt-14 text-display-3 font-bold text-text-bright">Building in public, honestly</h2>
+          <div className="mt-6 space-y-5 text-[15px] leading-relaxed text-text-secondary">
             <p>
               Winners Bookmark is an early company, and this site says so throughout. Every agent
               carries its real status. There are no client logos, no testimonials and no case
@@ -97,9 +97,9 @@ export default function FounderPage() {
         </div>
       </Section>
 
-      <Section className="border-t border-night-line">
-        <div className="card p-8 text-center sm:p-12">
-          <h2 className="text-display-md font-bold text-snow">Talk to Keith directly.</h2>
+      <Section className="border-t border-ink-line">
+        <div className="surface p-8 text-center sm:p-12">
+          <h2 className="text-display-2 font-bold text-text-bright">Talk to Keith directly.</h2>
           <p className="lede mx-auto mt-4 max-w-xl">
             Enquiries to Winners Bookmark reach the founder. If you want to talk about what AI
             could do for your business, start here.

@@ -48,9 +48,15 @@ export default function Reveal({
         entry.target.setAttribute('data-revealed', '');
         observer.disconnect();
       },
-      // Fires slightly before the element reaches the viewport, so it is
-      // already settled by the time the reader's eye arrives.
-      { threshold: 0.12, rootMargin: '0px 0px -8% 0px' },
+      // threshold 0 — fires as soon as ANY part of the element enters.
+      //
+      // A percentage threshold looks tempting but breaks on tall elements: a
+      // section card taller than the viewport can never show 12% of itself
+      // inside a root that has been inset from the bottom, so it stays at
+      // opacity 0 forever. That is exactly what happened to the homepage's
+      // final call-to-action. A small negative bottom inset still delays the
+      // reveal until the element is properly on screen.
+      { threshold: 0, rootMargin: '0px 0px -6% 0px' },
     );
 
     observer.observe(el);

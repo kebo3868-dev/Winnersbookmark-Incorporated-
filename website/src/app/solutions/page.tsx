@@ -22,11 +22,11 @@ export default function SolutionsPage() {
 
   return (
     <>
-      <section className="border-b border-night-line">
+      <section className="border-b border-ink-line">
         <div className="shell py-16 sm:py-24">
           <div className="max-w-3xl">
             <p className="eyebrow">The ecosystem</p>
-            <h1 className="mt-5 text-display-lg font-bold text-snow">
+            <h1 className="mt-5 text-display-1 font-bold text-text-bright">
               Specialised AI agents, each solving one problem properly.
             </h1>
             <p className="lede mt-6 max-w-2xl">
@@ -52,7 +52,7 @@ export default function SolutionsPage() {
       </Section>
 
       {unavailable.length > 0 && (
-        <Section className="border-t border-night-line bg-night-soft/30">
+        <Section className="border-t border-ink-line bg-ink-base/30">
           <SectionHeading
             eyebrow="In development"
             title="Where the ecosystem is heading"
@@ -60,14 +60,14 @@ export default function SolutionsPage() {
           />
           <div className="mt-10 grid gap-5 lg:grid-cols-2">
             {unavailable.map((agent) => (
-              <article key={agent.slug} className="card card-hover flex flex-col p-6 sm:p-7">
+              <article key={agent.slug} className="surface-interactive flex flex-col p-6 sm:p-7">
                 <div className="flex flex-wrap items-start justify-between gap-3">
-                  <h3 className="text-display-sm font-bold text-snow">{agent.name}</h3>
+                  <h3 className="text-display-3 font-bold text-text-bright">{agent.name}</h3>
                   <StatusBadge status={agent.status} />
                 </div>
-                <p className="mt-3 text-[15px] leading-relaxed text-snow-dim">{agent.tagline}</p>
+                <p className="mt-3 text-[15px] leading-relaxed text-text-secondary">{agent.tagline}</p>
                 <div className="mt-auto pt-7">
-                  <Link href={`/solutions/${agent.slug}`} className="btn-ghost">
+                  <Link href={`/solutions/${agent.slug}`} className="btn-text">
                     Read the direction <span aria-hidden="true">→</span>
                   </Link>
                 </div>
@@ -77,9 +77,9 @@ export default function SolutionsPage() {
         </Section>
       )}
 
-      <Section className="border-t border-night-line">
-        <div className="card p-8 text-center sm:p-12">
-          <h2 className="text-display-md font-bold text-snow">Not sure which one you need?</h2>
+      <Section className="border-t border-ink-line">
+        <div className="surface p-8 text-center sm:p-12">
+          <h2 className="text-display-2 font-bold text-text-bright">Not sure which one you need?</h2>
           <p className="lede mx-auto mt-4 max-w-xl">
             That is what the strategy call is for. Describe the problem and we will tell you which
             system addresses it — or whether something simpler would.

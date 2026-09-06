@@ -107,21 +107,21 @@ export default async function AgentPage({ params }: { params: Promise<{ slug: st
       )}
 
       {/* ── HERO ────────────────────────────────────────────────────────── */}
-      <section className="border-b border-night-line">
+      <section className="border-b border-ink-line">
         <div className="shell py-16 sm:py-24">
           <nav aria-label="Breadcrumb" className="mb-7">
-            <ol className="flex flex-wrap items-center gap-x-2 text-xs text-snow-faint">
-              <li><Link href="/" className="inline-block py-1.5 transition-colors hover:text-snow-dim">Home</Link></li>
+            <ol className="flex flex-wrap items-center gap-x-2 text-xs text-text-muted">
+              <li><Link href="/" className="inline-block py-1.5 transition-colors hover:text-text-secondary">Home</Link></li>
               <li aria-hidden="true">/</li>
-              <li><Link href="/solutions" className="inline-block py-1.5 transition-colors hover:text-snow-dim">AI Agents</Link></li>
+              <li><Link href="/solutions" className="inline-block py-1.5 transition-colors hover:text-text-secondary">AI Agents</Link></li>
               <li aria-hidden="true">/</li>
-              <li className="text-snow-dim">{agent.name}</li>
+              <li className="text-text-secondary">{agent.name}</li>
             </ol>
           </nav>
 
           <div className="max-w-3xl">
             <StatusBadge status={agent.status} />
-            <h1 className="mt-5 text-display-lg font-bold text-snow">{agent.name}</h1>
+            <h1 className="mt-5 text-display-1 font-bold text-text-bright">{agent.name}</h1>
             <p className="lede mt-5 max-w-2xl text-lg">{agent.tagline}</p>
 
             {/* The status note is prominent, not buried. A visitor should not
@@ -129,12 +129,12 @@ export default async function AgentPage({ params }: { params: Promise<{ slug: st
             {/* The rule takes its colour from the agent's own status, so it can
                 never disagree with the badge directly above it. */}
             <div
-              className={`mt-8 rounded-lg border-l-2 bg-night-card/60 p-4 sm:p-5 ${STATUS_PRESENTATION[agent.status].rule}`}
+              className={`mt-8 rounded-lg border-l-2 bg-ink-panel/60 p-4 sm:p-5 ${STATUS_PRESENTATION[agent.status].rule}`}
             >
-              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-snow-faint">
+              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-text-muted">
                 {agent.statusLabel}
               </p>
-              <p className="mt-2 text-sm leading-relaxed text-snow-dim">{agent.statusNote}</p>
+              <p className="mt-2 text-sm leading-relaxed text-text-secondary">{agent.statusNote}</p>
             </div>
 
             <div className="mt-9 flex flex-col gap-3 sm:flex-row">
@@ -158,14 +158,14 @@ export default async function AgentPage({ params }: { params: Promise<{ slug: st
             <SectionHeading eyebrow="The problem" title={agent.problem.headline} />
             <p className="lede mt-5">{agent.problem.body}</p>
           </div>
-          <div className="card p-6 sm:p-7">
-            <h3 className="text-sm font-semibold uppercase tracking-[0.1em] text-snow-faint">
+          <div className="surface p-6 sm:p-7">
+            <h3 className="text-sm font-semibold uppercase tracking-[0.1em] text-text-muted">
               You might recognise this
             </h3>
             <ul className="mt-5 space-y-3.5">
               {agent.problem.symptoms.map((symptom) => (
-                <li key={symptom} className="flex gap-3 text-sm leading-relaxed text-snow-dim">
-                  <span aria-hidden="true" className="mt-[8px] h-1 w-1 shrink-0 rounded-full bg-electric-light" />
+                <li key={symptom} className="flex gap-3 text-sm leading-relaxed text-text-secondary">
+                  <span aria-hidden="true" className="mt-[8px] h-1 w-1 shrink-0 rounded-full bg-cobalt-light" />
                   {symptom}
                 </li>
               ))}
@@ -175,23 +175,23 @@ export default async function AgentPage({ params }: { params: Promise<{ slug: st
       </Section>
 
       {/* ── WHAT IT IS ──────────────────────────────────────────────────── */}
-      <Section className="border-y border-night-line bg-night-soft/30">
+      <Section className="border-y border-ink-line bg-ink-base/30">
         <SectionHeading eyebrow="What it is" title={`Meet the ${agent.name}`} />
         <p className="lede mt-5 max-w-prose">{agent.description}</p>
 
-        <h3 className="mt-14 text-display-sm font-bold text-snow">Capabilities</h3>
-        <p className="mt-2 text-sm text-snow-faint">
+        <h3 className="mt-14 text-display-3 font-bold text-text-bright">Capabilities</h3>
+        <p className="mt-2 text-sm text-text-muted">
           Each capability carries its real state. Nothing here is aspirational unless it says so.
         </p>
 
         <div className="mt-8 grid gap-4 sm:grid-cols-2">
           {agent.features.map((feature) => (
-            <div key={feature.title} className="card p-5 sm:p-6">
+            <div key={feature.title} className="surface p-5 sm:p-6">
               <div className="flex items-start justify-between gap-3">
-                <h4 className="text-[15px] font-semibold text-snow">{feature.title}</h4>
+                <h4 className="text-[15px] font-semibold text-text-bright">{feature.title}</h4>
                 <FeatureStateBadge state={feature.state} />
               </div>
-              <p className="mt-2.5 text-sm leading-relaxed text-snow-dim">{feature.description}</p>
+              <p className="mt-2.5 text-sm leading-relaxed text-text-secondary">{feature.description}</p>
             </div>
           ))}
         </div>
@@ -203,16 +203,16 @@ export default async function AgentPage({ params }: { params: Promise<{ slug: st
           <SectionHeading eyebrow="How it works" title="From first contact to working system" />
           <ol className="mt-12 space-y-4">
             {agent.workflow.map((step, i) => (
-              <li key={step.title} className="card flex gap-5 p-6 sm:p-7">
+              <li key={step.title} className="surface flex gap-5 p-6 sm:p-7">
                 <span
                   aria-hidden="true"
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-electric/40 bg-electric/10 font-mono text-sm font-bold text-electric-light"
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-cobalt-core/40 bg-cobalt-core/10 font-mono text-sm font-bold text-cobalt-light"
                 >
                   {i + 1}
                 </span>
                 <div>
-                  <h3 className="text-base font-semibold text-snow">{step.title}</h3>
-                  <p className="mt-2 text-sm leading-relaxed text-snow-dim">{step.description}</p>
+                  <h3 className="text-base font-semibold text-text-bright">{step.title}</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-text-secondary">{step.description}</p>
                 </div>
               </li>
             ))}
@@ -220,8 +220,8 @@ export default async function AgentPage({ params }: { params: Promise<{ slug: st
         </Section>
       ) : (
         <Section id="how-it-works">
-          <div className="card p-6 sm:p-8">
-            <h2 className="text-display-sm font-bold text-snow">{agent.workflow[0]?.title ?? 'In development'}</h2>
+          <div className="surface p-6 sm:p-8">
+            <h2 className="text-display-3 font-bold text-text-bright">{agent.workflow[0]?.title ?? 'In development'}</h2>
             <p className="lede mt-3 max-w-prose">{agent.workflow[0]?.description}</p>
           </div>
         </Section>
@@ -229,7 +229,7 @@ export default async function AgentPage({ params }: { params: Promise<{ slug: st
 
       {/* ── OUTCOMES ────────────────────────────────────────────────────── */}
       {agent.outcomes.length > 0 && (
-        <Section className="border-y border-night-line bg-night-soft/30">
+        <Section className="border-y border-ink-line bg-ink-base/30">
           <SectionHeading
             eyebrow="What changes"
             title="What this actually does for the business"
@@ -237,8 +237,8 @@ export default async function AgentPage({ params }: { params: Promise<{ slug: st
           />
           <div className="mt-10 grid gap-x-8 gap-y-6 sm:grid-cols-2">
             {agent.outcomes.map((outcome) => (
-              <div key={outcome} className="flex gap-3.5 border-l-2 border-electric/50 pl-5">
-                <p className="text-[15px] leading-relaxed text-snow-soft">{outcome}</p>
+              <div key={outcome} className="flex gap-3.5 border-l-2 border-cobalt-core/50 pl-5">
+                <p className="text-[15px] leading-relaxed text-text-primary">{outcome}</p>
               </div>
             ))}
           </div>
@@ -251,11 +251,11 @@ export default async function AgentPage({ params }: { params: Promise<{ slug: st
         {agent.caseStudies.length > 0 ? (
           <div className="mt-10 grid gap-5 sm:grid-cols-2">
             {agent.caseStudies.map((cs) => (
-              <div key={cs.client} className="card p-6">
-                <h3 className="text-base font-semibold text-snow">{cs.client}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-snow-dim">{cs.summary}</p>
+              <div key={cs.client} className="surface p-6">
+                <h3 className="text-base font-semibold text-text-bright">{cs.client}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-text-secondary">{cs.summary}</p>
                 {cs.href && (
-                  <Link href={cs.href} className="btn-ghost mt-4">
+                  <Link href={cs.href} className="btn-text mt-4">
                     Read the case study <span aria-hidden="true">→</span>
                   </Link>
                 )}
@@ -267,16 +267,16 @@ export default async function AgentPage({ params }: { params: Promise<{ slug: st
              testimonial — is the single fastest way for a young company to
              become untrustworthy, and it is the thing the brief ruled out
              most explicitly. */
-          <div className="card mt-8 p-6 sm:p-8">
-            <p className="text-[15px] leading-relaxed text-snow-dim">
+          <div className="surface mt-8 p-6 sm:p-8">
+            <p className="text-[15px] leading-relaxed text-text-secondary">
               We have not published case studies for this system yet. When we have customer
               results we are permitted to share, they will appear here with the customer named
               and the numbers attributed.
             </p>
-            <p className="mt-4 text-[15px] leading-relaxed text-snow-dim">
+            <p className="mt-4 text-[15px] leading-relaxed text-text-secondary">
               We are not going to fill this space with an anonymous testimonial or an invented
               statistic in the meantime. If you want to talk to us about being an early customer,{' '}
-              <Link href="/contact" className="font-semibold text-electric-light underline underline-offset-4 hover:text-white">
+              <Link href="/contact" className="font-semibold text-cobalt-light underline underline-offset-4 hover:text-white">
                 that conversation is open
               </Link>
               .
@@ -287,24 +287,24 @@ export default async function AgentPage({ params }: { params: Promise<{ slug: st
 
       {/* ── FAQ ─────────────────────────────────────────────────────────── */}
       {agent.faqs.length > 0 && (
-        <Section className="border-y border-night-line bg-night-soft/30">
+        <Section className="border-y border-ink-line bg-ink-base/30">
           <SectionHeading eyebrow="Questions" title="Frequently asked" />
           <div className="mt-10 max-w-prose space-y-3">
             {agent.faqs.map((faq) => (
               /* <details> gives keyboard operability, screen-reader semantics
                  and works without JavaScript — all for free. A custom
                  accordion would have to re-earn each of those. */
-              <details key={faq.question} className="card group p-5 sm:p-6">
-                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-[15px] font-semibold text-snow marker:content-none">
+              <details key={faq.question} className="surface group p-5 sm:p-6">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-[15px] font-semibold text-text-bright marker:content-none">
                   {faq.question}
                   <span
                     aria-hidden="true"
-                    className="shrink-0 text-electric-light transition-transform group-open:rotate-45"
+                    className="shrink-0 text-cobalt-light transition-transform group-open:rotate-45"
                   >
                     +
                   </span>
                 </summary>
-                <p className="mt-3.5 text-sm leading-relaxed text-snow-dim">{faq.answer}</p>
+                <p className="mt-3.5 text-sm leading-relaxed text-text-secondary">{faq.answer}</p>
               </details>
             ))}
           </div>
@@ -313,8 +313,8 @@ export default async function AgentPage({ params }: { params: Promise<{ slug: st
 
       {/* ── CTA ─────────────────────────────────────────────────────────── */}
       <Section>
-        <div className="card p-8 text-center sm:p-12">
-          <h2 className="text-display-md font-bold text-snow">
+        <div className="surface p-8 text-center sm:p-12">
+          <h2 className="text-display-2 font-bold text-text-bright">
             {isAvailable ? `Ready to put the ${agent.name} to work?` : `Want to shape where ${agent.name} goes?`}
           </h2>
           <p className="lede mx-auto mt-4 max-w-xl">
@@ -332,20 +332,20 @@ export default async function AgentPage({ params }: { params: Promise<{ slug: st
       </Section>
 
       {/* ── OTHER AGENTS ────────────────────────────────────────────────── */}
-      <Section className="border-t border-night-line">
-        <h2 className="text-display-sm font-bold text-snow">Other agents in the ecosystem</h2>
+      <Section className="border-t border-ink-line">
+        <h2 className="text-display-3 font-bold text-text-bright">Other agents in the ecosystem</h2>
         <div className="mt-8 grid gap-4 sm:grid-cols-3">
           {others.map((other) => (
             <Link
               key={other.slug}
               href={`/solutions/${other.slug}`}
-              className="card card-hover p-5 transition-colors"
+              className="surface-interactive p-5 transition-colors"
             >
               <div className="flex items-start justify-between gap-2">
-                <h3 className="text-[15px] font-semibold text-snow">{other.name}</h3>
+                <h3 className="text-[15px] font-semibold text-text-bright">{other.name}</h3>
                 <StatusBadge status={other.status} />
               </div>
-              <p className="mt-2.5 text-sm leading-relaxed text-snow-dim">{other.tagline}</p>
+              <p className="mt-2.5 text-sm leading-relaxed text-text-secondary">{other.tagline}</p>
             </Link>
           ))}
         </div>

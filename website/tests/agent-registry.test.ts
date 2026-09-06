@@ -142,8 +142,8 @@ describe('status presentation consistency', () => {
     // A green rule beside an amber "Private pilot" badge was a real defect.
     for (const [status, p] of Object.entries(STATUS_PRESENTATION)) {
       expect(p.rule, status).toBeTruthy();
-      const badgeTone = p.text.replace('text-status-', '');
-      const ruleTone = p.rule.replace('border-status-', '').split('/')[0];
+      const badgeTone = p.text.replace('text-signal-', '');
+      const ruleTone = p.rule.replace('border-signal-', '').split('/')[0];
       expect(ruleTone, `${status}: rule tone must match badge tone`).toBe(badgeTone);
     }
   });

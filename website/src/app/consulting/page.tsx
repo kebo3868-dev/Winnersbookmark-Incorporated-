@@ -64,11 +64,11 @@ const PRINCIPLES = [
 export default function ConsultingPage() {
   return (
     <>
-      <section className="border-b border-night-line">
+      <section className="border-b border-ink-line">
         <div className="shell py-16 sm:py-24">
           <div className="max-w-3xl">
             <p className="eyebrow">AI Consulting</p>
-            <h1 className="mt-5 text-display-lg font-bold text-snow">
+            <h1 className="mt-5 text-display-1 font-bold text-text-bright">
               A straight answer about what AI can do for your business.
             </h1>
             <p className="lede mt-6 max-w-2xl text-lg">
@@ -92,21 +92,21 @@ export default function ConsultingPage() {
         />
         <div className="mt-12 space-y-4">
           {SERVICES.map((service, i) => (
-            <div key={service.title} className="card p-6 sm:p-7">
+            <div key={service.title} className="surface p-6 sm:p-7">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div className="flex items-start gap-5">
                   <span
                     aria-hidden="true"
-                    className="mt-0.5 font-mono text-xs font-bold tracking-wider text-electric-light"
+                    className="mt-0.5 font-mono text-xs font-bold tracking-wider text-cobalt-light"
                   >
                     {String(i + 1).padStart(2, '0')}
                   </span>
                   <div className="max-w-prose">
-                    <h3 className="text-lg font-semibold text-snow">{service.title}</h3>
-                    <p className="mt-2.5 text-sm leading-relaxed text-snow-dim">{service.body}</p>
+                    <h3 className="text-lg font-semibold text-text-bright">{service.title}</h3>
+                    <p className="mt-2.5 text-sm leading-relaxed text-text-secondary">{service.body}</p>
                   </div>
                 </div>
-                <span className="shrink-0 rounded border border-night-edge px-2.5 py-1 text-[11px] font-medium text-snow-faint">
+                <span className="shrink-0 rounded border border-ink-border px-2.5 py-1 text-[11px] font-medium text-text-muted">
                   {service.deliverable}
                 </span>
               </div>
@@ -115,24 +115,24 @@ export default function ConsultingPage() {
         </div>
       </Section>
 
-      <Section className="border-y border-night-line bg-night-soft/30">
+      <Section className="border-y border-ink-line bg-ink-base/30">
         <SectionHeading
           eyebrow="How we work"
           title="The rules we hold ourselves to."
         />
         <div className="mt-12 grid gap-5 sm:grid-cols-2">
           {PRINCIPLES.map((p) => (
-            <div key={p.title} className="card p-6 sm:p-7">
-              <h3 className="text-base font-semibold text-snow">{p.title}</h3>
-              <p className="mt-2.5 text-sm leading-relaxed text-snow-dim">{p.body}</p>
+            <div key={p.title} className="surface p-6 sm:p-7">
+              <h3 className="text-base font-semibold text-text-bright">{p.title}</h3>
+              <p className="mt-2.5 text-sm leading-relaxed text-text-secondary">{p.body}</p>
             </div>
           ))}
         </div>
       </Section>
 
       <Section>
-        <div className="card p-8 text-center sm:p-12">
-          <h2 className="text-display-md font-bold text-snow">Start with a conversation.</h2>
+        <div className="surface p-8 text-center sm:p-12">
+          <h2 className="text-display-2 font-bold text-text-bright">Start with a conversation.</h2>
           <p className="lede mx-auto mt-4 max-w-xl">
             Tell us what is not working. We will tell you whether we can help, what we would do
             first, and what it would take.

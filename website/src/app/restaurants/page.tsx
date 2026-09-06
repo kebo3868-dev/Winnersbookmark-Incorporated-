@@ -46,11 +46,11 @@ const LEAKS = [
 export default function RestaurantsPage() {
   return (
     <>
-      <section className="border-b border-night-line">
+      <section className="border-b border-ink-line">
         <div className="shell py-16 sm:py-24">
           <div className="max-w-3xl">
             <p className="eyebrow">Restaurant AI</p>
-            <h1 className="mt-5 text-display-lg font-bold text-snow">
+            <h1 className="mt-5 text-display-1 font-bold text-text-bright">
               Restaurants are where we started, and where we go deepest.
             </h1>
             <p className="lede mt-6 max-w-2xl text-lg">
@@ -78,20 +78,20 @@ export default function RestaurantsPage() {
         />
         <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {LEAKS.map((leak) => (
-            <div key={leak.title} className="card p-6">
-              <h3 className="text-[15px] font-semibold text-snow">{leak.title}</h3>
-              <p className="mt-2.5 text-sm leading-relaxed text-snow-dim">{leak.body}</p>
+            <div key={leak.title} className="surface p-6">
+              <h3 className="text-[15px] font-semibold text-text-bright">{leak.title}</h3>
+              <p className="mt-2.5 text-sm leading-relaxed text-text-secondary">{leak.body}</p>
             </div>
           ))}
         </div>
-        <p className="mt-8 max-w-prose text-sm text-snow-faint">
+        <p className="mt-8 max-w-prose text-sm text-text-muted">
           We do not attach a dollar figure to any of these, because we would be making it up. What
           we do is show you which ones are happening on your site, with the evidence, so you can
           judge the cost against numbers you actually have.
         </p>
       </Section>
 
-      <Section className="border-y border-night-line bg-night-soft/30">
+      <Section className="border-y border-ink-line bg-ink-base/30">
         <SectionHeading
           eyebrow="The systems"
           title="What we run for restaurants"
@@ -105,8 +105,8 @@ export default function RestaurantsPage() {
       </Section>
 
       <Section>
-        <div className="card p-8 text-center sm:p-12">
-          <h2 className="text-display-md font-bold text-snow">
+        <div className="surface p-8 text-center sm:p-12">
+          <h2 className="text-display-2 font-bold text-text-bright">
             Find out what your restaurant is losing.
           </h2>
           <p className="lede mx-auto mt-4 max-w-xl">

@@ -50,17 +50,17 @@ export default function ContactForm() {
   /* ── SUCCESS ──────────────────────────────────────────────────────────── */
   if (state?.ok) {
     return (
-      <div className="card p-7 sm:p-9" role="status" aria-live="polite">
-        <div className="flex h-12 w-12 items-center justify-center rounded-full border border-status-live/40 bg-status-live/10 text-xl text-status-live">
+      <div className="surface p-7 sm:p-9" role="status" aria-live="polite">
+        <div className="flex h-12 w-12 items-center justify-center rounded-full border border-signal-live/40 bg-signal-live/10 text-xl text-signal-live">
           ✓
         </div>
-        <h2 className="mt-6 text-display-sm font-bold text-snow">Enquiry received.</h2>
-        <p className="mt-3 text-[15px] leading-relaxed text-snow-dim">
+        <h2 className="mt-6 text-display-3 font-bold text-text-bright">Enquiry received.</h2>
+        <p className="mt-3 text-[15px] leading-relaxed text-text-secondary">
           Your enquiry has been recorded and Keith has been notified. You can expect a reply
           within one business day.
         </p>
 
-        <h3 className="mt-8 text-sm font-semibold uppercase tracking-[0.12em] text-snow-faint">
+        <h3 className="mt-8 text-sm font-semibold uppercase tracking-[0.12em] text-text-muted">
           What happens next
         </h3>
         <ol className="mt-4 space-y-3">
@@ -69,10 +69,10 @@ export default function ContactForm() {
             'You get a reply with an honest first read on whether we can help.',
             'If it looks like a fit, we book a call and go deeper. If not, we will tell you that too.',
           ].map((step, i) => (
-            <li key={step} className="flex gap-3 text-sm leading-relaxed text-snow-dim">
+            <li key={step} className="flex gap-3 text-sm leading-relaxed text-text-secondary">
               <span
                 aria-hidden="true"
-                className="mt-px flex h-5 w-5 shrink-0 items-center justify-center rounded border border-electric/40 bg-electric/10 font-mono text-[10px] font-bold text-electric-light"
+                className="mt-px flex h-5 w-5 shrink-0 items-center justify-center rounded border border-cobalt-core/40 bg-cobalt-core/10 font-mono text-[10px] font-bold text-cobalt-light"
               >
                 {i + 1}
               </span>
@@ -100,7 +100,7 @@ export default function ContactForm() {
 
   /* ── FORM ─────────────────────────────────────────────────────────────── */
   return (
-    <form action={formAction} className="card p-6 sm:p-8" noValidate>
+    <form action={formAction} className="surface p-6 sm:p-8" noValidate>
       <input type="hidden" name="sourcePath" value="/contact" />
 
       {/* Honeypot. Hidden from people, harvested by bots. A submission that
@@ -119,11 +119,11 @@ export default function ContactForm() {
           <p className="text-sm font-semibold text-red-300">
             Your enquiry was not sent.
           </p>
-          <p className="mt-2 text-sm leading-relaxed text-snow-dim">
+          <p className="mt-2 text-sm leading-relaxed text-text-secondary">
             {unavailable.message} Nothing was recorded, so please email us directly at{' '}
             <a
               href={`mailto:${contact.email}`}
-              className="font-semibold text-electric-light underline underline-offset-4 hover:text-white"
+              className="font-semibold text-cobalt-light underline underline-offset-4 hover:text-white"
             >
               {contact.email}
             </a>{' '}
@@ -135,7 +135,7 @@ export default function ContactForm() {
       <div className="grid gap-5 sm:grid-cols-2">
         <div className="sm:col-span-1">
           <label htmlFor="name" className="field-label">
-            Your name <span className="text-electric-light">*</span>
+            Your name <span className="text-cobalt-light">*</span>
           </label>
           <input
             id="name"
@@ -153,7 +153,7 @@ export default function ContactForm() {
 
         <div className="sm:col-span-1">
           <label htmlFor="email" className="field-label">
-            Email address <span className="text-electric-light">*</span>
+            Email address <span className="text-cobalt-light">*</span>
           </label>
           <input
             id="email"
@@ -229,7 +229,7 @@ export default function ContactForm() {
 
         <div className="sm:col-span-2">
           <label htmlFor="message" className="field-label">
-            What is not working? <span className="text-electric-light">*</span>
+            What is not working? <span className="text-cobalt-light">*</span>
           </label>
           <textarea
             id="message"
@@ -252,7 +252,7 @@ export default function ContactForm() {
 
       <div className="mt-7 flex flex-col gap-4 sm:flex-row sm:items-center">
         <SubmitButton />
-        <p className="text-xs leading-relaxed text-snow-faint">
+        <p className="text-xs leading-relaxed text-text-muted">
           We use your details to reply to this enquiry. We do not sell them or add you to a
           mailing list.
         </p>

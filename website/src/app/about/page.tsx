@@ -37,11 +37,11 @@ const BELIEFS = [
 export default function AboutPage() {
   return (
     <>
-      <section className="border-b border-night-line">
+      <section className="border-b border-ink-line">
         <div className="shell py-16 sm:py-24">
           <div className="max-w-3xl">
             <p className="eyebrow">About</p>
-            <h1 className="mt-5 text-display-lg font-bold text-snow">
+            <h1 className="mt-5 text-display-1 font-bold text-text-bright">
               We build AI systems for businesses that cannot afford to lose customers.
             </h1>
             <p className="lede mt-6 max-w-2xl text-lg">{company.positioning}</p>
@@ -54,7 +54,7 @@ export default function AboutPage() {
           <div>
             <SectionHeading eyebrow="Why we exist" title="The problem we kept seeing." />
           </div>
-          <div className="max-w-prose space-y-5 text-[15px] leading-relaxed text-snow-dim">
+          <div className="max-w-prose space-y-5 text-[15px] leading-relaxed text-text-secondary">
             <p>
               A restaurant does everything right — good food, good staff, a full room on a Friday —
               and still loses money in places nobody is looking. The phone that rang during the
@@ -75,13 +75,13 @@ export default function AboutPage() {
         </div>
       </Section>
 
-      <Section className="border-y border-night-line bg-night-soft/30">
+      <Section className="border-y border-ink-line bg-ink-base/30">
         <SectionHeading eyebrow="What we believe" title="The convictions behind how we build." />
         <div className="mt-12 grid gap-5 sm:grid-cols-2">
           {BELIEFS.map((b) => (
-            <div key={b.title} className="card p-6 sm:p-7">
-              <h3 className="text-base font-semibold text-snow">{b.title}</h3>
-              <p className="mt-2.5 text-sm leading-relaxed text-snow-dim">{b.body}</p>
+            <div key={b.title} className="surface p-6 sm:p-7">
+              <h3 className="text-base font-semibold text-text-bright">{b.title}</h3>
+              <p className="mt-2.5 text-sm leading-relaxed text-text-secondary">{b.body}</p>
             </div>
           ))}
         </div>
@@ -95,15 +95,15 @@ export default function AboutPage() {
         />
         <div className="mt-10 max-w-prose space-y-4">
           {agentsByOrder.map((agent) => (
-            <div key={agent.slug} className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-night-line pb-4">
-              <Link href={`/solutions/${agent.slug}`} className="inline-block py-1 text-[15px] font-semibold text-snow transition-colors hover:text-electric-light">
+            <div key={agent.slug} className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-ink-line pb-4">
+              <Link href={`/solutions/${agent.slug}`} className="inline-block py-1 text-[15px] font-semibold text-text-bright transition-colors hover:text-cobalt-light">
                 {agent.name}
               </Link>
-              <span className="text-sm text-snow-faint">{agent.statusLabel}</span>
+              <span className="text-sm text-text-muted">{agent.statusLabel}</span>
             </div>
           ))}
         </div>
-        <p className="mt-8 max-w-prose text-sm leading-relaxed text-snow-faint">
+        <p className="mt-8 max-w-prose text-sm leading-relaxed text-text-muted">
           We have no client logos to show you and no case studies published yet. When we have
           customer results we are permitted to share, they will appear on this site with the
           customer named. Until then, what we can offer is the reasoning behind how we work and a
@@ -111,9 +111,9 @@ export default function AboutPage() {
         </p>
       </Section>
 
-      <Section className="border-t border-night-line">
-        <div className="card p-8 text-center sm:p-12">
-          <h2 className="text-display-md font-bold text-snow">Talk to Winners Bookmark.</h2>
+      <Section className="border-t border-ink-line">
+        <div className="surface p-8 text-center sm:p-12">
+          <h2 className="text-display-2 font-bold text-text-bright">Talk to Winners Bookmark.</h2>
           <p className="lede mx-auto mt-4 max-w-xl">
             Tell us what is not working in your business. We will tell you honestly whether this
             is something we can help with.
