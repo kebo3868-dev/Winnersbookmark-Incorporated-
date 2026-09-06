@@ -1,0 +1,1 @@
+export const founderImageDataUri = 'data:image/webp;base64,UklGRpZoAABXRUJQVlA4IIpoAACQCACdASr4A2gCPpE6mUqlpCKhJOgAA0JZQACdMoUqZkn8dmbtXFWCq5+fMMlZNhgYz1JwSG0lFJzVJYf31sa5XKzP3fTHYLmA8qNV9F3FxoL3Yv0gAI5f5oQO9v3xq6tQb2o24LoYjH4g1x7p0ulb0g9hP+7b3xgBRbJp8D+Dw...';
