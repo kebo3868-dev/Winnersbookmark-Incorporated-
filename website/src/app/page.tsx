@@ -5,6 +5,7 @@ import SystemVisualization from '@/components/SystemVisualization';
 import RevenueJourney from '@/components/RevenueJourney';
 import RescueProof from '@/components/RescueProof';
 import EvidenceStandard from '@/components/EvidenceStandard';
+import FounderSection from '@/components/FounderSection';
 import Reveal from '@/components/Reveal';
 import { BookmarkNotch, BrandRule } from '@/components/Logo';
 import { featuredAgents, agentsByOrder, availableAgents } from '@/data/agents';
@@ -337,6 +338,13 @@ export default function HomePage() {
         <EvidenceStandard />
         <Reveal delay={180} className="mt-10">
           <Link href="/about" className="btn-secondary">About the company</Link>
+        </Reveal>
+      </Section>
+
+      {/* ═══ FOUNDER ═══════════════════════════════════════════════════════ */}
+      <Section>
+        <Reveal>
+          <FounderSection />
         </Reveal>
       </Section>
 

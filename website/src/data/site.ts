@@ -45,6 +45,26 @@ export const HAS_CANONICAL_DOMAIN = Boolean(
   process.env.NEXT_PUBLIC_SITE_URL?.trim() || process.env.VERCEL_PROJECT_PRODUCTION_URL?.trim(),
 );
 
+/**
+ * FOUNDER PHOTOGRAPH
+ *
+ * Set this to the public path of Keith's photo once one exists — for example
+ * '/keith-warren.jpg' after dropping the file into `website/public/`.
+ *
+ * While it is null the founder section renders a designed placeholder built
+ * from the brand's own geometry. That is deliberate: a stock photograph of a
+ * stranger on a founder section is worse than no photograph, because a
+ * prospect who reverse-searches it finds a stock library and stops trusting
+ * everything else on the page.
+ *
+ * Recommended: a portrait crop, at least 800x1000px, plain or softly
+ * out-of-focus background, natural light. The frame is 4:5 and crops to fill.
+ */
+export const founderPhoto: string | null = null;
+
+/** Alt text used when a photo is supplied. Describes the person, not the file. */
+export const founderPhotoAlt = 'Keith Warren, Founder of Winners Bookmark Incorporated';
+
 export const company = {
   legalName: 'Winners Bookmark Incorporated',
   shortName: 'Winners Bookmark',
