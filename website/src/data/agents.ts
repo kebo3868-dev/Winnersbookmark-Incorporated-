@@ -89,7 +89,7 @@ export interface Agent {
   /** One line. Appears on cards and as the page's subtitle. */
   tagline: string;
   status: AgentStatus;
-  /** Short label for the status chip, e.g. "Live now", "Private pilot". */
+  /** Short label for the status chip, e.g. "Live now", "Limited pilot". */
   statusLabel: string;
   /** Plain-English note explaining exactly what the status means. Shown on the
    *  agent's page so the status is never ambiguous. */
@@ -116,6 +116,15 @@ export interface Agent {
   /** Card readout. Optional: an agent with nothing truthful to show omits it
    *  rather than displaying a placeholder. */
   signal?: AgentSignal;
+
+  /**
+   * Optional short category shown beside the name in the ecosystem list, e.g.
+   * "Gigi — Advanced Business AI System — Coming soon". It names what KIND of
+   * system this is, for a reader who has only seen the name. It is a
+   * descriptor, never a claim of availability — the status label immediately
+   * after it still carries that.
+   */
+  descriptor?: string;
 
   cta: {
     primaryLabel: string;
@@ -153,7 +162,7 @@ export const STATUS_PRESENTATION: Record<
     rule: 'border-signal-live/70',
   },
   PILOT: {
-    label: 'Private pilot',
+    label: 'Limited pilot',
     dot: 'bg-signal-building',
     text: 'text-signal-building',
     border: 'border-signal-building/40',
@@ -340,7 +349,7 @@ export const agents: Agent[] = [
     name: 'AI Front Desk',
     tagline: 'Every missed call answered. Every question handled. Nothing falls through.',
     status: 'PILOT',
-    statusLabel: 'Private pilot — onboarding a limited number of businesses',
+    statusLabel: 'Limited pilot — onboarding a limited number of businesses',
     statusNote:
       'The system is built and running with pilot businesses. We are deliberately onboarding a small number at a time so each one is set up properly. Some capabilities listed below are still in development and are marked as such.',
     description:
@@ -576,6 +585,7 @@ export const agents: Agent[] = [
     slug: 'gigi',
     purpose: 'Being designed as the coordinating layer above the other agents, holding the context of a whole business rather than one conversation. Not yet available.',
     name: 'Gigi',
+    descriptor: 'Advanced Business AI System',
     tagline: 'The next-generation AI system at the center of the Winners Bookmark ecosystem.',
     status: 'COMING_SOON',
     statusLabel: 'Coming soon — next-generation system in development',

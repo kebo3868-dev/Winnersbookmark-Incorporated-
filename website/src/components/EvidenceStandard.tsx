@@ -50,11 +50,13 @@ export default function EvidenceStandard() {
     <div className="grid gap-12 lg:grid-cols-[0.9fr_1.1fr] lg:gap-16">
       <div>
         <p className="eyebrow mb-5">The evidence standard</p>
-        <h2 className="text-display-2 text-text-bright">Evidence before promises.</h2>
+        <h2 className="text-display-2 text-text-bright">
+          We earn trust with evidence, not marketing claims.
+        </h2>
         <p className="lede mt-5">
-          Anyone can describe what AI might do for your business. We work the other way around:
-          establish what is measurably happening first, show you the proof, and only then discuss
-          what to build.
+          Every recommendation is tied to something we can show you — the broken customer path,
+          missed opportunity, or operational friction behind it. If AI is not the right solution,
+          we will tell you.
         </p>
 
         {/* The strongest credibility signal available to a young firm — kept

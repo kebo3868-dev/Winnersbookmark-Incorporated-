@@ -8,7 +8,7 @@ import EvidenceStandard from '@/components/EvidenceStandard';
 import FounderSection from '@/components/FounderSection';
 import Reveal from '@/components/Reveal';
 import { BookmarkNotch, BrandRule } from '@/components/Logo';
-import { featuredAgents, agentsByOrder, availableAgents } from '@/data/agents';
+import { featuredAgents, agentsByOrder } from '@/data/agents';
 import { company, SITE_URL, contact } from '@/data/site';
 
 /**
@@ -245,6 +245,7 @@ export default function HomePage() {
                         <span className="flex flex-wrap items-baseline gap-x-2.5">
                           <span className="text-[0.875rem] font-medium text-text-primary">
                             {agent.name}
+                            {agent.descriptor ? ` — ${agent.descriptor}` : ''}
                           </span>
                           <span className="text-[0.6875rem] uppercase tracking-[0.1em] text-signal-planned">
                             {agent.statusLabel.split('—')[0].trim()}
@@ -391,8 +392,8 @@ export default function HomePage() {
               </ol>
 
               <p className="mt-7 text-[0.8125rem] text-text-muted">
-                No cost, no obligation, and no follow-up sequence. {availableAgents.length} of our
-                AI agents are available today; the rest are labeled honestly.
+                No cost, no obligation, and no follow-up sequence. Start with the system that
+                solves your highest-value problem first.
               </p>
             </div>
           </div>
