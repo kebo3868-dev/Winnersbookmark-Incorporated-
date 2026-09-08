@@ -30,9 +30,9 @@ export default function SolutionsPage() {
               Specialized AI agents, each solving one problem properly.
             </h1>
             <p className="lede mt-6 max-w-2xl">
-              Every agent below shows exactly where it stands. {availableAgents.length} are
-              available to businesses today; the rest are in development and labeled as such. We
-              would rather you know that here than find out later.
+              Two are available today: Restaurant Rescue is live, and AI Front Desk is currently
+              accepting private pilot businesses. The remaining agents are in development and
+              clearly labeled as such.
             </p>
           </div>
         </div>

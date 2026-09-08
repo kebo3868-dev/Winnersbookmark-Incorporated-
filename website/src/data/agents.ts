@@ -89,7 +89,7 @@ export interface Agent {
   /** One line. Appears on cards and as the page's subtitle. */
   tagline: string;
   status: AgentStatus;
-  /** Short label for the status chip, e.g. "Live now", "Limited pilot". */
+  /** Short label for the status chip, e.g. "Live now", "Private pilot". */
   statusLabel: string;
   /** Plain-English note explaining exactly what the status means. Shown on the
    *  agent's page so the status is never ambiguous. */
@@ -162,7 +162,7 @@ export const STATUS_PRESENTATION: Record<
     rule: 'border-signal-live/70',
   },
   PILOT: {
-    label: 'Limited pilot',
+    label: 'Private pilot',
     dot: 'bg-signal-building',
     text: 'text-signal-building',
     border: 'border-signal-building/40',
@@ -243,7 +243,7 @@ export const agents: Agent[] = [
       {
         title: 'Rescue Score',
         description:
-          'A single score summarising the health of the restaurant’s digital customer journey, with the components that produced it shown openly.',
+          'A single score summarizing the health of the restaurant’s digital customer journey, with the components that produced it shown openly.',
         state: 'LIVE',
       },
       {
@@ -347,9 +347,9 @@ export const agents: Agent[] = [
     slug: 'ai-front-desk',
     purpose: 'Answers the calls and messages a business cannot get to, resolves what it can, and captures the rest as a lead.',
     name: 'AI Front Desk',
-    tagline: 'Every missed call answered. Every question handled. Nothing falls through.',
+    tagline: 'Missed calls get a response. Common questions get handled. Opportunities stop falling through.',
     status: 'PILOT',
-    statusLabel: 'Limited pilot — onboarding a limited number of businesses',
+    statusLabel: 'Private pilot — onboarding a limited number of businesses',
     statusNote:
       'The system is built and running with pilot businesses. We are deliberately onboarding a small number at a time so each one is set up properly. Some capabilities listed below are still in development and are marked as such.',
     description:

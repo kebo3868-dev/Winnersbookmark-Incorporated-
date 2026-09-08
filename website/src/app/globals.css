@@ -80,7 +80,7 @@ body {
   50%      { opacity: 1;    transform: scale(1.12); }
 }
 
-/* A packet travelling one connector of the recovery pipeline. */
+/* A packet traveling one connector of the recovery pipeline. */
 @keyframes flow {
   0%   { offset-distance: 0%;   opacity: 0; }
   12%  { opacity: 1; }
@@ -192,7 +192,7 @@ body {
 
   .btn-sm { min-height: 44px; padding-inline: 1.125rem; @apply text-[0.875rem]; }
 
-  /* Inline text action with a travelling arrow. */
+  /* Inline text action with a traveling arrow. */
   .btn-text {
     @apply inline-flex min-h-[36px] items-center gap-1.5 py-1.5 text-[0.875rem]
            font-semibold text-cobalt-light transition-colors duration-200 ease-out
