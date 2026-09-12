@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { extractPage, formatPhoneNumber } from '@/lib/web/collector';
+import { extractPage, formatPhoneNumber, normalizePhonesInText } from '@/lib/web/collector';
 import { normalizeEvidence, type ProbeResult } from '@/lib/audit/evidence';
 import { analyzeJourney } from '@/lib/audit/journey';
 import { safeDisplayName, resolveRestaurantName } from '@/lib/audit/restaurantName';
@@ -244,9 +244,186 @@ describe('phone numbers render in one shape', () => {
   });
 
   it('never produces the doubled brackets seen in the live report', () => {
+    // My first fix corrected the number's own punctuation and left the sentence
+    // wrapping it in a second pair of brackets — and this test asserted that
+    // doubled form, so it passed while the reported defect was still on screen.
+    // The number's area code already supplies brackets; the sentence uses a colon.
     const fact = records('<p>Call (727)-367-4588 today.</p>').find((e) => e.evidenceType === 'PHONE_VISIBILITY');
-    expect(fact?.fact).toContain('((727) 367-4588)');
-    expect(fact?.fact).not.toContain('((727)-367-4588)');
+    expect(fact?.fact).toBe('A phone number is publicly displayed: (727) 367-4588.');
+    expect(fact?.fact).not.toContain('((');
+  });
+
+  it('normalizes phone numbers inside QUOTED page text, not just extracted ones', () => {
+    // The extraction path was already correct. These three quote the page
+    // verbatim, which is how the raw form kept reaching the report.
+    const ev = records(`
+      <p>Mon - Sun 11:30 AM - 10:00 PM. 4801 37th Street South, St. Petersburg, FL. Call (727)-367-4588 today.</p>
+      <a href="tel:+17273674588">Call (727)-367-4588</a>
+      <a href="/menu">Menu</a>
+    `);
+    for (const type of ['ADDRESS_VISIBILITY', 'HOURS_VISIBILITY', 'CTA_SIGNAL']) {
+      const entry = ev.find((e) => e.evidenceType === type);
+      const blob = `${entry?.fact ?? ''} ${entry?.supportingContext ?? ''}`;
+      expect(blob, type).not.toContain('(727)-367-4588');
+    }
+    const address = ev.find((e) => e.evidenceType === 'ADDRESS_VISIBILITY');
+    expect(address?.supportingContext).toContain('(727) 367-4588');
+  });
+
+  it('does not start an address snippet mid-timestamp', () => {
+    // "Mon - Sun 11:30 AM - 10:00 PM. 4801 37th Street South" made the house
+    // number "00", so the quoted snippet opened with "00 PM.".
+    const ev = records('<p>Mon - Sun 11:30 AM - 10:00 PM. 4801 37th Street South, St. Petersburg, FL.</p>');
+    const address = ev.find((e) => e.evidenceType === 'ADDRESS_VISIBILITY');
+    expect(address?.supportingContext).toContain('4801 37th Street South');
+    expect(address?.supportingContext).not.toMatch(/"\s*\d{2} (AM|PM)/i);
+  });
+});
+
+// ── 6b. Boundary defects found in review of the phone/address fix ──────────
+
+/**
+ * Two P1 review findings against the Check D fix. Both are boundary bugs in the
+ * extraction patterns, and both are one-directional: each guard has to keep
+ * doing its original job while no longer catching a legitimate case.
+ */
+describe('a postal code is not part of the phone number beside it', () => {
+  it('leaves a ZIP intact when a phone number follows it immediately', () => {
+    // PHONE_REGEX's optional `1` country-code prefix would start on the last
+    // digit of the ZIP, matching "1 (727)-367-4588" — eleven digits, read as
+    // +1 — so the rewrite replaced the ZIP's final digit too and the report
+    // printed "FL 3370+1 (727) 367-4588".
+    expect(normalizePhonesInText('FL 33701 (727)-367-4588')).toBe('FL 33701 (727) 367-4588');
+    expect(normalizePhonesInText('St. Petersburg, FL 33707 (727)-367-4588')).toBe(
+      'St. Petersburg, FL 33707 (727) 367-4588',
+    );
+  });
+
+  it('keeps the ZIP whole through the real pipeline, not just the helper', () => {
+    const ev = records('<p>4801 37th Street South, St. Petersburg, FL 33701 (727)-367-4588</p>');
+    const address = ev.find((e) => e.evidenceType === 'ADDRESS_VISIBILITY');
+    expect(address?.supportingContext).toContain('33701');
+    expect(address?.supportingContext).not.toMatch(/3370\+1/);
+    const phone = ev.find((e) => e.evidenceType === 'PHONE_VISIBILITY');
+    expect(phone?.fact).toBe('A phone number is publicly displayed: (727) 367-4588.');
+  });
+
+  it('still reads a genuine leading country code', () => {
+    // The guard must not disarm the prefix it constrains — only stop it
+    // beginning mid-number.
+    expect(normalizePhonesInText('Call 1-727-367-4588')).toBe('Call +1 (727) 367-4588');
+    expect(normalizePhonesInText('Call +1 727 367 4588')).toBe('Call +1 (727) 367-4588');
+  });
+});
+
+describe('a labelled address is still an address', () => {
+  it('matches a house number written straight after a label colon', () => {
+    // The timestamp guard rejected EVERY colon, which also discarded
+    // "Address:4801 37th Street South" — a legitimate, common markup shape.
+    const ev = records('<p>Address:4801 37th Street South, St. Petersburg, FL</p>');
+    const address = ev.find((e) => e.evidenceType === 'ADDRESS_VISIBILITY');
+    expect(address?.supportingContext).toContain('4801 37th Street South');
+  });
+
+  it('still refuses to start an address inside a clock time', () => {
+    // The original defect this guard exists for. A colon that follows a DIGIT
+    // is a time; a colon that follows a letter is a label.
+    const ev = records('<p>Mon - Sun 11:30 AM - 10:00 PM. 4801 37th Street South, St. Petersburg, FL</p>');
+    const address = ev.find((e) => e.evidenceType === 'ADDRESS_VISIBILITY');
+    expect(address?.supportingContext).toContain('4801 37th Street South');
+    expect(address?.supportingContext).not.toMatch(/"\s*00 PM/i);
+  });
+});
+
+describe('address evidence stops at the postal-code boundary', () => {
+  it('does not include unrelated page text after a ZIP code', () => {
+    const ev = records(`
+      <p>840 Pasadena Avenue South, St. Petersburg, FL 33707</p>
+      <span>map marker pin</span><a href="/about">About us</a><p>Leverock's story</p>
+    `);
+    const address = ev.find((e) => e.evidenceType === 'ADDRESS_VISIBILITY');
+    expect(address?.supportingContext).toContain('840 Pasadena Avenue South, St. Petersburg, FL 33707');
+    expect(address?.supportingContext).not.toMatch(/map marker pin|About us|Leverock's story/i);
+  });
+
+  it('keeps a complete ZIP+4 and stops at its boundary', () => {
+    const ev = records('<p>840 Pasadena Avenue South, St. Petersburg, FL 33707-1234</p><p>About us</p>');
+    const address = ev.find((e) => e.evidenceType === 'ADDRESS_VISIBILITY');
+    expect(address?.supportingContext).toContain('FL 33707-1234');
+    expect(address?.supportingContext).not.toContain('About us');
+  });
+});
+
+describe('adjacent DOM text nodes retain a word boundary', () => {
+  it('does not concatenate pinAbout us in extracted page text', () => {
+    const extracted = page('<span>map marker pin</span><a href="/about">About us</a>');
+    expect(extracted.textSample).toContain('map marker pin About us');
+    expect(extracted.textSample).not.toContain('pinAbout us');
+  });
+
+  /**
+   * Separating adjacent text nodes is right, but a separator is not always
+   * right. Inserting one wherever two nodes meet corrupted three other
+   * text-derived paths, so each is pinned here in both directions: the token
+   * that must survive the boundary, and the improvement that must not be lost.
+   */
+
+  it('keeps an email address whole when the markup splits it at the @', () => {
+    // Splitting the local part from the domain is a routine anti-scraper trick.
+    // A separator at the @ produced "info@ leverocks.com" and no email at all.
+    const extracted = page('<p><span>info@</span><span>leverocks.com</span></p>');
+    expect(extracted.textSample).toContain('info@leverocks.com');
+    expect(extracted.emails).toContain('info@leverocks.com');
+  });
+
+  it('keeps an email whole when the split falls before the @', () => {
+    const extracted = page('<p><span>info</span><span>@leverocks.com</span></p>');
+    expect(extracted.emails).toContain('info@leverocks.com');
+  });
+
+  it('never manufactures a phone number from adjacent numeric cells', () => {
+    // Three numeric cells satisfy PHONE_REGEX's 3-3-4 grouping once separated,
+    // so a price grid or nutrition table reported a phone number that appears
+    // nowhere on the page. Digit runs meeting at a boundary are one number.
+    const extracted = page('<table><tr><td>123</td><td>456</td><td>7890</td></tr></table>');
+    expect(extracted.textSample).toContain('1234567890');
+    expect(extracted.phones).toHaveLength(0);
+  });
+
+  it('still finds hours when the markup splits a time after its colon', () => {
+    // "11:" + "30" became "11: 30", which HOURS_REGEX does not match, so
+    // published hours were reported as absent.
+    const extracted = page('<p><span>Mon - Sun 11:</span><span>30</span> AM - 10:00 PM</p>');
+    expect(extracted.hoursText).toBe('Mon - Sun 11:30 AM - 10:00 PM');
+  });
+
+  it('still gains the split-phone improvement the separator was added for', () => {
+    // The reason node boundaries are honoured at all: "(727)367-4588" carries
+    // no separator and matched nothing. This must survive the guards above.
+    const extracted = page('<p><span>(727)</span><span>367-4588</span></p>');
+    expect(extracted.phones).toContain('(727) 367-4588');
+  });
+
+  it('leaves a phone split at a hyphen exactly as it was', () => {
+    const extracted = page('<p><span>727</span><span>-367-4588</span></p>');
+    expect(extracted.phones).toContain('(727) 367-4588');
+  });
+});
+
+describe('the Check D fixes that passed live still hold', () => {
+  it('renders PHONE_VISIBILITY and CTA_SIGNAL in the shape the live audit showed', () => {
+    const ev = records(`
+      <p>Mon - Sun 11:30 AM - 10:00 PM. 4801 37th Street South, St. Petersburg, FL 33701. Call (727)-367-4588 today.</p>
+      <a href="tel:+17273674588">Call us at (727)-367-4588</a>
+      <a href="/menu">Menu</a>
+    `);
+    const phone = ev.find((e) => e.evidenceType === 'PHONE_VISIBILITY');
+    expect(phone?.fact).toBe('A phone number is publicly displayed: (727) 367-4588.');
+    expect(phone?.fact).not.toContain('((');
+
+    const cta = ev.find((e) => e.evidenceType === 'CTA_SIGNAL');
+    expect(cta?.supportingContext).toContain('Call us at (727) 367-4588');
+    expect(cta?.supportingContext).not.toContain('(727)-367-4588');
   });
 });
 

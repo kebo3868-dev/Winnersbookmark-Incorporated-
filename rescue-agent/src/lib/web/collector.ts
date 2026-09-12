@@ -1,4 +1,5 @@
 import * as cheerio from 'cheerio';
+import type { AnyNode } from 'domhandler';
 import type { Response as UndiciResponse } from 'undici';
 import { validateUrlTarget, normalizeUrl } from '@/lib/validation/url';
 import { safeFetchHop, readBodyCapped } from '@/lib/web/safeFetch';
@@ -358,7 +359,27 @@ export function detectWidgetVendor(assetHosts: string[], capability: WidgetCapab
   return null;
 }
 
-const PHONE_REGEX = /(?:\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]\d{3}[-.\s]\d{4}\b/g;
+// The leading lookbehind stops a match starting mid-number. The optional `1`
+// country-code prefix is otherwise happy to begin on the last digit of a
+// preceding number, so "FL 33701 (727)-367-4588" matched "1 (727)-367-4588" —
+// eleven digits, read as +1, and the replacement ate the ZIP code's final digit.
+const PHONE_REGEX = /(?<!\d)(?:\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]\d{3}[-.\s]\d{4}\b/g;
+
+/**
+ * Normalise every phone-shaped substring inside a block of quoted page text.
+ *
+ * `formatPhoneNumber` fixes the numbers the audit EXTRACTS. It does nothing for
+ * the numbers the audit QUOTES — an address snippet, a call-to-action label —
+ * because those are copied out of the page verbatim. That gap is how
+ * `(727)-367-4588` kept reaching the report after the extraction path was
+ * already correct.
+ *
+ * Only the phone substring is rewritten; the surrounding words are left exactly
+ * as the page wrote them, because the quote is evidence and must stay faithful.
+ */
+export function normalizePhonesInText(text: string): string {
+  return text.replace(new RegExp(PHONE_REGEX.source, 'g'), (match) => formatPhoneNumber(match));
+}
 
 /**
  * One display shape for every phone number the audit reports.
@@ -388,7 +409,64 @@ const EMAIL_REGEX = /\b[a-zA-Z0-9._%+-]{1,64}@[a-zA-Z0-9-]{1,63}(?:\.[a-zA-Z0-9-
 const MAX_SCAN_TEXT = 300_000;
 const HOURS_REGEX =
   /((mon|tue|wed|thu|fri|sat|sun)[a-z]*\.?\s*(–|-|to|through|thru)?\s*(mon|tue|wed|thu|fri|sat|sun)?[a-z]*\.?[:\s]*\d{1,2}(:\d{2})?\s*(am|pm)\s*(–|-|to)\s*\d{1,2}(:\d{2})?\s*(am|pm))/i;
-const ADDRESS_REGEX = /\d{1,6}\s+[A-Za-z0-9.'\- ]{3,40}\s(street|st\.?|avenue|ave\.?|boulevard|blvd\.?|road|rd\.?|drive|dr\.?|lane|ln\.?|way|highway|hwy\.?|parkway|pkwy\.?|court|ct\.?|place|pl\.?)\b[^\n]{0,60}/i;
+// The lookbehinds stop the house number matching mid-token. Without them,
+// "Mon - Sun 11:30 AM - 10:00 PM. 4801 37th Street South" starts the address at
+// the "00" of "10:00", and the report quotes a snippet beginning "00 PM.".
+//
+// The colon guard is deliberately narrow: it rejects a colon that FOLLOWS A
+// DIGIT, which is what a clock time looks like ("10:"). Rejecting every colon
+// also threw away legitimate addresses written straight after a label, as in
+// "Address:4801 37th Street South", where the colon follows a letter.
+const ADDRESS_REGEX = /(?<![\d.])(?<!\d:)\d{1,6}\s+[A-Za-z0-9.'\- ]{3,40}\s(street|st\.?|avenue|ave\.?|boulevard|blvd\.?|road|rd\.?|drive|dr\.?|lane|ln\.?|way|highway|hwy\.?|parkway|pkwy\.?|court|ct\.?|place|pl\.?)\b[^\n]{0,60}/i;
+
+/** Stop a matched address at the first complete US ZIP or ZIP+4. */
+function terminateAddressAtZip(address: string): string {
+  const postalCode = address.match(/\b\d{5}(?:-\d{4})?(?![\d-])/);
+  if (postalCode?.index === undefined) return address;
+  return address.slice(0, postalCode.index + postalCode[0].length);
+}
+
+/**
+ * Read visible text without collapsing adjacent DOM text nodes into one token.
+ * Cheerio's `.text()` concatenates siblings verbatim, so separate elements such
+ * as `pin</span><a>About us` became `pinAbout us` before whitespace cleanup.
+ */
+function textWithNodeBoundaries(root: AnyNode | undefined): string {
+  if (!root) return '';
+  const chunks: string[] = [];
+  const visit = (node: AnyNode): void => {
+    if (node.type === 'text') {
+      const value = node.data;
+      if (!value) return;
+      const previous = chunks.at(-1) ?? '';
+      const needsSeparator =
+        previous.length > 0 &&
+        !/\s$/.test(previous) &&
+        !/^\s/.test(value) &&
+        // `@` and `:` bind the tokens on either side of them. Splitting an
+        // address at the `@` is a routine anti-scraper trick, and a separator
+        // there turned "info@leverocks.com" into "info@ leverocks.com", which
+        // matches no email pattern. The same for a time broken after its colon:
+        // "11:" + "30" became "11: 30" and the page's hours stopped being found.
+        !/[([{/'"“‘@:-]$/.test(previous) &&
+        !/^[,.;:!?)}\]'"”’@-]/.test(value) &&
+        // Two digit runs meeting at a node boundary are one number, not two
+        // words. Separating them let three adjacent numeric cells — a price
+        // grid, a nutrition table — satisfy the 3-3-4 grouping of PHONE_REGEX,
+        // so the audit reported a phone number that appears nowhere on the page.
+        // Joining them preserves the pre-existing "1234567890" behaviour exactly.
+        !(/\d$/.test(previous) && /^\d/.test(value));
+      if (needsSeparator) chunks.push(' ');
+      chunks.push(value);
+      return;
+    }
+    if ('children' in node) {
+      for (const child of node.children) visit(child);
+    }
+  };
+  visit(root);
+  return chunks.join('');
+}
 
 type HopResult =
   | { kind: 'response'; response: UndiciResponse; finalUrl: string }
@@ -646,7 +724,7 @@ export function extractPage(
     if (t && t.length <= 140 && headings.length < 40) headings.push(t);
   });
 
-  const bodyText = $('body').text().replace(/\s+/g, ' ').trim().slice(0, MAX_SCAN_TEXT);
+  const bodyText = textWithNodeBoundaries($('body').get(0)).replace(/\s+/g, ' ').trim().slice(0, MAX_SCAN_TEXT);
 
   const internalLinks: { href: string; text: string }[] = [];
   const socialLinks = new Set<string>();
@@ -794,7 +872,7 @@ export function extractPage(
     socialLinks: Array.from(socialLinks).slice(0, 10),
     pdfLinks: Array.from(pdfLinks).slice(0, 10),
     hoursText: hoursMatch ? hoursMatch[0].slice(0, 200) : null,
-    addressText: addressMatch ? addressMatch[0].slice(0, 200) : null,
+    addressText: addressMatch ? terminateAddressAtZip(addressMatch[0]).slice(0, 200) : null,
     emailCaptureSignal,
     smsCaptureSignal,
     loyaltySignal,
