@@ -80,7 +80,14 @@ export async function submitLead(
       cache: 'no-store',
     });
 
-    if (response.ok) return { ok: true };
+    // Only the ingest service's confirmed-storage response can produce a
+    // success state. A proxy's 200 HTML page must not count as a saved lead.
+    if (response.status === 201) {
+      const receipt: unknown = await response.json().catch(() => null);
+      if (receipt && typeof receipt === 'object' && 'stored' in receipt && receipt.stored === true) {
+        return { ok: true };
+      }
+    }
 
     // Do not leak the upstream status to the visitor — it tells them nothing
     // useful and tells an attacker something. Log it for the operator instead.
