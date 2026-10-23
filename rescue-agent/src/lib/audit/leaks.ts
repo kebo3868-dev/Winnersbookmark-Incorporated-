@@ -83,7 +83,7 @@ const RULES: Rule[] = [
       confidenceScore: Math.min(conf(supporting, 80), phoneStage.confidence || 70),
       aiFitScore: 95,
       recommendedSolution:
-        'Winners Bookmark AI Front Desk System: AI voice receptionist, missed-call text-back, FAQ automation, and after-hours lead capture. Validate call volume in a discovery call first.',
+        'Winnersbookmark AI Front Desk System: AI voice receptionist, missed-call text-back, FAQ automation, and after-hours lead capture. Validate call volume in a discovery call first.',
       manualValidationRequired: true,
     };
   },

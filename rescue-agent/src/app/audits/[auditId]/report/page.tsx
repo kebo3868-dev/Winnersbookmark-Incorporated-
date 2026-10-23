@@ -51,7 +51,7 @@ export default async function ExecutiveReportPage({ params }: { params: Promise<
 
       {/* COVER */}
       <header className="card border-gold-dim/30 px-10 py-14 text-center space-y-5 relative overflow-hidden">
-        <p className="label text-gold">Winners Bookmark</p>
+        <p className="label text-gold">Winnersbookmark</p>
         <h1 className="font-display text-4xl text-ivory tracking-wide">RESTAURANT RESCUE AUDIT</h1>
         <p className="text-gold-dim text-sm">{dto.cover.subtitle}</p>
         <div className="pt-6 space-y-1">
@@ -235,7 +235,7 @@ export default async function ExecutiveReportPage({ params }: { params: Promise<
       </Section>
 
       {/* WINNERS BOOKMARK PRESCRIPTION */}
-      <Section kicker="Section 07" title="Winners Bookmark Prescription">
+      <Section kicker="Section 07" title="Winnersbookmark Prescription">
         <div className="space-y-4">
           <PrescriptionBlock label="Diagnosis">{dto.prescription.diagnosis}</PrescriptionBlock>
           <PrescriptionBlock label="Validation">{dto.prescription.validation}</PrescriptionBlock>

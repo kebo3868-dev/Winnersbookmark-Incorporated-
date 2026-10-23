@@ -165,7 +165,7 @@ export function ExecutivePdf({ dto }: { dto: ExecutiveReportDTO }) {
       {/* ── COVER ─────────────────────────────────────────────────────── */}
       <Page size="LETTER" style={s.cover}>
         <View>
-          <Text style={{ fontSize: 9, letterSpacing: 4, color: C.gold }}>WINNERS BOOKMARK</Text>
+          <Text style={{ fontSize: 9, letterSpacing: 4, color: C.gold }}>WINNERSBOOKMARK</Text>
           <View style={{ borderBottomWidth: 1, borderBottomColor: C.goldDim, width: 60, marginTop: 10 }} />
         </View>
         <View>
@@ -410,7 +410,7 @@ export function ExecutivePdf({ dto }: { dto: ExecutiveReportDTO }) {
 
         {/* WINNERS BOOKMARK PRESCRIPTION */}
         <View style={s.section}>
-          <SectionHeader kicker="Section 07" title="Winners Bookmark Prescription" />
+          <SectionHeader kicker="Section 07" title="Winnersbookmark Prescription" />
           {[
             ['Diagnosis', dto.prescription.diagnosis, false],
             ['Validation', dto.prescription.validation, false],
