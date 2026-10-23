@@ -512,9 +512,12 @@ export function ExecutivePdf({ dto }: { dto: ExecutiveReportDTO }) {
           {dto.appendix.map((e, i) => (
             <View key={i} style={{ borderBottomWidth: 0.5, borderBottomColor: C.line, paddingVertical: 4 }} wrap={false}>
               <Text style={{ fontSize: 8.5, color: C.ink }}>{e.fact}</Text>
+              {e.supportingContext ? (
+                <Text style={{ fontSize: 7.5, color: C.muted, marginTop: 2 }}>{e.supportingContext}</Text>
+              ) : null}
               <Text style={{ fontSize: 6.8, color: C.muted, marginTop: 1 }}>
                 {e.evidenceType}
-                {e.sourceUrl ? ` · ${e.sourceUrl.slice(0, 90)}` : ''}
+                {e.sourceUrl ? ` · ${e.sourceUrl.length > 90 ? `${e.sourceUrl.slice(0, 90)}…` : e.sourceUrl}` : ''}
                 {` · confidence ${e.confidence}%`}
               </Text>
             </View>
