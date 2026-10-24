@@ -731,6 +731,8 @@ export function extractPage(
   const pdfLinks = new Set<string>();
   const categorizedLinks: PageExtract['categorizedLinks'] = {};
   const vendorCredits: { href: string; text: string }[] = [];
+  /** Addresses taken from mailto: hrefs, merged into `emails` after the scan. */
+  const mailtoEmails = new Set<string>();
   let clickToCallLinks = 0;
   const ctas: string[] = [];
   const phoneOrderCtas: string[] = [];
@@ -743,7 +745,17 @@ export function extractPage(
       if (text && PHONE_ORDER_INTENT.test(text) && phoneOrderCtas.length < 10) phoneOrderCtas.push(text);
       return;
     }
-    if (hrefRaw.startsWith('mailto:') || hrefRaw.startsWith('javascript:') || hrefRaw === '#') return;
+    if (hrefRaw.startsWith('mailto:')) {
+      // A mailto link IS a published contact address, and it is routinely the
+      // only place one appears: the anchor reads "Email us" while the address
+      // itself lives in the href, where scanning the visible text never sees
+      // it. Dropping the link without reading the address is how an audit came
+      // to report that no published email existed on a page that published one.
+      const address = hrefRaw.slice('mailto:'.length).split('?')[0].trim();
+      if (address) mailtoEmails.add(address);
+      return;
+    }
+    if (hrefRaw.startsWith('javascript:') || hrefRaw === '#') return;
     let abs: URL;
     try {
       abs = new URL(hrefRaw, base);
@@ -831,7 +843,9 @@ export function extractPage(
   // reached a client report verbatim, and punctuation the page happened to carry
   // is not information about the restaurant.
   const phones = Array.from(new Set((bodyText.match(PHONE_REGEX) ?? []).map(formatPhoneNumber))).slice(0, 5);
-  const emails = Array.from(new Set(bodyText.match(EMAIL_REGEX) ?? []))
+  // mailto addresses first: an address the site links is a more deliberate
+  // publication than one that merely appears in body copy.
+  const emails = Array.from(new Set([...mailtoEmails, ...(bodyText.match(EMAIL_REGEX) ?? [])]))
     .filter((e) => !/\.(png|jpg|jpeg|gif|webp|svg)$/i.test(e))
     .slice(0, 5);
   const hoursMatch = bodyText.match(HOURS_REGEX);

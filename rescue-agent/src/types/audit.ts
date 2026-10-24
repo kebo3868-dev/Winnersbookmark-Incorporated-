@@ -8,6 +8,16 @@ export type EvidenceType =
   | 'RESERVATION_PATH'
   | 'ORDERING_PATH'
   | 'CONTACT_PATH'
+  /**
+   * A contact email address the restaurant publishes for customers.
+   *
+   * Deliberately separate from EMAIL_CAPTURE: that records whether the site
+   * collects the VISITOR's address (newsletter signup), which is a retention
+   * signal. This records an address the RESTAURANT publishes so a customer can
+   * write to it, which is a contact pathway. Conflating them let a report claim
+   * no published email existed on a page that published one.
+   */
+  | 'CONTACT_EMAIL'
   | 'CATERING_PATH'
   | 'PRIVATE_DINING_PATH'
   | 'LOYALTY_SIGNAL'
