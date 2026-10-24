@@ -5,6 +5,7 @@ import AuditProgress from '@/components/AuditProgress';
 import { scoreBand } from '@/lib/scoring/rescueScore';
 import { displayDomain } from '@/lib/validation/urlSanitize';
 import { presentFailure, shortRunId } from '@/lib/audit/failurePresentation';
+import { evidenceConfidence, findingStatus, CONFIDENCE_DEFINITION } from '@/lib/audit/integrity';
 
 export const dynamic = 'force-dynamic';
 
@@ -112,7 +113,7 @@ export default async function AuditDetailPage({ params }: { params: Promise<{ au
           </div>
 
           <section>
-            <h2 className="label mb-4">Top Revenue Leaks</h2>
+            <h2 className="label mb-4">Priority Opportunities</h2>
             {audit.opportunities.length === 0 ? (
               <div className="card p-8 text-ivory-dim text-sm">
                 No revenue leaks were confirmed from public evidence. This is a legitimate outcome — remaining risk sits in areas public analysis cannot see.
@@ -135,7 +136,7 @@ export default async function AuditDetailPage({ params }: { params: Promise<{ au
                     <div className="flex flex-wrap gap-4 text-xs text-ivory-faint">
                       <span>Impact {opp.impactScore}</span>
                       <span>Urgency {opp.urgencyScore}</span>
-                      <span>Confidence {opp.confidenceScore}</span>
+                      <span>Evidence confidence: {evidenceConfidence(opp.confidenceScore)}</span>
                       <span>AI Fit {opp.aiFitScore}</span>
                       <span>Stage: {opp.customerJourneyStage}</span>
                       {opp.manualValidationRequired && <span className="text-amber-400 uppercase tracking-wide">Manual validation required</span>}
@@ -151,7 +152,7 @@ export default async function AuditDetailPage({ params }: { params: Promise<{ au
             <div className="grid sm:grid-cols-2 gap-3">
               {audit.journeyStages.map((s) => (
                 <div key={s.id} className="card p-4">
-                  <div className="flex justify-between items-center mb-2">
+                  <div className="flex flex-wrap justify-between items-center gap-2 mb-2">
                     <p className="text-sm text-ivory tracking-wide">{s.stage.replace(/_/g, ' ')}</p>
                     <span className={`text-[10px] uppercase tracking-wider border rounded px-2 py-0.5 ${STATUS_COLORS[s.status]}`}>{s.status}</span>
                   </div>
@@ -163,15 +164,15 @@ export default async function AuditDetailPage({ params }: { params: Promise<{ au
 
           <section>
             <h2 className="label mb-4">Evidence Chain ({audit.evidence.length})</h2>
-            <div className="card divide-y divide-obsidian-line max-h-[420px] overflow-y-auto">
+            <p className="text-ivory-dim text-xs mb-4">{CONFIDENCE_DEFINITION}</p>
+            <div className="card divide-y divide-obsidian-line">
               {audit.evidence.map((e) => (
-                <div key={e.id} className="px-5 py-3">
-                  <div className="flex justify-between gap-4">
-                    <p className="text-sm text-ivory">{e.fact}</p>
-                    <span className="label whitespace-nowrap">{e.confidence}%</span>
-                  </div>
-                  <p className="text-ivory-faint text-xs mt-1">{e.evidenceType}{e.supportingContext ? ` · ${e.supportingContext.slice(0, 140)}` : ''}</p>
-                </div>
+                <details key={e.id} className="px-5 py-3 min-w-0">
+                  <summary className="cursor-pointer text-sm text-ivory leading-relaxed">{e.fact}</summary>
+                  <p className="text-gold text-xs mt-2">{findingStatus(e)} · {evidenceConfidence(e.confidence)} evidence confidence</p>
+                  <p className="text-ivory-dim text-xs mt-2 whitespace-pre-wrap break-words">{e.supportingContext}</p>
+                  <p className="text-ivory-faint text-xs mt-2 break-all">{e.evidenceType} · Finding {e.id} · Recorded {e.createdAt.toISOString()}</p>
+                </details>
               ))}
             </div>
           </section>

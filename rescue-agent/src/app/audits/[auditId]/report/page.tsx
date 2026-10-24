@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { loadExecutiveReport } from '@/lib/reports/executiveData';
 import type { ExecutiveFinding, RevenueScenario, JourneyMapStage } from '@/lib/reports/executive';
+import { evidenceConfidence, findingStatus } from '@/lib/audit/integrity';
 
 export const dynamic = 'force-dynamic';
 
@@ -50,9 +51,9 @@ export default async function ExecutiveReportPage({ params }: { params: Promise<
       )}
 
       {/* COVER */}
-      <header className="card border-gold-dim/30 px-10 py-14 text-center space-y-5 relative overflow-hidden">
+      <header className="card border-gold-dim/30 px-5 py-8 sm:px-10 sm:py-14 text-center space-y-5 relative overflow-hidden">
         <p className="label text-gold">Winnersbookmark</p>
-        <h1 className="font-display text-4xl text-ivory tracking-wide">RESTAURANT RESCUE AUDIT</h1>
+        <h1 className="font-display text-3xl sm:text-4xl text-ivory tracking-wide">RESTAURANT RESCUE AUDIT</h1>
         <p className="text-gold-dim text-sm">{dto.cover.subtitle}</p>
         <div className="pt-6 space-y-1">
           <p className="font-display text-2xl text-ivory">{dto.cover.restaurantName}</p>
@@ -63,14 +64,14 @@ export default async function ExecutiveReportPage({ params }: { params: Promise<
           )}
         </div>
         {/* Cover value block */}
-        <div className="flex flex-wrap justify-center gap-3 pt-6">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-6">
           {[
             [dto.score.rescueScore ?? '—', 'Rescue Score'],
             [dto.score.coverage !== null ? `${dto.score.coverage}%` : '—', 'Coverage'],
             [dto.score.evidenceCount, 'Evidence Items'],
             [dto.score.sourcesAnalyzed, 'Pages Analyzed'],
           ].map(([v, l]) => (
-            <div key={String(l)} className="border border-obsidian-line rounded px-5 py-3 min-w-[110px]">
+            <div key={String(l)} className="border border-obsidian-line rounded px-2 py-3 min-w-0">
               <p className="font-display text-2xl text-gold">{v}</p>
               <p className="label mt-1">{l}</p>
             </div>
@@ -160,7 +161,7 @@ export default async function ExecutiveReportPage({ params }: { params: Promise<
 
       {/* WHAT THIS COULD BE COSTING YOU */}
       {dto.scenarios.length > 0 && (
-        <Section kicker="Section 03" title="What This Could Be Costing You">
+        <Section kicker="Section 03" title="Illustrative Opportunity Scenarios">
           <div className="border border-gold-dim/40 rounded px-4 py-3 mb-5 text-gold-dim text-xs uppercase tracking-widest text-center">
             Illustrative scenarios — not confirmed losses. Every assumption is shown so you can replace it with your real numbers.
           </div>
@@ -171,7 +172,7 @@ export default async function ExecutiveReportPage({ params }: { params: Promise<
       )}
 
       {/* TOP REVENUE LEAKS */}
-      <Section kicker="Section 04" title="Top Revenue Leaks">
+      <Section kicker="Section 04" title="Priority Opportunities">
         {dto.findings.length === 0 ? (
           <p className="text-ivory-dim text-sm">
             No high-priority revenue leaks were confirmed from public evidence. Remaining risk sits in areas a public audit cannot see — phone handling, follow-up, and repeat business — which we recommend validating directly.
@@ -314,12 +315,14 @@ export default async function ExecutiveReportPage({ params }: { params: Promise<
       <Section kicker="Appendix" title="Full Evidence Chain">
         <details className="card">
           <summary className="px-6 py-4 cursor-pointer label hover:text-gold">Show all {dto.appendix.length} evidence items</summary>
-          <div className="divide-y divide-obsidian-line max-h-[480px] overflow-y-auto">
+          <div className="divide-y divide-obsidian-line">
             {dto.appendix.map((e, i) => (
               <div key={i} className="px-6 py-3">
                 <p className="text-sm text-ivory">{e.fact}</p>
+                <p className="text-gold text-xs mt-2">{findingStatus(e)} · {evidenceConfidence(e.confidence)} evidence confidence</p>
+                <p className="text-ivory-dim text-xs mt-2 whitespace-pre-wrap break-words">{e.supportingContext}</p>
                 <p className="text-ivory-faint text-xs mt-1">
-                  {e.evidenceType}{e.sourceUrl ? ` · ${e.sourceUrl}` : ''} · confidence {e.confidence}%
+                  {e.evidenceType}{e.sourceUrl ? ` · ${e.sourceUrl}` : ''}
                 </p>
               </div>
             ))}

@@ -1,0 +1,66 @@
+[
+  {
+    "name": "phone-small",
+    "open": false,
+    "width": 360,
+    "scrollWidth": 360,
+    "details": 2,
+    "bodyHeight": 19486
+  },
+  {
+    "name": "phone-small",
+    "open": true,
+    "width": 360,
+    "scrollWidth": 360,
+    "details": 2,
+    "bodyHeight": 24943
+  },
+  {
+    "name": "phone",
+    "open": false,
+    "width": 390,
+    "scrollWidth": 390,
+    "details": 2,
+    "bodyHeight": 18101
+  },
+  {
+    "name": "phone",
+    "open": true,
+    "width": 390,
+    "scrollWidth": 390,
+    "details": 2,
+    "bodyHeight": 23146
+  },
+  {
+    "name": "tablet",
+    "open": false,
+    "width": 800,
+    "scrollWidth": 800,
+    "details": 2,
+    "bodyHeight": 11931
+  },
+  {
+    "name": "tablet",
+    "open": true,
+    "width": 800,
+    "scrollWidth": 800,
+    "details": 2,
+    "bodyHeight": 15296
+  },
+  {
+    "name": "desktop",
+    "open": false,
+    "width": 1440,
+    "scrollWidth": 1440,
+    "details": 2,
+    "bodyHeight": 11931
+  },
+  {
+    "name": "desktop",
+    "open": true,
+    "width": 1440,
+    "scrollWidth": 1440,
+    "details": 2,
+    "bodyHeight": 15296
+  }
+]

@@ -88,10 +88,10 @@ describe('owner-facing label mappings (documented, deterministic)', () => {
   });
 
   it('maps evidence confidence', () => {
-    expect(confidenceLabel(59)).toBe('Preliminary');
-    expect(confidenceLabel(60)).toBe('Moderate');
-    expect(confidenceLabel(79)).toBe('Moderate');
-    expect(confidenceLabel(80)).toBe('Strong');
+    expect(confidenceLabel(59)).toBe('Low');
+    expect(confidenceLabel(60)).toBe('Medium');
+    expect(confidenceLabel(79)).toBe('Medium');
+    expect(confidenceLabel(80)).toBe('High');
   });
 
   it('maps automation opportunity and priority', () => {

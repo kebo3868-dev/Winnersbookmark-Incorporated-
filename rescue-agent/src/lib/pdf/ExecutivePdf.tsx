@@ -1,6 +1,7 @@
 import React from 'react';
 import { Document, Page, Text, View, Image, StyleSheet } from '@react-pdf/renderer';
 import type { ExecutiveReportDTO, RevenueScenario } from '@/lib/reports/executive';
+import { evidenceConfidence, findingStatus } from '@/lib/audit/integrity';
 
 /**
  * Executive Audit Report PDF (Phase 2.5). Deterministic generation via
@@ -78,24 +79,11 @@ const Footer = ({ dto }: { dto: ExecutiveReportDTO }) => (
   </>
 );
 
-/**
- * PAGINATION NOTE — why nothing here carries `minPresenceAhead`.
- *
- * react-pdf only consults `minPresenceAhead` for an element that would already
- * be split across the page boundary, and when it does fire on a wrappable block
- * it advances the page WITHOUT placing the block, so the block lands one page
- * later and the page in between is emitted empty. That is what produced a PDF
- * whose "Top Revenue Leaks" page carried the heading and nothing else, with the
- * findings starting on the following page.
- *
- * Measured over 80 layout permutations (1/2/3/5 findings × short/long problem
- * text × 10 executive-summary lengths): with `minPresenceAhead` on the finding
- * cards, 4 permutations produced a blank or heading-only page; with it removed,
- * zero did. Blocks now break naturally, so a section that starts low on a page
- * continues overleaf instead of leaving one behind.
- */
+/** Keep headings together and reserve room for the following content.
+ * Finding introductions are grouped separately; long evidence can flow across pages.
+ * Validate generated pagination whenever the report structure changes. */
 const SectionHeader = ({ kicker, title }: { kicker: string; title: string }) => (
-  <View>
+  <View wrap={false} minPresenceAhead={80}>
     <Text style={s.sectionKicker}>{kicker}</Text>
     <Text style={s.h2}>{title}</Text>
     <View style={s.rule} />
@@ -298,7 +286,7 @@ export function ExecutivePdf({ dto }: { dto: ExecutiveReportDTO }) {
         {/* WHAT THIS COULD BE COSTING YOU */}
         {dto.scenarios.length > 0 && (
           <View style={s.section}>
-            <SectionHeader kicker="Section 03" title="What This Could Be Costing You" />
+            <SectionHeader kicker="Section 03" title="Illustrative Opportunity Scenarios" />
             <View style={{ borderWidth: 0.75, borderColor: C.goldDim, borderRadius: 3, padding: 6, marginBottom: 10 }}>
               <Text style={{ fontSize: 7.5, color: C.goldDim, textAlign: 'center', letterSpacing: 0.5 }}>
                 Illustrative scenarios — not confirmed losses. Every assumption is shown so you can replace it with your real numbers.
@@ -309,8 +297,8 @@ export function ExecutivePdf({ dto }: { dto: ExecutiveReportDTO }) {
         )}
 
         {/* TOP REVENUE LEAKS */}
-        <View style={s.section}>
-          <SectionHeader kicker="Section 04" title="Top Revenue Leaks" />
+        <View style={s.section} break>
+          <SectionHeader kicker="Section 04" title="Priority Opportunities" />
           {dto.findings.length === 0 && (
             <Text style={s.body}>
               No high-priority revenue leaks were confirmed from public evidence. Remaining risk sits in areas a public audit cannot see — phone handling, follow-up, and repeat business — which we recommend validating directly.
@@ -318,6 +306,7 @@ export function ExecutivePdf({ dto }: { dto: ExecutiveReportDTO }) {
           )}
           {dto.findings.map((f) => (
             <View key={f.number} style={[s.card, { marginBottom: 14 }]}>
+              <View wrap={false}>
               <View style={[s.row, { justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }]}>
                 <Text style={{ fontFamily: 'Times-Bold', fontSize: 12, color: C.ink, flex: 1, paddingRight: 8 }}>
                   {f.number}. {f.title}
@@ -327,6 +316,7 @@ export function ExecutivePdf({ dto }: { dto: ExecutiveReportDTO }) {
               <Text style={[s.mutedText, { marginBottom: 6 }]}>Customer journey stage: {f.journeyStage} · Priority: {f.labels.priority}</Text>
               <Text style={[s.label]}>The business problem</Text>
               <Text style={[s.body, { marginBottom: 6 }]}>{f.problem}</Text>
+              </View>
               <Text style={[s.label]}>Why it matters</Text>
               <Text style={[s.body, { marginBottom: 6 }]}>{f.whyItMatters}</Text>
               <Text style={[s.label]}>Potential commercial effect</Text>
@@ -386,7 +376,7 @@ export function ExecutivePdf({ dto }: { dto: ExecutiveReportDTO }) {
             </Text>
           ) : (
             dto.rankedAiOpportunities.map((opp) => (
-              <View key={opp.rank} style={s.card}>
+              <View key={opp.rank} style={s.card} wrap={false}>
                 <View style={[s.row, { justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }]}>
                   <Text style={{ fontFamily: 'Times-Bold', fontSize: 11.5, color: C.ink }}>#{opp.rank} · {opp.solutionCategory}</Text>
                   <Text style={[s.badge, { color: C.goldDim, borderColor: C.goldDim }]}>FIT: {opp.fit}</Text>
@@ -517,8 +507,8 @@ export function ExecutivePdf({ dto }: { dto: ExecutiveReportDTO }) {
               ) : null}
               <Text style={{ fontSize: 6.8, color: C.muted, marginTop: 1 }}>
                 {e.evidenceType}
-                {e.sourceUrl ? ` · ${e.sourceUrl.length > 90 ? `${e.sourceUrl.slice(0, 90)}…` : e.sourceUrl}` : ''}
-                {` · confidence ${e.confidence}%`}
+                {e.sourceUrl ? ` · ${e.sourceUrl.replace(/([/?&=_-])/g, '$1\u200b')}` : ''}
+                {` · ${findingStatus(e)} · ${evidenceConfidence(e.confidence)} evidence confidence`}
               </Text>
             </View>
           ))}

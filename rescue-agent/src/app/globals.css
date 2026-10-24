@@ -11,6 +11,11 @@ body {
   background-image: radial-gradient(ellipse 80% 50% at 50% -20%, rgba(201, 162, 75, 0.08), transparent);
 }
 
+main, section, .card { min-width: 0; }
+p, h1, h2, h3, summary, td { overflow-wrap: anywhere; }
+summary { min-height: 44px; }
+a:focus-visible, summary:focus-visible, button:focus-visible { outline: 2px solid #c9a24b; outline-offset: 4px; }
+
 .card {
   @apply bg-obsidian-card border border-obsidian-line rounded-lg;
 }

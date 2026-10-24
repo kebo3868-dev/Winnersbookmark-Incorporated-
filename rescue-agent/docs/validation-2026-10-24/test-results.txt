@@ -1,0 +1,10 @@
+Node 24.22.1; Vitest 5.0.5; October 24, 2026
+Three-site snapshot rendering plus repository test suite. No live database connection.
+ Test Files  67 passed (67)
+      Tests  1451 passed (1451)
+   Start at  12:10:24
+   Duration  10.64s (tests 74%, import 21%, transform 3%, worker 1%)
+
+    Isolate  67 workers spawned · ~206ms startup each (spawn + environment, per file)
+             at least ~1.76s faster with isolate: false — reuses workers across files instead of one per file
+
