@@ -1,4 +1,5 @@
 import type { LinkCategory, PageExtract } from './collector';
+import { canonicalEvidenceUrl } from '@/lib/audit/integrity';
 
 export const MAX_PAGES = 10;
 
@@ -53,12 +54,5 @@ export function discoverRelevantPages(home: PageExtract, limit = MAX_PAGES - 1):
 }
 
 function normalizeForDedup(url: string): string {
-  try {
-    const u = new URL(url);
-    u.hash = '';
-    u.search = '';
-    return u.toString().replace(/\/$/, '').toLowerCase();
-  } catch {
-    return url.toLowerCase();
-  }
+  return canonicalEvidenceUrl(url);
 }

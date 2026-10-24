@@ -399,7 +399,9 @@ export async function runAudit(auditId: string): Promise<void> {
           auditSourceId: item.sourceUrl ? sourceIdByUrl.get(item.sourceUrl) ?? homeSource.id : null,
           evidenceType: item.evidenceType,
           fact: item.fact,
-          supportingContext: item.supportingContext,
+          // Preserve the exact observation URL without changing the shared DB
+          // schema. Older records remain readable through the legacy fallback.
+          supportingContext: item.sourceUrl ? `Observed source: ${item.sourceUrl}\n${item.supportingContext ?? ''}` : item.supportingContext,
           confidence: item.confidence,
         },
       });

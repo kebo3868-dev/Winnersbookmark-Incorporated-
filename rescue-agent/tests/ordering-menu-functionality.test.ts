@@ -81,15 +81,15 @@ describe('ORDERING — reachability is not functionality', () => {
     expect(item?.supportingContext).toMatch(/ordering switched off responds identically/i);
   });
 
-  it('keeps telephone precedence ahead of a reachable destination', () => {
+  it('preserves a separate online destination alongside telephone ordering', () => {
     // Guards the FP1 fix: a phone CTA must still outrank a resolved destination.
     const { stage } = stageFor(
       'ORDERING',
       `<h2>ORDER ONLINE</h2><a href="tel:+17275551234">ORDER</a>${ORDER_LINK}`,
       [orderProbe()],
     );
-    expect(stage?.status).toBe('FRICTION');
-    expect(stage?.finding).toMatch(/telephone only/i);
+    expect(stage?.status).toBe('RESOLVED_UNVERIFIED');
+    expect(stage?.finding).toMatch(/Telephone ordering is also offered/i);
   });
 
   it('still classifies a dead ordering destination as RISK', () => {

@@ -13,6 +13,16 @@
 import { execSync } from 'node:child_process';
 
 const env = process.env;
+// Preview builds must not inherit a live database and run its migrations.
+// An isolated preview connection must be supplied deliberately by the owner.
+if (env.VERCEL_ENV === 'preview') {
+  if (!env.RESCUE_PREVIEW_DATABASE_URL || !env.RESCUE_PREVIEW_DIRECT_URL) {
+    console.error('Preview blocked: configure isolated RESCUE_PREVIEW_DATABASE_URL and RESCUE_PREVIEW_DIRECT_URL. Production database fallbacks are not allowed.');
+    process.exit(1);
+  }
+  env.RESCUE_DATABASE_URL = env.RESCUE_PREVIEW_DATABASE_URL;
+  env.RESCUE_DIRECT_URL = env.RESCUE_PREVIEW_DIRECT_URL;
+}
 
 // Migration URL: this app's own override first, then unpooled/direct names,
 // then pooled names as fallback.

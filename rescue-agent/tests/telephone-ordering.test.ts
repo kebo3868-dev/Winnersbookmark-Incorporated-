@@ -51,8 +51,8 @@ describe('telephone precedence — the Leverock\'s case', () => {
   it('never reports a phone action as functional online ordering', () => {
     const stage = orderingStage(LEVEROCKS_SHAPE);
     expect(stage?.status).not.toBe('HEALTHY');
-    expect(stage?.status).toBe('FRICTION');
-    expect(stage?.finding).toMatch(/telephone only/i);
+    expect(stage?.status).toBe('UNKNOWN');
+    expect(stage?.finding).toMatch(/telephone|unverified|supplied/i);
   });
 
   it('records the config destination as context, never as the pathway', () => {
@@ -64,7 +64,7 @@ describe('telephone precedence — the Leverock\'s case', () => {
     expect(ordering?.fact).not.toMatch(/publicly reachable|publicly linked/i);
     // The resolved URL is still disclosed — as context, explicitly not a pathway.
     expect(ordering?.supportingContext).toContain('/order-online/leverocks-seafood');
-    expect(ordering?.supportingContext).toMatch(/context rather than as a working online ordering pathway/i);
+    expect(ordering?.supportingContext).toMatch(/requires manual validation/i);
   });
 
   it('captures the ordering call-to-action text from the tel: link', () => {
@@ -141,8 +141,8 @@ describe('a broken ordering link still outranks the phone', () => {
     const stage = journeyWithProbe(`<a href="tel:+17275551234">ORDER</a>`, [
       { url: 'https://www.spothopperapp.com/order-online/x', category: 'ordering', ok: false, httpStatus: 500, note: 'HTTP 500' },
     ]);
-    expect(stage?.status).toBe('FRICTION');
-    expect(stage?.finding).toMatch(/telephone only/i);
+    expect(stage?.status).toBe('UNKNOWN');
+    expect(stage?.finding).toMatch(/telephone|unverified|supplied/i);
     expect(stage?.status).not.toBe('RISK');
   });
 });

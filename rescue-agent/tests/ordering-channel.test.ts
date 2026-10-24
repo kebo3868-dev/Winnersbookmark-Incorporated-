@@ -47,7 +47,7 @@ describe('the five states', () => {
   it('PHONE_ORDERING_ONLY — a tel: ordering CTA is a pathway, and is not online ordering', () => {
     const { marker, record } = channelFor('<a href="tel:+17275551234">Order Now</a>');
     expect(marker.state).toBe('PHONE_ORDERING_ONLY');
-    expect(record.fact).toMatch(/telephone only/i);
+    expect(record.fact).toMatch(/telephone|unverified|supplied/i);
     expect(record.fact).toMatch(/legitimate ordering pathway/i);
     expect(record.fact).toMatch(/not online ordering/i);
   });
@@ -147,8 +147,8 @@ describe('a discovered vendor 404 does not make ordering broken', () => {
     const stage = orderingStage('<a href="tel:+17275551234">Order</a>', [
       { url: 'https://www.spothopperapp.com/order-online/stale-slug', category: 'ordering', ok: false, httpStatus: 404, note: 'HTTP 404', failureKind: 'HTTP' },
     ]);
-    expect(stage?.status).toBe('FRICTION');
-    expect(stage?.finding).toMatch(/telephone only/i);
+    expect(stage?.status).toBe('UNKNOWN');
+    expect(stage?.finding).toMatch(/telephone|unverified|supplied/i);
   });
 });
 
@@ -185,10 +185,10 @@ describe('the marker round-trips', () => {
 });
 
 describe('journey mapping keeps the distinction visible', () => {
-  it('phone ordering is FRICTION, never HEALTHY and never RISK', () => {
+  it('phone ordering alone does not establish online ordering quality', () => {
     const stage = orderingStage('<a href="tel:+17275551234">Order Now</a>');
-    expect(stage?.status).toBe('FRICTION');
-    expect(stage?.finding).toMatch(/telephone only/i);
+    expect(stage?.status).toBe('UNKNOWN');
+    expect(stage?.finding).toMatch(/telephone|unverified|supplied/i);
   });
 
   it('a resolved-but-unverified destination keeps RESOLVED_UNVERIFIED, not UNKNOWN', () => {

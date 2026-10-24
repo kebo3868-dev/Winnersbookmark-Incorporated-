@@ -1,5 +1,6 @@
 import { detectWidgetVendor, normalizePhonesInText, type CategorizedLink, type PageExtract } from '@/lib/web/collector';
 import type { EvidenceInput } from '@/types/audit';
+import { canonicalEvidenceUrl, deduplicateEvidence } from './integrity';
 import {
   classifyDestination,
   isMethodSemanticsRefusal,
@@ -266,10 +267,11 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
     const found = new Map<string, CategorizedLink>();
     for (const page of pages) {
       for (const link of page.categorizedLinks[check.key] ?? []) {
-        if (!found.has(link.href)) found.set(link.href, link);
+        const key = canonicalEvidenceUrl(link.href);
+        if (!found.has(key) || link.source === 'anchor') found.set(key, link);
       }
     }
-    if (check.key === 'ordering' && hasPhoneOrdering) {
+    if (check.key === 'ordering' && hasPhoneOrdering && !Array.from(found.values()).some((l) => l.source === 'anchor')) {
       // The ordering call-to-action dials a phone. Any destination resolved
       // from markup is reported as context, never as the pathway.
       const resolved = Array.from(found.keys());
@@ -282,9 +284,8 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
         supportingContext:
           `Call-to-action text: ${phoneOrderCtas.slice(0, 3).map((t) => `"${t}"`).join(', ')} linked to a telephone number. ` +
           (resolved.length > 0
-            ? `An ordering destination is also declared in the page markup (${resolved[0]}), but the action a customer is ` +
-              'actually offered is the phone call above, so it is recorded as context rather than as a working online ' +
-              'ordering pathway. Whether that destination is reachable for customers requires manual validation.'
+            ? `An ordering destination is also declared in the page markup (${resolved[0]}), but the action ` +
+              'detected in static HTML is the phone call above. Customer-side online ordering requires manual validation.'
             : 'No browser-based ordering destination was found alongside it.'),
         confidence: 85,
       });
@@ -300,11 +301,11 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
         : null;
       const fromEmbed = first.source === 'embed';
       evidence.push({
-        sourceUrl: firstHref,
+        sourceUrl: pages.find((p) => p.categorizedLinks[check.key]?.some((l) => l.href === firstHref))?.finalUrl ?? home.finalUrl,
         evidenceType: check.type,
         fact:
           `${indefiniteArticle(check.label)} ${check.label} pathway is publicly ` +
-          `${fromEmbed ? 'reachable through an embedded widget' : 'linked'}` +
+          `${fromEmbed ? 'declared in embedded markup; customer access requires manual validation' : 'linked'}` +
           `${platform ? ` via ${platform}` : external ? ' to an external platform' : ''} (${found.size} link(s) found).`,
         supportingContext: fromEmbed
           ? `Destination declared by an embedded widget: "${first.text || '(no text)'}" → ${firstHref}. ` +
@@ -319,8 +320,8 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
           evidence.push({
             sourceUrl: home.finalUrl,
             evidenceType: 'ORDERING_PATH',
-            fact: `Multiple competing ordering destinations detected across ${hosts.size} different platforms.`,
-            supportingContext: `Hosts: ${Array.from(hosts).slice(0, 5).join(', ')}`,
+            fact: `Ordering destinations span ${hosts.size} hosts; their roles require manual review.`,
+            supportingContext: `Hosts: ${Array.from(hosts).slice(0, 5).join(', ')}. Multiple locations or vendor subdomains do not establish competition, commissions, or conversion loss.`,
             confidence: 80,
           });
         }
@@ -340,6 +341,17 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
           'This is not evidence that a working pathway exists.',
         confidence: 55,
       });
+    } else if (check.key === 'contact' && pages.some((p) => p.emails.length > 0 || p.contactFormSignal)) {
+      const source = pages.find((p) => p.emails.length > 0 || p.contactFormSignal)!;
+      evidence.push({ sourceUrl: source.finalUrl, evidenceType: 'CONTACT_PATH',
+        fact: source.emails.length ? `A public email contact is displayed: ${source.emails.join(', ')}.` : 'A public contact inquiry form was detected.',
+        supportingContext: 'Observed in page text, a mailto link, or contact form fields. Delivery and response time were not tested.', confidence: 90 });
+    } else if (check.key === 'faq' && pages.some((p) => p.faqSignal)) {
+      const source = pages.find((p) => p.faqSignal)!;
+      evidence.push({ sourceUrl: source.finalUrl, evidenceType: 'FAQ_SIGNAL', fact: 'A public FAQ section or FAQPage schema was detected.', supportingContext: 'Static headings or structured data; completeness of answers requires review.', confidence: 80 });
+    } else if (check.key === 'loyalty' && pages.some((p) => p.loyaltySignal)) {
+      const source = pages.find((p) => p.loyaltySignal)!;
+      evidence.push({ sourceUrl: source.finalUrl, evidenceType: 'LOYALTY_SIGNAL', fact: 'Public loyalty or rewards wording was detected.', supportingContext: 'Ask the owner how guests enroll and whether the program is active.', confidence: 70 });
     } else if (check.key === 'contact' && (anyPhone || clickToCall)) {
       // A PHONE NUMBER IS A CONTACT PATHWAY.
       //
@@ -360,8 +372,7 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
         supportingContext:
           `${anyPhone ? `Phone number published: ${anyPhone.phones[0]}. ` : ''}` +
           `${clickToCall ? 'Click-to-call (tel:) links are present. ' : ''}` +
-          'Customers can reach the restaurant; every enquiry has to become a phone call, so questions that arrive ' +
-          'outside service hours have nowhere to go. ' +
+          'Other contact routes may exist outside the scanned pages. ' +
           analyzedNote,
         confidence: 85,
       });
@@ -369,8 +380,8 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
       evidence.push({
         sourceUrl: home.finalUrl,
         evidenceType: check.type,
-        fact: `No public ${check.label} pathway was detected on the analyzed website pages.`,
-        supportingContext: analyzedNote,
+        fact: check.key === 'faq' ? 'No publicly accessible FAQ was detected in the analyzed pages.' : `No public ${check.label} pathway was detected on the analyzed website pages.`,
+        supportingContext: analyzedNote + (check.key === 'loyalty' ? ' Ask the owner: do you operate a loyalty or rewards program through your POS or another channel?' : check.key === 'catering' ? ' Ask whether off-site catering is offered; private dining does not establish catering.' : ''),
         confidence: 65,
       });
     }
@@ -445,6 +456,7 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
       destinations,
       probes: orderingProbes,
       widgetVendor: widgetVendorFor.ordering,
+      onlineOrderingPromotion: pages.some((p) => p.onlineOrderingPromotion),
     });
     evidence.push({
       sourceUrl: destinations.find((d) => d.exposedInCustomerJourney)?.url ?? home.finalUrl,
@@ -456,7 +468,7 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
   }
 
   // Menu format
-  const menuLinks = pages.flatMap((p) => p.categorizedLinks.menu ?? []);
+  const menuLinks = Array.from(new Map(pages.flatMap((p) => p.categorizedLinks.menu ?? []).map((l) => [canonicalEvidenceUrl(l.href), l])).values());
   const pdfMenu = menuLinks.filter((l) => /\.pdf(\?|$)/i.test(l.href));
   if (pdfMenu.length > 0 && pdfMenu.length === new Set(menuLinks.map((l) => l.href)).size) {
     evidence.push({
@@ -480,7 +492,7 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
   const emailCapture = pages.some((p) => p.emailCaptureSignal);
   const smsCapture = pages.some((p) => p.smsCaptureSignal);
   evidence.push({
-    sourceUrl: home.finalUrl,
+    sourceUrl: pages.find((p) => p.emailCaptureSignal)?.finalUrl ?? home.finalUrl,
     evidenceType: 'EMAIL_CAPTURE',
     fact: emailCapture
       ? 'An email capture mechanism (signup form or newsletter invitation) is publicly visible.'
@@ -490,7 +502,7 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
   });
   if (smsCapture) {
     evidence.push({
-      sourceUrl: home.finalUrl,
+      sourceUrl: pages.find((p) => p.smsCaptureSignal)?.finalUrl ?? home.finalUrl,
       evidenceType: 'SMS_CAPTURE',
       fact: 'An SMS/text club signup signal is publicly visible.',
       supportingContext: analyzedNote,
@@ -525,8 +537,8 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
     evidence.push({
       sourceUrl: home.finalUrl,
       evidenceType: 'CTA_SIGNAL',
-      fact: `Homepage presents ${homeCtas.length} competing CTAs, which can dilute the primary next action.`,
-      supportingContext: normalizePhonesInText(homeCtas.slice(0, 10).join(' | ')),
+      fact: `Homepage contains ${homeCtas.length} distinct CTA labels; visual hierarchy requires manual review.`,
+      supportingContext: 'CTA count alone does not establish confusion or conversion loss. ' + (home.ctaDetails ?? []).slice(0, 30).map((c) => `${c.placement}: ${c.text}`).join(' | ') + ' Review primary versus secondary actions on mobile and measure task completion before recommending changes.',
       confidence: 70,
     });
   }
@@ -717,7 +729,7 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
     });
   }
 
-  return evidence;
+  return deduplicateEvidence(evidence);
 }
 
 /**

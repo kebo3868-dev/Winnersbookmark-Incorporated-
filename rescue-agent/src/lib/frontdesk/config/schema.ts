@@ -314,15 +314,15 @@ export const tenantConfigSchema = z.object({
       dietaryOptions: z.array(z.string()).default([]),
       pricingNote: z.string().optional(),
     })
-    .default({ highlights: [], dietaryOptions: [] }),
+    .prefault({ highlights: [], dietaryOptions: [] }),
 
-  reservations: pathwaySchema.default({ enabled: false }),
-  takeout: pathwaySchema.default({ enabled: false }),
-  delivery: pathwaySchema.default({ enabled: false }),
-  catering: pathwaySchema.default({ enabled: false }),
-  privateEvents: pathwaySchema.default({ enabled: false }),
-  giftCards: pathwaySchema.default({ enabled: false }),
-  employment: pathwaySchema.default({ enabled: false }),
+  reservations: pathwaySchema.prefault({ enabled: false }),
+  takeout: pathwaySchema.prefault({ enabled: false }),
+  delivery: pathwaySchema.prefault({ enabled: false }),
+  catering: pathwaySchema.prefault({ enabled: false }),
+  privateEvents: pathwaySchema.prefault({ enabled: false }),
+  giftCards: pathwaySchema.prefault({ enabled: false }),
+  employment: pathwaySchema.prefault({ enabled: false }),
   reviewLink: z.string().url().optional(),
   /**
    * Review-request settings (§XIII). Disabled by default: a restaurant opts in
@@ -340,27 +340,27 @@ export const tenantConfigSchema = z.object({
       /** Channel to use once sending is wired up. */
       channel: z.enum(['SMS', 'EMAIL']).default('SMS'),
     })
-    .default({ enabled: false, channel: 'SMS' }),
+    .prefault({ enabled: false, channel: 'SMS' }),
 
   faqs: z.array(faqSchema).default([]),
   escalationContacts: z.array(escalationContactSchema).default([]),
   /** intent/reason → escalation contact key. Falls back to "manager". */
-  escalationRouting: z.record(z.string()).default({}),
-  brandVoice: brandVoiceSchema.default({ tone: 'WARM_PROFESSIONAL', avoidPhrases: [] }),
+  escalationRouting: z.record(z.string(), z.string()).prefault({}),
+  brandVoice: brandVoiceSchema.prefault({ tone: 'WARM_PROFESSIONAL', avoidPhrases: [] }),
   promotions: z.array(promotionSchema).default([]),
-  thresholds: thresholdsSchema.default({ largePartySize: 8, highPriorityPartySize: 12 }),
-  policies: policySchema.default({
+  thresholds: thresholdsSchema.prefault({ largePartySize: 8, highPriorityPartySize: 12 }),
+  policies: policySchema.prefault({
     allowAllergenFreeClaims: false,
     restrictedTopics: [],
     approvedStatements: [],
   }),
-  messaging: messagingSchema.default({
+  messaging: messagingSchema.prefault({
     smsEnabled: false,
     missedCallRecoveryEnabled: false,
     maxFollowUps: 1,
     optOutKeywords: ['STOP', 'UNSUBSCRIBE', 'CANCEL', 'END', 'QUIT'],
   }),
-  pilot: pilotSchema.default({ escalationRota: [] }),
+  pilot: pilotSchema.prefault({ escalationRota: [] }),
   /** Per-tenant retention override; deployment default applies when unset. */
   retentionDays: z.number().int().min(1).max(3650).optional(),
 });

@@ -88,7 +88,7 @@ describe('SpotHopper destination resolution', () => {
     expect(reservation[0].href).toContain('/reservations/leverocks-seafood');
   });
 
-  it('reports a resolved pathway as publicly reachable rather than unresolvable', () => {
+  it('reports a resolved pathway as publicly declared in embedded markup rather than unresolvable', () => {
     const p = page(`
       <script src="https://www.spothopperapp.com/widget.js"></script>
       <script>
@@ -98,10 +98,11 @@ describe('SpotHopper destination resolution', () => {
     const evidence = normalizeEvidence({ pages: [p], failures: [], probes: [] });
     const ordering = evidence.find((e) => e.evidenceType === 'ORDERING_PATH');
 
-    expect(ordering?.fact).toMatch(/publicly reachable/i);
+    expect(ordering?.fact).toMatch(/publicly declared in embedded markup/i);
     // The whole point of the fix: this phrasing must be gone.
     expect(ordering?.fact).not.toMatch(/could not be resolved/i);
-    expect(ordering?.sourceUrl).toContain('/order-online/leverocks-seafood');
+    expect(ordering?.sourceUrl).toBe('https://leverocks.example/');
+    expect(ordering?.supportingContext).toContain('/order-online/leverocks-seafood');
   });
 
   describe('vendor presence is never proof of a pathway', () => {
@@ -134,7 +135,7 @@ describe('SpotHopper destination resolution', () => {
 
       for (const type of ['RESERVATION_PATH', 'ORDERING_PATH'] as const) {
         const item = evidence.find((e) => e.evidenceType === type);
-        expect(item?.fact).not.toMatch(/publicly reachable|publicly linked/i);
+        expect(item?.fact).not.toMatch(/publicly declared in embedded markup|publicly linked/i);
         // Confidence stays low precisely because nothing was verified.
         expect(item?.confidence ?? 100).toBeLessThanOrEqual(65);
       }
@@ -178,7 +179,8 @@ describe('SpotHopper destination resolution', () => {
  * The Rescue Score must be a CONSEQUENCE of the evidence, never a number the
  * report carries independently of it. A score that stayed at 75 whether or not
  * the destination resolved would mean the fix above changed the words while the
- * headline figure was decorative.
+ * headline figure needs a known, relevant observation before changing. Unverified
+ * widget configuration alone must not receive a transaction score.
  *
  * These run the real pipeline end to end — extract → evidence → journey →
  * category scores → overall score — over two sites differing only in whether
@@ -215,7 +217,7 @@ describe('Rescue Score is derived from the corrected evidence', () => {
     </script>
   `;
 
-  it('scores an unresolved widget lower than a resolved destination', () => {
+  it('does not reward unverified widget configuration as a working transaction', () => {
     const unresolved = scoreFor(WIDGET_ONLY);
     const resolved = scoreFor(WIDGET_WITH_DESTINATIONS);
 
@@ -223,8 +225,8 @@ describe('Rescue Score is derived from the corrected evidence', () => {
     expect(unresolved.overall.overallScore).not.toBeNull();
     expect(resolved.overall.overallScore).not.toBeNull();
 
-    // The load-bearing assertion: resolving a real pathway moves the number.
-    expect(resolved.overall.overallScore).toBeGreaterThan(unresolved.overall.overallScore as number);
+    // Neither configuration proves a customer-facing transaction works.
+    expect(resolved.overall).toEqual(unresolved.overall);
   });
 
   it('turns an UNKNOWN reservation stage into a known one once resolved', () => {
@@ -259,7 +261,7 @@ describe('Rescue Score is derived from the corrected evidence', () => {
     // Not an assertion about the right answer, only that the number follows the
     // input. Two materially different sites must not produce one fixed figure.
     const a = scoreFor(WIDGET_ONLY).overall.overallScore;
-    const b = scoreFor(WIDGET_WITH_DESTINATIONS).overall.overallScore;
+    const b = scoreFor('<h1>Restaurant</h1><p>Call 727-555-0101</p><a href="tel:7275550101">Call</a><a href="/menu">Menu</a>').overall.overallScore;
     expect(a).not.toBe(b);
     expect([a, b]).not.toEqual([75, 75]);
   });

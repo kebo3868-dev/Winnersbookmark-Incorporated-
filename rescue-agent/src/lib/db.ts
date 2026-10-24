@@ -27,6 +27,10 @@ export const RUNTIME_URL_SOURCES = [
 ] as const;
 
 export function resolveDatabaseUrl(env: Record<string, string | undefined> = process.env): string | undefined {
+  if (env.VERCEL_ENV === 'preview') {
+    if (!env.RESCUE_PREVIEW_DATABASE_URL) throw new Error('Preview requires an isolated RESCUE_PREVIEW_DATABASE_URL.');
+    return env.RESCUE_PREVIEW_DATABASE_URL;
+  }
   for (const name of RUNTIME_URL_SOURCES) {
     if (env[name]) return env[name];
   }
@@ -35,6 +39,7 @@ export function resolveDatabaseUrl(env: Record<string, string | undefined> = pro
 
 /** Name of the env var the runtime connection came from (for diagnostics). */
 export function resolveDatabaseUrlSource(env: Record<string, string | undefined> = process.env): string | null {
+  if (env.VERCEL_ENV === 'preview') return env.RESCUE_PREVIEW_DATABASE_URL ? 'RESCUE_PREVIEW_DATABASE_URL' : null;
   for (const name of RUNTIME_URL_SOURCES) {
     if (env[name]) return name;
   }

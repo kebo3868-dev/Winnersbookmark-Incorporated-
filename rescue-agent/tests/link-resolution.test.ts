@@ -339,7 +339,7 @@ describe('embedded widget destinations are resolved from the served HTML', () =>
     </body></html>`);
     const evidence = normalizeEvidence({ pages: [p], failures: [], probes: [] });
     const ordering = evidence.find((e) => e.evidenceType === 'ORDERING_PATH');
-    expect(ordering?.fact).toMatch(/An online ordering pathway is publicly reachable through an embedded widget via SpotHopper/i);
+    expect(ordering?.fact).toMatch(/An online ordering pathway is publicly declared in embedded markup; customer access requires manual validation via SpotHopper/i);
     expect(ordering?.fact).not.toMatch(/could not be resolved/i);
     expect(ordering?.supportingContext).toContain('https://www.spothopperapp.com/order-online/leverocks');
     // The claim stays bounded: the destination is public HTML, the on-screen

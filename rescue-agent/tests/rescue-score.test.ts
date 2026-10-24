@@ -57,7 +57,7 @@ describe('scoreBand', () => {
   it('maps bands per spec', () => {
     expect(scoreBand(95)).toBe('ELITE DIGITAL OPERATOR');
     expect(scoreBand(85)).toBe('STRONG WITH OPTIMIZATION OPPORTUNITIES');
-    expect(scoreBand(75)).toBe('MODERATE REVENUE LEAKAGE');
+    expect(scoreBand(75)).toBe('PUBLIC WEBSITE IMPROVEMENT OPPORTUNITIES');
     expect(scoreBand(65)).toBe('SIGNIFICANT CUSTOMER JOURNEY FRICTION');
     expect(scoreBand(59)).toBe('RESTAURANT RESCUE PRIORITY');
   });

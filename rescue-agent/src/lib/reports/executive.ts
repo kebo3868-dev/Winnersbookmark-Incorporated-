@@ -21,11 +21,11 @@ export type { RevenueScenario } from '@/lib/reports/scenarios';
 // Internal numeric scores are preserved in the DTO; these labels are the
 // client-facing translation.
 //   Impact / Urgency:      0–39 Low · 40–69 Moderate · 70–100 High
-//   Evidence confidence:   0–59 Preliminary · 60–79 Moderate · 80–100 Strong
+//   Evidence confidence:   0–59 Low · 60–79 Medium · 80–100 High
 //   Automation (AI fit):   0–39 Limited · 40–69 Moderate · 70–100 Strong
 //   Priority (rescue priority score): ≥80 Critical · 65–79 High · 50–64 Moderate · <50 Monitor
 export const levelLabel = (n: number): 'Low' | 'Moderate' | 'High' => (n >= 70 ? 'High' : n >= 40 ? 'Moderate' : 'Low');
-export const confidenceLabel = (n: number): 'Preliminary' | 'Moderate' | 'Strong' => (n >= 80 ? 'Strong' : n >= 60 ? 'Moderate' : 'Preliminary');
+export const confidenceLabel = (n: number): 'Low' | 'Medium' | 'High' => (n >= 80 ? 'High' : n >= 60 ? 'Medium' : 'Low');
 export const automationLabel = (n: number): 'Limited' | 'Moderate' | 'Strong' => (n >= 70 ? 'Strong' : n >= 40 ? 'Moderate' : 'Limited');
 export const priorityLabel = (n: number): 'Critical' | 'High' | 'Moderate' | 'Monitor' => (n >= 80 ? 'Critical' : n >= 65 ? 'High' : n >= 50 ? 'Moderate' : 'Monitor');
 
@@ -665,9 +665,9 @@ function buildDecisionBox(findings: ExecutiveFinding[], ranked: RankedAiOpportun
 
 function interpretScore(score: number | null): string {
   if (score === null) return 'Public evidence was insufficient to produce an overall score. See Methodology & Limitations.';
-  if (score >= 90) return 'The public-facing digital operation is exceptionally strong; remaining opportunities are refinements, not repairs.';
-  if (score >= 80) return 'A strong digital revenue foundation with specific, addressable optimization opportunities.';
-  if (score >= 70) return 'A workable foundation with measurable revenue leakage in specific parts of the guest journey.';
+  if (score >= 90) return 'High marks within the scored public website categories; unverified operations and transaction outcomes remain outside this score.';
+  if (score >= 80) return 'Strong public website signals within the scored categories; review coverage and verification limitations before prioritizing improvements.';
+  if (score >= 70) return 'Public website improvements may be useful; revenue effects require restaurant operating data.';
   if (score >= 60) return 'Guests encounter meaningful friction at several points in the digital journey; prioritized fixes are warranted.';
   return 'The digital guest journey is a high-priority rescue opportunity; several fundamental pathways need attention.';
 }
@@ -751,6 +751,8 @@ function buildThirtyDayPlan(
 }
 
 const METHODOLOGY: string[] = [
+  'Evidence confidence uses deterministic heuristic bands: High 80–100, Medium 60–79, Low below 60. These are not calibrated probabilities. Internal numeric weights are separate from the restaurant score.',
+  'Unknown internal operations and unverified transaction functionality are excluded from category scoring. Coverage falls when evidence is insufficient; uncertainty is not a restaurant defect.',
   'This audit analyzes publicly available digital evidence: the restaurant’s public website pages and the customer pathways they expose.',
   'The system does not have access to POS, reservation, or sales data unless separately provided by ownership.',
   'The system does not know true missed-call volume without phone records; phone-related findings describe exposure, not measured losses.',

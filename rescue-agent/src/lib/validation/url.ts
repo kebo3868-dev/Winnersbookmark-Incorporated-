@@ -29,6 +29,8 @@ export function isPrivateAddress(ip: string): boolean {
     if (a === 192 && b === 168) return true; // private
     if (a === 192 && b === 0) return true; // IETF protocol assignments / 192.0.2.0 test
     if (a === 198 && (b === 18 || b === 19)) return true; // benchmarking
+    if (a === 198 && b === 51 && parts[2] === 100) return true;
+    if (a === 203 && b === 0 && parts[2] === 113) return true;
     if (a >= 224) return true; // multicast + reserved
     return false;
   }
@@ -38,6 +40,10 @@ export function isPrivateAddress(ip: string): boolean {
     if (lower.startsWith('fe80') || lower.startsWith('fe9') || lower.startsWith('fea') || lower.startsWith('feb')) return true; // link-local
     if (lower.startsWith('fc') || lower.startsWith('fd')) return true; // unique local
     if (lower.startsWith('::ffff:')) return isPrivateAddress(lower.slice(7)); // v4-mapped
+    // Permit global unicast only; block multicast, translation, documentation,
+    // transition and reserved ranges rather than accepting unknown ranges.
+    if (!/^[23]/.test(lower)) return true;
+    if (/^2001:(?:db8|0|10|20):|^2002:|^3fff:/i.test(lower)) return true;
     return false;
   }
   return true; // not an IP at all — treat as unsafe when used where an IP is expected
@@ -57,6 +63,7 @@ export function validateUrlSyntax(raw: string): UrlValidationResult {
   if (url.protocol !== 'http:' && url.protocol !== 'https:') {
     return { ok: false, reason: 'INVALID WEBSITE URL' };
   }
+  if (url.username || url.password) return { ok: false, reason: 'UNSAFE URL DESTINATION' };
   const host = url.hostname.toLowerCase();
   if (privateTargetsAllowed()) return { ok: true, url };
   if (BLOCKED_HOSTNAMES.has(host) || host.endsWith('.localhost') || host.endsWith('.local') || host.endsWith('.internal')) {
