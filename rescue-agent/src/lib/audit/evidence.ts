@@ -805,8 +805,12 @@ function indefiniteArticle(noun: string): 'A' | 'An' {
  * rather than the business. Reporting one as the contact route would replace an
  * old false negative with a new false positive.
  */
+// The local-part alternatives MUST terminate at the "@". Anchoring them at the
+// start alone makes every entry a prefix match, which excluded
+// `abusedchef@…`, `noreplyparties@…` and `postmasterchef@…` — real addresses
+// discarded by the very guard that exists to prevent false claims.
 const NON_CONTACT_ADDRESS =
-  /^(?:no-?reply|donotreply|do-not-reply|postmaster|mailer-daemon|abuse|privacy@wix|wix@|sentry@)|@(?:sentry\.io|wixpress\.com|squarespace\.com|sentry-next\.wixpress\.com|example\.(?:com|org|net)|domain\.com|email\.com)$/i;
+  /^(?:no-?reply|donotreply|do-not-reply|postmaster|mailer-daemon|abuse|wix|sentry)@|@(?:sentry\.io|wixpress\.com|squarespace\.com|sentry-next\.wixpress\.com|example\.(?:com|org|net)|domain\.com|email\.com)$/i;
 
 /** Pathway categories that assert a customer can transact, and so must be clean. */
 function isTransactional(key: string): boolean {

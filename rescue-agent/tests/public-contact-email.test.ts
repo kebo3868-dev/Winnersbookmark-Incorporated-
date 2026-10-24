@@ -154,10 +154,27 @@ describe('newsletter signup without a public contact email', () => {
   it('ignores automated-sender and site-tooling addresses', () => {
     expect(isNonContactAddress('noreply@leverocks.com')).toBe(true);
     expect(isNonContactAddress('no-reply@leverocks.com')).toBe(true);
+    expect(isNonContactAddress('postmaster@leverocks.com')).toBe(true);
     expect(isNonContactAddress('abc@sentry.io')).toBe(true);
     expect(isNonContactAddress(LEVEROCKS_EMAIL)).toBe(false);
     const ev = recordsFor(`<p>noreply@leverocks.com</p>`);
     expect(find(ev, 'CONTACT_EMAIL')?.fact).toMatch(/No public contact email address/i);
+  });
+
+  it('does not discard a real address that merely starts with an excluded word', () => {
+    // The exclusion list matches a whole local-part, not a prefix. Anchoring it
+    // at the start alone threw away real addresses.
+    for (const address of [
+      'abusedchef@leverocks.com',
+      'noreplyparties@leverocks.com',
+      'postmasterchef@leverocks.com',
+      'wixom@leverocks.com',
+      'sentryhouse@leverocks.com',
+    ]) {
+      expect(isNonContactAddress(address), address).toBe(false);
+    }
+    const ev = recordsFor(`<a href="mailto:noreplyparties@leverocks.com">Parties</a>`);
+    expect(find(ev, 'CONTACT_EMAIL')?.fact).toContain('noreplyparties@leverocks.com');
   });
 });
 
