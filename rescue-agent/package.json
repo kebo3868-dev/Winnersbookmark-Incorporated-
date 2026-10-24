@@ -20,7 +20,7 @@
     "smoke:provider": "node --experimental-strip-types scripts/provider-smoke-test.mjs"
   },
   "engines": {
-    "node": ">=20.9"
+    "node": ">=22.12.0"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
@@ -32,7 +32,7 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "undici": "^8.7.0",
-    "zod": "^3.24.2"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/node": "^22.13.10",
@@ -40,10 +40,15 @@
     "@types/react": "^19.0.12",
     "@types/react-dom": "^19.0.4",
     "autoprefixer": "^10.4.21",
-    "postcss": "^8.5.3",
+    "postcss": "8.5.31",
     "prisma": "^6.5.0",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.8.2",
-    "vitest": "^3.0.9"
+    "vitest": "^5.0.5"
+  },
+  "overrides": {
+    "postcss": "8.5.31",
+    "deepmerge-ts": "8.0.2",
+    "postcss-selector-parser": "7.1.7"
   }
 }
