@@ -20,6 +20,8 @@ const AUDIT_ID_PATTERN = /^[a-z0-9]{10,40}$/i;
  */
 export function deriveEvidenceSourceUrl(supportingContext: string | null, sourceRecordUrl: string | null): string | null {
   const trimmed = supportingContext?.trim() ?? '';
+  const observation = trimmed.match(/^Observed source: (https?:\/\/\S+)\n/);
+  if (observation) return observation[1];
   if (/^https?:\/\/\S+$/.test(trimmed)) {
     try {
       new URL(trimmed);

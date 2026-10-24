@@ -3,6 +3,7 @@ import type { AnyNode } from 'domhandler';
 import type { Response as UndiciResponse } from 'undici';
 import { validateUrlTarget, normalizeUrl } from '@/lib/validation/url';
 import { safeFetchHop, readBodyCapped } from '@/lib/web/safeFetch';
+import { checkRobots } from '@/lib/web/robots';
 import { classifyLinkRole, contributesToCustomerPathway } from '@/lib/web/linkTaxonomy';
 import { classifyDestination, isMethodSemanticsRefusal, type DestinationKind, type ProbeFailureKind } from '@/lib/audit/destination';
 
@@ -65,6 +66,10 @@ export interface PageExtract {
   phones: string[];
   clickToCallLinks: number;
   emails: string[];
+  contactFormSignal?: boolean;
+  faqSignal?: boolean;
+  onlineOrderingPromotion?: boolean;
+  ctaDetails?: { text: string; href: string | null; placement: 'navigation' | 'footer' | 'content' }[];
   internalLinks: { href: string; text: string }[];
   categorizedLinks: Partial<Record<LinkCategory, CategorizedLink[]>>;
   /**
@@ -111,7 +116,7 @@ export type FetchOutcome =
   | { status: 'UNAVAILABLE' | 'BLOCKED' | 'TIMEOUT' | 'ERROR'; httpStatus?: number; note: string };
 
 const USER_AGENT =
-  'WinnersBookmarkRescueAgent/0.1 (+restaurant digital audit; public pages only; contact: audits@winnersbookmark.example)';
+  'WinnersBookmarkRescueAgent/0.1 (restaurant digital audit; public pages only)';
 
 const FETCH_TIMEOUT_MS = 15_000;
 const PROBE_TIMEOUT_MS = 10_000;
@@ -221,7 +226,11 @@ export function declaredDestination(url: URL): LinkCategory | null {
  *      exactly as before.
  */
 export function categorizeLink(url: URL, text: string): LinkCategory[] {
-  const structural = matchable(`${url.pathname} ${url.search} ${url.hostname}`);
+  if (STATIC_ASSET_PATH.test(url.pathname) || /(^|\.)(imagedelivery\.net|images\.unsplash\.com)$/.test(url.hostname)) return [];
+  // Generic words in arbitrary hostnames (e.g. imageDELIVERY.net) are not
+  // customer intent. Only recognized platform domains contribute host intent.
+  const vendorHost = /(^|\.)(opentable\.com|resy\.com|exploretock\.com|tockhq\.com|sevenrooms\.com|toasttab\.com|doordash\.com|ubereats\.com|grubhub\.com|postmates\.com|chownow\.com|slicelife\.com)$/.test(url.hostname) ? url.hostname : '';
+  const structural = matchable(`${url.pathname} ${url.search} ${vendorHost}`);
   const declared = declaredDestination(url);
   const categories = new Set<LinkCategory>();
   if (declared) categories.add(declared);
@@ -229,6 +238,8 @@ export function categorizeLink(url: URL, text: string): LinkCategory[] {
   for (const category of ALL_CATEGORIES) {
     if (CATEGORY_PATTERNS[category].test(haystack)) categories.add(category);
   }
+  if (categories.has('gift_card')) { categories.delete('ordering'); categories.delete('reservation'); }
+  if (categories.has('careers')) { categories.delete('contact'); categories.delete('ordering'); categories.delete('reservation'); }
   return Array.from(categories);
 }
 
@@ -517,6 +528,13 @@ async function followRedirectsSafely(rawUrl: string, timeoutMs: number, deadline
       return { kind: 'failure', status: 'BLOCKED', note: `Destination rejected by safety policy: ${validation.reason}` };
     }
     const target = validation.url.toString();
+    if (!(await checkRobots(validation.url, hopTimeout))) {
+      return { kind: 'failure', status: 'BLOCKED', note: 'Robots policy disallows this URL or could not be reliably retrieved; no bypass attempted.' };
+    }
+    if (deadline !== undefined) {
+      hopTimeout = Math.min(hopTimeout, deadline - Date.now());
+      if (hopTimeout <= 0) return { kind: 'failure', status: 'TIMEOUT', note: 'Audit time budget exhausted during robots policy check.' };
+    }
     let response: UndiciResponse;
     try {
       response = await safeFetchHop(target, {
@@ -708,8 +726,18 @@ export function extractPage(
   // line removes. Reading it after was why the audit never saw the site's own
   // statement of its name.
   const structuredNames = extractStructuredNames($);
+  const faqSchema = $('script[type="application/ld+json"]').toArray().some((el) => {
+    try { return /"@type"\s*:\s*"FAQPage"/.test(JSON.stringify(JSON.parse($(el).text()))); }
+    catch { return false; }
+  });
 
   $('script, style, noscript').remove();
+  // Explicitly hidden markup cannot establish a customer-visible pathway.
+  // Stylesheet/media-query visibility still requires a browser review.
+  $('[hidden], [aria-hidden="true"], template').remove();
+  $('[style]').each((_, el) => {
+    if (/(?:display\s*:\s*none|visibility\s*:\s*hidden)/i.test($(el).attr('style') ?? '')) $(el).remove();
+  });
   const title = $('title').first().text().trim() || null;
   const metaDescription = $('meta[name="description"]').attr('content')?.trim() || null;
   const ogSiteName = $('meta[property="og:site_name"]').attr('content')?.trim() || null;
@@ -733,7 +761,9 @@ export function extractPage(
   const vendorCredits: { href: string; text: string }[] = [];
   let clickToCallLinks = 0;
   const ctas: string[] = [];
+  const ctaDetails: NonNullable<PageExtract['ctaDetails']> = [];
   const phoneOrderCtas: string[] = [];
+  const mailtoEmails: string[] = [];
 
   $('a[href]').each((_, el) => {
     const hrefRaw = $(el).attr('href') ?? '';
@@ -743,7 +773,11 @@ export function extractPage(
       if (text && PHONE_ORDER_INTENT.test(text) && phoneOrderCtas.length < 10) phoneOrderCtas.push(text);
       return;
     }
-    if (hrefRaw.startsWith('mailto:') || hrefRaw.startsWith('javascript:') || hrefRaw === '#') return;
+    if (/^mailto:/i.test(hrefRaw)) {
+      try { mailtoEmails.push(...(decodeURIComponent(hrefRaw.slice(7).split('?')[0]).match(EMAIL_REGEX) ?? [])); } catch { /* invalid encoding */ }
+      return;
+    }
+    if (hrefRaw.startsWith('javascript:') || hrefRaw === '#') return;
     let abs: URL;
     try {
       abs = new URL(hrefRaw, base);
@@ -823,6 +857,8 @@ export function extractPage(
     if (!t || t.length > 60) return;
     if (/order|reserve|book|call|menu|directions|gift|join|sign[- ]?up|contact|deliver|pickup|cater/i.test(t) && ctas.length < 30) {
       ctas.push(t);
+      ctaDetails.push({ text: t, href: $(el).attr('href') ?? null,
+        placement: $(el).closest('nav, [role="navigation"]').length ? 'navigation' : $(el).closest('footer').length ? 'footer' : 'content' });
     }
   });
 
@@ -831,19 +867,20 @@ export function extractPage(
   // reached a client report verbatim, and punctuation the page happened to carry
   // is not information about the restaurant.
   const phones = Array.from(new Set((bodyText.match(PHONE_REGEX) ?? []).map(formatPhoneNumber))).slice(0, 5);
-  const emails = Array.from(new Set(bodyText.match(EMAIL_REGEX) ?? []))
+  const readableEmailText = bodyText.replace(/\s*\[at\]\s*/gi, '@').replace(/\s*\[dot\]\s*/gi, '.');
+  const emails = Array.from(new Set([...mailtoEmails, ...(readableEmailText.match(EMAIL_REGEX) ?? [])].map((e) => e.toLowerCase())))
     .filter((e) => !/\.(png|jpg|jpeg|gif|webp|svg)$/i.test(e))
     .slice(0, 5);
   const hoursMatch = bodyText.match(HOURS_REGEX);
   const addressMatch = bodyText.match(ADDRESS_REGEX);
 
-  const formsHtml = $('form').text() + ' ' + ($('form input[type="email"]').length > 0 ? 'email-input' : '');
+  const contactFormSignal = $('form').toArray().some((el) => $(el).find('textarea').length > 0 && $(el).find('input[type="email"], input[name*="email"]').length > 0);
   const emailCaptureSignal =
-    $('form input[type="email"]').length > 0 || /newsletter|join our (email|mailing) list|subscribe/i.test(bodyText);
+    /newsletter|join our (email|mailing) list|subscribe/i.test(bodyText);
   const smsCaptureSignal = /text club|sms club|join.{0,20}text|text .{0,10}to \d{5,6}/i.test(bodyText);
   const loyaltySignal = /loyalty|rewards program|vip club|earn points/i.test(bodyText) || Boolean(categorizedLinks.loyalty?.length);
   const giftCardSignal = /gift ?cards?/i.test(bodyText) || Boolean(categorizedLinks.gift_card?.length);
-  void formsHtml;
+  const faqSignal = faqSchema || headings.some((h) => /\bfaqs?\b|frequently asked questions/i.test(h));
 
   return {
     requestedUrl,
@@ -864,6 +901,10 @@ export function extractPage(
     phones,
     clickToCallLinks,
     emails,
+    contactFormSignal,
+    faqSignal,
+    onlineOrderingPromotion: /order online|online ordering/i.test(bodyText),
+    ctaDetails,
     internalLinks,
     categorizedLinks,
     vendorCredits: vendorCredits.slice(0, 10),

@@ -57,7 +57,7 @@ describe('detectRevenueLeaks', () => {
     expect(phone).toBeDefined();
     expect(phone!.manualValidationRequired).toBe(true);
     expect(phone!.problem).not.toMatch(/is missing calls|misses \d+ calls/i);
-    expect(phone!.problem).toMatch(/potential missed-call exposure/i);
+    expect(phone!.problem).toMatch(/requires call records and owner input/i);
   });
 
   it('forces manualValidationRequired below 60 confidence', () => {

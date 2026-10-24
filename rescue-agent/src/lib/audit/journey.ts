@@ -74,7 +74,7 @@ export function analyzeJourney(evidence: EvidenceRecordLike[]): JourneyStageResu
     const insecure = has(index, 'TECHNICAL_SIGNAL', (e) => /HTTPS|not secure/i.test(e.fact));
     const homeDown = failures.filter((e) => /primary website/i.test(e.fact));
     if (homeDown.length > 0) {
-      push(stage('WEBSITE', 'RISK', 'The primary website could not be collected — customers may be failing to reach it too.', 85, true, ids(homeDown)));
+      push(stage('WEBSITE', 'UNKNOWN', 'The primary website could not be collected. This scan error does not establish a customer-facing failure.', 85, true, ids(homeDown)));
     } else if (badMobile.length > 0 || insecure.length > 0) {
       push(
         stage(
@@ -87,7 +87,9 @@ export function analyzeJourney(evidence: EvidenceRecordLike[]): JourneyStageResu
         ),
       );
     } else if (failures.length > 0) {
-      push(stage('WEBSITE', 'FRICTION', 'The website is reachable but some linked pages failed to load during collection.', avgConfidence(failures, 75), false, ids([...failures, ...mobile])));
+      push(stage('WEBSITE', 'UNKNOWN', 'Some pages could not be collected; website quality cannot be reliably scored from those failures.', avgConfidence(failures, 75), true, ids([...failures, ...mobile])));
+    } else if (mobile.length === 0) {
+      push(stage('WEBSITE', 'UNKNOWN', 'No website presentation evidence was collected.', 0, true, []));
     } else {
       push(stage('WEBSITE', 'HEALTHY', 'The website loaded successfully with basic mobile configuration in place.', avgConfidence(mobile, 75), false, ids(mobile)));
     }
@@ -109,11 +111,11 @@ export function analyzeJourney(evidence: EvidenceRecordLike[]): JourneyStageResu
         stage(
           'PHONE',
           'FRICTION',
-          'The phone channel carries load that the website does not absorb: ' +
-            [c2cMissing.length > 0 ? 'mobile visitors cannot tap to call' : '', faqMissing.length > 0 ? 'no FAQ answers common questions before customers dial' : '']
+          'Public phone/FAQ observations: ' +
+            [c2cMissing.length > 0 ? 'mobile visitors cannot tap to call' : '', faqMissing.length > 0 ? 'no publicly accessible FAQ was detected in the analyzed pages' : '']
               .filter(Boolean)
               .join('; ') +
-            '. This is a phone-dependent customer journey with potential missed-call exposure during service hours.',
+            '. These observations do not establish unanswered questions or missed calls; ask for call data before recommending automation.',
           avgConfidence(all, 70),
           true,
           ids(all),
@@ -264,8 +266,8 @@ export function analyzeJourney(evidence: EvidenceRecordLike[]): JourneyStageResu
         push(
           stage(
             'ORDERING',
-            'FRICTION',
-            `${summary} Order-intent customers who will not call are lost, and staff answer the phone during service.`,
+            'UNKNOWN',
+            `${summary} Confirm whether this is the intended service model; no conversion loss was measured.`,
             confidence,
             true,
             evidenceIds,
@@ -275,8 +277,8 @@ export function analyzeJourney(evidence: EvidenceRecordLike[]): JourneyStageResu
         push(
           stage(
             'ORDERING',
-            'FRICTION',
-            `${summary} Third-party platforms take a commission and own the customer relationship, and whether an order can be completed on them was not verified.`,
+            'RESOLVED_UNVERIFIED',
+            `${summary} Platform fees and customer-data arrangements require owner confirmation.`,
             confidence,
             true,
             evidenceIds,
@@ -397,24 +399,10 @@ export function analyzeJourney(evidence: EvidenceRecordLike[]): JourneyStageResu
     const loyalty = has(index, 'LOYALTY_SIGNAL');
     const captures = [...email.filter(positive), ...sms.filter(positive), ...loyalty.filter(positive)];
     const all = [...email, ...sms, ...loyalty];
-    if (all.length === 0) {
-      push(stage('FOLLOW_UP', 'UNKNOWN', 'Customer follow-up systems could not be assessed from public signals.', 30, true, []));
-    } else if (captures.length === 0) {
-      push(
-        stage(
-          'FOLLOW_UP',
-          'RISK',
-          'No public retention mechanism (email capture, SMS club, or loyalty program) was detected. This does not prove no internal database exists — but the website is not visibly building one.',
-          avgConfidence(all, 60),
-          true,
-          ids(all),
-        ),
-      );
-    } else if (captures.length === 1) {
-      push(stage('FOLLOW_UP', 'FRICTION', 'A single public retention signal was detected; the follow-up system appears basic.', avgConfidence(all, 65), true, ids(all)));
-    } else {
-      push(stage('FOLLOW_UP', 'HEALTHY', 'Multiple public retention mechanisms are visible.', avgConfidence(captures, 75), false, ids(all)));
-    }
+    push(stage('FOLLOW_UP', 'UNKNOWN',
+      'Internal retention and follow-up processes could not be verified from publicly available website evidence. ' +
+      `${captures.length} public signup or loyalty signal(s) detected. Ask the owner: how are guest contacts collected, consent recorded, and follow-up measured?`,
+      avgConfidence(all, 30), true, ids(all)));
   }
 
   // REVIEW — owner-reported only (Phase 3). Rating drives status when provided;
@@ -446,14 +434,9 @@ export function analyzeJourney(evidence: EvidenceRecordLike[]): JourneyStageResu
   // RETURN
   {
     const retention = [...has(index, 'EMAIL_CAPTURE'), ...has(index, 'LOYALTY_SIGNAL'), ...has(index, 'GIFT_CARD_SIGNAL')];
-    const positives = retention.filter(positive);
-    if (retention.length === 0) {
-      push(stage('RETURN', 'UNKNOWN', 'Repeat-visit systems could not be assessed.', 30, true, []));
-    } else if (positives.length === 0) {
-      push(stage('RETURN', 'RISK', 'No visible mechanism invites customers back (loyalty, gift cards, or owned contact list detected: none). Repeat business appears to depend entirely on memory.', avgConfidence(retention, 60), true, ids(retention)));
-    } else {
-      push(stage('RETURN', 'FRICTION', 'Some repeat-visit mechanisms exist publicly; depth of use requires manual validation.', avgConfidence(positives, 65), true, ids(retention)));
-    }
+    push(stage('RETURN', 'UNKNOWN',
+      'Public loyalty, gift-card, and signup signals do not establish repeat-visit performance. Ask the owner which repeat-visit programs are active and how results are measured.',
+      avgConfidence(retention, 30), true, ids(retention)));
   }
 
   return results;

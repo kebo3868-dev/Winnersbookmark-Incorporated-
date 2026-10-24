@@ -95,16 +95,15 @@ describe('reachability is not functionality', () => {
   });
 });
 
-describe('RESOLVED_UNVERIFIED scores between HEALTHY and a defect', () => {
-  it('scores lower than the old HEALTHY classification did', () => {
-    const unverified = analyze([reachable()]).overall.overallScore as number;
-    const disabled = analyze([reachable({ disabledSignal: 'reservations unavailable: "reservations are currently unavailable"' })])
-      .overall.overallScore as number;
-
-    // Explicitly disabled must score below merely unverified.
-    expect(disabled).toBeLessThan(unverified);
-    // And the stage still counts toward coverage — it is a known state.
-    expect(analyze([reachable()]).overall.coverageScore).toBeGreaterThan(0);
+describe('unverified functionality is excluded from scoring', () => {
+  it('reduces coverage instead of penalizing an unknown condition', () => {
+    const result = analyze([reachable()]);
+    const records = result.evidence.map((e, i) => ({ ...e, id: `e${i}` }));
+    const category = calculateCategoryScores(result.journey, records).find((c) => c.category === 'RESERVATION_EXPERIENCE');
+    expect(category?.score).toBeNull();
+    expect(category?.insufficientData).toBe(true);
+    const disabled = analyze([reachable({ disabledSignal: 'reservations unavailable' })]);
+    expect(disabled.overall.coverageScore).toBeGreaterThan(result.overall.coverageScore);
   });
 });
 

@@ -116,9 +116,9 @@ describe('mayClaimVerifiedBroken — the single gate on a broken-pathway claim',
     expect(verdict.allowed).toBe(true);
   });
 
-  it('allows a network-level dead end on a customer page', () => {
+  it('does not treat scanner network failure as a verified customer defect', () => {
     const verdict = mayClaimVerifiedBroken({ url: 'https://leverocks.com/reservations', ok: false, failureKind: 'NETWORK' });
-    expect(verdict.allowed).toBe(true);
+    expect(verdict.allowed).toBe(false);
   });
 });
 

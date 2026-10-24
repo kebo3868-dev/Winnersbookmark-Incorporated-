@@ -63,17 +63,17 @@ const RULES: Rule[] = [
     const phoneStage = ctx.journey.find((s) => s.stage === 'PHONE');
     if (!phoneStage || phoneStage.status === 'HEALTHY' || phoneStage.evidenceIds.length === 0) return null;
     const c2cMissing = byType(ctx, 'CLICK_TO_CALL', (e) => /no click-to-call/i.test(e.fact));
-    const faqMissing = byType(ctx, 'FAQ_SIGNAL', (e) => /no public faq/i.test(e.fact));
+    const faqMissing = byType(ctx, 'FAQ_SIGNAL', (e) => /no public(?:ly accessible)? faq/i.test(e.fact));
     const supporting = [...c2cMissing, ...faqMissing];
     if (supporting.length === 0 && phoneStage.status !== 'RISK') return null;
     return {
       category: 'PHONE-DEPENDENT CUSTOMER JOURNEY',
-      title: 'The phone line is carrying load the website could absorb',
+      title: 'Validate demand for phone and FAQ support',
       problem:
-        'Common customer questions (hours, menu, booking, directions) are not fully answered online' +
+        'Review whether the website answers the questions guests actually call about' +
         (faqMissing.length > 0 ? ' — no FAQ was detected —' : '') +
         (c2cMissing.length > 0 ? ' and mobile visitors cannot tap to call' : '') +
-        '. During service rushes, this creates potential missed-call exposure. Actual missed-call volume is unverified and requires call data.',
+        '. Whether phone demand creates an automation opportunity is unverified and requires call records and owner input.',
       businessImpact:
         'Phone-dependent journeys concentrate customer intent into the busiest moments of service. Each unanswered ring is a potential lost booking, order, or catering lead.',
       customerJourneyStage: 'PHONE',
@@ -91,15 +91,15 @@ const RULES: Rule[] = [
   (ctx) => {
     const emailMissing = byType(ctx, 'EMAIL_CAPTURE', (e) => /no public email capture/i.test(e.fact));
     const loyaltyMissing = byType(ctx, 'LOYALTY_SIGNAL', (e) => /no public loyalty/i.test(e.fact));
-    if (emailMissing.length === 0 || loyaltyMissing.length === 0) return null;
+    if (emailMissing.length === 0 || loyaltyMissing.length === 0 || byType(ctx, 'SMS_CAPTURE').length > 0) return null;
     const supporting = [...emailMissing, ...loyaltyMissing];
     return {
       category: 'WEAK PUBLIC RETENTION SIGNALS',
       title: 'The website is not visibly building a customer database',
       problem:
-        'No email capture, SMS club, or loyalty pathway was detected on the analyzed pages. Every guest who leaves without joining a list is a repeat visit left to chance. This does not prove no internal database exists — it proves the public website is not feeding one.',
+        'No public email signup or loyalty pathway was detected in the analyzed pages. Internal retention and follow-up processes could not be verified from publicly available website evidence.',
       businessImpact:
-        'Repeat customers are the highest-margin revenue a restaurant has. Without an owned contact channel, reactivation depends entirely on paid ads and memory.',
+        'A public signup could support permission-based follow-up if it fits the business model. Existing programs, consent, costs, and results require owner validation.',
       customerJourneyStage: 'FOLLOW_UP',
       evidenceIds: supporting.map((e) => e.id),
       impactScore: 70,
@@ -140,7 +140,7 @@ const RULES: Rule[] = [
   // CTA problems.
   (ctx) => {
     const noCtas = byType(ctx, 'CTA_SIGNAL', (e) => /no clear action-oriented ctas/i.test(e.fact));
-    const tooMany = byType(ctx, 'CTA_SIGNAL', (e) => /competing ctas/i.test(e.fact));
+    const tooMany: EvidenceRecordLike[] = []; // Counts alone cannot establish conversion friction, including historical records.
     const supporting = noCtas.length > 0 ? noCtas : tooMany;
     if (supporting.length === 0) return null;
     const isMissing = noCtas.length > 0;
@@ -148,32 +148,32 @@ const RULES: Rule[] = [
       category: 'CONFUSING CTA HIERARCHY',
       title: isMissing ? 'The homepage gives visitors no clear next action' : 'Too many competing calls-to-action dilute the next step',
       problem: isMissing
-        ? 'No order/reserve/call/menu CTAs were detected on the homepage. Visitors with buying intent must hunt for the path to act.'
+        ? 'No order/reserve/call/menu CTAs were detected in static homepage markup. Check the mobile browser before concluding an action is missing.'
         : 'The homepage presents many competing CTAs. When everything shouts, nothing converts; the primary action (reserve or order) should visually dominate.',
-      businessImpact: 'CTA clarity is the difference between a visit and a transaction. Unclear next actions leak ready-to-buy customers.',
+      businessImpact: 'Hypothesis: clearer actions may help task completion. Validate with browser observation and conversion analytics.',
       customerJourneyStage: 'WEBSITE',
       evidenceIds: supporting.map((e) => e.id),
       impactScore: 60,
       urgencyScore: 55,
       confidenceScore: conf(supporting, 70),
       aiFitScore: 25,
-      recommendedSolution: 'Restructure homepage CTA hierarchy: one primary action above the fold, secondary actions demoted. Basic optimization.',
-      manualValidationRequired: false,
+      recommendedSolution: 'Review primary and secondary actions on mobile, then measure task completion before and after any change.',
+      manualValidationRequired: true,
     };
   },
   // Catering / private dining lead capture.
   (ctx) => {
     const catering = byType(ctx, 'CATERING_PATH', (e) => !/no public/i.test(e.fact));
     const privateDining = byType(ctx, 'PRIVATE_DINING_PATH', (e) => !/no public/i.test(e.fact));
-    const faqMissing = byType(ctx, 'FAQ_SIGNAL', (e) => /no public faq/i.test(e.fact));
+    const faqMissing = byType(ctx, 'FAQ_SIGNAL', (e) => /no public(?:ly accessible)? faq/i.test(e.fact));
     const present = [...catering, ...privateDining];
     if (present.length === 0) return null;
     return {
       category: 'CATERING LEAD CAPTURE OPPORTUNITY',
-      title: 'High-ticket inquiries (catering / private dining) depend on manual response',
+      title: catering.length ? 'Validate the catering inquiry process' : 'Validate the private dining inquiry process',
       problem:
-        'The restaurant advertises catering and/or private dining, but the visible inquiry path appears to rely on manual handling. High-ticket leads that arrive after hours or during a rush risk slow responses, and speed-to-lead usually decides who wins the booking.',
-      businessImpact: 'Catering and private events are among the highest-margin orders a restaurant takes. A single lost event can outweigh dozens of covers.',
+        `${catering.length ? 'A catering pathway' : 'A private dining pathway'} is publicly linked. Response times, automation, and booking outcomes cannot be established from the link. Private dining does not establish off-site catering.`,
+      businessImpact: 'Potential value requires actual inquiry volume, conversion rates, event revenue, and fulfillment costs.',
       customerJourneyStage: 'CONTACT',
       evidenceIds: [...present, ...faqMissing].map((e) => e.id),
       impactScore: 70,

@@ -195,6 +195,9 @@ export function mayClaimVerifiedBroken(probe: {
   if (probe.ok) {
     return { allowed: false, reason: 'the destination responded successfully' };
   }
+  if ([401, 403, 429, 503].includes(probe.httpStatus ?? 0) || probe.failureKind === 'NETWORK') {
+    return { allowed: false, reason: 'access restrictions, rate limiting, or a scanner network failure do not establish a customer-visible failure; manual review required' };
+  }
 
   const kind: ProbeFailureKind = probe.failureKind ?? (typeof probe.httpStatus === 'number' ? 'HTTP' : 'NETWORK');
   if (kind === 'TIMEOUT') {

@@ -44,16 +44,13 @@ export function calculateOverallScore(categories: CategoryScoreInput[]): Overall
 export function scoreBand(score: number): string {
   if (score >= 90) return 'ELITE DIGITAL OPERATOR';
   if (score >= 80) return 'STRONG WITH OPTIMIZATION OPPORTUNITIES';
-  if (score >= 70) return 'MODERATE REVENUE LEAKAGE';
+  if (score >= 70) return 'PUBLIC WEBSITE IMPROVEMENT OPPORTUNITIES';
   if (score >= 60) return 'SIGNIFICANT CUSTOMER JOURNEY FRICTION';
   return 'RESTAURANT RESCUE PRIORITY';
 }
 
-// RESOLVED_UNVERIFIED sits between HEALTHY and FRICTION deliberately. A
-// destination that resolves and responds is worth more than one with a known
-// problem, and less than one proven to work — scoring it as HEALTHY is what
-// produced a confident claim about a reservation page whose bookings were off.
-const stageStatusScore: Record<string, number> = { HEALTHY: 90, RESOLVED_UNVERIFIED: 70, FRICTION: 60, RISK: 30 };
+// Unverified stages are excluded from category scores and reduce coverage.
+const stageStatusScore: Record<string, number> = { HEALTHY: 90, FRICTION: 60, RISK: 30 };
 
 /**
  * Deterministic category scores derived from journey stage statuses and evidence.
@@ -69,7 +66,7 @@ export function calculateCategoryScores(
 
   const fromStages = (category: ScoreCategory, stageNames: string[], label: string) => {
     const stages = stageNames.map(stage).filter((s): s is JourneyStageResult => Boolean(s));
-    const known = stages.filter((s) => s.status !== 'UNKNOWN');
+    const known = stages.filter((s) => s.status !== 'UNKNOWN' && s.status !== 'RESOLVED_UNVERIFIED');
     if (known.length === 0) {
       scores.push({
         category,
@@ -127,7 +124,8 @@ export function calculateCategoryScores(
 
   // Local digital presence: partial signal from on-site NAP visibility only.
   const nap = evidence.filter((e) => ['HOURS_VISIBILITY', 'ADDRESS_VISIBILITY', 'PHONE_VISIBILITY'].includes(e.evidenceType));
-  const napPositive = nap.filter((e) => !/not detected|no phone/i.test(e.fact));
+  const napTypes = new Set(nap.map((e) => e.evidenceType));
+  const napPositive = new Set(nap.filter((e) => !/not detected|no phone/i.test(e.fact)).map((e) => e.evidenceType));
   if (nap.length === 0) {
     scores.push({
       category: 'LOCAL_DIGITAL_PRESENCE',
@@ -141,10 +139,10 @@ export function calculateCategoryScores(
     scores.push({
       category: 'LOCAL_DIGITAL_PRESENCE',
       weight: SCORE_WEIGHTS.LOCAL_DIGITAL_PRESENCE,
-      score: Math.round((napPositive.length / nap.length) * 100),
+      score: Math.round((napPositive.size / napTypes.size) * 100),
       confidence: 55,
       insufficientData: false,
-      explanation: `On-site name/address/phone/hours visibility only (${napPositive.length}/${nap.length} signals present). Off-site listing consistency requires manual validation.`,
+      explanation: `On-site name/address/phone/hours visibility only (${napPositive.size}/${napTypes.size} distinct signal categories present). Off-site listing consistency requires manual validation.`,
     });
   }
 
@@ -152,7 +150,8 @@ export function calculateCategoryScores(
   const readinessSignals = evidence.filter((e) =>
     ['FAQ_SIGNAL', 'HOURS_VISIBILITY', 'MENU_ACCESS', 'RESERVATION_PATH', 'ORDERING_PATH'].includes(e.evidenceType),
   );
-  const readinessPositive = readinessSignals.filter((e) => !/no public|not detected/i.test(e.fact));
+  const readinessTypes = new Set(readinessSignals.map((e) => e.evidenceType));
+  const readinessPositive = new Set(readinessSignals.filter((e) => !/no public|not detected|manual validation|not verified|could not/i.test(e.fact)).map((e) => e.evidenceType));
   if (readinessSignals.length === 0) {
     scores.push({
       category: 'AI_AUTOMATION_READINESS',
@@ -166,10 +165,10 @@ export function calculateCategoryScores(
     scores.push({
       category: 'AI_AUTOMATION_READINESS',
       weight: SCORE_WEIGHTS.AI_AUTOMATION_READINESS,
-      score: Math.round((readinessPositive.length / readinessSignals.length) * 100),
+      score: Math.round((readinessPositive.size / readinessTypes.size) * 100),
       confidence: 60,
       insufficientData: false,
-      explanation: `Based on availability of structured public information (${readinessPositive.length}/${readinessSignals.length} signals) that automation systems can be grounded on.`,
+      explanation: `Based on availability of structured public information (${readinessPositive.size}/${readinessTypes.size} distinct signal categories). Repeated links and observations do not add weight.`,
     });
   }
 

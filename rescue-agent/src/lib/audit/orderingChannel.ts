@@ -90,6 +90,7 @@ export interface OrderingChannelInput {
   probes: OrderingProbe[];
   /** A vendor widget was detected but resolved no destination. */
   widgetVendor: string | null;
+  onlineOrderingPromotion?: boolean;
   /**
    * Set only when a future verification step actually completes an order flow.
    * Nothing in the current collector can set this, and that is deliberate: the
@@ -266,14 +267,14 @@ export function resolveOrderingChannel(input: OrderingChannelInput): OrderingCha
   const exposed = destinations.filter((d) => d.exposedInCustomerJourney);
 
   // 3 — telephone precedence. What the customer is offered outranks markup.
-  if (phoneOrderCtas.length > 0) {
+  if (phoneOrderCtas.length > 0 && exposed.length === 0 && destinations.length === 0 && !widgetVendor && !input.onlineOrderingPromotion) {
     const ctas = phoneOrderCtas.slice(0, 3).map((t) => `"${t}"`).join(', ');
     return {
       state: 'PHONE_ORDERING_ONLY',
       evidenceState: 'VERIFIED',
       destinationResolved,
       summary:
-        'Ordering is by telephone only: the ordering call-to-action places a phone call rather than opening an ' +
+        'The ordering pathway detected in the scanned pages is by telephone: the ordering call-to-action places a phone call rather than opening an ' +
         'online ordering page. Telephone ordering is a legitimate ordering pathway, and it is not online ordering.',
       detail:
         `Call-to-action text ${ctas} linked to a telephone number. ` +
@@ -316,12 +317,17 @@ export function resolveOrderingChannel(input: OrderingChannelInput): OrderingCha
       state: 'ORDERING_PATH_UNCLEAR',
       evidenceState: 'MANUAL_VALIDATION_REQUIRED',
       destinationResolved: true,
-      summary: 'An online ordering destination is linked and reachable, but order placement was not verified.',
+      summary: 'An online ordering destination is linked, but customer-side ordering was not verified.' + (phoneOrderCtas.length ? ' Telephone ordering is also offered.' : ''),
       detail:
         `Destination: ${exposed[0].url}. An ordering page with ordering switched off responds identically to a working ` +
         'one, so reaching it proves the page exists and nothing about whether an order can be placed.',
       failingUrls: [],
     };
+  }
+  if (input.onlineOrderingPromotion && destinations.length === 0 && !widgetVendor) {
+    return { state: 'ORDERING_PATH_UNCLEAR', evidenceState: 'MANUAL_VALIDATION_REQUIRED', destinationResolved: false,
+      summary: 'Online ordering is advertised, but a browser-based ordering pathway was not verified.' + (phoneOrderCtas.length ? ' A telephone ordering button was detected.' : ''),
+      detail: 'Review the advertised ordering action in a browser. Promotional wording does not establish a working transaction flow.', failingUrls: [] };
   }
   // A destination WAS read out of the markup — an iframe, a data attribute, an
   // inline widget config. Checked BEFORE the widget-vendor branch, because

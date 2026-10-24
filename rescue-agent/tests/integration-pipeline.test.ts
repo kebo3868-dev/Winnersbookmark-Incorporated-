@@ -120,7 +120,7 @@ describe('collection engine against a live fixture site', () => {
     const { fetchPage } = await import('@/lib/web/collector');
     const outcome = await fetchPage('http://127.0.0.1:59999/');
     expect(outcome.status).not.toBe('COLLECTED');
-    expect(['UNAVAILABLE', 'TIMEOUT', 'ERROR']).toContain(outcome.status);
+    expect(['UNAVAILABLE', 'TIMEOUT', 'ERROR', 'BLOCKED']).toContain(outcome.status);
   }, 30_000);
 
   it('caps body size for huge chunked responses instead of buffering them fully', async () => {

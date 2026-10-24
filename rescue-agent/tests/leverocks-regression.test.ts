@@ -236,18 +236,18 @@ describe('F — phone ordering is distinguished from online ordering', () => {
     return { record, marker: parseOrderingChannelFact(record.fact)! };
   };
 
-  it('classifies the channel as PHONE_ORDERING_ONLY', () => {
-    expect(channel().marker.state).toBe('PHONE_ORDERING_ONLY');
+  it('requires manual review when phone ordering and online markup coexist', () => {
+    expect(channel().marker.state).toBe('ORDERING_PATH_UNCLEAR');
   });
 
-  it('says it is a legitimate pathway AND not online ordering', () => {
-    expect(channel().record.fact).toMatch(/legitimate ordering pathway/i);
-    expect(channel().record.fact).toMatch(/not online ordering/i);
+  it('does not claim the unverified markup proves online ordering or its absence', () => {
+    expect(channel().record.fact).toMatch(/unverified/i);
+    expect(channel().record.fact).not.toMatch(/telephone only/i);
   });
 
   it('never reports the widget-config order URL as working online ordering', () => {
     const stage = run.journey.find((s) => s.stage === 'ORDERING');
-    expect(stage?.status).toBe('FRICTION');
+    expect(stage?.status).toBe('UNKNOWN');
     expect(stage?.status).not.toBe('HEALTHY');
   });
 });
@@ -313,11 +313,11 @@ describe('I / J — scores are recomputed from the corrected evidence', () => {
     expect(run.overall.coverageScore).toBe(Math.round((usedWeight / 100) * 100));
   });
 
-  it('the ordering category is scored rather than dropped', () => {
+  it('unverified ordering is excluded from the score', () => {
     // A restaurant that demonstrably takes orders by phone has an ordering
     // finding; dropping the category would silently reweight the whole score.
     const ordering = run.categories.find((c) => c.category === 'ONLINE_ORDERING_EXPERIENCE');
-    expect(ordering?.insufficientData).toBe(false);
+    expect(ordering?.insufficientData).toBe(true);
   });
 });
 
