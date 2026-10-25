@@ -307,6 +307,15 @@ export interface ExecutiveReportDTO {
    */
   confidenceLegend: string;
   /**
+   * The same rubric, kept structured.
+   *
+   * The flat string renders as a nine-line run-on paragraph on a 360px phone —
+   * readable, but not scannable: the reader has to parse prose to find out what
+   * their own badge means. The interface and the PDF lay these out as a
+   * definition list; the string remains for anything that needs one sentence.
+   */
+  confidenceBands: [string, string][];
+  /**
    * How the Rescue Score, coverage and confidence are calculated, in the words
    * the client reads.
    *
@@ -520,6 +529,7 @@ export function buildExecutiveReport(input: ExecutiveReportInput): ExecutiveRepo
     },
     methodologyAndLimitations: METHODOLOGY,
     confidenceLegend: CONFIDENCE_LEGEND,
+    confidenceBands: CONFIDENCE_BANDS,
     scoringMethodology: scoringMethodology(),
     appendix: input.evidence.map((e) => ({
       evidenceType: e.evidenceType,

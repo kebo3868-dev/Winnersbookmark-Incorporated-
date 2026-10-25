@@ -252,8 +252,36 @@ export function categorizeLink(url: URL, text: string): LinkCategory[] {
   for (const category of ALL_CATEGORIES) {
     if (CATEGORY_PATTERNS[category].test(haystack)) categories.add(category);
   }
+  // "BOOK CATERING" IS NOT A TABLE RESERVATION.
+  //
+  // A fresh audit filed "Book Catering" → /catering.html as BOTH catering and
+  // reservation, because the bare verb `\bbook\b` in the anchor text matches
+  // the reservation pattern. RESERVATION_PATH is a transactional claim: it
+  // drives the RESERVATION journey stage and told the owner a public booking
+  // pathway existed where the link opens a catering page.
+  //
+  // Narrow by construction. The reservation category survives whenever
+  // anything names a TABLE booking — "reserv", "book a table", or a booking
+  // platform's host — so a genuine reservation link is untouched. Only a
+  // generic booking verb sitting beside a more specific hospitality
+  // destination is dropped.
+  if (categories.has('reservation') && !TABLE_BOOKING_EVIDENCE.test(haystack)) {
+    const moreSpecific: LinkCategory[] = ['catering', 'private_dining', 'events', 'gift_card', 'careers'];
+    if (moreSpecific.some((c) => categories.has(c))) categories.delete('reservation');
+  }
   return Array.from(categories);
 }
+
+/**
+ * Wording that names a TABLE booking specifically, as opposed to the bare verb
+ * "book" that any kind of booking shares.
+ *
+ * Kept separate from CATEGORY_PATTERNS.reservation because the two answer
+ * different questions: that pattern asks "might this be a booking of some
+ * kind", this one asks "is a table what is being booked".
+ */
+const TABLE_BOOKING_EVIDENCE =
+  /reserv|book[- ]?(a[- ]?)?table|table[- ]?booking|waitlist|opentable|resy|tock|sevenrooms|yelp.*reservations/i;
 
 /**
  * Attributes that carry a destination URL for an element a script will turn
@@ -1032,8 +1060,22 @@ export function extractPage(
   // and wording, so the two kinds are reported separately and neither is
   // mistaken for a newsletter box.
   const { contactFormSignal, reservationFormSignal, formScopes } = classifyForms($);
+  // AN EMAIL FIELD IS NOT AN INVITATION TO JOIN A LIST.
+  //
+  // This was `$('form input[type="email"]').length > 0`, which fired on the
+  // email field of a gift-card request form — so a fresh audit reported "an
+  // email capture mechanism for collecting visitors' addresses (signup form or
+  // newsletter invitation) is publicly visible" on a site with no signup
+  // anywhere. That claim then fed the retention category, which is the precise
+  // error of reading a gift-card signal as a follow-up system.
+  //
+  // EMAIL_CAPTURE now requires an actual invitation: newsletter wording in the
+  // page text, or a form whose own wording offers a subscription.
   const emailCaptureSignal =
-    $('form input[type="email"]').length > 0 || /newsletter|join our (email|mailing) list|subscribe/i.test(bodyText);
+    /newsletter|join our (email|mailing) list|subscribe/i.test(bodyText) ||
+    $('form')
+      .toArray()
+      .some((el) => NEWSLETTER_FORM_TEXT.test($(el).text()) && $(el).find('input[type="email"]').length > 0);
   const smsCaptureSignal = /text club|sms club|join.{0,20}text|text .{0,10}to \d{5,6}/i.test(bodyText);
   const loyaltySignal = /loyalty|rewards program|vip club|earn points/i.test(bodyText) || Boolean(categorizedLinks.loyalty?.length);
   const giftCardSignal = /gift ?cards?/i.test(bodyText) || Boolean(categorizedLinks.gift_card?.length);

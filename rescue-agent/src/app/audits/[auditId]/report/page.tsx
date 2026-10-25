@@ -2,6 +2,8 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { loadExecutiveReport } from '@/lib/reports/executiveData';
 import type { ExecutiveFinding, RevenueScenario, JourneyMapStage } from '@/lib/reports/executive';
+import { CONFIDENCE_EXPLANATION } from '@/lib/scoring/methodology';
+import { SCENARIO_DISCLAIMER } from '@/lib/reports/scenarios';
 
 export const dynamic = 'force-dynamic';
 
@@ -50,13 +52,20 @@ export default async function ExecutiveReportPage({ params }: { params: Promise<
       )}
 
       {/* COVER */}
-      <header className="card border-gold-dim/30 px-10 py-14 text-center space-y-5 relative overflow-hidden">
+      {/*
+        * px-6 on mobile, not px-10. With 40px of padding each side a 360px
+        * viewport leaves 238px for a 244px heading, so "RESTAURANT RESCUE
+        * AUDIT" painted past its own box; the type scale drops a step at the
+        * same width rather than breaking the word mid-way.
+        */}
+      <header className="card border-gold-dim/30 px-6 sm:px-10 py-14 text-center space-y-5 relative overflow-hidden">
         <p className="label text-gold">Winnersbookmark</p>
-        <h1 className="font-display text-4xl text-ivory tracking-wide">RESTAURANT RESCUE AUDIT</h1>
+        <h1 className="font-display text-3xl sm:text-4xl text-ivory tracking-wide">RESTAURANT RESCUE AUDIT</h1>
         <p className="text-gold-dim text-sm">{dto.cover.subtitle}</p>
         <div className="pt-6 space-y-1">
-          <p className="font-display text-2xl text-ivory">{dto.cover.restaurantName}</p>
-          <p className="text-ivory-dim text-sm">{dto.cover.websiteUrl}{dto.cover.location ? ` · ${dto.cover.location}` : ''}</p>
+          {/* A restaurant's own name can be one long word; it must wrap, not spill. */}
+          <p className="font-display text-2xl text-ivory break-words">{dto.cover.restaurantName}</p>
+          <p className="text-ivory-dim text-sm break-all">{dto.cover.websiteUrl}{dto.cover.location ? ` · ${dto.cover.location}` : ''}</p>
           <p className="text-ivory-faint text-xs">Audit date: {dto.cover.auditDate}</p>
           {dto.cover.auditStatus === 'PARTIALLY_COMPLETED' && (
             <p className="text-amber-300 text-xs uppercase tracking-widest pt-2">Audit partially completed — see Methodology &amp; Limitations</p>
@@ -196,7 +205,7 @@ export default async function ExecutiveReportPage({ params }: { params: Promise<
       {dto.scenarios.length > 0 && (
         <Section kicker="Section 03" title="What This Could Be Costing You">
           <div className="border border-gold-dim/40 rounded px-4 py-3 mb-5 text-gold-dim text-xs uppercase tracking-widest text-center">
-            Illustrative scenarios — not confirmed losses. Every assumption is shown so you can replace it with your real numbers.
+            {SCENARIO_DISCLAIMER}
           </div>
           <div className="space-y-5">
             {dto.scenarios.map((sc) => <ScenarioCard key={sc.key} scenario={sc} />)}
@@ -346,7 +355,21 @@ export default async function ExecutiveReportPage({ params }: { params: Promise<
 
       {/* APPENDIX */}
       <Section kicker="Appendix" title="Full Evidence Chain">
-        <p className="text-ivory-faint text-[13px] leading-relaxed mb-4">{dto.confidenceLegend}</p>
+        {/*
+          * The rubric as a definition list, not one run-on paragraph. As a
+          * single string it rendered as nine wrapped lines on a 360px phone:
+          * complete, but a reader checking what "Moderate" means on their own
+          * badge had to read the whole block to find it.
+          */}
+        <p className="text-ivory-faint text-[13px] leading-relaxed mb-3">{CONFIDENCE_EXPLANATION}</p>
+        <dl className="mb-5 space-y-2">
+          {dto.confidenceBands.map(([label, definition]) => (
+            <div key={label} className="text-[13px] leading-relaxed">
+              <dt className="text-ivory-dim inline">{label}</dt>
+              <dd className="text-ivory-faint inline break-words"> — {definition}</dd>
+            </div>
+          ))}
+        </dl>
         <details className="card">
           <summary className="px-4 sm:px-6 py-4 cursor-pointer label hover:text-gold">Show all {dto.appendix.length} evidence items</summary>
           <div className="divide-y divide-obsidian-line max-h-[480px] overflow-y-auto">
@@ -360,9 +383,16 @@ export default async function ExecutiveReportPage({ params }: { params: Promise<
                * 12px.
                */
               <div key={i} className="px-4 sm:px-6 py-4">
-                <p className="text-[15px] sm:text-sm text-ivory leading-relaxed">{e.fact}</p>
+                {/*
+                  * break-words on both. An evidence fact can carry an email
+                  * address or a hostname as one unbreakable token — at 360px
+                  * "harbourpointseafood@harbourpointgrill.test" pushed this
+                  * paragraph 30px past its own box, and the row with it. The
+                  * text wraps instead; nothing is truncated.
+                  */}
+                <p className="text-[15px] sm:text-sm text-ivory leading-relaxed break-words">{e.fact}</p>
                 {e.supportingContext && (
-                  <p className="text-ivory-dim text-[13px] leading-relaxed mt-1.5">{e.supportingContext}</p>
+                  <p className="text-ivory-dim text-[13px] leading-relaxed mt-1.5 break-words">{e.supportingContext}</p>
                 )}
                 <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px]">
                   <span className="text-gold-dim uppercase tracking-wider">{e.evidenceType.replace(/_/g, ' ')}</span>

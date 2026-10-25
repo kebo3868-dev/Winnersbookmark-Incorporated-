@@ -92,6 +92,44 @@ function glyphsPerPage(pdf: Buffer): number[] {
 }
 
 /**
+ * Text lines drawn on each page: one count per text-positioning operator.
+ *
+ * The companion to `glyphsPerPage`, and the more honest measure of how full a
+ * page is. Glyph counts are not comparable between fonts here — a Times run is
+ * encoded two bytes per glyph and a Helvetica run one — so a glyph threshold
+ * that separates a sparse page from a dense one in one font misreads the other.
+ * A line is a line in both.
+ */
+function linesPerPage(pdf: Buffer): number[] {
+  const latin = pdf.toString('latin1');
+  const pages: number[] = [];
+  let cursor = 0;
+  for (;;) {
+    const open = latin.indexOf('stream', cursor);
+    if (open === -1) break;
+    if (latin.slice(open - 3, open) === 'end') {
+      cursor = open + 6;
+      continue;
+    }
+    let start = open + 6;
+    if (latin[start] === '\r') start++;
+    if (latin[start] === '\n') start++;
+    const close = latin.indexOf('endstream', start);
+    if (close === -1) break;
+    let data = pdf.subarray(start, close);
+    try {
+      data = zlib.inflateSync(data);
+    } catch {
+      /* stream is not deflate-compressed — read it as-is */
+    }
+    const text = data.toString('latin1');
+    if (/\bBT\b/.test(text)) pages.push((text.match(/ Tm\b/g) ?? []).length);
+    cursor = close + 9;
+  }
+  return pages;
+}
+
+/**
  * REGRESSION CASE: Leverock's, second audit.
  *
  * The generated PDF contained a page holding the "Top Revenue Leaks" heading
@@ -172,6 +210,40 @@ describe('Executive PDF pagination', () => {
       // The failing renders produced pages of 26 and 39.5 glyphs — footer only,
       // or footer plus a section heading. Every real page clears 120.
       expect(Math.min(...pages), `summary×${summaryRepeats} problem×${problemRepeats}: ${pages.join(', ')}`).toBeGreaterThan(120);
+    }
+  }, 60_000);
+
+  // A SECOND FLOOR, BECAUSE THE FIRST ONE IS TOO LOW TO SEE A WASTED PAGE.
+  //
+  // A page carrying four lines of prose and four-fifths white space clears 120
+  // glyphs comfortably — it holds real content, just not much of it — and was
+  // found only by rendering the pages and looking at them. Cause: a wrapping
+  // View reserves its full laid-out height when it breaks, so a section whose
+  // blocks could not all fit the remainder of a page started a new page and
+  // left the previous one short.
+  //
+  // Measured in TEXT LINES, not glyphs: glyph counts mix one- and two-byte font
+  // encodings, so the same amount of ink counts differently in Times and in
+  // Helvetica, and no glyph threshold separates a sparse page from a dense one.
+  // Calibrated on two real renders of the same report — the one carrying the
+  // orphaned page had a page of 14 lines, and the repaired one has a minimum of
+  // 21 (its cover) with no body page under 40.
+  it.each([
+    ['short executive summary', 0],
+    ['medium executive summary', 12],
+    ['long executive summary', 16],
+  ])('no page is mostly empty (%s)', async (_label, summaryRepeats) => {
+    const { ExecutivePdf } = await import('@/lib/pdf/ExecutivePdf');
+    const { renderToBuffer } = await import('@react-pdf/renderer');
+    type PdfElement = Parameters<typeof renderToBuffer>[0];
+    for (const problemRepeats of [2, 6]) {
+      const dto = buildExecutiveReport(paginationInput(summaryRepeats, problemRepeats));
+      const buffer = await renderToBuffer(React.createElement(ExecutivePdf, { dto }) as unknown as PdfElement);
+      const lines = linesPerPage(buffer);
+      expect(
+        Math.min(...lines),
+        `summary×${summaryRepeats} problem×${problemRepeats}: lines per page ${lines.join(', ')}`,
+      ).toBeGreaterThanOrEqual(18);
     }
   }, 60_000);
 });

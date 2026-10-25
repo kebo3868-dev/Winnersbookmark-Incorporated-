@@ -19,7 +19,7 @@ import { describe, expect, it } from 'vitest';
 import { detectRevenueLeaks } from '@/lib/audit/leaks';
 import { analyzeJourney } from '@/lib/audit/journey';
 import { normalizeEvidence } from '@/lib/audit/evidence';
-import { extractPage, classifyForms } from '@/lib/web/collector';
+import { extractPage, classifyForms, categorizeLink } from '@/lib/web/collector';
 import { scoreBand } from '@/lib/scoring/rescueScore';
 import { stateForOpportunity, STATE_LABEL } from '@/lib/audit/evidenceState';
 import * as cheerio from 'cheerio';
@@ -343,5 +343,81 @@ describe('defect 6 — public signup signals do not grade internal follow-up', (
     expect(leak.recommendedSolution).toMatch(/check whether a list already exists/i);
     // Must not rank an unverified operational gap with a confirmed defect.
     expect(leak.impactScore).toBeLessThan(50);
+  });
+});
+
+// ── FOUND BY RUNNING THE REPAIRED PIPELINE ────────────────────────────────
+//
+// Both of these were produced by a fresh audit of a fixture site, not by
+// reading the code. They are the same class of defect as the six above: a
+// specific observation promoted into a broader claim.
+
+describe('a generic booking verb does not assert a table reservation', () => {
+  it('"Book Catering" is catering, not a reservation pathway', () => {
+    // The live run filed this link under BOTH, and RESERVATION_PATH is a
+    // transactional claim — it drives the RESERVATION stage and told the owner
+    // a public booking pathway existed where the link opens a catering page.
+    const categories = categorizeLink(new URL('https://example-grill.test/catering.html'), 'Book Catering');
+    expect(categories).toContain('catering');
+    expect(categories).not.toContain('reservation');
+  });
+
+  it('the same applies to private events, gift cards and careers', () => {
+    const cases: [string, string, string][] = [
+      ['https://example-grill.test/private-events', 'Book a Private Event', 'private_dining'],
+      ['https://example-grill.test/events', 'Book Now', 'events'],
+      ['https://example-grill.test/gift-cards', 'Book a Gift Card Experience', 'gift_card'],
+    ];
+    for (const [href, text, expected] of cases) {
+      const categories = categorizeLink(new URL(href), text);
+      expect(categories, `${text} → ${expected}`).toContain(expected);
+      expect(categories, `${text} must not be a reservation`).not.toContain('reservation');
+    }
+  });
+
+  it('a real table booking is untouched, however it is labelled', () => {
+    // The guard must not suppress reservations. Anything naming a TABLE
+    // booking, or a booking platform, still counts.
+    const kept: [string, string][] = [
+      ['https://example-grill.test/reservations', 'Book Now'],
+      ['https://example-grill.test/catering', 'Book a Table'],
+      ['https://www.opentable.com/r/example-grill', 'Book'],
+      ['https://resy.com/cities/sp/example-grill', 'Reserve'],
+    ];
+    for (const [href, text] of kept) {
+      expect(categorizeLink(new URL(href), text), `${text} ${href}`).toContain('reservation');
+    }
+  });
+});
+
+describe('an email field is not an invitation to join a list', () => {
+  const GIFT_CARD_FORM_PAGE = `
+    <h1>Gift Cards</h1>
+    <form action="/gift-card-request" id="gift-card-request-form">
+      <input type="text" name="name" />
+      <input type="email" name="email" />
+      <textarea name="message" placeholder="Add a gift message"></textarea>
+      <button type="submit">Send gift card request</button>
+    </form>
+  `;
+
+  it('a gift-card request form is not an email capture mechanism', () => {
+    // The live run reported "an email capture mechanism for collecting
+    // visitors' addresses (signup form or newsletter invitation) is publicly
+    // visible" on a site with no signup anywhere — the claim then fed the
+    // retention category, reading a gift-card signal as a follow-up system.
+    expect(pageOf(GIFT_CARD_FORM_PAGE).emailCaptureSignal).toBe(false);
+    expect(find(recordsFor(GIFT_CARD_FORM_PAGE), 'EMAIL_CAPTURE')?.fact).toMatch(/no mechanism for collecting/i);
+  });
+
+  it('a newsletter box still is one', () => {
+    const page = pageOf(`
+      <form><label>Join our mailing list</label><input type="email" name="subscribe" /><button>Subscribe</button></form>
+    `);
+    expect(page.emailCaptureSignal).toBe(true);
+  });
+
+  it('newsletter wording in the page text still counts', () => {
+    expect(pageOf('<p>Sign up for our newsletter in restaurant.</p>').emailCaptureSignal).toBe(true);
   });
 });
