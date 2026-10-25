@@ -417,7 +417,17 @@ export function classifyForms($: cheerio.CheerioAPI): {
     // customer can do with it: a guest asking about allergens or a lost
     // umbrella has no business submitting a gift-card order. The scope is kept
     // so the report can say which kind of form it found.
-    const scope = singlePurposeScope(haystack);
+    //
+    // SCOPE COMES FROM WHAT THE FORM IS, NOT FROM A TOPIC IT MENTIONS.
+    //
+    // Matching the whole haystack suppressed a general enquiry form that listed
+    // "Gift cards" as one option in a topic dropdown — contactFormSignal went
+    // false and CONTACT_PATH then reported "No public contact pathway was
+    // detected" on a page serving a contact form. A false absence, which is the
+    // error this audit exists to avoid. The scope is read from the form's own
+    // identity — its action, id, name, class, aria-label and submit wording —
+    // and a form that advertises general enquiries is never narrowed at all.
+    const scope = GENERAL_ENQUIRY_TEXT.test(`${attrs} ${text}`) ? null : singlePurposeScope(`${attrs} ${submitText(form)}`);
     if (scope) {
       if (!formScopes.includes(scope)) formScopes.push(scope);
       return;
@@ -426,6 +436,25 @@ export function classifyForms($: cheerio.CheerioAPI): {
   });
 
   return { contactFormSignal, reservationFormSignal, formScopes };
+}
+
+/**
+ * Wording by which a form advertises that it takes questions of any kind.
+ *
+ * A form saying this is never narrowed to a single purpose, however many
+ * specific topics it happens to offer.
+ */
+const GENERAL_ENQUIRY_TEXT =
+  /general (enquir|inquir|question)|contact[- _]?us|how can we help|ask us|send us a (message|note)|get in touch|any questions/i;
+
+/** The label on a form's own submit control — what it says it does. */
+function submitText($form: cheerio.Cheerio<DomElement>): string {
+  const parts: string[] = [];
+  $form.find('button, input[type="submit"]').each((_, el) => {
+    const node = $form.find(el);
+    parts.push(node.text(), node.attr('value') ?? '');
+  });
+  return parts.join(' ').replace(/\s+/g, ' ').trim().slice(0, 120);
 }
 
 /**

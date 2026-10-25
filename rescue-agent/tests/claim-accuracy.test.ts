@@ -632,3 +632,70 @@ describe('unreachable destinations are described in plain language', () => {
     expect(blocked.kind === 'failure' && blocked.status).toBe('BLOCKED');
   });
 });
+
+// ── RAISED BY CODEX REVIEW OF THIS BRANCH (3 × P2, all reproduced) ────────
+
+describe('codex P2: an SMS club is an opt-in route', () => {
+  const leaksFromRealEvidence = (body: string) => {
+    const records = normalizeEvidence({ pages: [pageOf(body)], failures: [], probes: [] }).map((e, i) => ({
+      id: `s${i}`,
+      evidenceType: e.evidenceType,
+      fact: e.fact,
+      supportingContext: e.supportingContext ?? null,
+      confidence: e.confidence,
+    }));
+    return { leaks: detectRevenueLeaks({ evidence: records, journey: analyzeJourney(records) }), journey: analyzeJourney(records) };
+  };
+  const BARE = '<h1>Probe Grill</h1><p>Call (727) 555-0000</p>';
+
+  it('does not claim "no public way to opt in" when a text club is offered', () => {
+    // The guard checked email capture and loyalty only, so a site offering
+    // "Join our text club" was told it had no opt-in route — while the
+    // FOLLOW_UP stage of the same audit said one was detected. The finding
+    // contradicted its own audit.
+    const { leaks, journey } = leaksFromRealEvidence(`${BARE}<p>Join our text club. Text GRILL to 12345</p>`);
+    expect(journey.find((s) => s.stage === 'FOLLOW_UP')!.finding).toMatch(/one public retention signal/i);
+    expect(leaks.find((l) => /OPT-IN/i.test(l.category))).toBeUndefined();
+  });
+
+  it('still fires when no opt-in route of any kind exists', () => {
+    const { leaks } = leaksFromRealEvidence(BARE);
+    expect(leaks.find((l) => /OPT-IN/i.test(l.category))).toBeDefined();
+  });
+});
+
+describe('codex P2: a topic a form mentions is not the form\'s scope', () => {
+  const GENERAL_FORM = `
+    <h2>General enquiries</h2>
+    <form action="/contact" id="contact-form">
+      <input type="email" name="email" />
+      <select name="topic"><option>General question</option><option>Gift cards</option><option>Allergens</option></select>
+      <textarea name="message" placeholder="How can we help?"></textarea>
+      <button>Send</button>
+    </form>`;
+
+  it('keeps a general enquiry form that lists gift cards as one topic', () => {
+    // Matching the whole haystack suppressed this form, and CONTACT_PATH then
+    // reported "No public contact pathway was detected" on a page serving a
+    // contact form — a false absence, the error this audit exists to avoid.
+    const result = classifyForms(cheerio.load(`<html><body>${GENERAL_FORM}</body></html>`));
+    expect(result.contactFormSignal).toBe(true);
+    expect(result.formScopes).toEqual([]);
+    const contact = find(recordsFor(GENERAL_FORM), 'CONTACT_PATH');
+    expect(contact?.fact).toMatch(/an enquiry form/i);
+    expect(contact?.fact).not.toMatch(/no public contact pathway/i);
+  });
+
+  it('still scopes a form that IS a gift-card request', () => {
+    const giftCard = `
+      <h1>Gift Cards</h1>
+      <form action="/gift-card-request" id="gift-card-request-form" class="gift-card-form">
+        <input name="n" /><input type="email" name="e" /><input name="amount" />
+        <textarea name="message"></textarea>
+        <button type="submit">Send gift card request</button>
+      </form>`;
+    const result = classifyForms(cheerio.load(`<html><body>${giftCard}</body></html>`));
+    expect(result.contactFormSignal).toBe(false);
+    expect(result.formScopes).toContain('gift card');
+  });
+});

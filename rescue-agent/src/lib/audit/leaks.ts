@@ -174,10 +174,28 @@ const RULES: Rule[] = [
     // journey.ts does, so a future rewording cannot silently switch it off.
     const emailMissing = byType(ctx, 'EMAIL_CAPTURE', statesAbsence);
     const loyaltyMissing = byType(ctx, 'LOYALTY_SIGNAL', statesAbsence);
+    // AN SMS CLUB IS AN OPT-IN ROUTE.
+    //
+    // The guard checked email capture and loyalty only, so a site offering
+    // "Join our text club — text GRILL to 12345" was still told "a guest has no
+    // public way to opt into hearing from you" — while the FOLLOW_UP stage of
+    // the same audit said one opt-in route was detected. The finding's own
+    // problem text names all three channels, so the guard has to as well.
+    const smsPresent = byType(ctx, 'SMS_CAPTURE', (e) => !statesAbsence(e));
+    if (smsPresent.length > 0) return null;
     if (emailMissing.length === 0 || loyaltyMissing.length === 0) return null;
     const supporting = [...emailMissing, ...loyaltyMissing];
     return {
-      category: 'NO PUBLIC OPT-IN ROUTE',
+      // THE CATEGORY IS A MACHINE KEY AS WELL AS A LABEL.
+      //
+      // Renaming this from "WEAK PUBLIC RETENTION SIGNALS" to drop the verdict
+      // in "weak" also silently unhooked eight consumers that dispatch on
+      // /RETENTION/: the reactivation scenario stopped being offered, and the
+      // AI capabilities, validation steps and KPIs fell back to a generic
+      // "Custom Automation Assessment". The stable token is kept in the
+      // category so those keep matching, and the precise claim lives in the
+      // title, which is what the client report actually prints.
+      category: 'CUSTOMER RETENTION — NO PUBLIC OPT-IN ROUTE',
       title: 'A guest has no public way to opt into hearing from you',
       problem:
         'OBSERVED: no email capture, SMS club or loyalty pathway was detected on the analyzed pages, so a guest who wants to hear from you has nowhere on the site to say so. ' +

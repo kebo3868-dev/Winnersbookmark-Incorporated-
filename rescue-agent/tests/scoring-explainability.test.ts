@@ -222,3 +222,40 @@ describe('the explanation reaches the report DTO', () => {
     expect(dto.appendix.map((e) => e.confidence)).toEqual([90, 55]);
   });
 });
+
+describe('codex P2: the retention category stays a usable machine key', () => {
+  it('report consumers still dispatch on it after the rename', async () => {
+    // Renaming "WEAK PUBLIC RETENTION SIGNALS" silently unhooked eight
+    // consumers that dispatch on /RETENTION/: the reactivation scenario
+    // stopped being offered and the AI capabilities, validation steps and KPIs
+    // fell back to a generic "Custom Automation Assessment".
+    const { scenarioKindFor } = await import('@/lib/reports/scenarios');
+    const { detectRevenueLeaks } = await import('@/lib/audit/leaks');
+    const { normalizeEvidence } = await import('@/lib/audit/evidence');
+    const { extractPage } = await import('@/lib/web/collector');
+
+    const page = extractPage(
+      'https://probe.test/',
+      'https://probe.test/',
+      200,
+      'text/html',
+      '<html><head><title>Probe</title></head><body><h1>Probe Grill</h1><p>Call (727) 555-0000</p></body></html>',
+    );
+    const records = normalizeEvidence({ pages: [page], failures: [], probes: [] }).map((e, i) => ({
+      id: `k${i}`,
+      evidenceType: e.evidenceType,
+      fact: e.fact,
+      supportingContext: e.supportingContext ?? null,
+      confidence: e.confidence,
+    }));
+    const optIn = detectRevenueLeaks({ evidence: records, journey: analyzeJourney(records) }).find((l) =>
+      /OPT-IN/i.test(l.category),
+    );
+    expect(optIn, 'the opt-in finding must exist for this fixture').toBeDefined();
+    expect(optIn!.category, 'must carry the stable RETENTION token').toMatch(/RETENTION/i);
+    expect(
+      scenarioKindFor({ category: optIn!.category, classification: 'MANUAL VALIDATION REQUIRED' }),
+      'the reactivation scenario must still be reachable',
+    ).toBe('reactivation');
+  });
+});
