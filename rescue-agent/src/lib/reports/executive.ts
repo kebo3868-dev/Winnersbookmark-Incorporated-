@@ -185,6 +185,16 @@ export interface JourneyMapStage {
   label: string;
   status: 'HEALTHY' | 'FRICTION' | 'INSUFFICIENT DATA' | 'UNKNOWN' | 'MANUAL VALIDATION';
   note: string;
+  /**
+   * What the stage could NOT see, when the stage says so.
+   *
+   * The map kept only the first sentence of a stage's finding, which was fine
+   * while findings were one sentence. They are now written as "Observed: … Not
+   * assessed: …", so truncating dropped the half that keeps an observation from
+   * reading as a conclusion — on the very surface a client scans fastest. Null
+   * when the stage states no limitation.
+   */
+  limitation: string | null;
 }
 
 export interface RankedAiOpportunity {
@@ -623,7 +633,13 @@ function buildJourneyMap(journey: ExecutiveReportInput['journey']): JourneyMapSt
     else if (s.status === 'RESOLVED_UNVERIFIED') status = 'MANUAL VALIDATION';
     else if (s.manualValidationRequired && s.status !== 'HEALTHY') status = 'MANUAL VALIDATION';
     else status = s.status as JourneyMapStage['status'];
-    return { stage, label: JOURNEY_LABELS[stage] ?? stage, status, note: firstSentence(s.finding) };
+    return {
+      stage,
+      label: JOURNEY_LABELS[stage] ?? stage,
+      status,
+      note: firstSentence(s.finding),
+      limitation: limitationSentence(s.finding),
+    };
   });
 }
 
@@ -742,6 +758,25 @@ function interpretScore(score: number | null): string {
 function firstSentence(text: string): string {
   const match = text.match(/^.*?[.!?](\s|$)/);
   return (match ? match[0] : text).trim().slice(0, 240);
+}
+
+/**
+ * The sentence in a journey finding that states what was NOT established.
+ *
+ * Recognised by the openings the engine actually writes — "Not assessed:",
+ * "Not observed:", "Requires your data:" — plus a stage that names the records
+ * it would need. Deliberately pattern-matched rather than taken as "everything
+ * after the first sentence": a stage may carry several observed sentences, and
+ * only the limitation belongs on the second line of the map.
+ */
+function limitationSentence(text: string): string | null {
+  const sentences = text.split(/(?<=[.!?])\s+/);
+  const found = sentences.find((s) =>
+    /^(not assessed|not observed|requires your data)\b/i.test(s.trim()) ||
+    /\brequires (call records|your own data|owner data)\b/i.test(s) ||
+    /\bnot assessed here\b/i.test(s),
+  );
+  return found ? found.trim().slice(0, 240) : null;
 }
 
 function buildSummary(input: ExecutiveReportInput, findings: ExecutiveFinding[]): string {

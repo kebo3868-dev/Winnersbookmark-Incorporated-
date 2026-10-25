@@ -52,6 +52,45 @@ const s = StyleSheet.create({
   label: { fontSize: 7, letterSpacing: 1.4, color: C.muted, textTransform: 'uppercase', marginBottom: 2 },
 });
 
+/**
+ * A "— continued" line that appears only on the pages AFTER the one a block
+ * started on.
+ *
+ * react-pdf gives a `fixed` element one thing a continuation label needs — it
+ * repeats on every page its parent spans — and not the other: there is no flag
+ * saying "this is not the first of them". `render` does supply the page number,
+ * so the first page a given id renders on is recorded and every higher page
+ * number is a continuation. Layout runs before paint, so by the time the text
+ * is painted the recorded page is the true first one.
+ *
+ * The alternative, a label above every block after the first, put two of them
+ * on one page whenever two blocks landed on the same page — which reads as a
+ * mistake rather than as a continuation.
+ */
+const continuationFirstPage = new Map<string, number>();
+
+function ContinuedLabel({ id, text }: { id: string; text: string }) {
+  return (
+    <Text
+      fixed
+      style={{ fontSize: 6.5, letterSpacing: 0.8, color: C.muted, textTransform: 'uppercase', marginBottom: 2 }}
+      render={({ pageNumber }) => {
+        const seen = continuationFirstPage.get(id);
+        if (seen === undefined || pageNumber < seen) {
+          continuationFirstPage.set(id, pageNumber);
+          return '';
+        }
+        return pageNumber > seen ? text : '';
+      }}
+    />
+  );
+}
+
+/** Clears the continuation bookkeeping so one render cannot affect the next. */
+export function resetContinuationState(): void {
+  continuationFirstPage.clear();
+}
+
 /** Split a list into fixed-size groups, so a page break falls between groups. */
 function chunk<T>(items: T[], size: number): T[][] {
   const groups: T[][] = [];
@@ -198,6 +237,9 @@ function ScenarioBlock({ scenario, compact }: { scenario: RevenueScenario; compa
 }
 
 export function ExecutivePdf({ dto }: { dto: ExecutiveReportDTO }) {
+  // Per-render bookkeeping for the continuation labels. Cleared here so a
+  // second report in the same process cannot inherit the first one's pages.
+  resetContinuationState();
   return (
     <Document
       title={`${dto.cover.productName} — ${dto.cover.restaurantName}`}
@@ -532,13 +574,9 @@ export function ExecutivePdf({ dto }: { dto: ExecutiveReportDTO }) {
                   </View>
                   <Text style={[s.mutedText, { marginBottom: 6 }]}>Customer journey stage: {f.journeyStage} · Priority: {f.labels.priority}</Text>
                 </View>
-                {blocks.map((block, i) => (
+                {maySpanPages && <ContinuedLabel id={`finding-${f.number}`} text={`${f.number}. ${f.title} — continued`} />}
+                {blocks.map((block) => (
                   <View key={block.key} wrap={false}>
-                    {maySpanPages && i > 0 && (
-                      <Text style={{ fontSize: 6.5, letterSpacing: 0.8, color: C.muted, textTransform: 'uppercase', marginBottom: 2 }}>
-                        {`${f.number}. ${f.title} — continued`}
-                      </Text>
-                    )}
                     {block.node}
                   </View>
                 ))}
@@ -560,6 +598,10 @@ export function ExecutivePdf({ dto }: { dto: ExecutiveReportDTO }) {
                 <View style={{ flex: 1 }}>
                   <Text style={{ fontFamily: 'Helvetica-Bold', fontSize: 9, color: C.ink }}>{stage.label}</Text>
                   <Text style={{ fontSize: 7.5, color: C.muted }}>{stage.note}</Text>
+                  {/* The limitation travels with the observation — see the web report. */}
+                  {stage.limitation ? (
+                    <Text style={{ fontSize: 7, color: C.muted, fontStyle: 'italic' }}>{stage.limitation}</Text>
+                  ) : null}
                 </View>
               </View>
               {i < dto.journeyMap.length - 1 && <View style={{ marginLeft: 59, height: 6, borderLeftWidth: 0.75, borderLeftColor: C.line }} />}

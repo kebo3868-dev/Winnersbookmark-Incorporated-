@@ -502,7 +502,16 @@ function JourneyMapRow({ stage, isLast }: { stage: JourneyMapStage; isLast: bool
         <span className={`shrink-0 w-40 text-xs uppercase tracking-widest border rounded px-3 py-2 text-center ${STATUS_STYLES[stage.status] ?? STATUS_STYLES.UNKNOWN}`}>{stage.status}</span>
         <div className="flex-1">
           <p className="text-ivory text-sm font-semibold">{stage.label}</p>
-          <p className="text-ivory-faint text-xs">{stage.note}</p>
+          <p className="text-ivory-faint text-xs break-words">{stage.note}</p>
+          {/*
+            * What the stage could not see, on the row with what it did see.
+            * The map used to show only the first sentence of a finding, which
+            * dropped the "Not assessed" half on the surface a client scans
+            * fastest — leaving an observation to read as a conclusion.
+            */}
+          {stage.limitation && (
+            <p className="text-ivory-faint/70 text-xs italic mt-0.5 break-words">{stage.limitation}</p>
+          )}
         </div>
       </div>
       {!isLast && <div className="ml-[4.5rem] h-3 border-l border-obsidian-line" aria-hidden />}

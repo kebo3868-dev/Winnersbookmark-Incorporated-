@@ -421,3 +421,70 @@ describe('an email field is not an invitation to join a list', () => {
     expect(pageOf('<p>Sign up for our newsletter in restaurant.</p>').emailCaptureSignal).toBe(true);
   });
 });
+
+// ── THE DISTINCTION MUST SURVIVE EVERY SURFACE ────────────────────────────
+//
+// Item 1 requires observed facts, inferred opportunities and questions needing
+// internal data to stay apart across the executive summary, the findings, the
+// journey map, the recommendations and the PDF. The journey map was the one
+// that dropped it: it kept only the first sentence of a stage's finding, which
+// was harmless while findings were one sentence and silently removed the "Not
+// assessed" half once they were not.
+
+describe('the journey map keeps the limitation beside the observation', () => {
+  const reportFor = async (evidenceRecords: EvidenceRecordLike[]) => {
+    const { buildExecutiveReport } = await import('@/lib/reports/executive');
+    return buildExecutiveReport({
+      auditId: 'c1',
+      restaurantName: 'Test Grill',
+      websiteUrl: 'https://testgrill.example',
+      location: null,
+      auditDate: '2026-10-25',
+      auditStatus: 'COMPLETED',
+      demoMode: false,
+      contact: { company: 'Winnersbookmark', consultantName: 'Keith Warren', phone: '727-291-5965', email: null, bookingUrl: null, fallbackText: 'Call Keith.' },
+      bookingQrDataUrl: null,
+      avgTicket: null,
+      overallScore: 68,
+      coverageScore: 80,
+      sourcesCollected: 6,
+      sourcesFailed: 0,
+      evidence: evidenceRecords.map((e) => ({ ...e, sourceUrl: 'https://testgrill.example' })),
+      opportunities: [],
+      journey: analyzeJourney(evidenceRecords),
+      categoryScores: [],
+      storedSummary: null,
+      storedSummaryWasAiEnhanced: false,
+      storedRecommendation: null,
+    });
+  };
+
+  it('carries what the FOLLOW_UP stage could not see', async () => {
+    const dto = await reportFor([
+      ev('EMAIL_CAPTURE', 'No public email capture mechanism was detected on the analyzed pages.'),
+      ev('LOYALTY_SIGNAL', 'No public loyalty or rewards pathway was detected on the analyzed website pages.'),
+    ]);
+    const followUp = dto.journeyMap.find((s) => s.stage === 'FOLLOW_UP')!;
+    expect(followUp.note).toMatch(/observed/i);
+    expect(followUp.limitation, 'the limitation must not be truncated away').toBeTruthy();
+    expect(followUp.limitation!).toMatch(/not assessed/i);
+  });
+
+  it('carries the PHONE stage\'s need for call records', async () => {
+    const dto = await reportFor([
+      ev('PHONE_VISIBILITY', 'A phone number is publicly displayed ((555) 111-2222).'),
+      ev('CLICK_TO_CALL', 'No click-to-call (tel:) links detected; mobile visitors must dial manually.'),
+      ev('FAQ_SIGNAL', 'No public FAQ pathway was detected on the analyzed website pages.'),
+    ]);
+    const phone = dto.journeyMap.find((s) => s.stage === 'PHONE')!;
+    expect(phone.limitation).toMatch(/call records/i);
+  });
+
+  it('leaves it null where a stage states no limitation', async () => {
+    const dto = await reportFor([
+      ev('MENU_ACCESS', 'A menu pathway is publicly linked (2 link(s) found).'),
+    ]);
+    const menu = dto.journeyMap.find((s) => s.stage === 'MENU');
+    expect(menu?.limitation).toBeNull();
+  });
+});

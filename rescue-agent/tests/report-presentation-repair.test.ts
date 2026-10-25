@@ -8,6 +8,8 @@
  */
 import { describe, expect, it } from 'vitest';
 import React from 'react';
+import zlib from 'node:zlib';
+import type { ExecutivePdf as ExecutivePdfType } from '@/lib/pdf/ExecutivePdf';
 import { buildScenario, formatApproxUSD, SCENARIO_DISCLAIMER } from '@/lib/reports/scenarios';
 import { buildExecutiveReport, CONFIDENCE_LEGEND, type ExecutiveReportInput } from '@/lib/reports/executive';
 import { findingMaySpanPages } from '@/lib/pdf/ExecutivePdf';
@@ -223,7 +225,51 @@ describe('the PDF only uses characters its fonts can draw', () => {
   }, 60_000);
 });
 
+/**
+ * Text drawn in the one-byte font runs of a rendered PDF.
+ *
+ * The continuation label cannot be found by walking the element tree: it is a
+ * `render` prop, so it has no static children and only materialises during
+ * layout, when the page number is known. It is set in Helvetica, which react-pdf
+ * encodes one byte per glyph, so it reads back cleanly from the content streams.
+ */
+async function renderedAsciiText(dto: Parameters<typeof ExecutivePdfType>[0]['dto']): Promise<string> {
+  const { ExecutivePdf } = await import('@/lib/pdf/ExecutivePdf');
+  const { renderToBuffer } = await import('@react-pdf/renderer');
+  type PdfElement = Parameters<typeof renderToBuffer>[0];
+  const buffer = await renderToBuffer(React.createElement(ExecutivePdf, { dto }) as unknown as PdfElement);
+  const latin = buffer.toString('latin1');
+  let out = '';
+  let cursor = 0;
+  for (;;) {
+    const open = latin.indexOf('stream', cursor);
+    if (open === -1) break;
+    if (latin.slice(open - 3, open) === 'end') {
+      cursor = open + 6;
+      continue;
+    }
+    let start = open + 6;
+    if (latin[start] === '\r') start++;
+    if (latin[start] === '\n') start++;
+    const close = latin.indexOf('endstream', start);
+    if (close === -1) break;
+    let data = buffer.subarray(start, close);
+    try {
+      data = zlib.inflateSync(data);
+    } catch {
+      /* not deflate-compressed */
+    }
+    const text = data.toString('latin1');
+    if (/\bBT\b/.test(text)) {
+      out += [...text.matchAll(/<([0-9a-fA-F]{1,2})>/g)].map((m) => String.fromCharCode(parseInt(m[1], 16))).join('');
+    }
+    cursor = close + 9;
+  }
+  return out;
+}
+
 describe('layout and continuation labels agree', () => {
+
   // The first attempt decided the label from length alone, and a short card
   // wrapped anyway because it started near the foot of a page: the continuation
   // arrived under a bare "THE BUSINESS PROBLEM" heading with nothing saying
@@ -241,15 +287,16 @@ describe('layout and continuation labels agree', () => {
     });
     const dto = buildExecutiveReport(long);
     expect(findingMaySpanPages(dto.findings[0])).toBe(true);
-    const text = pdfStrings(React.createElement(ExecutivePdf, { dto })).join('\u0000');
-    expect(text).toContain(`${dto.findings[0].number}. ${dto.findings[0].title} — continued`);
+    // Rendered, not walked: the label is a render prop that only exists once
+    // the page number is known.
+    const drawn = await renderedAsciiText(dto);
+    expect(drawn.toUpperCase()).toContain('CONTINUED');
   }, 60_000);
 
   it('a card that fits one page carries no continuation label at all', async () => {
-    const { ExecutivePdf } = await import('@/lib/pdf/ExecutivePdf');
     const dto = buildExecutiveReport(reportInput());
     expect(findingMaySpanPages(dto.findings[0])).toBe(false);
-    const text = pdfStrings(React.createElement(ExecutivePdf, { dto })).join('\u0000');
-    expect(text).not.toContain('— continued');
+    const drawn = await renderedAsciiText(dto);
+    expect(drawn.toUpperCase()).not.toContain('CONTINUED');
   }, 60_000);
 });
