@@ -291,7 +291,24 @@ export interface ExecutiveReportDTO {
   thirtyDayPlan: { phase: string; heading: string; actions: string[] }[];
   recommendation: { headline: string; body: string; nextStep: string; company: string; contactName: string; contactPhone: string };
   methodologyAndLimitations: string[];
-  appendix: { evidenceType: string; fact: string; supportingContext: string | null; sourceUrl: string | null; confidence: number }[];
+  /**
+   * One sentence explaining what the per-item confidence numbers mean.
+   *
+   * The appendix printed "confidence 90%" against every item with nothing
+   * anywhere saying what the number was a confidence IN, or what counted as
+   * high. A percentage a reader cannot interpret is not evidence of rigour; it
+   * reads as false precision, which is the opposite of what it is for.
+   */
+  confidenceLegend: string;
+  appendix: {
+    evidenceType: string;
+    fact: string;
+    supportingContext: string | null;
+    sourceUrl: string | null;
+    confidence: number;
+    /** Derived here so the report and the PDF can never disagree about a band. */
+    confidenceLabel: ReturnType<typeof confidenceLabel>;
+  }[];
 }
 
 const JOURNEY_LABELS: Record<string, string> = {
@@ -484,15 +501,31 @@ export function buildExecutiveReport(input: ExecutiveReportInput): ExecutiveRepo
       contactPhone: input.contact.phone,
     },
     methodologyAndLimitations: METHODOLOGY,
+    confidenceLegend: CONFIDENCE_LEGEND,
     appendix: input.evidence.map((e) => ({
       evidenceType: e.evidenceType,
       fact: e.fact,
       supportingContext: e.supportingContext,
       sourceUrl: e.sourceUrl,
       confidence: e.confidence,
+      confidenceLabel: confidenceLabel(e.confidence),
     })),
   };
 }
+
+/**
+ * Written from the same thresholds `confidenceLabel` uses, so the legend cannot
+ * describe bands the labels do not follow.
+ *
+ * States what the number measures, which is the part that was missing: how
+ * directly the fact was observed on a public page — never how likely the
+ * business outcome is, and never a prediction.
+ */
+export const CONFIDENCE_LEGEND =
+  'Confidence describes how directly each fact was observed on a public page — not how likely an outcome is. ' +
+  'Strong (80–100%): read directly from the page or a tested response. ' +
+  'Moderate (60–79%): observed, with part of the picture outside public view. ' +
+  'Preliminary (under 60%): a signal worth checking, not a conclusion.';
 
 // ── Section builders (all deterministic, evidence-derived) ──────────────────
 

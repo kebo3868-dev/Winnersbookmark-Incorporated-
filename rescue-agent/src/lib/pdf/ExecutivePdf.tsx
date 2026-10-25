@@ -506,9 +506,11 @@ export function ExecutivePdf({ dto }: { dto: ExecutiveReportDTO }) {
         {/* APPENDIX */}
         <View style={s.section}>
           <SectionHeader kicker="Appendix" title="Full Evidence Chain" />
-          <Text style={[s.mutedText, { marginBottom: 8 }]}>
+          <Text style={[s.mutedText, { marginBottom: 4 }]}>
             Every material claim in this report traces to the evidence below, collected from publicly accessible pages on the audit date.
           </Text>
+          {/* Same legend as the web report, from the same DTO field. */}
+          <Text style={[s.mutedText, { marginBottom: 8 }]}>{dto.confidenceLegend}</Text>
           {dto.appendix.map((e, i) => (
             <View key={i} style={{ borderBottomWidth: 0.5, borderBottomColor: C.line, paddingVertical: 4 }} wrap={false}>
               <Text style={{ fontSize: 8.5, color: C.ink }}>{e.fact}</Text>
@@ -518,7 +520,7 @@ export function ExecutivePdf({ dto }: { dto: ExecutiveReportDTO }) {
               <Text style={{ fontSize: 6.8, color: C.muted, marginTop: 1 }}>
                 {e.evidenceType}
                 {e.sourceUrl ? ` · ${e.sourceUrl.length > 90 ? `${e.sourceUrl.slice(0, 90)}…` : e.sourceUrl}` : ''}
-                {` · confidence ${e.confidence}%`}
+                {` · confidence: ${e.confidenceLabel} (${e.confidence}%)`}
               </Text>
             </View>
           ))}

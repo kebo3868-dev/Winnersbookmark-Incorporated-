@@ -18,6 +18,13 @@ export type EvidenceType =
    * no published email existed on a page that published one.
    */
   | 'CONTACT_EMAIL'
+  /**
+   * A form a customer can use to write to the restaurant.
+   *
+   * Like CONTACT_EMAIL, this is a route IN. Separate from EMAIL_CAPTURE, which
+   * is the site collecting the visitor's address for marketing.
+   */
+  | 'CONTACT_FORM'
   | 'CATERING_PATH'
   | 'PRIVATE_DINING_PATH'
   | 'LOYALTY_SIGNAL'

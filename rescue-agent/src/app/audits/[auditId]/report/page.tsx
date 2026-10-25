@@ -312,15 +312,35 @@ export default async function ExecutiveReportPage({ params }: { params: Promise<
 
       {/* APPENDIX */}
       <Section kicker="Appendix" title="Full Evidence Chain">
+        <p className="text-ivory-faint text-[13px] leading-relaxed mb-4">{dto.confidenceLegend}</p>
         <details className="card">
-          <summary className="px-6 py-4 cursor-pointer label hover:text-gold">Show all {dto.appendix.length} evidence items</summary>
+          <summary className="px-4 sm:px-6 py-4 cursor-pointer label hover:text-gold">Show all {dto.appendix.length} evidence items</summary>
           <div className="divide-y divide-obsidian-line max-h-[480px] overflow-y-auto">
             {dto.appendix.map((e, i) => (
-              <div key={i} className="px-6 py-3">
-                <p className="text-sm text-ivory">{e.fact}</p>
-                <p className="text-ivory-faint text-xs mt-1">
-                  {e.evidenceType}{e.sourceUrl ? ` · ${e.sourceUrl}` : ''} · confidence {e.confidence}%
-                </p>
+              /*
+               * Stacked, not a single metadata line. The type, a full untruncated
+               * URL and the confidence used to be crammed into one 12px run, which
+               * on a 360px phone wrapped into an unreadable block and buried the
+               * fact above it. Each piece now gets its own row, the URL breaks on
+               * any character instead of overflowing, and nothing renders below
+               * 12px.
+               */
+              <div key={i} className="px-4 sm:px-6 py-4">
+                <p className="text-[15px] sm:text-sm text-ivory leading-relaxed">{e.fact}</p>
+                {e.supportingContext && (
+                  <p className="text-ivory-dim text-[13px] leading-relaxed mt-1.5">{e.supportingContext}</p>
+                )}
+                <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px]">
+                  <span className="text-gold-dim uppercase tracking-wider">{e.evidenceType.replace(/_/g, ' ')}</span>
+                  <span className="text-ivory-faint">
+                    Confidence: <span className="text-ivory-dim">{e.confidenceLabel} ({e.confidence}%)</span>
+                  </span>
+                </div>
+                {e.sourceUrl && (
+                  <p className="text-ivory-faint text-[12px] mt-1 break-all leading-snug">
+                    <span className="text-ivory-faint/70">Source: </span>{e.sourceUrl}
+                  </p>
+                )}
               </div>
             ))}
           </div>

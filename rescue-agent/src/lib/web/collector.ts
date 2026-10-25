@@ -1,5 +1,5 @@
 import * as cheerio from 'cheerio';
-import type { AnyNode } from 'domhandler';
+import type { AnyNode, Element as DomElement } from 'domhandler';
 import type { Response as UndiciResponse } from 'undici';
 import { validateUrlTarget, normalizeUrl } from '@/lib/validation/url';
 import { safeFetchHop, readBodyCapped } from '@/lib/web/safeFetch';
@@ -99,6 +99,22 @@ export interface PageExtract {
   pdfLinks: string[];
   hoursText: string | null;
   addressText: string | null;
+  /**
+   * A form a customer can use to write to the restaurant (enquiry, "contact
+   * us", catering request). NOT a newsletter signup — see emailCaptureSignal.
+   *
+   * A form is a non-phone contact route. Reporting that none exists while the
+   * page serves one is the same false negative as discarding a published email
+   * address, and it was reachable the same way: the markup was read, then
+   * thrown away.
+   */
+  contactFormSignal: boolean;
+  /**
+   * A form that requests a table — date, time and party-size fields, or booking
+   * wording. Evidence that a request can be SUBMITTED, never that it reaches a
+   * booking system or that anyone answers it.
+   */
+  reservationFormSignal: boolean;
   emailCaptureSignal: boolean;
   smsCaptureSignal: boolean;
   loyaltySignal: boolean;
@@ -254,6 +270,109 @@ const URL_ATTRIBUTES = [
 
 /** Inline handlers that open a destination: onclick="window.open('…')" and friends. */
 const INLINE_URL_REGEX = /(?:window\.open|location\.(?:href|assign|replace)|location)\s*(?:=|\(\s*)\s*['"]([^'"]{1,300})['"]/gi;
+
+/** Wording that marks a form as a table request rather than a general enquiry. */
+const RESERVATION_FORM_TEXT = /reserv|book[- ]?(a[- ]?)?table|booking|party[- ]?size|number of guests|how many guests|guests?\b.*\bdate|table for/i;
+/** Field names a table-request form carries and a general enquiry form does not. */
+const RESERVATION_FIELD_NAME = /reserv|booking|party[-_ ]?size|guests?|covers|seating|date|time/i;
+/** Wording that marks a form as a newsletter signup, which is NOT a contact route. */
+const NEWSLETTER_FORM_TEXT = /newsletter|mailing list|subscribe|sign[- ]?up for (our )?(email|updates|offers)|join our (email|list)/i;
+/** A field a customer writes a message into. The clearest mark of an enquiry form. */
+const MESSAGE_FIELD_NAME = /message|comment|enquir|inquir|question|details|request|notes/i;
+/** Bot-protection fields. Present in the markup, never typed into by a person. */
+const CAPTCHA_FIELD = /recaptcha|h-?captcha|turnstile|cf-challenge|friendlycaptcha|hcaptcha|captcha|honeypot/i;
+
+/**
+ * True when a field is something a visitor can actually type into.
+ *
+ * CAPTCHA widgets inject a hidden `<textarea name="g-recaptcha-response">`, so
+ * "this form has a textarea" stopped meaning "a customer can write a message
+ * here" the moment a site added bot protection to its newsletter box.
+ */
+function isCustomerWritable($: cheerio.CheerioAPI, field: DomElement): boolean {
+  const el = $(field);
+  const identity = [el.attr('name'), el.attr('id'), el.attr('class')].filter(Boolean).join(' ');
+  if (CAPTCHA_FIELD.test(identity)) return false;
+  if (el.attr('type') === 'hidden') return false;
+  if (el.attr('hidden') !== undefined || el.attr('aria-hidden') === 'true') return false;
+  if (/display\s*:\s*none|visibility\s*:\s*hidden/i.test(el.attr('style') ?? '')) return false;
+  return true;
+}
+
+/**
+ * Classify the forms on a page into customer pathways.
+ *
+ * Deliberately conservative in both directions. A newsletter box must not be
+ * reported as a way to contact the restaurant, and a genuine enquiry form must
+ * not be dismissed because it happens to collect an email address — which is
+ * the only field a newsletter box and a contact form reliably share.
+ *
+ * A reservation form is recognised from its FIELDS (date/time/party size) or
+ * explicit booking wording, because "reservations" appearing in a page's prose
+ * says nothing about what the form on it does.
+ */
+export function classifyForms($: cheerio.CheerioAPI): { contactFormSignal: boolean; reservationFormSignal: boolean } {
+  let contactFormSignal = false;
+  let reservationFormSignal = false;
+
+  $('form').each((_, el) => {
+    const form = $(el);
+    const text = form.text().replace(/\s+/g, ' ').trim().slice(0, 600);
+    const attrs = [
+      form.attr('id'),
+      form.attr('name'),
+      form.attr('class'),
+      form.attr('action'),
+      form.attr('aria-label'),
+    ]
+      .filter(Boolean)
+      .join(' ');
+    const describe = (f: DomElement) =>
+      [$(f).attr('name'), $(f).attr('id'), $(f).attr('placeholder'), $(f).attr('type')].filter(Boolean).join(' ');
+    const fields = form.find('input, textarea, select');
+    const fieldNames = fields.map((__, f) => describe(f)).get().join(' ');
+    // Field names a CUSTOMER can actually fill in. A hidden CAPTCHA field named
+    // "…-response" must not make a newsletter box look like an enquiry form.
+    const visibleFieldNames = fields
+      .filter((__, f) => isCustomerWritable($, f))
+      .map((__, f) => describe(f))
+      .get()
+      .join(' ');
+    const haystack = `${attrs} ${fieldNames} ${text}`;
+
+    const hasDateOrTime = /\b(date|time)\b/i.test(fieldNames) || form.find('input[type="date"], input[type="time"]').length > 0;
+    const hasPartySize = /party[-_ ]?size|guests?|covers|seating/i.test(haystack);
+    // Fields alone are enough when they are specific enough. A form carrying
+    // BOTH a date/time and a party-size field is a table request whatever the
+    // button says — "Find a table" matches no booking vocabulary, and demanding
+    // the wording as well made the structural check unreachable on its own.
+    const structurallyAReservation = hasDateOrTime && hasPartySize;
+    const looksLikeReservation =
+      structurallyAReservation ||
+      (RESERVATION_FORM_TEXT.test(haystack) && (hasDateOrTime || hasPartySize || RESERVATION_FIELD_NAME.test(fieldNames)));
+    if (looksLikeReservation) {
+      reservationFormSignal = true;
+      return;
+    }
+
+    // A newsletter box is an email field and little else. Requiring a message
+    // field (or more than a lone email input) separates the two without
+    // guessing from wording alone.
+    //
+    // CAPTCHAs inject a HIDDEN textarea — `g-recaptcha-response` and friends —
+    // so counting textareas naively turned every protected newsletter box into
+    // an "enquiry form", and the hidden field also pushed it past the
+    // newsletter check. A visitor cannot type into any of these, so none of
+    // them is somewhere a customer writes to the restaurant.
+    const writableMessageFields = form.find('textarea').filter((__, f) => isCustomerWritable($, f));
+    const hasMessageField = writableMessageFields.length > 0 || MESSAGE_FIELD_NAME.test(visibleFieldNames);
+    const isNewsletterOnly = NEWSLETTER_FORM_TEXT.test(haystack) && !hasMessageField;
+    if (isNewsletterOnly) return;
+    if (hasMessageField) contactFormSignal = true;
+  });
+
+  return { contactFormSignal, reservationFormSignal };
+}
 
 /** Bound on embedded destinations kept per page — untrusted HTML sets no limit of its own. */
 const MAX_EMBED_TARGETS = 50;
@@ -851,13 +970,19 @@ export function extractPage(
   const hoursMatch = bodyText.match(HOURS_REGEX);
   const addressMatch = bodyText.match(ADDRESS_REGEX);
 
-  const formsHtml = $('form').text() + ' ' + ($('form input[type="email"]').length > 0 ? 'email-input' : '');
+  // FORMS ARE CUSTOMER PATHWAYS, AND THEY USED TO BE READ AND DISCARDED.
+  //
+  // `$('form')` was collected into a local that ended at `void formsHtml`, so a
+  // restaurant serving a contact form or a table-request form was still told no
+  // enquiry form was detected. Each form is now classified from its own fields
+  // and wording, so the two kinds are reported separately and neither is
+  // mistaken for a newsletter box.
+  const { contactFormSignal, reservationFormSignal } = classifyForms($);
   const emailCaptureSignal =
     $('form input[type="email"]').length > 0 || /newsletter|join our (email|mailing) list|subscribe/i.test(bodyText);
   const smsCaptureSignal = /text club|sms club|join.{0,20}text|text .{0,10}to \d{5,6}/i.test(bodyText);
   const loyaltySignal = /loyalty|rewards program|vip club|earn points/i.test(bodyText) || Boolean(categorizedLinks.loyalty?.length);
   const giftCardSignal = /gift ?cards?/i.test(bodyText) || Boolean(categorizedLinks.gift_card?.length);
-  void formsHtml;
 
   return {
     requestedUrl,
@@ -887,6 +1012,8 @@ export function extractPage(
     pdfLinks: Array.from(pdfLinks).slice(0, 10),
     hoursText: hoursMatch ? hoursMatch[0].slice(0, 200) : null,
     addressText: addressMatch ? terminateAddressAtZip(addressMatch[0]).slice(0, 200) : null,
+    contactFormSignal,
+    reservationFormSignal,
     emailCaptureSignal,
     smsCaptureSignal,
     loyaltySignal,

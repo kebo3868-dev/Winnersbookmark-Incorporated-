@@ -4,18 +4,18 @@ import { LeadStatusSelect } from './LeadStatusSelect';
 import { PurgeDemoButton } from './PurgeDemoButton';
 import { DeleteLeadButton } from './DeleteLeadButton';
 import { LeadCard } from './LeadCard';
-import { redactExpiredLeads, resolveLeadRetentionDays } from '@/lib/leads/retention';
+import { resolveLeadRetentionDays, sweepExpiredPii } from '@/lib/leads/retention';
 
 export const dynamic = 'force-dynamic';
 
 export default async function LeadsPage() {
-  // Retention sweep runs lazily from this read path, mirroring the stale-audit
-  // sweep: serverless hosting has no daemon, so expiry is enforced whenever
-  // anyone looks at the pipeline. No-op unless LEAD_RETENTION_DAYS is set.
+  // Opportunistic sweep on this read path. It is a backstop, NOT the mechanism:
+  // relying on it alone made expiry conditional on an operator opening this
+  // page. /api/retention/sweep is the scheduled entry point. Covers marketing
+  // enquiries as well as audit leads, and no-ops unless LEAD_RETENTION_DAYS is
+  // set.
   const retentionDays = resolveLeadRetentionDays();
-  if (retentionDays !== null) {
-    await redactExpiredLeads(prisma, retentionDays);
-  }
+  await sweepExpiredPii(prisma, retentionDays);
 
   const [leads, demoAuditCount] = await Promise.all([
     prisma.auditLead.findMany({
