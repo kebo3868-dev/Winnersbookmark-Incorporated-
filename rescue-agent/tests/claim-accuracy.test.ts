@@ -805,3 +805,59 @@ describe('form identity: field labels and page content outside the form do not s
     expect(r.formScopes, 'the gift-card form is still scoped').toContain('gift card');
   });
 });
+
+describe('codex P2 (round 3): a field-group legend is not the form\'s purpose', () => {
+  // Collecting every descendant legend turned an optional field group —
+  // <fieldset><legend>Gift card number (optional)</legend> — into the purpose
+  // of a whole contact form, and the audit reported "No public contact
+  // pathway was detected" on a page serving one. A heading or legend now names
+  // the form only if it is outside any field group (a fieldset holding only
+  // some of the form's fields) and comes before the first writable field.
+  const kind = (html: string) => {
+    const r = classifyForms(cheerio.load(`<html><body>${html}</body></html>`));
+    return r.contactFormSignal ? 'contact' : (r.formScopes[0] ?? 'none');
+  };
+
+  it('codex\'s case: an optional field-group legend leaves a contact form a contact form', () => {
+    expect(
+      kind(
+        '<form action="/contact"><input name="name"/><input type="email" name="email"/>' +
+          '<fieldset><legend>Gift card number (optional)</legend><input name="gc"/></fieldset>' +
+          '<textarea name="message"></textarea><button>Send</button></form>',
+      ),
+    ).toBe('contact');
+  });
+
+  it('holds when the field group comes first', () => {
+    expect(
+      kind(
+        '<form action="/contact"><fieldset><legend>Gift card number (optional)</legend><input name="gc"/></fieldset>' +
+          '<input type="email" name="email"/><textarea name="message"></textarea><button>Send</button></form>',
+      ),
+    ).toBe('contact');
+  });
+
+  it('a heading part-way down introduces the fields after it, not the form', () => {
+    expect(
+      kind(
+        '<form action="/contact"><input type="email" name="email"/><h3>Gift card details (optional)</h3>' +
+          '<input name="gc"/><textarea name="message"></textarea><button>Send</button></form>',
+      ),
+    ).toBe('contact');
+  });
+
+  it('a fieldset wrapping every field IS the form — with the button inside or outside', () => {
+    expect(
+      kind(
+        '<form action="/forms"><fieldset><legend>Gift card request</legend><input type="email" name="e"/>' +
+          '<textarea name="message"></textarea><button>Send</button></fieldset></form>',
+      ),
+    ).toBe('gift card');
+    expect(
+      kind(
+        '<form action="/forms"><fieldset><legend>Gift card request</legend><input type="email" name="e"/>' +
+          '<textarea name="message"></textarea></fieldset><button>Send</button></form>',
+      ),
+    ).toBe('gift card');
+  });
+});

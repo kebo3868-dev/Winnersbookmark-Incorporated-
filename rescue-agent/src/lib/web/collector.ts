@@ -462,17 +462,43 @@ const GENERAL_ENQUIRY_TEXT =
   /general (enquir|inquir|question)|contact[- _]?us|how can we help|ask us|send us a (message|note)|get in touch|any questions/i;
 
 /**
- * A form's own headings and legends — where many forms state their purpose.
+ * The headings and legends that name the WHOLE form — where many forms state
+ * their purpose.
  *
- * Only elements INSIDE the form count. A heading above a form describes the
- * page section, which may hold several forms; a `<legend>` or an `<h2>` within
- * the form element is the form naming itself.
+ * Only elements inside the form count: a heading above a form describes a page
+ * section, which may hold several forms. But inside the form not every heading
+ * speaks for it either. Collecting every descendant legend turned
+ * `<fieldset><legend>Gift card number (optional)</legend>` — one optional field
+ * group in a contact form — into the purpose of the whole form, and the audit
+ * reported "No public contact pathway was detected" on a page serving a contact
+ * form. A field-group legend is a field label by another name, and field labels
+ * are excluded from identity for exactly this reason.
+ *
+ * A heading or legend therefore names the form only when BOTH hold:
+ *   · it is not inside a field group — a fieldset holding only some of the
+ *     form's writable fields. A fieldset wrapping every field is the form
+ *     itself, whether or not the submit button sits inside it;
+ *   · it comes before the form's first writable field. A heading part-way
+ *     down introduces the fields after it, not the form.
  */
 function formHeadings($: cheerio.CheerioAPI, $form: cheerio.Cheerio<DomElement>): string {
+  const isWritable = (f: DomElement) => isCustomerWritable($, f);
+  const writable = $form.find('input, textarea, select').toArray().filter(isWritable);
+  // Document order within the form, so "before the first field" is decidable.
+  const order = new Map($form.find('*').toArray().map((el, i) => [el, i] as const));
+  const firstField = writable.length > 0 ? (order.get(writable[0]) ?? Infinity) : Infinity;
+
+  const inFieldGroup = (el: DomElement): boolean =>
+    $(el)
+      .parentsUntil($form, 'fieldset')
+      .toArray()
+      .some((fs) => $(fs).find('input, textarea, select').toArray().filter(isWritable).length < writable.length);
+
   return $form
     .find('legend, h1, h2, h3, h4, h5, h6')
-    .map((_, el) => $(el).text())
-    .get()
+    .toArray()
+    .filter((el) => !inFieldGroup(el) && (order.get(el) ?? Infinity) < firstField)
+    .map((el) => $(el).text())
     .join(' ')
     .replace(/\s+/g, ' ')
     .trim()
