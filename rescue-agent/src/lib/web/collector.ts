@@ -448,6 +448,32 @@ const SINGLE_PURPOSE_FORMS: [RegExp, string][] = [
   // in the opposite direction.
 ];
 
+/**
+ * True when the only thing a visitor can type into this form is an email
+ * address — the shape of a signup box.
+ *
+ * Checkbox and hidden fields are ignored: a consent tick and a CAPTCHA token
+ * are not somewhere a visitor writes anything, and counting them made a bare
+ * signup box look like a multi-field form. A gift-card request (name, amount,
+ * message) or an enquiry form (name, message) has other writable fields and so
+ * is never matched here.
+ */
+function isEmailOnlyForm($: cheerio.CheerioAPI, form: cheerio.Cheerio<DomElement>): boolean {
+  const writable = form
+    .find('input, textarea, select')
+    .toArray()
+    .filter((f) => isCustomerWritable($, f))
+    .filter((f) => {
+      const type = ($(f).attr('type') ?? '').toLowerCase();
+      return type !== 'checkbox' && type !== 'radio' && type !== 'submit' && type !== 'button';
+    });
+  if (writable.length !== 1) return false;
+  const only = writable[0];
+  const type = ($(only).attr('type') ?? '').toLowerCase();
+  const name = `${$(only).attr('name') ?? ''} ${$(only).attr('id') ?? ''} ${$(only).attr('placeholder') ?? ''}`;
+  return type === 'email' || /\bemail\b|\be-?mail\b/i.test(name);
+}
+
 /** The single purpose this form serves, or null when it accepts general enquiries. */
 function singlePurposeScope(haystack: string): string | null {
   for (const [pattern, label] of SINGLE_PURPOSE_FORMS) {
@@ -1069,13 +1095,29 @@ export function extractPage(
   // anywhere. That claim then fed the retention category, which is the precise
   // error of reading a gift-card signal as a follow-up system.
   //
-  // EMAIL_CAPTURE now requires an actual invitation: newsletter wording in the
-  // page text, or a form whose own wording offers a subscription.
+  // EMAIL_CAPTURE requires an actual invitation: newsletter wording in the page
+  // text, a form whose own wording offers a subscription, or a form that IS a
+  // signup box by shape.
+  //
+  // The wording tests alone were not enough, and the gap was a false ABSENCE —
+  // the same error as discarding a published email address. A footer box whose
+  // only field is an email input and whose button reads "Sign Up" or "Join"
+  // carries none of the newsletter vocabulary, and restaurant sites are full of
+  // them; the audit was reporting "no mechanism for collecting visitors' email
+  // addresses" on pages that plainly had one. Shape settles it: a form a
+  // visitor can only put an email address into is a signup box whatever the
+  // button says, and a gift-card or enquiry form has other fields.
   const emailCaptureSignal =
     /newsletter|join our (email|mailing) list|subscribe/i.test(bodyText) ||
     $('form')
       .toArray()
-      .some((el) => NEWSLETTER_FORM_TEXT.test($(el).text()) && $(el).find('input[type="email"]').length > 0);
+      .some((el) => {
+        const form = $(el);
+        const hasEmailInput = form.find('input[type="email"]').length > 0;
+        if (!hasEmailInput) return false;
+        if (NEWSLETTER_FORM_TEXT.test(form.text())) return true;
+        return isEmailOnlyForm($, form);
+      });
   const smsCaptureSignal = /text club|sms club|join.{0,20}text|text .{0,10}to \d{5,6}/i.test(bodyText);
   const loyaltySignal = /loyalty|rewards program|vip club|earn points/i.test(bodyText) || Boolean(categorizedLinks.loyalty?.length);
   const giftCardSignal = /gift ?cards?/i.test(bodyText) || Boolean(categorizedLinks.gift_card?.length);

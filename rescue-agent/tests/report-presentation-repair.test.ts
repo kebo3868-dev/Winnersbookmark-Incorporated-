@@ -300,3 +300,30 @@ describe('layout and continuation labels agree', () => {
     expect(drawn.toUpperCase()).not.toContain('CONTINUED');
   }, 60_000);
 });
+
+describe('continuation bookkeeping is per render, not global', () => {
+  // Module-scope state is a bug whenever two reports render at once in the
+  // same process: react-pdf's layout is async, so a second document starting
+  // would clear the first one's recorded pages mid-layout. Each document now
+  // creates its own ledger.
+  it('two documents rendered concurrently each label their own continuation', async () => {
+    const { ExecutivePdf } = await import('@/lib/pdf/ExecutivePdf');
+    const longInput = reportInput({
+      opportunities: [
+        {
+          ...reportInput().opportunities[0],
+          problem: 'A long problem statement that runs on and on and on. '.repeat(40),
+        },
+      ],
+    });
+    const dto = buildExecutiveReport(longInput);
+    const [a, b] = await Promise.all([renderedAsciiText(dto), renderedAsciiText(dto)]);
+    expect(a.toUpperCase(), 'first concurrent render').toContain('CONTINUED');
+    expect(b.toUpperCase(), 'second concurrent render').toContain('CONTINUED');
+  }, 120_000);
+
+  it('the module exports no mutable continuation state to reset', async () => {
+    const mod = await import('@/lib/pdf/ExecutivePdf');
+    expect(Object.keys(mod)).not.toContain('resetContinuationState');
+  });
+});

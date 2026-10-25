@@ -488,3 +488,112 @@ describe('the journey map keeps the limitation beside the observation', () => {
     expect(menu?.limitation).toBeNull();
   });
 });
+
+// ── FOUND IN REVIEW OF THIS REPAIR ────────────────────────────────────────
+//
+// Tightening EMAIL_CAPTURE to require newsletter wording fixed a false
+// POSITIVE (a gift-card form read as a signup) and introduced a false
+// NEGATIVE: a footer box whose only field is an email input and whose button
+// reads "Sign Up" carries none of the newsletter vocabulary, and the audit
+// reported "no mechanism for collecting visitors' email addresses" on a page
+// that plainly had one. A false absence is the same class of defect as
+// discarding a published email address.
+
+describe('a signup box is recognised by shape, not only by wording', () => {
+  const emailCaptureFor = (body: string) => pageOf(body).emailCaptureSignal;
+
+  it('detects a terse footer signup box', () => {
+    expect(
+      emailCaptureFor('<footer><form><label>Email address</label><input type="email" name="email" /><button>Sign Up</button></form></footer>'),
+      'button "Sign Up", no newsletter wording',
+    ).toBe(true);
+    expect(
+      emailCaptureFor('<form><input type="email" name="EMAIL" placeholder="Your email" /><button>Join</button></form>'),
+      'button "Join", placeholder only',
+    ).toBe(true);
+  });
+
+  it('still detects the wording-based cases', () => {
+    expect(emailCaptureFor('<form><label>Join our mailing list</label><input type="email" name="e" /><button>Subscribe</button></form>')).toBe(true);
+    expect(emailCaptureFor('<p>Sign up for our newsletter.</p>')).toBe(true);
+  });
+
+  it('does NOT count a form with other fields a visitor fills in', () => {
+    // The false positive this guard was added for must stay fixed.
+    expect(
+      emailCaptureFor('<form action="/gift-card-request"><input name="n" /><input type="email" name="e" /><textarea name="message"></textarea><button>Send gift card request</button></form>'),
+      'gift card request form',
+    ).toBe(false);
+    expect(
+      emailCaptureFor('<form action="/contact"><input name="n" /><input type="email" name="e" /><textarea name="message" placeholder="How can we help?"></textarea><button>Send</button></form>'),
+      'contact form',
+    ).toBe(false);
+  });
+
+  it('ignores consent ticks and CAPTCHA tokens when judging the shape', () => {
+    // A consent checkbox and a hidden CAPTCHA field are not somewhere a visitor
+    // writes anything; counting them made a bare signup box look multi-field.
+    expect(
+      emailCaptureFor(`
+        <form>
+          <input type="email" name="email" placeholder="Email" />
+          <input type="checkbox" name="consent" />
+          <textarea name="g-recaptcha-response" style="display:none"></textarea>
+          <button>Sign Up</button>
+        </form>
+      `),
+    ).toBe(true);
+  });
+});
+
+// ── RULES MUST FIRE ON WHAT THE ENGINE ACTUALLY EMITS ─────────────────────
+//
+// The retention rule matched `/no public email capture/i` while evidence.ts
+// emits "No mechanism for collecting visitors' email addresses …". The two
+// stopped agreeing when that sentence was rewritten, and the rule was DEAD on
+// the live pipeline: a fresh audit of a site with no signup and no loyalty
+// produced no retention finding at all. Its own test passed throughout,
+// because the test supplied hand-written evidence carrying the old sentence.
+//
+// These tests drive the rules from normalizeEvidence output — the real
+// sentences — so a rewording cannot silently switch a rule off again.
+
+describe('leak rules fire on real generated evidence, not on hand-written prose', () => {
+  const BARE_SITE = '<h1>Probe Grill</h1><p>Call (727) 555-0000</p>';
+  const leaksFromRealEvidence = (body: string) => {
+    const records = normalizeEvidence({ pages: [pageOf(body)], failures: [], probes: [] }).map((e, i) => ({
+      id: `r${i}`,
+      evidenceType: e.evidenceType,
+      fact: e.fact,
+      supportingContext: e.supportingContext ?? null,
+      confidence: e.confidence,
+    }));
+    return detectRevenueLeaks({ evidence: records, journey: analyzeJourney(records) });
+  };
+
+  it('a site with no opt-in route produces the opt-in finding', () => {
+    const leaks = leaksFromRealEvidence(BARE_SITE);
+    const optIn = leaks.find((l) => /OPT-IN|RETENTION/i.test(l.category));
+    expect(optIn, `categories found: ${leaks.map((l) => l.category).join(', ')}`).toBeDefined();
+    expect(optIn!.problem).toMatch(/NOT OBSERVED:/);
+    expect(optIn!.problem).toMatch(/REQUIRES YOUR DATA:/);
+  });
+
+  it('a site WITH a signup box does not produce it', () => {
+    const leaks = leaksFromRealEvidence(
+      `${BARE_SITE}<form><input type="email" name="email" placeholder="Email" /><button>Sign Up</button></form>
+       <a href="/rewards">Rewards Club</a>`,
+    );
+    expect(leaks.find((l) => /OPT-IN|RETENTION/i.test(l.category))).toBeUndefined();
+  });
+
+  it('every absence-matching rule still matches its own evidence type', () => {
+    // A guard against the same coupling breaking elsewhere: each of these
+    // rules must fire for a site that genuinely lacks the signal.
+    const leaks = leaksFromRealEvidence(BARE_SITE);
+    const categories = leaks.map((l) => l.category).join(' | ');
+    for (const expected of [/PHONE-DEPENDENT/i, /MENU ACCESS/i, /CTA/i, /OPT-IN|RETENTION/i]) {
+      expect(categories, `${expected} missing from: ${categories}`).toMatch(expected);
+    }
+  });
+});

@@ -8,6 +8,17 @@ interface RuleContext {
   journey: JourneyStageResult[];
 }
 
+/**
+ * True when a fact states that something was NOT found.
+ *
+ * Mirrors `positive` in journey.ts deliberately: a rule that wants "this signal
+ * is absent" should ask that question, not match the sentence that happened to
+ * express it when the rule was written. Only the opening clause is examined,
+ * because a positive fact can mention what it is *not* further along ("… it is
+ * not a newsletter signup, which is recorded separately").
+ */
+const statesAbsence = (e: EvidenceRecordLike) => /\bno\b|\bnot\b|lacks|without/i.test(e.fact.slice(0, 60));
+
 type Rule = (ctx: RuleContext) => OpportunityInput | null;
 
 const byType = (ctx: RuleContext, type: string, predicate?: (e: EvidenceRecordLike) => boolean) =>
@@ -149,8 +160,20 @@ const RULES: Rule[] = [
   },
   // Weak retention signals.
   (ctx) => {
-    const emailMissing = byType(ctx, 'EMAIL_CAPTURE', (e) => /no public email capture/i.test(e.fact));
-    const loyaltyMissing = byType(ctx, 'LOYALTY_SIGNAL', (e) => /no public loyalty/i.test(e.fact));
+    // MATCHED ON ABSENCE, NOT ON A SENTENCE.
+    //
+    // This rule read `/no public email capture/i` while evidence.ts emits "No
+    // mechanism for collecting visitors' email addresses …". The two stopped
+    // agreeing when that wording was rewritten, and the rule has been DEAD on
+    // the live pipeline ever since: a fresh audit of a site with no signup and
+    // no loyalty programme produced no retention finding at all. It passed its
+    // own test because the test fed it hand-written evidence carrying the old
+    // sentence — a test that asserted the wording instead of the behaviour.
+    //
+    // `statesAbsence` asks the question the rule actually means, the same way
+    // journey.ts does, so a future rewording cannot silently switch it off.
+    const emailMissing = byType(ctx, 'EMAIL_CAPTURE', statesAbsence);
+    const loyaltyMissing = byType(ctx, 'LOYALTY_SIGNAL', statesAbsence);
     if (emailMissing.length === 0 || loyaltyMissing.length === 0) return null;
     const supporting = [...emailMissing, ...loyaltyMissing];
     return {

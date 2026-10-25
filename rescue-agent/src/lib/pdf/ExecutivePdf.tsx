@@ -66,29 +66,30 @@ const s = StyleSheet.create({
  * The alternative, a label above every block after the first, put two of them
  * on one page whenever two blocks landed on the same page — which reads as a
  * mistake rather than as a continuation.
+ *
+ * The bookkeeping is PER RENDER, held in a Map the document creates and passes
+ * down. It was module scope first, which is a bug whenever two reports render
+ * at once in the same process: react-pdf's layout is async, so a second
+ * document starting would clear the first one's recorded pages mid-layout and
+ * its labels would come out wrong.
  */
-const continuationFirstPage = new Map<string, number>();
+export type ContinuationLedger = Map<string, number>;
 
-function ContinuedLabel({ id, text }: { id: string; text: string }) {
+function ContinuedLabel({ id, text, ledger }: { id: string; text: string; ledger: ContinuationLedger }) {
   return (
     <Text
       fixed
       style={{ fontSize: 6.5, letterSpacing: 0.8, color: C.muted, textTransform: 'uppercase', marginBottom: 2 }}
       render={({ pageNumber }) => {
-        const seen = continuationFirstPage.get(id);
+        const seen = ledger.get(id);
         if (seen === undefined || pageNumber < seen) {
-          continuationFirstPage.set(id, pageNumber);
+          ledger.set(id, pageNumber);
           return '';
         }
         return pageNumber > seen ? text : '';
       }}
     />
   );
-}
-
-/** Clears the continuation bookkeeping so one render cannot affect the next. */
-export function resetContinuationState(): void {
-  continuationFirstPage.clear();
 }
 
 /** Split a list into fixed-size groups, so a page break falls between groups. */
@@ -237,9 +238,9 @@ function ScenarioBlock({ scenario, compact }: { scenario: RevenueScenario; compa
 }
 
 export function ExecutivePdf({ dto }: { dto: ExecutiveReportDTO }) {
-  // Per-render bookkeeping for the continuation labels. Cleared here so a
-  // second report in the same process cannot inherit the first one's pages.
-  resetContinuationState();
+  // Per-render bookkeeping for the continuation labels: one ledger per
+  // document, so two reports rendering at once cannot disturb each other.
+  const continuationLedger: ContinuationLedger = new Map();
   return (
     <Document
       title={`${dto.cover.productName} — ${dto.cover.restaurantName}`}
@@ -574,7 +575,13 @@ export function ExecutivePdf({ dto }: { dto: ExecutiveReportDTO }) {
                   </View>
                   <Text style={[s.mutedText, { marginBottom: 6 }]}>Customer journey stage: {f.journeyStage} · Priority: {f.labels.priority}</Text>
                 </View>
-                {maySpanPages && <ContinuedLabel id={`finding-${f.number}`} text={`${f.number}. ${f.title} — continued`} />}
+                {maySpanPages && (
+                  <ContinuedLabel
+                    id={`finding-${f.number}`}
+                    text={`${f.number}. ${f.title} — continued`}
+                    ledger={continuationLedger}
+                  />
+                )}
                 {blocks.map((block) => (
                   <View key={block.key} wrap={false}>
                     {block.node}
