@@ -1020,3 +1020,43 @@ describe('codex P2 (round 7): punctuation that ends a clause does not start a li
     expect(find(records, 'SINGLE_PURPOSE_FORM')?.fact).toMatch(/gift card form/i);
   });
 });
+
+describe('codex P2 (round 8): a list continues past an aside', () => {
+  // Round 7 ended the qualifier at "(", so "gift cards (balance enquiries)
+  // and allergens" lost "allergens", read as one topic, and the audit reported
+  // no public contact pathway. Balanced asides — "(…)" and "— … —" — are now
+  // removed before the clause is read; an unclosed "(" or a lone dash still
+  // ends it.
+  const kind = (heading: string, action: string, label = '') => {
+    const html = `<form action="${action}"${label}><h2>${heading}</h2><input type="email" name="e"/><textarea name="message"></textarea><button>Send</button></form>`;
+    const r = classifyForms(cheerio.load(`<html><body>${html}</body></html>`));
+    return r.contactFormSignal ? 'contact' : (r.formScopes[0] ?? 'none');
+  };
+  const GIFT = ['/gift-card-request', ' aria-label="Gift card request"'] as const;
+
+  it.each([
+    ['a parenthetical, then "and" (codex)', 'Contact us about gift cards (balance enquiries) and allergens'],
+    ['a parenthetical, then "or"', 'Contact us about gift cards (balances) or events'],
+    ['a parenthetical, then a comma', 'Contact us about gift cards (balances), events'],
+    ['an em-dash aside, then "and"', 'Contact us about gift cards — including balances — and allergens'],
+  ])('%s stays a contact route', (_label, heading) => {
+    expect(kind(heading, '/contact')).toBe('contact');
+  });
+
+  it.each([
+    ['a parenthetical with no further topic', 'Contact us about gift cards (balance enquiries)'],
+    ['a parenthetical instruction, as in round 7', 'Contact us about gift cards (include your order number)'],
+    ['an unclosed parenthesis', 'Contact us about gift cards (include your order number'],
+    ['a lone dash, as in round 7', 'Contact us about gift cards — include your order number'],
+    ['an em-dash aside with no further topic', 'Contact us about gift cards — balances too — thank you'],
+  ])('%s keeps the gift-card scope', (_label, heading) => {
+    expect(kind(heading, ...GIFT)).toBe('gift card');
+  });
+
+  it('end to end: the codex form is reported as a contact route', () => {
+    const records = recordsFor(
+      '<form action="/contact"><h2>Contact us about gift cards (balance enquiries) and allergens</h2><input type="email" name="e"/><textarea name="message"></textarea><button>Send</button></form>',
+    );
+    expect(find(records, 'CONTACT_PATH')?.fact).not.toMatch(/No public contact pathway/i);
+  });
+});

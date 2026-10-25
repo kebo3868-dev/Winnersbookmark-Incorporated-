@@ -569,11 +569,18 @@ function submitLabels($: cheerio.CheerioAPI, $form: cheerio.Cheerio<DomElement>)
  */
 function invitesGeneralEnquiries(identity: string): boolean {
   for (const match of identity.matchAll(GENERAL_ENQUIRY_PHRASE)) {
-    const after = identity.slice((match.index ?? 0) + match[0].length);
-    // The qualifier is one clause. ";", ":", "|", a dash or "(" ends it: in
-    // "Contact us about gift cards; include your order number" what follows
-    // the semicolon is an instruction, not a second topic, and reading it as
-    // one cleared the scope of a gift-card form.
+    // Asides are removed first — a balanced "(…)" or a "— … —" pair — so a
+    // list that continues past one is still read as a list: stopping at the
+    // "(" in "gift cards (balance enquiries) and allergens" dropped
+    // "allergens" and scoped a general contact form to gift cards.
+    const after = identity
+      .slice((match.index ?? 0) + match[0].length)
+      .replace(/\s*\([^()]*\)/g, '')
+      .replace(/\s+[–—][^–—]*[–—](?=\s)/g, '');
+    // The qualifier is then one clause. ";", ":", "|", a lone dash or an
+    // unclosed "(" ends it: in "Contact us about gift cards; include your
+    // order number" what follows the semicolon is an instruction, not a second
+    // topic, and reading it as one cleared the scope of a gift-card form.
     const qualifier = after.match(/^\s*(?:about|regarding|concerning|re:?|on|for|with)\s+([^.?!;:|(–—]{1,80})/i)?.[1];
     if (!qualifier) return true;
     if (/\b(?:anything|everything|all|other|any\s+(?:topic|question|matter|thing)s?)\b/i.test(qualifier)) return true;
