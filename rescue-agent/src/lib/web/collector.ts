@@ -335,6 +335,23 @@ function isCustomerWritable($: cheerio.CheerioAPI, field: DomElement): boolean {
 }
 
 /**
+ * Input types that are controls, not places a visitor types anything.
+ *
+ * `isCustomerWritable` answers "could a visitor interact with this", and a
+ * submit button passes that. Form identity needs the narrower question —
+ * "is this somewhere a visitor writes" — or an `<input type="submit">` placed
+ * before a form's title becomes its "first field", the title stops counting,
+ * and a gift-card form is reported as a general enquiry route.
+ */
+const CONTROL_INPUT_TYPES = new Set(['submit', 'button', 'reset', 'image', 'checkbox', 'radio']);
+
+/** A field a visitor types into: writable, and not a button, toggle or choice control. */
+function isTextEntryField($: cheerio.CheerioAPI, field: DomElement): boolean {
+  if (!isCustomerWritable($, field)) return false;
+  return !CONTROL_INPUT_TYPES.has(($(field).attr('type') ?? '').toLowerCase());
+}
+
+/**
  * Classify the forms on a page into customer pathways.
  *
  * Deliberately conservative in both directions. A newsletter box must not be
@@ -482,7 +499,9 @@ const GENERAL_ENQUIRY_TEXT =
  *     down introduces the fields after it, not the form.
  */
 function formHeadings($: cheerio.CheerioAPI, $form: cheerio.Cheerio<DomElement>): string {
-  const isWritable = (f: DomElement) => isCustomerWritable($, f);
+  // Text-entry fields only. Counting a submit or button input as a "field" let
+  // a control placed before the title hide the title from identity.
+  const isWritable = (f: DomElement) => isTextEntryField($, f);
   const writable = $form.find('input, textarea, select').toArray().filter(isWritable);
   // Document order within the form, so "before the first field" is decidable.
   const order = new Map($form.find('*').toArray().map((el, i) => [el, i] as const));
@@ -546,14 +565,13 @@ const SINGLE_PURPOSE_FORMS: [RegExp, string][] = [
  * is never matched here.
  */
 function isEmailOnlyForm($: cheerio.CheerioAPI, form: cheerio.Cheerio<DomElement>): boolean {
+  // Same definition of "a field a visitor types into" as form identity uses,
+  // so the two cannot drift. This also now excludes reset and image inputs,
+  // which the inline list here had missed.
   const writable = form
     .find('input, textarea, select')
     .toArray()
-    .filter((f) => isCustomerWritable($, f))
-    .filter((f) => {
-      const type = ($(f).attr('type') ?? '').toLowerCase();
-      return type !== 'checkbox' && type !== 'radio' && type !== 'submit' && type !== 'button';
-    });
+    .filter((f) => isTextEntryField($, f));
   if (writable.length !== 1) return false;
   const only = writable[0];
   const type = ($(only).attr('type') ?? '').toLowerCase();

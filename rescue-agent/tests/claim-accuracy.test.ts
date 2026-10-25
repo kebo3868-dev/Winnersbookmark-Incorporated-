@@ -861,3 +861,35 @@ describe('codex P2 (round 3): a field-group legend is not the form\'s purpose', 
     ).toBe('gift card');
   });
 });
+
+describe('codex P2 (round 4): a button is not the form\'s first field', () => {
+  // isCustomerWritable accepts submit/button inputs, so a control placed
+  // before a form's title became its "first field", the title stopped
+  // counting, and a gift-card form was reported as a general enquiry route.
+  // Form identity now uses isTextEntryField, which excludes control inputs.
+  const kind = (html: string) => {
+    const r = classifyForms(cheerio.load(`<html><body>${html}</body></html>`));
+    return r.contactFormSignal ? 'contact' : (r.formScopes[0] ?? 'none');
+  };
+  const body = '<h2>Gift card request</h2><input type="email" name="e"/><textarea name="message"></textarea><button>Send</button></form>';
+
+  it.each([
+    ['submit', '<input type="submit" value="Send">'],
+    ['button', '<input type="button" value="Close">'],
+    ['reset', '<input type="reset" value="Clear">'],
+    ['image', '<input type="image" src="x.png" alt="go">'],
+  ])('a leading %s input does not hide the title', (_type, control) => {
+    expect(kind(`<form action="/forms">${control}${body}`)).toBe('gift card');
+  });
+
+  it('a field group made only of choice controls is still a field group', () => {
+    expect(
+      kind(
+        '<form action="/contact"><input type="email" name="email"/>' +
+          '<fieldset><legend>Gift card amount (optional)</legend>' +
+          '<input type="radio" name="amt" value="25"/><input type="radio" name="amt" value="50"/></fieldset>' +
+          '<textarea name="message"></textarea><button>Send</button></form>',
+      ),
+    ).toBe('contact');
+  });
+});
