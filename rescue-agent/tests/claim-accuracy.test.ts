@@ -937,3 +937,48 @@ describe('codex P2 (round 5): which buttons and which wording speak for a form',
     expect(kind(html)).toBe(expected);
   });
 });
+
+describe('codex P2 (round 6): wording is qualified within the element that says it', () => {
+  // Two findings from the review of c0b5a56, plus neighbouring variants:
+  //   · identity concatenated attributes, submit labels and headings with no
+  //     boundary, so "Contact us for more information" in an aria-label read
+  //     on into the button's "Send gift card request" and became a gift-card
+  //     qualifier — the audit reported no public contact pathway;
+  //   · a topic list joined by "&" (or "+", ";", "|") was read as one topic.
+  const kind = (html: string) => {
+    const r = classifyForms(cheerio.load(`<html><body>${html}</body></html>`));
+    return r.contactFormSignal ? 'contact' : (r.formScopes[0] ?? 'none');
+  };
+  const FIELDS = '<input type="email" name="e"/><textarea name="message"></textarea>';
+  const GIFT = (attrs: string, inner: string) => `<form action="/gift-card-request" ${attrs}>${inner}</form>`;
+
+  it.each([
+    ['aria-label general, button names a topic (codex)', 'contact', GIFT('aria-label="Contact us for more information"', `${FIELDS}<button>Send gift card request</button>`)],
+    ['the same invitation as a heading', 'contact', GIFT('', `<h2>Contact us for more information</h2>${FIELDS}<button>Send gift card request</button>`)],
+    ['a general heading followed by a topic heading', 'contact', GIFT('', `<h2>Contact us for more information</h2><h3>Gift card request</h3>${FIELDS}<button>Send</button>`)],
+    ['a general legend followed by a topic heading', 'contact', GIFT('', `<legend>Get in touch with</legend><h3>gift cards</h3>${FIELDS}<button>Send</button>`)],
+    ['a qualified aria-label still narrows', 'gift card', GIFT('aria-label="Contact us about gift cards"', `${FIELDS}<button>Send</button>`)],
+    ['a qualified heading still narrows', 'gift card', GIFT('', `<h2>Contact us about gift cards</h2>${FIELDS}<button>Send gift card request</button>`)],
+  ])('boundaries: %s → %s', (_label, expected, html) => {
+    expect(kind(html)).toBe(expected);
+  });
+
+  it.each([
+    ['"gift cards &amp; allergens" (codex)', 'contact', '<h2>Contact us about gift cards &amp; allergens</h2>'],
+    ['"gift cards + catering"', 'contact', '<h2>Contact us about gift cards + catering</h2>'],
+    ['"gift cards; allergens"', 'contact', '<h2>Contact us about gift cards; allergens</h2>'],
+    ['"gift cards | events"', 'contact', '<h2>Contact us about gift cards | events</h2>'],
+    ['"and", as before', 'contact', '<h2>Contact us about gift cards and allergens</h2>'],
+  ])('lists: %s → %s', (_label, expected, heading) => {
+    expect(kind(`<form action="/contact">${heading}${FIELDS}<button>Send</button></form>`)).toBe(expected);
+  });
+
+  it('an ampersand list in an attribute stays general', () => {
+    expect(kind(`<form action="/contact" aria-label="Contact us about gift cards &amp; allergens">${FIELDS}<button>Send</button></form>`)).toBe('contact');
+  });
+
+  it('end to end: the codex form is reported as a contact route', () => {
+    const records = recordsFor(GIFT('aria-label="Contact us for more information"', `${FIELDS}<button>Send gift card request</button>`));
+    expect(find(records, 'CONTACT_PATH')?.fact).not.toMatch(/No public contact pathway/i);
+  });
+});

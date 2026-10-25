@@ -376,15 +376,14 @@ export function classifyForms($: cheerio.CheerioAPI): {
   $('form').each((_, el) => {
     const form = $(el);
     const text = form.text().replace(/\s+/g, ' ').trim().slice(0, 600);
-    const attrs = [
+    const attrList = [
       form.attr('id'),
       form.attr('name'),
       form.attr('class'),
       form.attr('action'),
       form.attr('aria-label'),
-    ]
-      .filter(Boolean)
-      .join(' ');
+    ].filter((a): a is string => Boolean(a));
+    const attrs = attrList.join(' ');
     const describe = (f: DomElement) =>
       [$(f).attr('name'), $(f).attr('id'), $(f).attr('placeholder'), $(f).attr('type')].filter(Boolean).join(' ');
     const fields = form.find('input, textarea, select');
@@ -457,8 +456,15 @@ export function classifyForms($: cheerio.CheerioAPI): {
     // are the places a form states its purpose. Dropdown options and body
     // prose are excluded from both, because a topic a form mentions and a
     // sentence inside it are not claims about what the form accepts.
-    const identity = `${attrs} ${submitText($, form)} ${formHeadings($, form)}`;
-    const scope = invitesGeneralEnquiries(identity) ? null : singlePurposeScope(identity);
+    //
+    // Each attribute, submit control and heading is kept as its own source.
+    // Joined into one string, "Contact us for more information" in an
+    // aria-label read straight on into the button's "Send gift card request",
+    // so the button became the invitation's qualifier and a general contact
+    // form was scoped to gift cards. Wording is qualified only by what follows
+    // it in the same element.
+    const identity = [...attrList, ...submitLabels($, form), ...formHeadings($, form)];
+    const scope = identity.some(invitesGeneralEnquiries) ? null : singlePurposeScope(identity.join(' '));
     if (scope) {
       if (!formScopes.includes(scope)) formScopes.push(scope);
       return;
@@ -498,7 +504,7 @@ const GENERAL_ENQUIRY_PHRASE =
  *   · it comes before the form's first writable field. A heading part-way
  *     down introduces the fields after it, not the form.
  */
-function formHeadings($: cheerio.CheerioAPI, $form: cheerio.Cheerio<DomElement>): string {
+function formHeadings($: cheerio.CheerioAPI, $form: cheerio.Cheerio<DomElement>): string[] {
   // Text-entry fields only. Counting a submit or button input as a "field" let
   // a control placed before the title hide the title from identity.
   const isWritable = (f: DomElement) => isTextEntryField($, f);
@@ -517,15 +523,12 @@ function formHeadings($: cheerio.CheerioAPI, $form: cheerio.Cheerio<DomElement>)
     .find('legend, h1, h2, h3, h4, h5, h6')
     .toArray()
     .filter((el) => !inFieldGroup(el) && (order.get(el) ?? Infinity) < firstField)
-    .map((el) => $(el).text())
-    .join(' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .slice(0, 200);
+    .map((el) => $(el).text().replace(/\s+/g, ' ').trim().slice(0, 200))
+    .filter(Boolean);
 }
 
-/** The label on a form's own submit control — what it says it does. */
-function submitText($: cheerio.CheerioAPI, $form: cheerio.Cheerio<DomElement>): string {
+/** The labels on a form's own submit controls — what each says it does. */
+function submitLabels($: cheerio.CheerioAPI, $form: cheerio.Cheerio<DomElement>): string[] {
   // SUBMIT CONTROLS ONLY. A <button type="button">Gift cards</button> is a
   // topic toggle or helper inside a general form, not the form saying what it
   // is; reading its label as identity scoped a contact form to gift cards and
@@ -537,9 +540,14 @@ function submitText($: cheerio.CheerioAPI, $form: cheerio.Cheerio<DomElement>): 
     const node = $(el);
     const type = (node.attr('type') ?? '').toLowerCase();
     if (el.tagName?.toLowerCase() === 'button' && type !== '' && type !== 'submit') return;
-    parts.push(node.text(), node.attr('value') ?? '', node.attr('alt') ?? '');
+    const label = [node.text(), node.attr('value') ?? '', node.attr('alt') ?? '']
+      .join(' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 120);
+    if (label) parts.push(label);
   });
-  return parts.join(' ').replace(/\s+/g, ' ').trim().slice(0, 120);
+  return parts;
 }
 
 /**
@@ -565,7 +573,8 @@ function invitesGeneralEnquiries(identity: string): boolean {
     const qualifier = after.match(/^\s*(?:about|regarding|concerning|re:?|on|for|with)\s+([^.?!]{1,80})/i)?.[1];
     if (!qualifier) return true;
     if (/\b(?:anything|everything|all|other|any\s+(?:topic|question|matter|thing)s?)\b/i.test(qualifier)) return true;
-    if (/,|\/|\bor\b|\band\b/i.test(qualifier)) return true;
+    // "&" arrives decoded from "&amp;"; "gift cards & allergens" is a list.
+    if (/[,/&+;|]|\bor\b|\band\b/i.test(qualifier)) return true;
     if (!singlePurposeScope(qualifier)) return true;
   }
   return false;
