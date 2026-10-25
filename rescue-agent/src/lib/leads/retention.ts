@@ -139,6 +139,153 @@ export interface RetentionSweepResult {
 }
 
 /**
+ * The read-only half of the client: counting and listing what a sweep WOULD
+ * touch, so an operator can look before enabling a window in production.
+ *
+ * Redaction cannot be undone. Turning retention on against real data without
+ * being able to see what it will hit first is a decision made blind, and the
+ * blast radius is personal data belonging to people who are not customers.
+ */
+export interface RetentionPreviewClient {
+  auditLead: {
+    findMany(args: {
+      where: {
+        createdAt: { lt: Date };
+        OR: ({ contactName: { not: null } } | { email: { not: null } } | { phone: { not: null } })[];
+      };
+      select: { id: true; createdAt: true; contactName: true; email: true; phone: true };
+      orderBy: { createdAt: 'asc' };
+      take: number;
+    }): Promise<{ id: string; createdAt: Date; contactName: string | null; email: string | null; phone: string | null }[]>;
+    count(args: {
+      where: {
+        createdAt: { lt: Date };
+        OR: ({ contactName: { not: null } } | { email: { not: null } } | { phone: { not: null } })[];
+      };
+    }): Promise<number>;
+  };
+  marketingLead: {
+    findMany(args: {
+      where: { createdAt: { lt: Date }; NOT: { name: string } };
+      select: { id: true; createdAt: true; name: true; email: true; phone: true };
+      orderBy: { createdAt: 'asc' };
+      take: number;
+    }): Promise<{ id: string; createdAt: Date; name: string; email: string; phone: string | null }[]>;
+    count(args: { where: { createdAt: { lt: Date }; NOT: { name: string } } }): Promise<number>;
+  };
+}
+
+/** One record a sweep would redact, identified but not altered. */
+export interface RetentionPreviewRow {
+  table: 'AuditLead' | 'MarketingLead';
+  id: string;
+  createdAt: Date;
+  ageDays: number;
+  /** Which personal fields this row currently holds. Values are NOT returned. */
+  fieldsHeld: string[];
+}
+
+export interface RetentionPreviewResult {
+  retentionDays: number | null;
+  cutoff: Date | null;
+  auditLeadsAffected: number;
+  marketingLeadsAffected: number;
+  totalAffected: number;
+  /** A bounded sample, oldest first. Never the whole table. */
+  sample: RetentionPreviewRow[];
+  /** Always true. A preview performs no writes, by construction. */
+  dryRun: true;
+}
+
+const PREVIEW_SAMPLE_LIMIT = 25;
+
+/**
+ * Report exactly which records a sweep would redact — and change nothing.
+ *
+ * Only `findMany` and `count` are used; this function has no access to a write
+ * method, so "it does not modify data" is a property of its type, not a promise
+ * in a comment. Field VALUES are deliberately not returned: an operator needs
+ * to know which rows and which fields are in scope, not to have the personal
+ * data re-exported into a log or a browser tab to answer that.
+ */
+export async function previewExpiredPii(
+  client: RetentionPreviewClient,
+  retentionDays: number | null = resolveLeadRetentionDays(),
+  now: Date = new Date(),
+): Promise<RetentionPreviewResult> {
+  if (retentionDays === null) {
+    return {
+      retentionDays: null,
+      cutoff: null,
+      auditLeadsAffected: 0,
+      marketingLeadsAffected: 0,
+      totalAffected: 0,
+      sample: [],
+      dryRun: true,
+    };
+  }
+  const cutoff = new Date(now.getTime() - retentionDays * 24 * 60 * 60 * 1000);
+  const auditWhere = {
+    createdAt: { lt: cutoff },
+    OR: [{ contactName: { not: null } }, { email: { not: null } }, { phone: { not: null } }] as (
+      | { contactName: { not: null } }
+      | { email: { not: null } }
+      | { phone: { not: null } }
+    )[],
+  };
+  const marketingWhere = { createdAt: { lt: cutoff }, NOT: { name: REDACTED_MARKER } };
+
+  const [auditLeadsAffected, marketingLeadsAffected, auditRows, marketingRows] = await Promise.all([
+    client.auditLead.count({ where: auditWhere }),
+    client.marketingLead.count({ where: marketingWhere }),
+    client.auditLead.findMany({
+      where: auditWhere,
+      select: { id: true, createdAt: true, contactName: true, email: true, phone: true },
+      orderBy: { createdAt: 'asc' },
+      take: PREVIEW_SAMPLE_LIMIT,
+    }),
+    client.marketingLead.findMany({
+      where: marketingWhere,
+      select: { id: true, createdAt: true, name: true, email: true, phone: true },
+      orderBy: { createdAt: 'asc' },
+      take: PREVIEW_SAMPLE_LIMIT,
+    }),
+  ]);
+
+  const ageDays = (d: Date) => Math.floor((now.getTime() - d.getTime()) / 86_400_000);
+  const sample: RetentionPreviewRow[] = [
+    ...auditRows.map((r) => ({
+      table: 'AuditLead' as const,
+      id: r.id,
+      createdAt: r.createdAt,
+      ageDays: ageDays(r.createdAt),
+      fieldsHeld: [r.contactName && 'contactName', r.email && 'email', r.phone && 'phone'].filter(
+        (f): f is string => Boolean(f),
+      ),
+    })),
+    ...marketingRows.map((r) => ({
+      table: 'MarketingLead' as const,
+      id: r.id,
+      createdAt: r.createdAt,
+      ageDays: ageDays(r.createdAt),
+      fieldsHeld: ['name', 'email', r.phone && 'phone'].filter((f): f is string => Boolean(f)),
+    })),
+  ]
+    .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+    .slice(0, PREVIEW_SAMPLE_LIMIT);
+
+  return {
+    retentionDays,
+    cutoff,
+    auditLeadsAffected,
+    marketingLeadsAffected,
+    totalAffected: auditLeadsAffected + marketingLeadsAffected,
+    sample,
+    dryRun: true,
+  };
+}
+
+/**
  * Run every retention sweep the system owes.
  *
  * One entry point on purpose. Retention was previously a single call against a

@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { prisma } from '@/lib/db';
 import { cronSecretMatches } from '@/lib/frontdesk/notify/worker';
 import { noteRejection, presentedAnyCredential } from '@/lib/frontdesk/security/rejections';
-import { resolveLeadRetentionDays, sweepExpiredPii } from '@/lib/leads/retention';
+import { previewExpiredPii, resolveLeadRetentionDays, sweepExpiredPii } from '@/lib/leads/retention';
 
 export const dynamic = 'force-dynamic';
 
@@ -48,10 +48,32 @@ async function handle(request: NextRequest) {
   }
 
   const retentionDays = resolveLeadRetentionDays();
+
+  // DRY RUN FIRST, BY DESIGN.
+  //
+  // Redaction cannot be undone, so an operator must be able to see what a
+  // window would hit before turning it on against real data. `?dryRun=1`
+  // routes to a function that has no write method available to it at all.
+  const dryRun = ['1', 'true', 'yes'].includes(
+    (request.nextUrl.searchParams.get('dryRun') ?? '').toLowerCase(),
+  );
+  if (dryRun) {
+    const preview = await previewExpiredPii(prisma, retentionDays);
+    return NextResponse.json({
+      ok: true,
+      ...preview,
+      note:
+        retentionDays === null
+          ? 'Retention is disabled, so a sweep would redact nothing. Set LEAD_RETENTION_DAYS to choose a window.'
+          : `DRY RUN — nothing was changed. A real sweep would redact personal fields on ${preview.totalAffected} record(s) created before ${preview.cutoff?.toISOString()}. Field values are deliberately not returned.`,
+    });
+  }
+
   const result = await sweepExpiredPii(prisma, retentionDays);
 
   return NextResponse.json({
     ok: true,
+    dryRun: false,
     ...result,
     note:
       retentionDays === null

@@ -9,11 +9,13 @@ import {
   type ExecutiveReportInput,
 } from '@/lib/reports/executive';
 import {
+  previewExpiredPii,
   redactExpiredMarketingLeads,
   sweepExpiredPii,
   REDACTED_MARKER,
   type LeadRetentionClient,
   type MarketingRetentionClient,
+  type RetentionPreviewClient,
 } from '@/lib/leads/retention';
 import type { EvidenceInput } from '@/types/audit';
 
@@ -234,6 +236,93 @@ describe('one sweep covers every table holding personal data', () => {
     const result = await sweepExpiredPii(client, null);
     expect(calls).toEqual([]);
     expect(result).toEqual({ retentionDays: null, auditLeadsRedacted: 0, marketingLeadsRedacted: 0 });
+  });
+});
+
+describe('retention dry run shows what would happen and changes nothing', () => {
+  const now = new Date('2026-10-25T00:00:00.000Z');
+  const old = (days: number) => new Date(now.getTime() - days * 86_400_000);
+
+  /**
+   * The preview client exposes ONLY findMany and count. A write is not
+   * something this test asserts against — it is something the preview function
+   * has no method to perform.
+   */
+  function previewClient() {
+    const writes: string[] = [];
+    const client: RetentionPreviewClient = {
+      auditLead: {
+        count: async () => 2,
+        findMany: async () => [
+          { id: 'al-1', createdAt: old(400), contactName: 'Old Owner', email: 'old@example.org', phone: null },
+          { id: 'al-2', createdAt: old(380), contactName: null, email: null, phone: '+15550001111' },
+        ],
+      },
+      marketingLead: {
+        count: async () => 1,
+        findMany: async () => [{ id: 'ml-1', createdAt: old(500), name: 'Jane Diner', email: 'jane@example.org', phone: '+15559998888' }],
+      },
+    };
+    return { client, writes };
+  }
+
+  it('counts every record a sweep would touch, across both tables', async () => {
+    const { client } = previewClient();
+    const p = await previewExpiredPii(client, 365, now);
+    expect(p.auditLeadsAffected).toBe(2);
+    expect(p.marketingLeadsAffected).toBe(1);
+    expect(p.totalAffected).toBe(3);
+  });
+
+  it('reports the cutoff it would apply', async () => {
+    const { client } = previewClient();
+    const p = await previewExpiredPii(client, 365, now);
+    expect(p.cutoff?.toISOString()).toBe('2025-10-25T00:00:00.000Z');
+  });
+
+  it('identifies each record and which personal fields it holds', async () => {
+    const { client } = previewClient();
+    const p = await previewExpiredPii(client, 365, now);
+    const ml = p.sample.find((r) => r.id === 'ml-1');
+    expect(ml?.table).toBe('MarketingLead');
+    expect(ml?.ageDays).toBe(500);
+    expect(ml?.fieldsHeld).toEqual(['name', 'email', 'phone']);
+    const al2 = p.sample.find((r) => r.id === 'al-2');
+    expect(al2?.fieldsHeld).toEqual(['phone']);
+  });
+
+  it('never returns the personal values themselves', async () => {
+    const { client } = previewClient();
+    const serialised = JSON.stringify(await previewExpiredPii(client, 365, now));
+    for (const value of ['Jane Diner', 'jane@example.org', '+15559998888', 'Old Owner', 'old@example.org']) {
+      expect(serialised, `preview leaked ${value}`).not.toContain(value);
+    }
+  });
+
+  it('orders the sample oldest first — the most overdue records lead', async () => {
+    const { client } = previewClient();
+    const p = await previewExpiredPii(client, 365, now);
+    expect(p.sample.map((r) => r.id)).toEqual(['ml-1', 'al-1', 'al-2']);
+  });
+
+  it('always marks itself as a dry run', async () => {
+    const { client } = previewClient();
+    expect((await previewExpiredPii(client, 365, now)).dryRun).toBe(true);
+  });
+
+  it('reports nothing affected when retention is disabled', async () => {
+    const { client } = previewClient();
+    const p = await previewExpiredPii(client, null, now);
+    expect(p).toMatchObject({ retentionDays: null, cutoff: null, totalAffected: 0, sample: [], dryRun: true });
+  });
+
+  it('the endpoint routes ?dryRun=1 to the preview, not the sweep', () => {
+    const route = require('node:fs').readFileSync(
+      require('node:path').join(process.cwd(), 'src/app/api/retention/sweep/route.ts'),
+      'utf8',
+    );
+    expect(route).toContain('previewExpiredPii');
+    expect(route).toContain("searchParams.get('dryRun')");
   });
 });
 
