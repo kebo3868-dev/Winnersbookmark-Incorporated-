@@ -730,8 +730,11 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
         sourceUrl: probe.url,
         evidenceType: 'TECHNICAL_SIGNAL',
         fact:
-          `A ${probe.category} endpoint referenced by the site was tested and is not a customer-facing destination ` +
-          `(${probe.note}).`,
+          // "An" before a vowel: the category is interpolated, so "A ordering
+          // endpoint" reached the client PDF. Cheap to get right, and a
+          // grammatical slip on a page of careful claims costs credibility.
+          `${/^[aeiou]/i.test(probe.category) ? 'An' : 'A'} ${probe.category} endpoint referenced by the site was ` +
+          `tested and is not a customer-facing destination (${probe.note}).`,
         supportingContext:
           `${probe.url}${probe.finalUrl && probe.finalUrl !== probe.url ? ` → ${probe.finalUrl}` : ''}. ` +
           `Classified as ${kind} — ${destination.reason}. ` +

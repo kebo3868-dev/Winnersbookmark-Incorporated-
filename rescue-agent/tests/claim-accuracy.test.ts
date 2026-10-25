@@ -597,3 +597,38 @@ describe('leak rules fire on real generated evidence, not on hand-written prose'
     }
   });
 });
+
+// ── THE CLIENT PDF IS NOT A PLACE FOR DIAGNOSTIC TEXT ─────────────────────
+
+describe('unreachable destinations are described in plain language', () => {
+  it('classifies failure causes without leaking error codes', async () => {
+    const { classifyFetchError } = await import('@/lib/web/collector');
+    const withCause = (code: string, message: string) =>
+      Object.assign(new TypeError('fetch failed'), { cause: Object.assign(new Error(message), { code }) });
+
+    const cases: [string, Error, RegExp][] = [
+      ['DNS', withCause('ENOTFOUND', 'getaddrinfo ENOTFOUND www.example.test'), /address could not be resolved/i],
+      ['refused', withCause('ECONNREFUSED', 'connect ECONNREFUSED 1.2.3.4:443'), /refused the connection/i],
+      ['reset', withCause('ECONNRESET', 'socket hang up'), /closed before a response arrived/i],
+      ['tls', withCause('CERT_HAS_EXPIRED', 'certificate has expired'), /certificate that could not be verified/i],
+      ['unknown', withCause('EWHATEVER', 'something odd'), /could not be reached/i],
+    ];
+    for (const [label, error, expected] of cases) {
+      const result = classifyFetchError(error, 10_000);
+      expect(result.kind, label).toBe('failure');
+      const note = result.kind === 'failure' ? result.note : '';
+      expect(note, label).toMatch(expected);
+      // The appendix printed "Network failure: TypeError fetch failed |
+      // ENOTFOUND Error getaddrinfo ENOTFOUND www.spothopperapp.com".
+      expect(note, `${label} must not carry an error code`).not.toMatch(/E[A-Z_]{4,}|TypeError|getaddrinfo|Error\b/);
+    }
+  });
+
+  it('still reports a timeout as a timeout, and a blocked destination as blocked', async () => {
+    const { classifyFetchError } = await import('@/lib/web/collector');
+    const timeout = classifyFetchError(Object.assign(new Error('TimeoutError'), { name: 'TimeoutError' }), 10_000);
+    expect(timeout.kind === 'failure' && timeout.status).toBe('TIMEOUT');
+    const blocked = classifyFetchError(new Error('UNSAFE URL DESTINATION'), 10_000);
+    expect(blocked.kind === 'failure' && blocked.status).toBe('BLOCKED');
+  });
+});

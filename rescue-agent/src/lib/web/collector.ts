@@ -695,11 +695,11 @@ function textWithNodeBoundaries(root: AnyNode | undefined): string {
   return chunks.join('');
 }
 
-type HopResult =
+export type HopResult =
   | { kind: 'response'; response: UndiciResponse; finalUrl: string }
   | { kind: 'failure'; status: 'UNAVAILABLE' | 'BLOCKED' | 'TIMEOUT' | 'ERROR'; httpStatus?: number; note: string };
 
-function classifyFetchError(error: unknown, timeoutMs: number): HopResult {
+export function classifyFetchError(error: unknown, timeoutMs: number): HopResult {
   const chain: string[] = [];
   let current: unknown = error;
   for (let depth = 0; depth < 5 && current instanceof Error; depth++) {
@@ -713,7 +713,27 @@ function classifyFetchError(error: unknown, timeoutMs: number): HopResult {
   if (/TimeoutError|UND_ERR_CONNECT_TIMEOUT|timeout/i.test(joined)) {
     return { kind: 'failure', status: 'TIMEOUT', note: `Request timed out after ${timeoutMs / 1000}s` };
   }
-  return { kind: 'failure', status: 'UNAVAILABLE', note: `Network failure: ${joined.slice(0, 200)}` };
+  // A READER-FACING NOTE, NOT A STACK OF ERROR CODES.
+  //
+  // This note is stored on the evidence record and printed in the client PDF's
+  // appendix, where it read: "Network failure: TypeError fetch failed |
+  // ENOTFOUND Error getaddrinfo ENOTFOUND www.spothopperapp.com". That is
+  // internal diagnostic text on a page of careful claims, and it tells the
+  // owner nothing they can act on. The cause is classified into plain language
+  // instead; the raw chain still reaches the server log.
+  if (/ENOTFOUND|EAI_AGAIN|getaddrinfo/i.test(joined)) {
+    return { kind: 'failure', status: 'UNAVAILABLE', note: 'The address could not be resolved (no DNS record answered)' };
+  }
+  if (/ECONNREFUSED/i.test(joined)) {
+    return { kind: 'failure', status: 'UNAVAILABLE', note: 'The destination refused the connection' };
+  }
+  if (/ECONNRESET|UND_ERR_SOCKET|socket hang up/i.test(joined)) {
+    return { kind: 'failure', status: 'UNAVAILABLE', note: 'The connection was closed before a response arrived' };
+  }
+  if (/CERT|SSL|TLS|self[- ]signed/i.test(joined)) {
+    return { kind: 'failure', status: 'UNAVAILABLE', note: 'The destination presented a certificate that could not be verified' };
+  }
+  return { kind: 'failure', status: 'UNAVAILABLE', note: 'The destination could not be reached' };
 }
 
 /**
