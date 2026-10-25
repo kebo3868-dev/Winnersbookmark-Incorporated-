@@ -248,7 +248,14 @@ export function ExecutivePdf({ dto }: { dto: ExecutiveReportDTO }) {
         {/* SCORE */}
         <View style={s.section}>
           <SectionHeader kicker="Section 02" title="Restaurant Rescue Score" />
-          <View style={[s.row, { gap: 14, marginBottom: 10 }]}>
+          {/*
+            * wrap={false}: the two score cards are one unit. Without it the row
+            * broke across pages 2 and 3, putting the Rescue Score at the bottom
+            * of one page and the Coverage figure it must be read against at the
+            * top of the next. The pair fits inside one page by a wide margin,
+            * so this never produces an unfillable page.
+            */}
+          <View style={[s.row, { gap: 14, marginBottom: 10 }]} wrap={false}>
             <View style={[s.card, { flex: 1, alignItems: 'center' }]}>
               <Text style={[s.label, { marginBottom: 4 }]}>Rescue Score</Text>
               <Text style={{ fontFamily: 'Times-Bold', fontSize: 32, color: C.goldDim, marginBottom: 4 }}>
@@ -279,9 +286,9 @@ export function ExecutivePdf({ dto }: { dto: ExecutiveReportDTO }) {
           </View>
           <Text style={[s.mutedText, { marginTop: 8, marginBottom: 5 }]}>
             How the {dto.score.findingsCount} revenue-leak finding(s) in Section 04 are classified. These describe the findings, not the {dto.score.evidenceCount} evidence
-            items above — every evidence item carries its own confidence score and is listed in the Appendix.
+            items above — every evidence item carries its own confidence label and is listed in the Appendix.
           </Text>
-          <View style={[s.row, { gap: 8, flexWrap: 'wrap' }]}>
+          <View style={[s.row, { gap: 8, flexWrap: 'wrap' }]} wrap={false}>
             {[
               [`${dto.score.verifiedCount}`, 'Verified from public evidence'],
               [`${dto.score.inferredCount}`, 'Inferred opportunities'],
@@ -293,6 +300,29 @@ export function ExecutivePdf({ dto }: { dto: ExecutiveReportDTO }) {
               </View>
             ))}
           </View>
+
+          {/*
+            * HOW THE SCORE IS CALCULATED, IN THE SAME SECTION AS THE SCORE.
+            *
+            * The PDF printed a 0–100 figure and never said what it measured,
+            * which way it ran, how the categories were weighted, what coverage
+            * divided by, or that an unassessed category is dropped from the
+            * average rather than scored zero. Same DTO field as the web report,
+            * so the two cannot describe the arithmetic differently.
+            */}
+          <Text style={[s.label, { marginTop: 12, marginBottom: 4 }]}>How this score is calculated</Text>
+          {dto.scoringMethodology.map((section) => (
+            <View key={section.heading} style={{ marginBottom: 6 }} wrap={false}>
+              <Text style={{ fontFamily: 'Helvetica-Bold', fontSize: 8, color: C.ink, marginBottom: 2 }}>{section.heading}</Text>
+              <Text style={[s.mutedText, { marginBottom: section.rows ? 3 : 0 }]}>{section.body}</Text>
+              {section.rows?.map(([term, definition]) => (
+                <Text key={term} style={[s.mutedText, { marginBottom: 1 }]}>
+                  <Text style={{ color: C.goldDim }}>{term}</Text>
+                  {` — ${definition}`}
+                </Text>
+              ))}
+            </View>
+          ))}
         </View>
 
         {/* WHAT THIS COULD BE COSTING YOU */}
@@ -509,6 +539,19 @@ export function ExecutivePdf({ dto }: { dto: ExecutiveReportDTO }) {
           <Text style={[s.mutedText, { marginBottom: 4 }]}>
             Every material claim in this report traces to the evidence below, collected from publicly accessible pages on the audit date.
           </Text>
+          {/*
+            * PROVENANCE AT THE HEAD OF THE CHAIN, NOT TRAILING AFTER IT.
+            *
+            * This line used to sit after the evidence list. A single short Text
+            * following a variable-length list orphans: with the appendix ending
+            * near a page boundary it was pushed onto a page of its own, which
+            * then carried nothing but this line and the running footer. It
+            * identifies the evidence chain, so the head of the chain is where
+            * it belongs, and there it cannot be separated from anything.
+            */}
+          <Text style={{ fontSize: 6.8, color: C.muted, marginBottom: 4, letterSpacing: 0.5 }}>
+            {dto.valueSignals.confidentialityNote} · Prepared for {dto.valueSignals.preparedFor} by {dto.valueSignals.preparedBy} · Audit {dto.valueSignals.auditId} · {dto.valueSignals.auditDate}
+          </Text>
           {/* Same legend as the web report, from the same DTO field. */}
           <Text style={[s.mutedText, { marginBottom: 8 }]}>{dto.confidenceLegend}</Text>
           {dto.appendix.map((e, i) => (
@@ -520,13 +563,11 @@ export function ExecutivePdf({ dto }: { dto: ExecutiveReportDTO }) {
               <Text style={{ fontSize: 6.8, color: C.muted, marginTop: 1 }}>
                 {e.evidenceType}
                 {e.sourceUrl ? ` · ${e.sourceUrl.length > 90 ? `${e.sourceUrl.slice(0, 90)}…` : e.sourceUrl}` : ''}
-                {` · confidence: ${e.confidenceLabel} (${e.confidence}%)`}
+                {/* Label only — see the note on the web report's appendix. */}
+                {` · confidence: ${e.confidenceLabel}`}
               </Text>
             </View>
           ))}
-          <Text style={{ fontSize: 6.8, color: C.muted, marginTop: 10, letterSpacing: 0.5 }}>
-            {dto.valueSignals.confidentialityNote} · Prepared for {dto.valueSignals.preparedFor} by {dto.valueSignals.preparedBy} · Audit {dto.valueSignals.auditId} · {dto.valueSignals.auditDate}
-          </Text>
         </View>
       </Page>
     </Document>

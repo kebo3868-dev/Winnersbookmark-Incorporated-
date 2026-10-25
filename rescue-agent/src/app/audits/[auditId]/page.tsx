@@ -5,6 +5,10 @@ import AuditProgress from '@/components/AuditProgress';
 import { scoreBand } from '@/lib/scoring/rescueScore';
 import { displayDomain } from '@/lib/validation/urlSanitize';
 import { presentFailure, shortRunId } from '@/lib/audit/failurePresentation';
+// The same band function the client report and the PDF use. An internal page
+// showing "85%" beside a client page showing "Strong" for the same fact is how
+// two readings of the same evidence get into the same conversation.
+import { confidenceLabel } from '@/lib/reports/executive';
 
 export const dynamic = 'force-dynamic';
 
@@ -135,7 +139,7 @@ export default async function AuditDetailPage({ params }: { params: Promise<{ au
                     <div className="flex flex-wrap gap-4 text-xs text-ivory-faint">
                       <span>Impact {opp.impactScore}</span>
                       <span>Urgency {opp.urgencyScore}</span>
-                      <span>Confidence {opp.confidenceScore}</span>
+                      <span>Confidence {confidenceLabel(opp.confidenceScore)}</span>
                       <span>AI Fit {opp.aiFitScore}</span>
                       <span>Stage: {opp.customerJourneyStage}</span>
                       {opp.manualValidationRequired && <span className="text-amber-400 uppercase tracking-wide">Manual validation required</span>}
@@ -165,12 +169,22 @@ export default async function AuditDetailPage({ params }: { params: Promise<{ au
             <h2 className="label mb-4">Evidence Chain ({audit.evidence.length})</h2>
             <div className="card divide-y divide-obsidian-line max-h-[420px] overflow-y-auto">
               {audit.evidence.map((e) => (
+                /*
+                 * Stacked rather than side by side. A `whitespace-nowrap` badge
+                 * in a flex row with the fact forced the row wider than a
+                 * 360px viewport, and the whole page scrolled sideways. The
+                 * supporting context is no longer truncated mid-sentence either
+                 * — it wraps, and long URLs inside it break on any character.
+                 */
                 <div key={e.id} className="px-5 py-3">
-                  <div className="flex justify-between gap-4">
-                    <p className="text-sm text-ivory">{e.fact}</p>
-                    <span className="label whitespace-nowrap">{e.confidence}%</span>
+                  <p className="text-sm text-ivory leading-relaxed break-words">{e.fact}</p>
+                  {e.supportingContext && (
+                    <p className="text-ivory-dim text-xs mt-1 leading-relaxed break-words">{e.supportingContext}</p>
+                  )}
+                  <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ivory-faint">
+                    <span className="uppercase tracking-wider">{e.evidenceType.replace(/_/g, ' ')}</span>
+                    <span>Confidence: {confidenceLabel(e.confidence)}</span>
                   </div>
-                  <p className="text-ivory-faint text-xs mt-1">{e.evidenceType}{e.supportingContext ? ` · ${e.supportingContext.slice(0, 140)}` : ''}</p>
                 </div>
               ))}
             </div>

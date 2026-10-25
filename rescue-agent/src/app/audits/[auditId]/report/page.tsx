@@ -142,7 +142,7 @@ export default async function ExecutiveReportPage({ params }: { params: Promise<
           ))}
         </div>
         <p className="text-ivory-faint text-xs mt-5 mb-2">
-          How the {dto.score.findingsCount} revenue-leak finding(s) in Section 04 are classified. These describe the findings, not the {dto.score.evidenceCount} evidence items above — every evidence item carries its own confidence score and is listed in the Appendix.
+          How the {dto.score.findingsCount} revenue-leak finding(s) in Section 04 are classified. These describe the findings, not the {dto.score.evidenceCount} evidence items above — every evidence item carries its own confidence label and is listed in the Appendix.
         </p>
         <div className="flex flex-wrap gap-3">
           {[
@@ -156,6 +156,40 @@ export default async function ExecutiveReportPage({ params }: { params: Promise<
             </div>
           ))}
         </div>
+
+        {/*
+          * HOW THE SCORE IS CALCULATED, NEXT TO THE SCORE.
+          *
+          * A 0–100 figure under the words "Rescue Score" was printed with
+          * nothing saying which direction it ran, what it measured, how the
+          * categories were weighted, what coverage divided by, or that an
+          * unassessed category is dropped from the average rather than scored
+          * zero. Collapsed by default so it does not crowd the score, and on
+          * the page rather than in a footnote.
+          */}
+        <details className="card mt-6">
+          <summary className="px-4 sm:px-6 py-4 cursor-pointer label hover:text-gold">
+            How this score is calculated
+          </summary>
+          <div className="px-4 sm:px-6 pb-5 space-y-5 border-t border-obsidian-line pt-4">
+            {dto.scoringMethodology.map((section) => (
+              <div key={section.heading}>
+                <p className="text-ivory text-sm">{section.heading}</p>
+                <p className="text-ivory-faint text-[13px] leading-relaxed mt-1">{section.body}</p>
+                {section.rows && (
+                  <dl className="mt-2.5 space-y-1.5">
+                    {section.rows.map(([term, definition]) => (
+                      <div key={term} className="text-[13px] leading-relaxed">
+                        <dt className="text-gold-dim inline">{term}</dt>
+                        <dd className="text-ivory-faint inline"> — {definition}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                )}
+              </div>
+            ))}
+          </div>
+        </details>
       </Section>
 
       {/* WHAT THIS COULD BE COSTING YOU */}
@@ -332,8 +366,15 @@ export default async function ExecutiveReportPage({ params }: { params: Promise<
                 )}
                 <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px]">
                   <span className="text-gold-dim uppercase tracking-wider">{e.evidenceType.replace(/_/g, ' ')}</span>
+                  {/*
+                    * The label, without the percentage. "90%" and "85%" came
+                    * from a hand-assigned constant per observation type, and
+                    * nothing distinguished them — printing one invited the
+                    * reader to treat it as a probability the audit never
+                    * calculated. The band is defined in the legend above.
+                    */}
                   <span className="text-ivory-faint">
-                    Confidence: <span className="text-ivory-dim">{e.confidenceLabel} ({e.confidence}%)</span>
+                    Confidence: <span className="text-ivory-dim">{e.confidenceLabel}</span>
                   </span>
                 </div>
                 {e.sourceUrl && (

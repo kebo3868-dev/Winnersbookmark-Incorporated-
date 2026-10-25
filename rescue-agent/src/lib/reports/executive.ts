@@ -4,6 +4,12 @@ import { COMPANY, type Contact } from '@/lib/config';
 import { buildScenario, scenarioKindFor, withAverageTicket, type RevenueScenario } from '@/lib/reports/scenarios';
 import { STATE_LABEL, stateForOpportunity, type EvidenceState } from '@/lib/audit/evidenceState';
 import { safeDisplayName } from '@/lib/audit/restaurantName';
+import {
+  CONFIDENCE_BANDS,
+  CONFIDENCE_EXPLANATION,
+  scoringMethodology,
+  type MethodologySection,
+} from '@/lib/scoring/methodology';
 
 export type { RevenueScenario } from '@/lib/reports/scenarios';
 
@@ -300,6 +306,18 @@ export interface ExecutiveReportDTO {
    * reads as false precision, which is the opposite of what it is for.
    */
   confidenceLegend: string;
+  /**
+   * How the Rescue Score, coverage and confidence are calculated, in the words
+   * the client reads.
+   *
+   * The report printed a 0–100 score under the words "Rescue Score" and never
+   * said what it measured, which direction it ran, how the categories were
+   * weighted, what coverage divided by, or that an unknown stage is dropped
+   * from the average rather than scored zero. Quoted from
+   * `@/lib/scoring/methodology` so the interface and the PDF cannot describe
+   * the arithmetic differently.
+   */
+  scoringMethodology: MethodologySection[];
   appendix: {
     evidenceType: string;
     fact: string;
@@ -502,6 +520,7 @@ export function buildExecutiveReport(input: ExecutiveReportInput): ExecutiveRepo
     },
     methodologyAndLimitations: METHODOLOGY,
     confidenceLegend: CONFIDENCE_LEGEND,
+    scoringMethodology: scoringMethodology(),
     appendix: input.evidence.map((e) => ({
       evidenceType: e.evidenceType,
       fact: e.fact,
@@ -514,18 +533,17 @@ export function buildExecutiveReport(input: ExecutiveReportInput): ExecutiveRepo
 }
 
 /**
- * Written from the same thresholds `confidenceLabel` uses, so the legend cannot
- * describe bands the labels do not follow.
+ * Assembled from the rubric itself, so the legend cannot describe bands the
+ * labels do not follow.
  *
- * States what the number measures, which is the part that was missing: how
- * directly the fact was observed on a public page — never how likely the
- * business outcome is, and never a prediction.
+ * It no longer quotes percentage ranges, because the percentages are no longer
+ * shown. They were hand-assigned constants per observation type: a reader
+ * cannot act on the difference between 85% and 90%, and a printed percentage
+ * invites them to read it as a probability the audit never calculated. The
+ * bands are defined by HOW the fact was obtained, which has a checkable answer.
  */
 export const CONFIDENCE_LEGEND =
-  'Confidence describes how directly each fact was observed on a public page — not how likely an outcome is. ' +
-  'Strong (80–100%): read directly from the page or a tested response. ' +
-  'Moderate (60–79%): observed, with part of the picture outside public view. ' +
-  'Preliminary (under 60%): a signal worth checking, not a conclusion.';
+  `${CONFIDENCE_EXPLANATION} ` + CONFIDENCE_BANDS.map(([label, definition]) => `${label}: ${definition}`).join(' ');
 
 // ── Section builders (all deterministic, evidence-derived) ──────────────────
 
