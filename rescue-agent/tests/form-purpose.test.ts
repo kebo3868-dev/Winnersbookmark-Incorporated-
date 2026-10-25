@@ -286,6 +286,25 @@ describe('9 — a form that does not say what it is for is unverified', () => {
     ).find((s) => s.stage === 'CONTACT');
     expect(stage?.finding).not.toMatch(/the phone is the only route in/i);
   });
+
+  it('codex P2 (058dc42): the supporting context does not deny the form either', () => {
+    // The fact avoided the phone-only claim, but the context still said every
+    // enquiry must become a call and out-of-hours questions have nowhere to go.
+    const records = recordsFor(`<a href="tel:+15551112222">Call</a>${form('action="/forms"', '')}`);
+    const context = find(records, 'CONTACT_PATH')?.supportingContext ?? '';
+    expect(context).not.toMatch(/every enquiry has to become a phone call|nowhere to go/i);
+    expect(context).toMatch(/may also accept written enquiries, but its purpose could not be established/i);
+    expect(context).toMatch(/needs owner confirmation/i);
+  });
+
+  it('no client-facing CONTACT_PATH text denies an unverified form, in any route combination', () => {
+    const unverified = form('action="/forms"', '');
+    for (const prefix of ['', '<a href="tel:+15551112222">Call</a>', '<a href="mailto:hi@example-grill.test">Email</a>', '<a href="tel:+15551112222">Call</a><a href="mailto:hi@example-grill.test">Email</a>']) {
+      const contact = find(recordsFor(`${prefix}${unverified}`), 'CONTACT_PATH');
+      const text = `${contact?.fact} ${contact?.supportingContext}`;
+      expect(text, prefix || '(no other route)').not.toMatch(/no public contact pathway|no non-phone contact route|every enquiry has to become a phone call|nowhere to go/i);
+    }
+  });
 });
 
 // ── 10. Missing, hidden or non-functional submit controls ──────────────────

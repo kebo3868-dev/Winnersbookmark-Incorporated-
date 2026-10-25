@@ -534,7 +534,13 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
           `${unverifiedForms.length > 0 ? `${unverifiedForms.length} form(s) whose purpose could not be established are recorded separately and are not counted as routes. ` : ''}` +
           (writtenRoute
             ? 'Customers can reach the restaurant by phone or in writing; what happens to a written enquiry, and how fast, is not observable from the public site. '
-            : 'Customers can reach the restaurant; every enquiry has to become a phone call, so questions that arrive outside service hours have nowhere to go. ') +
+            : unverifiedForms.length > 0
+              // The form may be a written route. Saying every enquiry must
+              // become a call would deny what FORM_PURPOSE_UNVERIFIED leaves open.
+              ? 'Customers can reach the restaurant by phone. A form on the site may also accept written enquiries, but its ' +
+                'purpose could not be established, so whether questions can reach the restaurant outside service hours ' +
+                'needs owner confirmation. '
+              : 'Customers can reach the restaurant; every enquiry has to become a phone call, so questions that arrive outside service hours have nowhere to go. ') +
           analyzedNote +
           (collectionIncomplete ? ` ${INCOMPLETE_COLLECTION_CAVEAT}` : ''),
         confidence: 85,
