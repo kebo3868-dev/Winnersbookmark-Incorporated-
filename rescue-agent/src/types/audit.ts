@@ -36,6 +36,17 @@ export type EvidenceType =
    * instead of resolving it in either direction silently.
    */
   | 'SINGLE_PURPOSE_FORM'
+  /**
+   * A form a customer can write into whose purpose the form itself does not
+   * establish — no stated purpose, general and specific wording at once,
+   * several purposes, or no usable submit control.
+   *
+   * Neither CONTACT_FORM nor SINGLE_PURPOSE_FORM: it is not counted as a
+   * route in, and it is not evidence that no route exists. The type name is
+   * printed as the record's label in the report and the PDF, so it carries
+   * the uncertainty on its own.
+   */
+  | 'FORM_PURPOSE_UNVERIFIED'
   | 'CATERING_PATH'
   | 'PRIVATE_DINING_PATH'
   | 'LOYALTY_SIGNAL'

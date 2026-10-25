@@ -100,8 +100,9 @@ export interface PageExtract {
   hoursText: string | null;
   addressText: string | null;
   /**
-   * A form a customer can use to write to the restaurant (enquiry, "contact
-   * us", catering request). NOT a newsletter signup — see emailCaptureSignal.
+   * A form whose OWN evidence shows it takes general enquiries — a
+   * GENERAL_CONTACT form (see FormPurpose). NOT a newsletter signup — see
+   * emailCaptureSignal — and never set by a message box alone.
    *
    * A form is a non-phone contact route. Reporting that none exists while the
    * page serves one is the same false negative as discarding a published email
@@ -122,6 +123,12 @@ export interface PageExtract {
    * what it found instead of silently dropping it.
    */
   formScopes: string[];
+  /**
+   * Forms a customer could write into whose purpose could not be established
+   * (UNVERIFIED_PURPOSE). Neither a contact route nor evidence that none
+   * exists; reported as an explicit unknown.
+   */
+  unverifiedForms: UnverifiedForm[];
   emailCaptureSignal: boolean;
   smsCaptureSignal: boolean;
   loyaltySignal: boolean;
@@ -352,6 +359,67 @@ function isTextEntryField($: cheerio.CheerioAPI, field: DomElement): boolean {
 }
 
 /**
+ * What a form a customer can write into is FOR, as far as the form itself
+ * shows.
+ *
+ *   GENERAL_CONTACT     the form's own evidence invites general enquiries —
+ *                       "Contact us", "Get in touch", action="/contact", a
+ *                       topic menu offering "General question" — and names no
+ *                       single purpose.
+ *   PURPOSE_SPECIFIC    the form names exactly one purpose (gift cards, jobs,
+ *                       catering, …) and nothing in it invites general
+ *                       enquiries.
+ *   UNVERIFIED_PURPOSE  anything else: no evidence either way, evidence both
+ *                       ways, several purposes, or no usable submit control.
+ *
+ * WHY THREE, AND WHY THIS IS NOT A PARSER.
+ *
+ * Two classes forced a verdict on every form. To reach one, the classifier
+ * tried to read how general wording was qualified — "Contact us ABOUT gift
+ * cards" — by splitting on commas, "and", "&", semicolons, brackets and
+ * dashes. Nine review rounds produced nine counter-examples, because
+ * punctuation cannot tell "gift cards, events or allergens" (a list) from
+ * "gift cards, and we will get back to you" (a sentence that carries on).
+ *
+ * The question it was trying to answer has no reliable answer from markup, so
+ * it is no longer asked. Each piece of evidence is checked only for PRESENCE:
+ * does the form say something general, does it name a purpose. When the two
+ * agree there is a verdict. When they conflict, or neither is present, the
+ * honest answer is that the purpose is not established — and the report says
+ * so, instead of guessing in either direction.
+ *
+ * A MESSAGE BOX IS NOT EVIDENCE OF PURPOSE. Gift-card, job and catering forms
+ * all carry one. Before this change a form with a message box and no stated
+ * purpose was counted as a general enquiry route; it is now UNVERIFIED_PURPOSE.
+ */
+export type FormPurpose = 'GENERAL_CONTACT' | 'PURPOSE_SPECIFIC' | 'UNVERIFIED_PURPOSE';
+
+/** Why a form's purpose could not be established. */
+export type UnverifiedReason =
+  /** Nothing in the form says what it is for. */
+  | 'NO_PURPOSE_EVIDENCE'
+  /** The form invites general enquiries AND names a specific purpose. */
+  | 'CONFLICTING_EVIDENCE'
+  /** The form names more than one specific purpose, and nothing general. */
+  | 'SEVERAL_PURPOSES'
+  /** No visible, enabled submit control: whether it can be sent is unknown. */
+  | 'NO_USABLE_SUBMIT_CONTROL';
+
+export interface UnverifiedForm {
+  reason: UnverifiedReason;
+  /** Specific purposes the form names, e.g. ["gift card"]. May be empty. */
+  topics: string[];
+}
+
+export interface ClassifiedForm {
+  purpose: FormPurpose;
+  /** Specific purposes the form names about itself. One for PURPOSE_SPECIFIC. */
+  topics: string[];
+  /** Set only when purpose is UNVERIFIED_PURPOSE. */
+  reason?: UnverifiedReason;
+}
+
+/**
  * Classify the forms on a page into customer pathways.
  *
  * Deliberately conservative in both directions. A newsletter box must not be
@@ -362,16 +430,22 @@ function isTextEntryField($: cheerio.CheerioAPI, field: DomElement): boolean {
  * A reservation form is recognised from its FIELDS (date/time/party size) or
  * explicit booking wording, because "reservations" appearing in a page's prose
  * says nothing about what the form on it does.
+ *
+ * Every other form a customer can write a message into gets a FormPurpose.
  */
 export function classifyForms($: cheerio.CheerioAPI): {
+  /** True when at least one GENERAL_CONTACT form was found. */
   contactFormSignal: boolean;
   reservationFormSignal: boolean;
-  /** Purposes of single-purpose forms found, e.g. "gift card". Never general enquiry. */
+  /** Purposes of PURPOSE_SPECIFIC forms, e.g. "gift card". Never general enquiry. */
   formScopes: string[];
+  /** UNVERIFIED_PURPOSE forms, with the reason each could not be classified. */
+  unverifiedForms: UnverifiedForm[];
+  /** Every message-bearing form, in page order. */
+  forms: ClassifiedForm[];
 } {
-  let contactFormSignal = false;
   let reservationFormSignal = false;
-  const formScopes: string[] = [];
+  const forms: ClassifiedForm[] = [];
 
   $('form').each((_, el) => {
     const form = $(el);
@@ -426,67 +500,102 @@ export function classifyForms($: cheerio.CheerioAPI): {
     const isNewsletterOnly = NEWSLETTER_FORM_TEXT.test(haystack) && !hasMessageField;
     if (isNewsletterOnly) return;
     if (!hasMessageField) return;
-    // A SINGLE-PURPOSE FORM IS NOT A GENERAL ENQUIRY ROUTE.
+
+    // EVIDENCE COMES FROM THE FORM ITSELF.
     //
-    // A gift-card request form has a message box and sits on a gift-card page.
-    // Counting it as "you can write to this restaurant" overstates what a
-    // customer can do with it: a guest asking about allergens or a lost
-    // umbrella has no business submitting a gift-card order. The scope is kept
-    // so the report can say which kind of form it found.
-    //
-    // SCOPE COMES FROM WHAT THE FORM SAYS IT IS.
-    //
-    // Three attempts, and the middle one is why this comment is long.
-    //
-    // Matching the whole haystack suppressed a general enquiry form that listed
-    // "Gift cards" as one option in a topic dropdown: contactFormSignal went
-    // false and CONTACT_PATH reported "No public contact pathway was detected"
-    // on a page serving a contact form.
-    //
-    // Narrowing to attributes and submit wording fixed that and broke two other
-    // things. A gift-card form that names itself in an internal heading —
-    // `<form action="/forms"><h2>Gift card request</h2>` — lost its scope
-    // entirely. And testing the general-enquiry override against the form's
-    // whole text let one incidental sentence ("For any questions about delivery
-    // call the restaurant") clear the scope of a form explicitly labelled
-    // `aria-label="Gift card request"`.
-    //
-    // Both signals now read the same thing: the form's IDENTITY — its
-    // attributes, its submit wording, and its own headings and legends. Those
-    // are the places a form states its purpose. Dropdown options and body
-    // prose are excluded from both, because a topic a form mentions and a
-    // sentence inside it are not claims about what the form accepts.
-    //
-    // Each attribute, submit control and heading is kept as its own source.
-    // Joined into one string, "Contact us for more information" in an
-    // aria-label read straight on into the button's "Send gift card request",
-    // so the button became the invitation's qualifier and a general contact
-    // form was scoped to gift cards. Wording is qualified only by what follows
-    // it in the same element.
-    const identity = [...attrList, ...submitLabels($, form), ...formHeadings($, form)];
-    const scope = identity.some(invitesGeneralEnquiries) ? null : singlePurposeScope(identity.join(' '));
-    if (scope) {
-      if (!formScopes.includes(scope)) formScopes.push(scope);
-      return;
-    }
-    contactFormSignal = true;
+    // Its attributes, the labels on its own submit controls, and the headings,
+    // legends and instructions that introduce it (see formIntroduction). Field
+    // labels, dropdown options and body prose part-way down are excluded —
+    // "Gift card number (optional)" on a contact form is a field, not the
+    // form's purpose — as is everything outside the <form>, because a page can
+    // hold several forms and a banner speaks for none of them.
+    const identity = [...attrList, ...submitControls($, form).map((c) => controlLabel($, c)), ...formIntroduction($, form)].join(' ');
+    forms.push(decidePurpose($, form, identity));
   });
 
-  return { contactFormSignal, reservationFormSignal, formScopes };
+  const formScopes: string[] = [];
+  const unverifiedForms: UnverifiedForm[] = [];
+  for (const f of forms) {
+    if (f.purpose === 'PURPOSE_SPECIFIC' && !formScopes.includes(f.topics[0])) formScopes.push(f.topics[0]);
+    if (f.purpose === 'UNVERIFIED_PURPOSE') unverifiedForms.push({ reason: f.reason!, topics: f.topics });
+  }
+  return {
+    contactFormSignal: forms.some((f) => f.purpose === 'GENERAL_CONTACT'),
+    reservationFormSignal,
+    formScopes,
+    unverifiedForms,
+    forms,
+  };
 }
 
 /**
- * Wording by which a form advertises that it takes questions of any kind.
+ * The verdict, from presence of evidence only.
  *
- * A form saying this is never narrowed to a single purpose, however many
- * specific topics it happens to offer.
+ * Order matters in one place. A form that names exactly one purpose and says
+ * nothing general is PURPOSE_SPECIFIC even without a usable submit control:
+ * that verdict claims only what the form is for, never that it can be sent.
+ * A GENERAL_CONTACT verdict, which the report counts as a route in, requires
+ * a submit control a visitor can see and press.
  */
-const GENERAL_ENQUIRY_PHRASE =
-  /general (?:enquir|inquir|question)\w*|contact[- _]?us|how can we help|ask us|send us a (?:message|note)|get in touch|any questions/gi;
+function decidePurpose($: cheerio.CheerioAPI, form: cheerio.Cheerio<DomElement>, identity: string): ClassifiedForm {
+  const topics = purposeTopics(identity);
+  const general = GENERAL_CONTACT_WORDING.test(identity) || offersGeneralTopic($, form);
+  const unverified = (reason: UnverifiedReason): ClassifiedForm => ({ purpose: 'UNVERIFIED_PURPOSE', topics, reason });
+
+  if (topics.length === 1 && !general) return { purpose: 'PURPOSE_SPECIFIC', topics };
+  if (!hasUsableSubmitControl($, form)) return unverified('NO_USABLE_SUBMIT_CONTROL');
+  if (general && topics.length === 0) return { purpose: 'GENERAL_CONTACT', topics };
+  if (general) return unverified('CONFLICTING_EVIDENCE');
+  if (topics.length > 1) return unverified('SEVERAL_PURPOSES');
+  return unverified('NO_PURPOSE_EVIDENCE');
+}
 
 /**
- * The headings and legends that name the WHOLE form — where many forms state
- * their purpose.
+ * Wording by which a form invites enquiries of any kind.
+ *
+ * Matched for presence only. Whatever follows it — "about gift cards", "for
+ * more information", ", and we will reply" — is not interpreted; if the form
+ * also names a specific purpose the two conflict and the purpose is
+ * UNVERIFIED. Bare "enquiry" is deliberately absent: "Gift card enquiry" is a
+ * purpose, not an open invitation. "Feedback" is absent too: a feedback box
+ * is addressed to the restaurant, but it does not promise an answer.
+ */
+const GENERAL_CONTACT_WORDING =
+  /contact(?!less)|general[- _]?(?:enquir|inquir|question)|get[- _]?in[- _]?touch|how can we help|ask us|send us a (?:message|note)|message us|drop us a (?:line|note)|write to us|any questions|questions or comments/i;
+
+/**
+ * A topic menu that offers a general choice — "General question", "Other",
+ * "Something else" — is the form itself saying it takes any enquiry.
+ *
+ * Only menus whose name says they choose a topic count. An amount menu on a
+ * gift-card form offering "Other amount" is not an invitation to ask about
+ * allergens.
+ */
+function offersGeneralTopic($: cheerio.CheerioAPI, form: cheerio.Cheerio<DomElement>): boolean {
+  return form
+    .find('select')
+    .toArray()
+    .filter((s) => isCustomerWritable($, s))
+    .filter((s) => /topic|subject|reason|regarding|enquiry|inquiry|department|category/i.test(`${$(s).attr('name') ?? ''} ${$(s).attr('id') ?? ''}`))
+    .some((s) =>
+      $(s)
+        .find('option')
+        .toArray()
+        .some((o) => /^\s*(?:general\b|other\s*$|other (?:question|enquiry|inquiry|topic)|something else|anything else)/i.test($(o).text())),
+    );
+}
+
+/**
+ * Characters read from each heading, note or submit label. Bounded because the
+ * HTML is untrusted, and generous because a purpose named past the bound
+ * would go unseen: a 200-character cut let "Contact us … gift cards" read as
+ * general contact.
+ */
+const IDENTITY_TEXT_BOUND = 1000;
+
+/**
+ * The headings, legends and instructions that introduce the WHOLE form —
+ * where many forms state their purpose.
  *
  * Only elements inside the form count: a heading above a form describes a page
  * section, which may hold several forms. But inside the form not every heading
@@ -497,14 +606,16 @@ const GENERAL_ENQUIRY_PHRASE =
  * form. A field-group legend is a field label by another name, and field labels
  * are excluded from identity for exactly this reason.
  *
- * A heading or legend therefore names the form only when BOTH hold:
+ * An element therefore introduces the form only when BOTH hold:
  *   · it is not inside a field group — a fieldset holding only some of the
  *     form's writable fields. A fieldset wrapping every field is the form
  *     itself, whether or not the submit button sits inside it;
- *   · it comes before the form's first writable field. A heading part-way
- *     down introduces the fields after it, not the form.
+ *   · it comes before the form's first writable field. A heading or note
+ *     part-way down introduces the fields after it, not the form — which is
+ *     also why "For any questions about delivery call the restaurant" below a
+ *     gift-card form's fields is not read as an invitation.
  */
-function formHeadings($: cheerio.CheerioAPI, $form: cheerio.Cheerio<DomElement>): string[] {
+function formIntroduction($: cheerio.CheerioAPI, $form: cheerio.Cheerio<DomElement>): string[] {
   // Text-entry fields only. Counting a submit or button input as a "field" let
   // a control placed before the title hide the title from identity.
   const isWritable = (f: DomElement) => isTextEntryField($, f);
@@ -520,75 +631,73 @@ function formHeadings($: cheerio.CheerioAPI, $form: cheerio.Cheerio<DomElement>)
       .some((fs) => $(fs).find('input, textarea, select').toArray().filter(isWritable).length < writable.length);
 
   return $form
-    .find('legend, h1, h2, h3, h4, h5, h6')
+    .find('legend, h1, h2, h3, h4, h5, h6, p')
     .toArray()
     .filter((el) => !inFieldGroup(el) && (order.get(el) ?? Infinity) < firstField)
-    .map((el) => $(el).text().replace(/\s+/g, ' ').trim().slice(0, 200))
+    .map((el) => $(el).text().replace(/\s+/g, ' ').trim().slice(0, IDENTITY_TEXT_BOUND))
     .filter(Boolean);
 }
 
-/** The labels on a form's own submit controls — what each says it does. */
-function submitLabels($: cheerio.CheerioAPI, $form: cheerio.Cheerio<DomElement>): string[] {
-  // SUBMIT CONTROLS ONLY. A <button type="button">Gift cards</button> is a
-  // topic toggle or helper inside a general form, not the form saying what it
-  // is; reading its label as identity scoped a contact form to gift cards and
-  // the audit reported "No public contact pathway was detected". A <button>
-  // with no type submits (its HTML default), as do type="submit" and image
-  // inputs — whose label is their alt text, which was not being read at all.
-  const parts: string[] = [];
-  $form.find('button, input[type="submit"], input[type="image"]').each((_, el) => {
-    const node = $(el);
-    const type = (node.attr('type') ?? '').toLowerCase();
-    if (el.tagName?.toLowerCase() === 'button' && type !== '' && type !== 'submit') return;
-    const label = [node.text(), node.attr('value') ?? '', node.attr('alt') ?? '']
-      .join(' ')
-      .replace(/\s+/g, ' ')
-      .trim()
-      .slice(0, 120);
-    if (label) parts.push(label);
-  });
-  return parts;
+/**
+ * The form's own submit controls.
+ *
+ * SUBMIT CONTROLS ONLY. A <button type="button">Gift cards</button> is a
+ * topic toggle or helper inside a general form, not the form saying what it
+ * is. A <button> with no type submits (its HTML default), as do type="submit"
+ * and image inputs. A control outside the form that names it with form="id"
+ * submits it too.
+ */
+function submitControls($: cheerio.CheerioAPI, $form: cheerio.Cheerio<DomElement>): DomElement[] {
+  const isSubmit = (el: DomElement) => {
+    const tag = el.tagName?.toLowerCase();
+    const type = ($(el).attr('type') ?? '').toLowerCase();
+    if (tag === 'button') return type === '' || type === 'submit';
+    return type === 'submit' || type === 'image';
+  };
+  const id = $form.attr('id');
+  // A control inside the form that names a DIFFERENT form with form="…"
+  // submits that other form, not this one.
+  const inside = $form
+    .find('button, input')
+    .toArray()
+    .filter((el) => isSubmit(el) && ($(el).attr('form') === undefined || $(el).attr('form') === id));
+  const outside = id
+    ? $('button[form], input[form]')
+        .toArray()
+        .filter((el) => $(el).attr('form') === id && isSubmit(el))
+    : [];
+  return [...inside, ...outside];
+}
+
+/** What a submit control says it does — its text, value, or an image's alt text. */
+function controlLabel($: cheerio.CheerioAPI, el: DomElement): string {
+  const node = $(el);
+  return [node.text(), node.attr('value') ?? '', node.attr('alt') ?? ''].join(' ').replace(/\s+/g, ' ').trim().slice(0, IDENTITY_TEXT_BOUND);
 }
 
 /**
- * Whether a form's identity invites questions of ANY kind.
+ * Whether a visitor can see and press a control that sends this form.
  *
- * General wording is not enough on its own: "Contact us about gift cards" on a
- * gift-card request form narrows the invitation to that one topic, and reading
- * its "contact us" as an open invitation cleared the scope and advertised a
- * general enquiry route that does not exist.
- *
- * So each general phrase is checked for a qualifier immediately after it
- * ("about", "regarding", "for", …). It counts as general UNLESS the qualifier
- * names exactly one single-purpose topic. Everything else — no qualifier,
- * "about anything", a list of several topics, or a qualifier naming no
- * recognised purpose such as "for more information" — stays general. The
- * unclear cases therefore fall on the side of keeping a contact route, which is
- * the less damaging error: listing a route the owner can check is better than
- * telling them they have none.
+ * A form with no submit control, or only hidden or disabled ones, may still
+ * be sent by a script this audit does not run — but that cannot be observed,
+ * so the form is not counted as a route in.
  */
-function invitesGeneralEnquiries(identity: string): boolean {
-  for (const match of identity.matchAll(GENERAL_ENQUIRY_PHRASE)) {
-    // Asides are removed first — a balanced "(…)" or a "— … —" pair — so a
-    // list that continues past one is still read as a list: stopping at the
-    // "(" in "gift cards (balance enquiries) and allergens" dropped
-    // "allergens" and scoped a general contact form to gift cards.
-    const after = identity
-      .slice((match.index ?? 0) + match[0].length)
-      .replace(/\s*\([^()]*\)/g, '')
-      .replace(/\s+[–—][^–—]*[–—](?=\s)/g, '');
-    // The qualifier is then one clause. ";", ":", "|", a lone dash or an
-    // unclosed "(" ends it: in "Contact us about gift cards; include your
-    // order number" what follows the semicolon is an instruction, not a second
-    // topic, and reading it as one cleared the scope of a gift-card form.
-    const qualifier = after.match(/^\s*(?:about|regarding|concerning|re:?|on|for|with)\s+([^.?!;:|(–—]{1,80})/i)?.[1];
-    if (!qualifier) return true;
-    if (/\b(?:anything|everything|all|other|any\s+(?:topic|question|matter|thing)s?)\b/i.test(qualifier)) return true;
-    // "&" arrives decoded from "&amp;"; "gift cards & allergens" is a list.
-    if (/[,/&+]|\bor\b|\band\b/i.test(qualifier)) return true;
-    if (!singlePurposeScope(qualifier)) return true;
-  }
-  return false;
+function hasUsableSubmitControl($: cheerio.CheerioAPI, $form: cheerio.Cheerio<DomElement>): boolean {
+  const hidden = (el: DomElement) => {
+    const node = $(el);
+    return (
+      node.attr('hidden') !== undefined ||
+      node.attr('aria-hidden') === 'true' ||
+      /display\s*:\s*none|visibility\s*:\s*hidden/i.test(node.attr('style') ?? '')
+    );
+  };
+  if ($form.toArray().some(hidden)) return false;
+  return submitControls($, $form).some(
+    (el) =>
+      $(el).attr('disabled') === undefined &&
+      !hidden(el) &&
+      !$(el).parentsUntil($form).toArray().some(hidden),
+  );
 }
 
 /**
@@ -636,13 +745,11 @@ function isEmailOnlyForm($: cheerio.CheerioAPI, form: cheerio.Cheerio<DomElement
   return type === 'email' || /\bemail\b|\be-?mail\b/i.test(name);
 }
 
-/** The single purpose this form serves, or null when it accepts general enquiries. */
-function singlePurposeScope(haystack: string): string | null {
-  for (const [pattern, label] of SINGLE_PURPOSE_FORMS) {
-    if (pattern.test(haystack)) return label;
-  }
-  return null;
+/** Every specific purpose the text names, in table order. */
+function purposeTopics(text: string): string[] {
+  return SINGLE_PURPOSE_FORMS.filter(([pattern]) => pattern.test(text)).map(([, label]) => label);
 }
+
 
 /** Bound on embedded destinations kept per page — untrusted HTML sets no limit of its own. */
 const MAX_EMBED_TARGETS = 50;
@@ -1267,7 +1374,7 @@ export function extractPage(
   // enquiry form was detected. Each form is now classified from its own fields
   // and wording, so the two kinds are reported separately and neither is
   // mistaken for a newsletter box.
-  const { contactFormSignal, reservationFormSignal, formScopes } = classifyForms($);
+  const { contactFormSignal, reservationFormSignal, formScopes, unverifiedForms } = classifyForms($);
   // AN EMAIL FIELD IS NOT AN INVITATION TO JOIN A LIST.
   //
   // This was `$('form input[type="email"]').length > 0`, which fired on the
@@ -1335,6 +1442,7 @@ export function extractPage(
     contactFormSignal,
     reservationFormSignal,
     formScopes,
+    unverifiedForms,
     emailCaptureSignal,
     smsCaptureSignal,
     loyaltySignal,

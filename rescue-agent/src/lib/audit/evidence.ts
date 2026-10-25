@@ -1,4 +1,4 @@
-import { detectWidgetVendor, normalizePhonesInText, type CategorizedLink, type PageExtract } from '@/lib/web/collector';
+import { detectWidgetVendor, normalizePhonesInText, type CategorizedLink, type PageExtract, type UnverifiedForm } from '@/lib/web/collector';
 import type { EvidenceInput } from '@/types/audit';
 import {
   classifyDestination,
@@ -245,8 +245,9 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
       evidenceType: 'CONTACT_FORM',
       fact: 'A customer enquiry form is published on the website.',
       supportingContext:
-        `Found on ${contactFormPage.finalUrl}. A visitor can write to the restaurant without calling. ` +
-        'Whether the submission reaches anyone, and how quickly it is answered, cannot be observed from a public page ' +
+        `Found on ${contactFormPage.finalUrl}. The form's own wording or attributes invite general enquiries, so a ` +
+        'visitor can write to the restaurant without calling. The form was not submitted during this audit: ' +
+        'whether the submission reaches anyone, and how quickly it is answered, cannot be observed from a public page ' +
         'and needs owner confirmation. This is not a newsletter signup, which is recorded separately.',
       confidence: 85,
     });
@@ -282,12 +283,38 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
     evidence.push({
       sourceUrl: foundOn,
       evidenceType: 'SINGLE_PURPOSE_FORM',
-      fact: `A ${scope} form is published on the website; it accepts ${scope} requests, not general enquiries.`,
+      fact: `A ${scope} form is published on the website; its own wording scopes it to ${scope} requests, not general enquiries.`,
       supportingContext:
-        `Found on ${foundOn}. The form's own fields and wording scope it to ${scope} requests, so it is not counted ` +
-        'as a way for a guest to ask the restaurant a general question. Whether the restaurant also accepts general ' +
-        'enquiries through it is not observable from a public page and needs owner confirmation.',
+        `Found on ${foundOn}. The form's own wording names ${scope} requests and does not invite general enquiries, so ` +
+        'it is not counted as a way for a guest to ask the restaurant a general question. Whether the restaurant also ' +
+        'accepts general enquiries through it is not observable from a public page and needs owner confirmation. ' +
+        'The form was not submitted during this audit.',
       confidence: 75,
+    });
+  }
+
+  // A FORM WHOSE PURPOSE IS NOT ESTABLISHED IS REPORTED AS EXACTLY THAT.
+  //
+  // A message box alone does not show that a form takes general enquiries —
+  // gift-card, job and catering forms all carry one. Counting such a form as a
+  // contact route claimed a capability nobody observed; ignoring it let the
+  // audit say no route existed on a page serving a form. It is neither.
+  const unverifiedForms = pages.flatMap((p) => (p.unverifiedForms ?? []).map((f) => ({ ...f, foundOn: p.finalUrl })));
+  if (unverifiedForms.length > 0) {
+    const first = unverifiedForms[0];
+    const reasons = Array.from(new Set(unverifiedForms.map((f) => unverifiedReasonText(f))));
+    evidence.push({
+      sourceUrl: first.foundOn,
+      evidenceType: 'FORM_PURPOSE_UNVERIFIED',
+      fact:
+        'A form a customer can write into is published on the website, but whether it accepts general enquiries ' +
+        'could not be established from the form itself.',
+      supportingContext:
+        `Found on ${first.foundOn}${unverifiedForms.length > 1 ? ` (${unverifiedForms.length} such forms in total)` : ''}. ` +
+        `${reasons.join(' ')} ` +
+        'It is not counted as a verified contact route, and it is not evidence that no route exists. ' +
+        'The form was not submitted during this audit. Owner confirmation required.',
+      confidence: 50,
     });
   }
 
@@ -474,15 +501,27 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
       if (contactFormPage) routes.push('an enquiry form');
       const writtenRoute = publishedEmail || contactFormPage;
       const incompleteSuffix = collectionIncomplete ? ' on the pages that could be collected' : '';
+      // A form of unverified purpose is neither a route nor the absence of
+      // one, so neither sentence may treat it as either. The phone-only
+      // sentence in particular must not say "no non-phone contact route" —
+      // journey.ts reads that phrase as "the phone is the only route in".
+      const unverifiedNote = ', and a form was found whose purpose could not be established';
       evidence.push({
         sourceUrl: home.finalUrl,
         evidenceType: 'CONTACT_PATH',
         fact: writtenRoute
           ? `A contact pathway is publicly available by ${joinRoutes(routes)}${
-              contactFormPage ? '' : ', but no contact page or enquiry form was detected' + incompleteSuffix
+              contactFormPage
+                ? ''
+                : unverifiedForms.length > 0
+                  ? `, but no contact page or verified enquiry form was detected${incompleteSuffix}${unverifiedNote}`
+                  : ', but no contact page or enquiry form was detected' + incompleteSuffix
             }.`
-          : `A contact pathway is publicly available by telephone, but no non-phone contact route ` +
-            `(contact page, enquiry form, or published email address) was detected${incompleteSuffix}.`,
+          : unverifiedForms.length > 0
+            ? `A contact pathway is publicly available by telephone; no verified non-phone contact route was ` +
+              `detected${incompleteSuffix}${unverifiedNote}.`
+            : `A contact pathway is publicly available by telephone, but no non-phone contact route ` +
+              `(contact page, enquiry form, or published email address) was detected${incompleteSuffix}.`,
         supportingContext:
           `${anyPhone ? `Phone number published: ${anyPhone.phones[0]}. ` : ''}` +
           `${clickToCall ? 'Click-to-call (tel:) links are present. ' : ''}` +
@@ -492,6 +531,7 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
           // are not general enquiry routes, rather than appearing to have
           // missed a form that is plainly on the page.
           `${scopedForms.size > 0 ? `Also found, and not counted as general enquiry routes: ${joinRoutes(Array.from(scopedForms.keys()).map((s) => `a ${s} form`))}. ` : ''}` +
+          `${unverifiedForms.length > 0 ? `${unverifiedForms.length} form(s) whose purpose could not be established are recorded separately and are not counted as routes. ` : ''}` +
           (writtenRoute
             ? 'Customers can reach the restaurant by phone or in writing; what happens to a written enquiry, and how fast, is not observable from the public site. '
             : 'Customers can reach the restaurant; every enquiry has to become a phone call, so questions that arrive outside service hours have nowhere to go. ') +
@@ -505,6 +545,26 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
       // sentences in the same evidence chain — and the report and the PDF print
       // the whole chain, so the client reads both. The form record IS the
       // statement about this pathway; it is bounded, and it stands alone.
+    } else if (check.key === 'contact' && (unverifiedForms.length > 0 || scopedForms.size > 0)) {
+      // No verified route — but the page serves a form, so "No public contact
+      // pathway was detected" would deny something the audit just recorded.
+      // The sentence says what is missing (a VERIFIED or GENERAL route) and
+      // names what was found instead.
+      evidence.push({
+        sourceUrl: home.finalUrl,
+        evidenceType: check.type,
+        fact:
+          unverifiedForms.length > 0
+            ? 'No verified public contact pathway was detected; a form was found whose purpose could not be established.'
+            : `No general public contact pathway was detected; ${
+                scopedForms.size === 1 ? 'the only form found is' : 'the forms found are'
+              } scoped to ${joinRoutes(Array.from(scopedForms.keys()).map((s) => `${s} requests`))}.`,
+        supportingContext:
+          `${scopedForms.size > 0 ? `Also found, and not counted as general enquiry routes: ${joinRoutes(Array.from(scopedForms.keys()).map((s) => `a ${s} form`))}. ` : ''}` +
+          `${unverifiedForms.length > 0 ? 'The form of unverified purpose is recorded separately; whether it accepts general enquiries needs owner confirmation. ' : ''}` +
+          analyzedNote,
+        confidence: 60,
+      });
     } else {
       evidence.push({
         sourceUrl: home.finalUrl,
@@ -906,6 +966,22 @@ const NON_CONTACT_ADDRESS =
 function joinRoutes(routes: string[]): string {
   if (routes.length <= 1) return routes[0] ?? '';
   return `${routes.slice(0, -1).join(', ')} and ${routes[routes.length - 1]}`;
+}
+
+/** Why a form's purpose was not established, in words the client can check. */
+function unverifiedReasonText(form: UnverifiedForm): string {
+  const named = joinRoutes(form.topics.map((t) => `${t}s`));
+  switch (form.reason) {
+    case 'CONFLICTING_EVIDENCE':
+      return `The form both invites contact and names a specific purpose (${named}), so whether it takes other enquiries is unclear.`;
+    case 'SEVERAL_PURPOSES':
+      return `The form names several specific purposes (${named}) and does not invite general enquiries.`;
+    case 'NO_USABLE_SUBMIT_CONTROL':
+      return 'No visible, enabled submit button was found on the form, so whether a visitor can send it could not be observed.';
+    case 'NO_PURPOSE_EVIDENCE':
+    default:
+      return "Nothing in the form's own heading, attributes or submit button says what it is for, and a message box alone does not show that it takes general enquiries.";
+  }
 }
 
 /** Pathway categories that assert a customer can transact, and so must be clean. */

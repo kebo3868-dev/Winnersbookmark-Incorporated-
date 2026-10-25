@@ -924,73 +924,100 @@ describe('codex P2 (round 5): which buttons and which wording speak for a form',
     expect(kind(html)).toBe(expected);
   });
 
+  // SUPERSEDED VERDICTS, SAME INPUTS. Rounds 5–8 tried to decide these by
+  // reading how general wording was qualified, and every rule produced the next
+  // counter-example. Each one mixes general wording with a named purpose (or
+  // names a purpose with no general wording on a page that does), and the
+  // form's own evidence cannot settle which it is. They are kept, input for
+  // input, and now pin the only claim the evidence supports: neither a verified
+  // general route nor a verified single-purpose form. See "the three-class
+  // model" below.
+  const purposeOf = (html: string) => {
+    const r = classifyForms(cheerio.load(`<html><body>${html}</body></html>`));
+    return r.forms.map((f) => (f.purpose === 'UNVERIFIED_PURPOSE' ? `UNVERIFIED:${f.reason}` : f.purpose)).join(',');
+  };
+  const notClaimedEitherWay = (html: string) => {
+    const r = classifyForms(cheerio.load(`<html><body>${html}</body></html>`));
+    expect(r.contactFormSignal, 'must not be claimed as a general contact route').toBe(false);
+    expect(r.formScopes, 'must not be claimed as single-purpose').toEqual([]);
+  };
+
   it.each([
-    ['"Contact us about gift cards" (codex)', 'gift card', F(`<h2>Contact us about gift cards</h2>${FIELDS}<button>Send gift card request</button>`, '/gift-card-request')],
-    ['"Any questions about your gift card?"', 'gift card', F(`<h2>Any questions about your gift card?</h2>${FIELDS}<button>Send</button>`, '/gift-card-request')],
-    ['"Get in touch regarding gift cards"', 'gift card', F(`<legend>Get in touch regarding gift cards</legend>${FIELDS}<button>Send</button>`, '/gift-card-request')],
-    ['an unqualified "Contact us"', 'contact', F(`<h2>Contact us</h2>${FIELDS}<button>Send</button>`, '/gift-card-request')],
-    ['a list of several topics', 'contact', F(`<h2>Contact us about reservations, events or gift cards</h2>${FIELDS}<button>Send</button>`)],
-    ['"about anything"', 'contact', F(`<h2>Ask us about anything</h2>${FIELDS}<button>Send</button>`, '/gift-card-request')],
-    ['"General enquiries"', 'contact', F(`<legend>General enquiries</legend>${FIELDS}<button>Send</button>`, '/forms')],
-    ['a qualifier naming no purpose ("for more information")', 'contact', F(`<h2>Contact us for more information</h2>${FIELDS}<button>Send</button>`, '/gift-card-request')],
+    ['"Contact us about gift cards" (codex)', 'UNVERIFIED:CONFLICTING_EVIDENCE', F(`<h2>Contact us about gift cards</h2>${FIELDS}<button>Send gift card request</button>`, '/gift-card-request')],
+    ['"Any questions about your gift card?"', 'UNVERIFIED:CONFLICTING_EVIDENCE', F(`<h2>Any questions about your gift card?</h2>${FIELDS}<button>Send</button>`, '/gift-card-request')],
+    ['"Get in touch regarding gift cards"', 'UNVERIFIED:CONFLICTING_EVIDENCE', F(`<legend>Get in touch regarding gift cards</legend>${FIELDS}<button>Send</button>`, '/gift-card-request')],
+    ['an unqualified "Contact us"', 'UNVERIFIED:CONFLICTING_EVIDENCE', F(`<h2>Contact us</h2>${FIELDS}<button>Send</button>`, '/gift-card-request')],
+    ['a list of several topics', 'UNVERIFIED:CONFLICTING_EVIDENCE', F(`<h2>Contact us about reservations, events or gift cards</h2>${FIELDS}<button>Send</button>`)],
+    ['"about anything"', 'UNVERIFIED:CONFLICTING_EVIDENCE', F(`<h2>Ask us about anything</h2>${FIELDS}<button>Send</button>`, '/gift-card-request')],
+    ['a qualifier naming no purpose ("for more information")', 'UNVERIFIED:CONFLICTING_EVIDENCE', F(`<h2>Contact us for more information</h2>${FIELDS}<button>Send</button>`, '/gift-card-request')],
   ])('wording: %s → %s', (_label, expected, html) => {
-    expect(kind(html)).toBe(expected);
+    expect(purposeOf(html)).toBe(expected);
+    notClaimedEitherWay(html);
+  });
+
+  it('wording: "General enquiries" with no named purpose is still a general contact form', () => {
+    expect(kind(F(`<legend>General enquiries</legend>${FIELDS}<button>Send</button>`, '/forms'))).toBe('contact');
   });
 });
 
-describe('codex P2 (round 6): wording is qualified within the element that says it', () => {
-  // Two findings from the review of c0b5a56, plus neighbouring variants:
-  //   · identity concatenated attributes, submit labels and headings with no
-  //     boundary, so "Contact us for more information" in an aria-label read
-  //     on into the button's "Send gift card request" and became a gift-card
-  //     qualifier — the audit reported no public contact pathway;
-  //   · a topic list joined by "&" (or "+", ";", "|") was read as one topic.
-  const kind = (html: string) => {
-    const r = classifyForms(cheerio.load(`<html><body>${html}</body></html>`));
-    return r.contactFormSignal ? 'contact' : (r.formScopes[0] ?? 'none');
-  };
+describe('codex P2 (round 6): wording is read within the form, not across forms or pages', () => {
+  // Round 6 found a qualifier running from an aria-label into the submit
+  // button, and "&" not read as a list. Both inputs now mix general wording
+  // with a named purpose, which is CONFLICTING_EVIDENCE whatever the
+  // punctuation — so neither boundary nor separator matters any more.
   const FIELDS = '<input type="email" name="e"/><textarea name="message"></textarea>';
   const GIFT = (attrs: string, inner: string) => `<form action="/gift-card-request" ${attrs}>${inner}</form>`;
+  const purposeOf = (html: string) => {
+    const r = classifyForms(cheerio.load(`<html><body>${html}</body></html>`));
+    expect(r.contactFormSignal, 'never a verified general route').toBe(false);
+    expect(r.formScopes, 'never a verified single-purpose form').toEqual([]);
+    return r.unverifiedForms.map((f) => f.reason).join(',');
+  };
 
   it.each([
-    ['aria-label general, button names a topic (codex)', 'contact', GIFT('aria-label="Contact us for more information"', `${FIELDS}<button>Send gift card request</button>`)],
-    ['the same invitation as a heading', 'contact', GIFT('', `<h2>Contact us for more information</h2>${FIELDS}<button>Send gift card request</button>`)],
-    ['a general heading followed by a topic heading', 'contact', GIFT('', `<h2>Contact us for more information</h2><h3>Gift card request</h3>${FIELDS}<button>Send</button>`)],
-    ['a general legend followed by a topic heading', 'contact', GIFT('', `<legend>Get in touch with</legend><h3>gift cards</h3>${FIELDS}<button>Send</button>`)],
-    ['a qualified aria-label still narrows', 'gift card', GIFT('aria-label="Contact us about gift cards"', `${FIELDS}<button>Send</button>`)],
-    ['a qualified heading still narrows', 'gift card', GIFT('', `<h2>Contact us about gift cards</h2>${FIELDS}<button>Send gift card request</button>`)],
-  ])('boundaries: %s → %s', (_label, expected, html) => {
-    expect(kind(html)).toBe(expected);
+    ['aria-label general, button names a topic (codex)', GIFT('aria-label="Contact us for more information"', `${FIELDS}<button>Send gift card request</button>`)],
+    ['the same invitation as a heading', GIFT('', `<h2>Contact us for more information</h2>${FIELDS}<button>Send gift card request</button>`)],
+    ['a general heading followed by a topic heading', GIFT('', `<h2>Contact us for more information</h2><h3>Gift card request</h3>${FIELDS}<button>Send</button>`)],
+    ['a general legend followed by a topic heading', GIFT('', `<legend>Get in touch with</legend><h3>gift cards</h3>${FIELDS}<button>Send</button>`)],
+    ['a qualified aria-label', GIFT('aria-label="Contact us about gift cards"', `${FIELDS}<button>Send</button>`)],
+    ['a qualified heading', GIFT('', `<h2>Contact us about gift cards</h2>${FIELDS}<button>Send gift card request</button>`)],
+  ])('boundaries: %s → unverified (conflicting evidence)', (_label, html) => {
+    expect(purposeOf(html)).toBe('CONFLICTING_EVIDENCE');
   });
 
   it.each([
-    ['"gift cards &amp; allergens" (codex)', 'contact', '<h2>Contact us about gift cards &amp; allergens</h2>'],
-    ['"gift cards + catering"', 'contact', '<h2>Contact us about gift cards + catering</h2>'],
-    ['"and", as before', 'contact', '<h2>Contact us about gift cards and allergens</h2>'],
-  ])('lists: %s → %s', (_label, expected, heading) => {
-    expect(kind(`<form action="/contact">${heading}${FIELDS}<button>Send</button></form>`)).toBe(expected);
+    ['"gift cards &amp; allergens" (codex)', '<h2>Contact us about gift cards &amp; allergens</h2>'],
+    ['"gift cards + catering"', '<h2>Contact us about gift cards + catering</h2>'],
+    ['"and"', '<h2>Contact us about gift cards and allergens</h2>'],
+  ])('lists: %s → unverified (conflicting evidence)', (_label, heading) => {
+    expect(purposeOf(`<form action="/contact">${heading}${FIELDS}<button>Send</button></form>`)).toBe('CONFLICTING_EVIDENCE');
   });
 
-  it('an ampersand list in an attribute stays general', () => {
-    expect(kind(`<form action="/contact" aria-label="Contact us about gift cards &amp; allergens">${FIELDS}<button>Send</button></form>`)).toBe('contact');
+  it('an ampersand list in an attribute → unverified (conflicting evidence)', () => {
+    expect(purposeOf(`<form action="/contact" aria-label="Contact us about gift cards &amp; allergens">${FIELDS}<button>Send</button></form>`)).toBe(
+      'CONFLICTING_EVIDENCE',
+    );
   });
 
-  it('end to end: the codex form is reported as a contact route', () => {
+  it('end to end: the codex form is neither denied nor claimed', () => {
     const records = recordsFor(GIFT('aria-label="Contact us for more information"', `${FIELDS}<button>Send gift card request</button>`));
     expect(find(records, 'CONTACT_PATH')?.fact).not.toMatch(/No public contact pathway/i);
+    expect(find(records, 'CONTACT_FORM')).toBeUndefined();
+    expect(find(records, 'FORM_PURPOSE_UNVERIFIED')?.fact).toMatch(/could not be established/i);
   });
 });
 
-describe('codex P2 (round 7): punctuation that ends a clause does not start a list', () => {
-  // Round 6 counted ";" and "|" as list separators, so an instruction after a
-  // semicolon read as a second topic: "Contact us about gift cards; include
-  // your order number" cleared the scope of a gift-card form and the audit
-  // published a general enquiry route. ";", ":", "|", dashes and "(" end the
-  // qualifier; only "," "/" "&" "+" "or" and "and" join topics.
-  const kind = (heading: string, action = '/gift-card-request', label = ' aria-label="Gift card request"') => {
+describe('codex P2 (round 7): clause punctuation is no longer interpreted', () => {
+  // Round 7 found "; include your order number" read as a second topic. Under
+  // the three-class model punctuation is not read at all: every one of these
+  // headings both invites contact and names gift cards, so the purpose is
+  // unverified — never published as a general route, never as gift-card-only.
+  const purposeOf = (heading: string, action = '/gift-card-request', label = ' aria-label="Gift card request"') => {
     const html = `<form action="${action}"${label}><h2>${heading}</h2><input type="email" name="e"/><textarea name="message"></textarea><button>Send gift card request</button></form>`;
     const r = classifyForms(cheerio.load(`<html><body>${html}</body></html>`));
-    return r.contactFormSignal ? 'contact' : (r.formScopes[0] ?? 'none');
+    expect(r.contactFormSignal).toBe(false);
+    expect(r.formScopes).toEqual([]);
+    return r.unverifiedForms.map((f) => f.reason).join(',');
   };
 
   it.each([
@@ -1000,16 +1027,16 @@ describe('codex P2 (round 7): punctuation that ends a clause does not start a li
     ['an em dash then an instruction', 'Contact us about gift cards — include your order number'],
     ['an en dash then an instruction', 'Contact us about gift cards – include your order number'],
     ['a parenthetical instruction', 'Contact us about gift cards (include your order number)'],
-  ])('%s keeps the gift-card scope', (_label, heading) => {
-    expect(kind(heading)).toBe('gift card');
+  ])('%s → unverified (conflicting evidence)', (_label, heading) => {
+    expect(purposeOf(heading)).toBe('CONFLICTING_EVIDENCE');
   });
 
   it.each([
-    ['"&" still joins topics', 'Contact us about gift cards &amp; allergens'],
-    ['"+" still joins topics', 'Contact us about gift cards + catering'],
-    ['a comma still joins topics', 'Contact us about gift cards, events or allergens'],
-  ])('%s, so the form stays a contact route', (_label, heading) => {
-    expect(kind(heading, '/contact', '')).toBe('contact');
+    ['"&"', 'Contact us about gift cards &amp; allergens'],
+    ['"+"', 'Contact us about gift cards + catering'],
+    ['a comma', 'Contact us about gift cards, events or allergens'],
+  ])('a list joined by %s on a /contact form → unverified (conflicting evidence)', (_label, heading) => {
+    expect(purposeOf(heading, '/contact', '')).toBe('CONFLICTING_EVIDENCE');
   });
 
   it('end to end: the codex form is not published as a general enquiry route', () => {
@@ -1017,20 +1044,20 @@ describe('codex P2 (round 7): punctuation that ends a clause does not start a li
       '<form action="/gift-card-request" aria-label="Gift card request"><h2>Contact us about gift cards; include your order number</h2><input type="email" name="e"/><textarea name="message"></textarea><button>Send gift card request</button></form>',
     );
     expect(find(records, 'CONTACT_PATH')?.fact ?? '').not.toMatch(/by an enquiry form/i);
-    expect(find(records, 'SINGLE_PURPOSE_FORM')?.fact).toMatch(/gift card form/i);
+    expect(find(records, 'CONTACT_FORM')).toBeUndefined();
+    expect(find(records, 'FORM_PURPOSE_UNVERIFIED')?.supportingContext).toMatch(/gift cards/i);
   });
 });
 
-describe('codex P2 (round 8): a list continues past an aside', () => {
-  // Round 7 ended the qualifier at "(", so "gift cards (balance enquiries)
-  // and allergens" lost "allergens", read as one topic, and the audit reported
-  // no public contact pathway. Balanced asides — "(…)" and "— … —" — are now
-  // removed before the clause is read; an unclosed "(" or a lone dash still
-  // ends it.
-  const kind = (heading: string, action: string, label = '') => {
+describe('codex P2 (round 8): asides are no longer interpreted', () => {
+  // Round 8 found a list lost after "(balance enquiries)". Asides are not read
+  // either: each heading mixes contact wording with gift cards.
+  const purposeOf = (heading: string, action: string, label = '') => {
     const html = `<form action="${action}"${label}><h2>${heading}</h2><input type="email" name="e"/><textarea name="message"></textarea><button>Send</button></form>`;
     const r = classifyForms(cheerio.load(`<html><body>${html}</body></html>`));
-    return r.contactFormSignal ? 'contact' : (r.formScopes[0] ?? 'none');
+    expect(r.contactFormSignal).toBe(false);
+    expect(r.formScopes).toEqual([]);
+    return r.unverifiedForms.map((f) => f.reason).join(',');
   };
   const GIFT = ['/gift-card-request', ' aria-label="Gift card request"'] as const;
 
@@ -1039,24 +1066,25 @@ describe('codex P2 (round 8): a list continues past an aside', () => {
     ['a parenthetical, then "or"', 'Contact us about gift cards (balances) or events'],
     ['a parenthetical, then a comma', 'Contact us about gift cards (balances), events'],
     ['an em-dash aside, then "and"', 'Contact us about gift cards — including balances — and allergens'],
-  ])('%s stays a contact route', (_label, heading) => {
-    expect(kind(heading, '/contact')).toBe('contact');
+  ])('%s on a /contact form → unverified (conflicting evidence)', (_label, heading) => {
+    expect(purposeOf(heading, '/contact')).toBe('CONFLICTING_EVIDENCE');
   });
 
   it.each([
     ['a parenthetical with no further topic', 'Contact us about gift cards (balance enquiries)'],
-    ['a parenthetical instruction, as in round 7', 'Contact us about gift cards (include your order number)'],
+    ['a parenthetical instruction', 'Contact us about gift cards (include your order number)'],
     ['an unclosed parenthesis', 'Contact us about gift cards (include your order number'],
-    ['a lone dash, as in round 7', 'Contact us about gift cards — include your order number'],
+    ['a lone dash', 'Contact us about gift cards — include your order number'],
     ['an em-dash aside with no further topic', 'Contact us about gift cards — balances too — thank you'],
-  ])('%s keeps the gift-card scope', (_label, heading) => {
-    expect(kind(heading, ...GIFT)).toBe('gift card');
+  ])('%s on a gift-card form → unverified (conflicting evidence)', (_label, heading) => {
+    expect(purposeOf(heading, ...GIFT)).toBe('CONFLICTING_EVIDENCE');
   });
 
-  it('end to end: the codex form is reported as a contact route', () => {
+  it('end to end: the codex form is not denied', () => {
     const records = recordsFor(
       '<form action="/contact"><h2>Contact us about gift cards (balance enquiries) and allergens</h2><input type="email" name="e"/><textarea name="message"></textarea><button>Send</button></form>',
     );
     expect(find(records, 'CONTACT_PATH')?.fact).not.toMatch(/No public contact pathway/i);
+    expect(find(records, 'FORM_PURPOSE_UNVERIFIED')).toBeDefined();
   });
 });
