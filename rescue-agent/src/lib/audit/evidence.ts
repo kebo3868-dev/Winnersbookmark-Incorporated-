@@ -77,6 +77,14 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
   }
 
   const analyzedNote = `Based on ${pages.length} analyzed page(s).`;
+  /**
+   * Some page the audit meant to read could not be read.
+   *
+   * When that happens, "we did not find X" stops being evidence that X is
+   * absent — it may simply live on the page that failed. Absence claims are
+   * softened and their confidence lowered rather than stated as fact.
+   */
+  const collectionIncomplete = failures.length > 0;
 
   // Business identity
   if (home.title) {
@@ -182,6 +190,47 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
     confidence: clickToCall ? 95 : 80,
   });
 
+  // ── PUBLIC CONTACT EMAIL ──────────────────────────────────────────────────
+  //
+  // An address the restaurant publishes so customers can write to it. The
+  // collector has always extracted these; nothing consumed them, so an audit
+  // could hold `leverocksgreatseafood@gmail.com` and still print "no published
+  // email was detected". Surfacing it here makes the address traceable AND
+  // gives CONTACT_PATH a single fact to agree with, so the two can no longer
+  // contradict each other.
+  const contactEmails = new Map<string, string>();
+  for (const page of pages) {
+    for (const address of page.emails ?? []) {
+      const normalized = address.trim().toLowerCase();
+      if (!normalized || isNonContactAddress(normalized)) continue;
+      if (!contactEmails.has(normalized)) contactEmails.set(normalized, page.finalUrl);
+    }
+  }
+  const publishedEmail = contactEmails.size > 0 ? Array.from(contactEmails.entries())[0] : null;
+  if (publishedEmail) {
+    const [address, foundOn] = publishedEmail;
+    evidence.push({
+      sourceUrl: foundOn,
+      evidenceType: 'CONTACT_EMAIL',
+      fact: `A public contact email address is published: ${address}.`,
+      supportingContext:
+        `Found on ${foundOn}.${contactEmails.size > 1 ? ` ${contactEmails.size} public address(es) were found in total.` : ''} ` +
+        'This is an address the restaurant publishes for customers to write to — it is not a newsletter signup, ' +
+        'which is recorded separately.',
+      confidence: 90,
+    });
+  } else {
+    evidence.push({
+      sourceUrl: home.finalUrl,
+      evidenceType: 'CONTACT_EMAIL',
+      fact: absenceClaim('No public contact email address', collectionIncomplete),
+      supportingContext: collectionIncomplete
+        ? `${analyzedNote} ${INCOMPLETE_COLLECTION_CAVEAT}`
+        : analyzedNote,
+      confidence: collectionIncomplete ? 45 : 65,
+    });
+  }
+
   // Hours & address
   const hoursPage = pages.find((p) => p.hoursText);
   evidence.push({
@@ -266,6 +315,7 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
     const found = new Map<string, CategorizedLink>();
     for (const page of pages) {
       for (const link of page.categorizedLinks[check.key] ?? []) {
+        if (isTransactional(check.key) && !isCustomerReachable(link)) continue;
         if (!found.has(link.href)) found.set(link.href, link);
       }
     }
@@ -340,29 +390,44 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
           'This is not evidence that a working pathway exists.',
         confidence: 55,
       });
-    } else if (check.key === 'contact' && (anyPhone || clickToCall)) {
-      // A PHONE NUMBER IS A CONTACT PATHWAY.
+    } else if (check.key === 'contact' && (anyPhone || clickToCall || publishedEmail)) {
+      // A PHONE NUMBER IS A CONTACT PATHWAY. SO IS A PUBLISHED EMAIL ADDRESS.
       //
-      // The audit reported "No public contact pathway was detected" on a site
-      // that publishes its number and offers click-to-call — while the very same
-      // evidence chain, two entries above, recorded both. Saying a restaurant
-      // cannot be contacted when it plainly can is the kind of error an owner
-      // spots instantly, and it costs the whole report its credibility.
+      // The audit first reported "No public contact pathway was detected" on a
+      // site that publishes its number. That was corrected — but the correction
+      // then asserted that no "published email" existed, while the collector was
+      // holding one it had extracted and discarded. Saying a restaurant cannot
+      // be written to when it plainly can is the same error wearing a new
+      // sentence, and it costs the report its credibility just as fast.
       //
-      // The real finding is narrower and still worth making: everything routes
-      // through the phone, and there is no way to ask a question in writing.
+      // The statement is now assembled from the routes actually found, so it
+      // cannot deny one the audit has already recorded as CONTACT_EMAIL.
+      //
+      // PHRASING IS A CONTRACT HERE. journey.ts keys its CONTACT=FRICTION
+      // branch off the literal "no non-phone contact route", so that phrase has
+      // to survive verbatim in the phone-only case. The published-email case
+      // gets its own sentence instead of being bent into that one — there IS a
+      // non-phone route, so claiming otherwise is the defect being fixed.
+      const routes: string[] = [];
+      if (anyPhone || clickToCall) routes.push('telephone');
+      if (publishedEmail) routes.push('a published email address');
+      const incompleteSuffix = collectionIncomplete ? ' on the pages that could be collected' : '';
       evidence.push({
         sourceUrl: home.finalUrl,
         evidenceType: 'CONTACT_PATH',
-        fact:
-          'A contact pathway is publicly available by telephone, but no non-phone contact route ' +
-          '(contact page, enquiry form, or published email) was detected.',
+        fact: publishedEmail
+          ? `A contact pathway is publicly available by ${routes.join(' and ')}, but no contact page or enquiry form was detected${incompleteSuffix}.`
+          : `A contact pathway is publicly available by telephone, but no non-phone contact route ` +
+            `(contact page, enquiry form, or published email address) was detected${incompleteSuffix}.`,
         supportingContext:
           `${anyPhone ? `Phone number published: ${anyPhone.phones[0]}. ` : ''}` +
           `${clickToCall ? 'Click-to-call (tel:) links are present. ' : ''}` +
-          'Customers can reach the restaurant; every enquiry has to become a phone call, so questions that arrive ' +
-          'outside service hours have nowhere to go. ' +
-          analyzedNote,
+          `${publishedEmail ? `Public email address published: ${publishedEmail[0]}. ` : ''}` +
+          (publishedEmail
+            ? 'Customers can reach the restaurant by phone or in writing; what happens to an emailed enquiry, and how fast, is not observable from the public site. '
+            : 'Customers can reach the restaurant; every enquiry has to become a phone call, so questions that arrive outside service hours have nowhere to go. ') +
+          analyzedNote +
+          (collectionIncomplete ? ` ${INCOMPLETE_COLLECTION_CAVEAT}` : ''),
         confidence: 85,
       });
     } else {
@@ -387,6 +452,7 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
     const orderingLinks = new Map<string, CategorizedLink>();
     for (const page of pages) {
       for (const link of page.categorizedLinks.ordering ?? []) {
+        if (!isCustomerReachable(link)) continue;
         if (!orderingLinks.has(link.href)) orderingLinks.set(link.href, link);
       }
     }
@@ -482,10 +548,14 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
   evidence.push({
     sourceUrl: home.finalUrl,
     evidenceType: 'EMAIL_CAPTURE',
+    // About collecting the VISITOR's address, not publishing the restaurant's.
+    // CONTACT_EMAIL covers the latter; keeping the two apart is what stops a
+    // newsletter box being read as a contact route, or its absence being read
+    // as "there is no way to email them".
     fact: emailCapture
-      ? 'An email capture mechanism (signup form or newsletter invitation) is publicly visible.'
-      : 'No public email capture mechanism was detected on the analyzed pages.',
-    supportingContext: analyzedNote,
+      ? "An email capture mechanism for collecting visitors' addresses (signup form or newsletter invitation) is publicly visible."
+      : "No mechanism for collecting visitors' email addresses (signup form or newsletter invitation) was detected on the analyzed pages.",
+    supportingContext: `${analyzedNote} This concerns list building, not the restaurant's own published contact address.`,
     confidence: emailCapture ? 85 : 65,
   });
   if (smsCapture) {
@@ -727,6 +797,62 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
  */
 function indefiniteArticle(noun: string): 'A' | 'An' {
   return /^(?:[aeiou]|faq\b)/i.test(noun) ? 'An' : 'A';
+}
+
+/**
+ * Addresses that are published on a page but are not a way to reach the
+ * restaurant: automated senders, and addresses belonging to the site's tooling
+ * rather than the business. Reporting one as the contact route would replace an
+ * old false negative with a new false positive.
+ */
+// The local-part alternatives MUST terminate at the "@". Anchoring them at the
+// start alone makes every entry a prefix match, which excluded
+// `abusedchef@…`, `noreplyparties@…` and `postmasterchef@…` — real addresses
+// discarded by the very guard that exists to prevent false claims.
+const NON_CONTACT_ADDRESS =
+  /^(?:no-?reply|donotreply|do-not-reply|postmaster|mailer-daemon|abuse|wix|sentry)@|@(?:sentry\.io|wixpress\.com|squarespace\.com|sentry-next\.wixpress\.com|example\.(?:com|org|net)|domain\.com|email\.com)$/i;
+
+/** Pathway categories that assert a customer can transact, and so must be clean. */
+function isTransactional(key: string): boolean {
+  return key === 'reservation' || key === 'ordering';
+}
+
+/**
+ * True when a categorized link is somewhere a customer could actually be sent.
+ *
+ * `classifyDestination` already refuses API endpoints and static assets, but it
+ * was only consulted on the probe path. A URL lifted out of a `data-*`
+ * attribute skipped it entirely, so `admin-ajax.php?action=order_status` —
+ * WordPress's internal AJAX endpoint — reached the report as "an online
+ * ordering pathway is publicly reachable through an embedded widget". Applying
+ * the same classifier here closes that route in.
+ */
+function isCustomerReachable(link: CategorizedLink): boolean {
+  const kind = classifyDestination(link.href).kind;
+  return kind !== 'API_ENDPOINT' && kind !== 'STATIC_ASSET';
+}
+
+/** True for an address that is not a customer contact route. */
+export function isNonContactAddress(address: string): boolean {
+  return NON_CONTACT_ADDRESS.test(address.trim());
+}
+
+/** Appended wherever an absence is reported on an incomplete collection. */
+export const INCOMPLETE_COLLECTION_CAVEAT =
+  'At least one page could not be collected, so this absence is not conclusive — the detail may appear on a page the audit could not read.';
+
+/**
+ * Phrase an absence as a finding, never as a certainty the data cannot support.
+ *
+ * With every intended page read, "was not detected on the analyzed pages" is an
+ * honest statement of what was looked at. With a page missing, the same
+ * sentence overstates: the only defensible claim is that it was not found in
+ * what could be read.
+ */
+export function absenceClaim(subject: string, collectionIncomplete: boolean): string {
+  return collectionIncomplete
+    ? `${subject} was found on the pages that could be collected, but collection was incomplete.`
+    : `${subject} was detected on the analyzed website pages.`;
 }
 
 function isExternal(href: string, homeUrl: string): boolean {

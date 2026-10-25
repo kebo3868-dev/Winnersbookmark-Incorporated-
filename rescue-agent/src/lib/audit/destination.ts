@@ -64,6 +64,12 @@ const API_PATH_PATTERNS: [RegExp, string][] = [
   [/(^|\/)rpc(\/|$)/i, 'RPC endpoint'],
   [/(^|\/)wp-json(\/|$)/i, 'WordPress REST endpoint'],
   [/(^|\/)ajax(\/|$)/i, 'AJAX endpoint'],
+  // WordPress ships these two as the site's AJAX and form-post endpoints. They
+  // are filenames, not path segments, so the /ajax/ pattern above walks past
+  // them — and a `?action=order_status` on admin-ajax.php is enough to get an
+  // internal endpoint filed as an ordering destination.
+  [/(^|\/)admin-ajax\.php$/i, 'WordPress admin-ajax endpoint'],
+  [/(^|\/)admin-post\.php$/i, 'WordPress admin-post endpoint'],
   [/(^|\/)jsonapi(\/|$)/i, 'JSON:API endpoint'],
   [/(^|\/)xmlrpc\.php$/i, 'XML-RPC endpoint'],
   [/(^|\/)(webhook|webhooks|callback|callbacks)(\/|$)/i, 'webhook/callback endpoint'],
