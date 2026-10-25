@@ -699,3 +699,57 @@ describe('codex P2: a topic a form mentions is not the form\'s scope', () => {
     expect(result.formScopes).toContain('gift card');
   });
 });
+
+describe('codex P2 (round 2): a form\'s scope is what the form says it is', () => {
+  // Narrowing scope to attributes and submit wording fixed the dropdown-topic
+  // false absence and broke two other cases, both found by review:
+  //   · a gift-card form naming itself in an internal heading lost its scope;
+  //   · one incidental sentence ("For any questions about delivery …") cleared
+  //     the scope of a form explicitly labelled aria-label="Gift card request".
+  // Both signals now read the same identity: attributes, submit wording, and
+  // the form's own headings and legends.
+  const classify = (html: string) => classifyForms(cheerio.load(`<html><body>${html}</body></html>`));
+
+  it('reads scope from the form\'s own heading', () => {
+    const r = classify('<form action="/forms"><h2>Gift card request</h2><input type="email" name="e" /><textarea name="message"></textarea><button>Send</button></form>');
+    expect(r.formScopes).toContain('gift card');
+    expect(r.contactFormSignal).toBe(false);
+  });
+
+  it('does not let an incidental sentence clear a stated scope', () => {
+    const r = classify(
+      '<form action="/gift-card-request" aria-label="Gift card request"><input type="email" name="e" />' +
+        '<textarea name="message"></textarea><p>For any questions about delivery call the restaurant.</p>' +
+        '<button>Send gift card request</button></form>',
+    );
+    expect(r.formScopes, 'the support note must not override the label').toContain('gift card');
+    expect(r.contactFormSignal).toBe(false);
+  });
+
+  it('honours general-enquiry wording in the form\'s own legend', () => {
+    const r = classify(
+      '<form action="/forms"><legend>General enquiries</legend><input type="email" name="e" />' +
+        '<textarea name="message"></textarea><p>Gift cards available</p><button>Send</button></form>',
+    );
+    expect(r.contactFormSignal, 'a general enquiry form mentioning gift cards stays a contact route').toBe(true);
+    expect(r.formScopes).toEqual([]);
+  });
+
+  it('still keeps the dropdown-topic case and the attribute-scoped case right', () => {
+    const general = classify(
+      '<form action="/contact" id="contact-form"><input type="email" name="email" />' +
+        '<select name="topic"><option>General question</option><option>Gift cards</option><option>Allergens</option></select>' +
+        '<textarea name="message" placeholder="How can we help?"></textarea><button>Send</button></form>',
+    );
+    expect(general.contactFormSignal).toBe(true);
+    expect(general.formScopes).toEqual([]);
+
+    const giftCard = classify(
+      '<form action="/gift-card-request" id="gift-card-request-form" class="gift-card-form"><input name="n" />' +
+        '<input type="email" name="e" /><input name="amount" /><textarea name="message"></textarea>' +
+        '<button type="submit">Send gift card request</button></form>',
+    );
+    expect(giftCard.contactFormSignal).toBe(false);
+    expect(giftCard.formScopes).toContain('gift card');
+  });
+});

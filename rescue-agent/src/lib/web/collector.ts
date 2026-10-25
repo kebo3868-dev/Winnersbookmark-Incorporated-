@@ -418,16 +418,30 @@ export function classifyForms($: cheerio.CheerioAPI): {
     // umbrella has no business submitting a gift-card order. The scope is kept
     // so the report can say which kind of form it found.
     //
-    // SCOPE COMES FROM WHAT THE FORM IS, NOT FROM A TOPIC IT MENTIONS.
+    // SCOPE COMES FROM WHAT THE FORM SAYS IT IS.
+    //
+    // Three attempts, and the middle one is why this comment is long.
     //
     // Matching the whole haystack suppressed a general enquiry form that listed
-    // "Gift cards" as one option in a topic dropdown — contactFormSignal went
-    // false and CONTACT_PATH then reported "No public contact pathway was
-    // detected" on a page serving a contact form. A false absence, which is the
-    // error this audit exists to avoid. The scope is read from the form's own
-    // identity — its action, id, name, class, aria-label and submit wording —
-    // and a form that advertises general enquiries is never narrowed at all.
-    const scope = GENERAL_ENQUIRY_TEXT.test(`${attrs} ${text}`) ? null : singlePurposeScope(`${attrs} ${submitText(form)}`);
+    // "Gift cards" as one option in a topic dropdown: contactFormSignal went
+    // false and CONTACT_PATH reported "No public contact pathway was detected"
+    // on a page serving a contact form.
+    //
+    // Narrowing to attributes and submit wording fixed that and broke two other
+    // things. A gift-card form that names itself in an internal heading —
+    // `<form action="/forms"><h2>Gift card request</h2>` — lost its scope
+    // entirely. And testing the general-enquiry override against the form's
+    // whole text let one incidental sentence ("For any questions about delivery
+    // call the restaurant") clear the scope of a form explicitly labelled
+    // `aria-label="Gift card request"`.
+    //
+    // Both signals now read the same thing: the form's IDENTITY — its
+    // attributes, its submit wording, and its own headings and legends. Those
+    // are the places a form states its purpose. Dropdown options and body
+    // prose are excluded from both, because a topic a form mentions and a
+    // sentence inside it are not claims about what the form accepts.
+    const identity = `${attrs} ${submitText(form)} ${formHeadings($, form)}`;
+    const scope = GENERAL_ENQUIRY_TEXT.test(identity) ? null : singlePurposeScope(identity);
     if (scope) {
       if (!formScopes.includes(scope)) formScopes.push(scope);
       return;
@@ -446,6 +460,24 @@ export function classifyForms($: cheerio.CheerioAPI): {
  */
 const GENERAL_ENQUIRY_TEXT =
   /general (enquir|inquir|question)|contact[- _]?us|how can we help|ask us|send us a (message|note)|get in touch|any questions/i;
+
+/**
+ * A form's own headings and legends — where many forms state their purpose.
+ *
+ * Only elements INSIDE the form count. A heading above a form describes the
+ * page section, which may hold several forms; a `<legend>` or an `<h2>` within
+ * the form element is the form naming itself.
+ */
+function formHeadings($: cheerio.CheerioAPI, $form: cheerio.Cheerio<DomElement>): string {
+  return $form
+    .find('legend, h1, h2, h3, h4, h5, h6')
+    .map((_, el) => $(el).text())
+    .get()
+    .join(' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 200);
+}
 
 /** The label on a form's own submit control — what it says it does. */
 function submitText($form: cheerio.Cheerio<DomElement>): string {
