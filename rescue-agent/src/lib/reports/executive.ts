@@ -698,11 +698,17 @@ function buildDecisionBox(findings: ExecutiveFinding[], ranked: RankedAiOpportun
 
 function interpretScore(score: number | null): string {
   if (score === null) return 'Public evidence was insufficient to produce an overall score. See Methodology & Limitations.';
-  if (score >= 90) return 'The public-facing digital operation is exceptionally strong; remaining opportunities are refinements, not repairs.';
-  if (score >= 80) return 'A strong digital revenue foundation with specific, addressable optimization opportunities.';
-  if (score >= 70) return 'A workable foundation with measurable revenue leakage in specific parts of the guest journey.';
-  if (score >= 60) return 'Guests encounter meaningful friction at several points in the digital journey; prioritized fixes are warranted.';
-  return 'The digital guest journey is a high-priority rescue opportunity; several fundamental pathways need attention.';
+  // NO BAND MAY ASSERT A MEASURED LOSS.
+  //
+  // "measurable revenue leakage" told the reader money had been measured
+  // leaving the business. Nothing in this audit measures money. Each band now
+  // describes the state of the PUBLIC SIGNALS the score is computed from, and
+  // says so.
+  if (score >= 90) return 'The public signals this audit checks are close to complete; what remains are refinements rather than repairs.';
+  if (score >= 80) return 'The public signals are strong, with specific gaps worth addressing. No financial loss is measured by this score.';
+  if (score >= 70) return 'A workable public foundation with identified gaps in specific parts of the guest journey. Whether those gaps cost money is not measured here.';
+  if (score >= 60) return 'Several parts of the public guest journey show friction or could not be verified; these are the places to look first.';
+  return 'Multiple core pathways are missing, broken, or unverifiable from public pages. This is where a review should start.';
 }
 
 function firstSentence(text: string): string {

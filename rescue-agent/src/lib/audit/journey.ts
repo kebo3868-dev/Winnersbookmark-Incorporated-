@@ -109,11 +109,14 @@ export function analyzeJourney(evidence: EvidenceRecordLike[]): JourneyStageResu
         stage(
           'PHONE',
           'FRICTION',
-          'The phone channel carries load that the website does not absorb: ' +
-            [c2cMissing.length > 0 ? 'mobile visitors cannot tap to call' : '', faqMissing.length > 0 ? 'no FAQ answers common questions before customers dial' : '']
+          // States only what was seen. Whether the phone "carries load the
+          // website does not absorb" is a conclusion about call volume, and
+          // call volume is not observable from a public page.
+          'Observed on the public site: ' +
+            [c2cMissing.length > 0 ? 'mobile visitors cannot tap to call' : '', faqMissing.length > 0 ? 'no dedicated FAQ page was found' : '']
               .filter(Boolean)
               .join('; ') +
-            '. This is a phone-dependent customer journey with potential missed-call exposure during service hours.',
+            '. How much phone demand this creates, and whether calls go unanswered, requires call records — not assessed here.',
           avgConfidence(all, 70),
           true,
           ids(all),
@@ -416,23 +419,59 @@ export function analyzeJourney(evidence: EvidenceRecordLike[]): JourneyStageResu
     const loyalty = has(index, 'LOYALTY_SIGNAL');
     const captures = [...email.filter(positive), ...sms.filter(positive), ...loyalty.filter(positive)];
     const all = [...email, ...sms, ...loyalty];
+    // A PUBLIC SIGNUP BOX IS NOT A FOLLOW-UP SYSTEM.
+    //
+    // This stage used to grade internal operations from the widgets on the
+    // homepage: one signup form became "the follow-up system appears basic",
+    // two became HEALTHY, and none became RISK — the bucket reserved for
+    // confirmed failures. None of those is observable from a public page. What
+    // a guest can opt into IS observable, so that is all this stage now says;
+    // whether anyone is ever contacted is marked unknown and left to the owner.
     if (all.length === 0) {
       push(stage('FOLLOW_UP', 'UNKNOWN', 'Customer follow-up systems could not be assessed from public signals.', 30, true, []));
     } else if (captures.length === 0) {
+      // FRICTION, not RISK. A guest who wants to hear from this restaurant has
+      // no public way to opt in — that is customer-visible. It is NOT evidence
+      // that follow-up fails: a till-side signup or a POS loyalty program
+      // leaves no public trace at all.
       push(
         stage(
           'FOLLOW_UP',
-          'RISK',
-          'No public retention mechanism (email capture, SMS club, or loyalty program) was detected. This does not prove no internal database exists — but the website is not visibly building one.',
+          'FRICTION',
+          'Observed: no email capture, SMS club or loyalty signal appears on the analyzed public pages, so a guest has no public way to opt into hearing from you. ' +
+            'Not assessed: whether you keep a guest list or follow up through a system that leaves no public trace — a POS loyalty program or a till-side signup is invisible to this audit. ' +
+            'Follow-up quality requires your own data.',
           avgConfidence(all, 60),
           true,
           ids(all),
         ),
       );
     } else if (captures.length === 1) {
-      push(stage('FOLLOW_UP', 'FRICTION', 'A single public retention signal was detected; the follow-up system appears basic.', avgConfidence(all, 65), true, ids(all)));
+      push(
+        stage(
+          'FOLLOW_UP',
+          'FRICTION',
+          'Observed: one public retention signal was detected, so there is a single route by which a guest can opt in. ' +
+            'Not assessed: whether anyone is contacted, how often, or to what effect — the quality of follow-up is not visible from a public page and requires your own data.',
+          avgConfidence(all, 65),
+          true,
+          ids(all),
+        ),
+      );
     } else {
-      push(stage('FOLLOW_UP', 'HEALTHY', 'Multiple public retention mechanisms are visible.', avgConfidence(captures, 75), false, ids(all)));
+      // RESOLVED_UNVERIFIED, not HEALTHY. The opt-in routes are visible; that
+      // they are used is a separate claim, and this audit does not test it.
+      push(
+        stage(
+          'FOLLOW_UP',
+          'RESOLVED_UNVERIFIED',
+          'Observed: multiple public retention mechanisms are visible, so guests have more than one route to opt in. ' +
+            'Not assessed: whether the resulting list is contacted at all. Visible mechanisms are not a working follow-up programme, and this audit cannot tell the two apart.',
+          avgConfidence(captures, 75),
+          true,
+          ids(all),
+        ),
+      );
     }
   }
 
@@ -469,9 +508,32 @@ export function analyzeJourney(evidence: EvidenceRecordLike[]): JourneyStageResu
     if (retention.length === 0) {
       push(stage('RETURN', 'UNKNOWN', 'Repeat-visit systems could not be assessed.', 30, true, []));
     } else if (positives.length === 0) {
-      push(stage('RETURN', 'RISK', 'No visible mechanism invites customers back (loyalty, gift cards, or owned contact list detected: none). Repeat business appears to depend entirely on memory.', avgConfidence(retention, 60), true, ids(retention)));
+      // Was RISK with "repeat business appears to depend entirely on memory" —
+      // a conclusion about how guests actually behave, drawn from the absence
+      // of a widget. The absence is the fact; the behaviour is not.
+      push(
+        stage(
+          'RETURN',
+          'FRICTION',
+          'Observed: no loyalty, gift-card or contact-list mechanism was detected on the analyzed public pages, so nothing on the site invites a guest back. ' +
+            'Not assessed: whether guests return anyway, and whether you invite them back by means this audit cannot see. Repeat-visit rates require your own data.',
+          avgConfidence(retention, 60),
+          true,
+          ids(retention),
+        ),
+      );
     } else {
-      push(stage('RETURN', 'FRICTION', 'Some repeat-visit mechanisms exist publicly; depth of use requires manual validation.', avgConfidence(positives, 65), true, ids(retention)));
+      push(
+        stage(
+          'RETURN',
+          'FRICTION',
+          'Observed: at least one repeat-visit mechanism is publicly present. ' +
+            'Not assessed: how much it is used, or whether it brings anyone back — that requires your own data.',
+          avgConfidence(positives, 65),
+          true,
+          ids(retention),
+        ),
+      );
     }
   }
 

@@ -115,6 +115,13 @@ export interface PageExtract {
    * booking system or that anyone answers it.
    */
   reservationFormSignal: boolean;
+  /**
+   * Purposes of forms that accept exactly ONE kind of request (e.g. "gift
+   * card"). These are NOT counted in contactFormSignal: a gift-card order form
+   * is not somewhere a guest asks about allergens. Kept so the report can name
+   * what it found instead of silently dropping it.
+   */
+  formScopes: string[];
   emailCaptureSignal: boolean;
   smsCaptureSignal: boolean;
   loyaltySignal: boolean;
@@ -311,9 +318,15 @@ function isCustomerWritable($: cheerio.CheerioAPI, field: DomElement): boolean {
  * explicit booking wording, because "reservations" appearing in a page's prose
  * says nothing about what the form on it does.
  */
-export function classifyForms($: cheerio.CheerioAPI): { contactFormSignal: boolean; reservationFormSignal: boolean } {
+export function classifyForms($: cheerio.CheerioAPI): {
+  contactFormSignal: boolean;
+  reservationFormSignal: boolean;
+  /** Purposes of single-purpose forms found, e.g. "gift card". Never general enquiry. */
+  formScopes: string[];
+} {
   let contactFormSignal = false;
   let reservationFormSignal = false;
+  const formScopes: string[] = [];
 
   $('form').each((_, el) => {
     const form = $(el);
@@ -368,10 +381,51 @@ export function classifyForms($: cheerio.CheerioAPI): { contactFormSignal: boole
     const hasMessageField = writableMessageFields.length > 0 || MESSAGE_FIELD_NAME.test(visibleFieldNames);
     const isNewsletterOnly = NEWSLETTER_FORM_TEXT.test(haystack) && !hasMessageField;
     if (isNewsletterOnly) return;
-    if (hasMessageField) contactFormSignal = true;
+    if (!hasMessageField) return;
+    // A SINGLE-PURPOSE FORM IS NOT A GENERAL ENQUIRY ROUTE.
+    //
+    // A gift-card request form has a message box and sits on a gift-card page.
+    // Counting it as "you can write to this restaurant" overstates what a
+    // customer can do with it: a guest asking about allergens or a lost
+    // umbrella has no business submitting a gift-card order. The scope is kept
+    // so the report can say which kind of form it found.
+    const scope = singlePurposeScope(haystack);
+    if (scope) {
+      if (!formScopes.includes(scope)) formScopes.push(scope);
+      return;
+    }
+    contactFormSignal = true;
   });
 
-  return { contactFormSignal, reservationFormSignal };
+  return { contactFormSignal, reservationFormSignal, formScopes };
+}
+
+/**
+ * Forms that accept exactly one kind of request.
+ *
+ * Matched on the form's own attributes and wording, which is what distinguishes
+ * "order a gift card" from "ask us anything". A guest with a question about
+ * allergens cannot use a gift-card order form, so recording one as a general
+ * contact route tells the owner they have a reply channel they do not have.
+ */
+const SINGLE_PURPOSE_FORMS: [RegExp, string][] = [
+  [/gift[- _]?card|gift[- _]?certificate|e-?gift/i, 'gift card'],
+  [/careers?|employment|job[- _]?application|apply[- _]?now|hiring/i, 'job application'],
+  [/catering[- _]?(request|order|enquiry|inquiry)/i, 'catering request'],
+  [/private[- _]?(party|parties|event|dining)[- _]?(request|enquiry|inquiry|form)/i, 'private event request'],
+  [/waitlist|waiting[- _]?list/i, 'waitlist'],
+  // "Feedback" is deliberately absent. A feedback box is addressed to the
+  // restaurant and a guest with a question can use it, so suppressing it would
+  // deny a contact route that exists — the error this table is meant to avoid,
+  // in the opposite direction.
+];
+
+/** The single purpose this form serves, or null when it accepts general enquiries. */
+function singlePurposeScope(haystack: string): string | null {
+  for (const [pattern, label] of SINGLE_PURPOSE_FORMS) {
+    if (pattern.test(haystack)) return label;
+  }
+  return null;
 }
 
 /** Bound on embedded destinations kept per page — untrusted HTML sets no limit of its own. */
@@ -977,7 +1031,7 @@ export function extractPage(
   // enquiry form was detected. Each form is now classified from its own fields
   // and wording, so the two kinds are reported separately and neither is
   // mistaken for a newsletter box.
-  const { contactFormSignal, reservationFormSignal } = classifyForms($);
+  const { contactFormSignal, reservationFormSignal, formScopes } = classifyForms($);
   const emailCaptureSignal =
     $('form input[type="email"]').length > 0 || /newsletter|join our (email|mailing) list|subscribe/i.test(bodyText);
   const smsCaptureSignal = /text club|sms club|join.{0,20}text|text .{0,10}to \d{5,6}/i.test(bodyText);
@@ -1014,6 +1068,7 @@ export function extractPage(
     addressText: addressMatch ? terminateAddressAtZip(addressMatch[0]).slice(0, 200) : null,
     contactFormSignal,
     reservationFormSignal,
+    formScopes,
     emailCaptureSignal,
     smsCaptureSignal,
     loyaltySignal,

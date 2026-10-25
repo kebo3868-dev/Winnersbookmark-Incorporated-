@@ -267,6 +267,30 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
     });
   }
 
+  // A FORM WITH ONE PURPOSE IS NOT A GENERAL ENQUIRY ROUTE.
+  //
+  // The gift-card page serves a form with a message box. Classifying it as a
+  // contact form said a guest could write in about anything; ignoring it said
+  // the page had no form at all. Both are wrong, so the scope is reported.
+  const scopedForms = new Map<string, string>();
+  for (const page of pages) {
+    for (const scope of page.formScopes ?? []) {
+      if (!scopedForms.has(scope)) scopedForms.set(scope, page.finalUrl);
+    }
+  }
+  for (const [scope, foundOn] of scopedForms) {
+    evidence.push({
+      sourceUrl: foundOn,
+      evidenceType: 'SINGLE_PURPOSE_FORM',
+      fact: `A ${scope} form is published on the website; it accepts ${scope} requests, not general enquiries.`,
+      supportingContext:
+        `Found on ${foundOn}. The form's own fields and wording scope it to ${scope} requests, so it is not counted ` +
+        'as a way for a guest to ask the restaurant a general question. Whether the restaurant also accepts general ' +
+        'enquiries through it is not observable from a public page and needs owner confirmation.',
+      confidence: 75,
+    });
+  }
+
   // Hours & address
   const hoursPage = pages.find((p) => p.hoursText);
   evidence.push({
@@ -464,6 +488,10 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
           `${clickToCall ? 'Click-to-call (tel:) links are present. ' : ''}` +
           `${publishedEmail ? `Public email address published: ${publishedEmail[0]}. ` : ''}` +
           `${contactFormPage ? `Enquiry form published on ${contactFormPage.finalUrl}. ` : ''}` +
+          // Named so the reader can see the audit found these and decided they
+          // are not general enquiry routes, rather than appearing to have
+          // missed a form that is plainly on the page.
+          `${scopedForms.size > 0 ? `Also found, and not counted as general enquiry routes: ${joinRoutes(Array.from(scopedForms.keys()).map((s) => `a ${s} form`))}. ` : ''}` +
           (writtenRoute
             ? 'Customers can reach the restaurant by phone or in writing; what happens to a written enquiry, and how fast, is not observable from the public site. '
             : 'Customers can reach the restaurant; every enquiry has to become a phone call, so questions that arrive outside service hours have nowhere to go. ') +
@@ -639,11 +667,23 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
     confidence: 80,
   });
   if (homeCtas.length > 8) {
+    // COUNTING IS NOT SEEING.
+    //
+    // This used to read "N competing CTAs, which can dilute the primary next
+    // action" — one sentence containing a count that was observed and a
+    // usability verdict that was not. The audit reads markup, not layout: it
+    // cannot see size, position, contrast or visual hierarchy, so it cannot
+    // know whether these actions compete with each other or sit in a perfectly
+    // clear order. The count stays; the verdict becomes an explicit question.
     evidence.push({
       sourceUrl: home.finalUrl,
       evidenceType: 'CTA_SIGNAL',
-      fact: `Homepage presents ${homeCtas.length} competing CTAs, which can dilute the primary next action.`,
-      supportingContext: normalizePhonesInText(homeCtas.slice(0, 10).join(' | ')),
+      fact: `Homepage presents ${homeCtas.length} distinct action-oriented CTAs, more than the 8 this audit treats as a prompt to look at hierarchy.`,
+      supportingContext:
+        `${normalizePhonesInText(homeCtas.slice(0, 10).join(' | '))}. ` +
+        'This is a COUNT, not a judgement about the design. Whether these actions compete visually depends on layout, ' +
+        'size and placement, which this audit does not render or measure, and whether any conversion is lost depends on ' +
+        'website analytics it cannot see.',
       confidence: 70,
     });
   }

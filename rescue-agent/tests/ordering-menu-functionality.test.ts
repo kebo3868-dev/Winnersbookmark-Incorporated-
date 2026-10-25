@@ -89,7 +89,7 @@ describe('ORDERING — reachability is not functionality', () => {
       [orderProbe()],
     );
     expect(stage?.status).toBe('FRICTION');
-    expect(stage?.finding).toMatch(/telephone only/i);
+    expect(stage?.finding).toMatch(/places a telephone call/i);
   });
 
   it('still classifies a dead ordering destination as RISK', () => {

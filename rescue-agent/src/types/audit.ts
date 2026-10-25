@@ -25,6 +25,17 @@ export type EvidenceType =
    * is the site collecting the visitor's address for marketing.
    */
   | 'CONTACT_FORM'
+  /**
+   * A form that accepts exactly ONE kind of request — a gift-card order, a job
+   * application, a catering enquiry.
+   *
+   * Deliberately NOT CONTACT_FORM. A guest asking about allergens or a lost
+   * umbrella cannot use a gift-card order form, so counting one as "you can
+   * write to this restaurant" tells an owner they have a reply channel they do
+   * not have. Recording the scope keeps the distinction visible in the report
+   * instead of resolving it in either direction silently.
+   */
+  | 'SINGLE_PURPOSE_FORM'
   | 'CATERING_PATH'
   | 'PRIVATE_DINING_PATH'
   | 'LOYALTY_SIGNAL'

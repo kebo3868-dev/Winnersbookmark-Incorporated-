@@ -17,6 +17,40 @@ const conf = (items: EvidenceRecordLike[], cap = 95) =>
   items.length === 0 ? 0 : Math.min(cap, Math.round(items.reduce((s, e) => s + e.confidence, 0) / items.length));
 
 /**
+ * The common visit questions a restaurant website is expected to answer, and
+ * whether THIS site answers each one.
+ *
+ * A missing FAQ page was being read as "customers cannot get answers online" —
+ * while the same evidence chain recorded published hours, a published address
+ * and a reachable menu two entries above. Those ARE the questions people ring
+ * to ask. An audit that holds the answers and still reports the questions
+ * unanswered is contradicting itself, and the owner knows it first.
+ */
+function answeredVisitQuestions(ctx: RuleContext): { answered: string[]; unanswered: string[] } {
+  const positive = (type: string, pattern: RegExp) =>
+    byType(ctx, type, (e) => pattern.test(e.fact)).length > 0;
+  const checks: [string, boolean][] = [
+    ['opening hours', positive('HOURS_VISIBILITY', /hours are published/i)],
+    ['the menu', positive('MENU_ACCESS', /pathway is publicly (linked|reachable)/i)],
+    ['the address', positive('ADDRESS_VISIBILITY', /address is published/i)],
+    [
+      'how to get in touch',
+      positive('CONTACT_PATH', /publicly (linked|available)/i) ||
+        positive('CONTACT_EMAIL', /is published/i) ||
+        positive('CONTACT_FORM', /is published/i),
+    ],
+  ];
+  return {
+    answered: checks.filter(([, ok]) => ok).map(([label]) => label),
+    unanswered: checks.filter(([, ok]) => !ok).map(([label]) => label),
+  };
+}
+
+/** Joins a list as prose: "a and b", "a, b and c". */
+const prose = (items: string[]) =>
+  items.length <= 1 ? items[0] ?? '' : `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`;
+
+/**
  * Deterministic revenue leak detection. Every opportunity is backed by evidence IDs;
  * a rule that finds no supporting evidence emits nothing. Zero opportunities is a
  * legitimate outcome. Confidence below 60 forces manualValidationRequired.
@@ -66,24 +100,50 @@ const RULES: Rule[] = [
     const faqMissing = byType(ctx, 'FAQ_SIGNAL', (e) => /no public faq/i.test(e.fact));
     const supporting = [...c2cMissing, ...faqMissing];
     if (supporting.length === 0 && phoneStage.status !== 'RISK') return null;
+    // WHAT THE SITE ALREADY ANSWERS BOUNDS WHAT THIS FINDING MAY CLAIM.
+    //
+    // A missing FAQ page is an observation. "Questions go unanswered online"
+    // and "the phone carries avoidable demand" are two further conclusions, and
+    // neither follows: the first is contradicted by published hours, address
+    // and menu, and the second cannot be reached at all without call records.
+    const { answered, unanswered } = answeredVisitQuestions(ctx);
+    const coreQuestionsAnswered = unanswered.length === 0;
+    const observed = [
+      faqMissing.length > 0 ? 'no dedicated FAQ page was found' : '',
+      c2cMissing.length > 0 ? 'mobile visitors cannot tap to call' : '',
+    ].filter(Boolean);
     return {
       category: 'PHONE-DEPENDENT CUSTOMER JOURNEY',
-      title: 'The phone line is carrying load the website could absorb',
+      title: coreQuestionsAnswered
+        ? 'Phone demand is unmeasured, and the website cannot show whether it is avoidable'
+        : 'Common visit questions are not answered on the website',
       problem:
-        'Common customer questions (hours, menu, booking, directions) are not fully answered online' +
-        (faqMissing.length > 0 ? ' — no FAQ was detected —' : '') +
-        (c2cMissing.length > 0 ? ' and mobile visitors cannot tap to call' : '') +
-        '. During service rushes, this creates potential missed-call exposure. Actual missed-call volume is unverified and requires call data.',
-      businessImpact:
-        'Phone-dependent journeys concentrate customer intent into the busiest moments of service. Each unanswered ring is a potential lost booking, order, or catering lead.',
+        `OBSERVED: ${prose(observed) || 'the phone is the primary published route in'}.` +
+        (answered.length > 0
+          ? ` The website does publish ${prose(answered)}, so those questions are answerable online without calling.`
+          : '') +
+        (unanswered.length > 0 ? ` Not found on the analyzed pages: ${prose(unanswered)}.` : '') +
+        ' REQUIRES YOUR DATA: how many calls arrive, how many go unanswered, and what share are repeat questions' +
+        ' cannot be observed from a public website. This audit does not claim the phone is overloaded or that calls are' +
+        ' being missed — it cannot see either.',
+      businessImpact: coreQuestionsAnswered
+        ? 'If call volume turns out to be high and largely repetitive, answering those calls automatically is worth measuring. ' +
+          'Whether that is the case here is an open question, not a finding.'
+        : 'Questions a visitor cannot answer online tend to arrive by phone instead. How much demand that creates here is unmeasured.',
       customerJourneyStage: 'PHONE',
       evidenceIds: [...phoneStage.evidenceIds],
-      impactScore: 75,
-      urgencyScore: 65,
-      confidenceScore: Math.min(conf(supporting, 80), phoneStage.confidence || 70),
+      // An unmeasured question is not a high-impact confirmed problem. Impact
+      // and urgency drop accordingly when the core questions ARE answered.
+      impactScore: coreQuestionsAnswered ? 40 : 65,
+      urgencyScore: coreQuestionsAnswered ? 30 : 55,
+      // Capped below the manual-validation floor on purpose: the conclusion
+      // this finding points at is unreachable from public evidence.
+      confidenceScore: Math.min(conf(supporting, 55), phoneStage.confidence || 55),
       aiFitScore: 95,
       recommendedSolution:
-        'Winnersbookmark AI Front Desk System: AI voice receptionist, missed-call text-back, FAQ automation, and after-hours lead capture. Validate call volume in a discovery call first.',
+        'Before any system: pull 30 days of call records — total calls, unanswered calls, and the most common reasons. ' +
+        'If that shows high repetitive volume, the Winnersbookmark AI Front Desk (voice answering, missed-call text-back, ' +
+        'FAQ automation, after-hours capture) is the matched fix. If it does not, this is not a problem worth solving.',
       manualValidationRequired: true,
     };
   },
@@ -94,20 +154,28 @@ const RULES: Rule[] = [
     if (emailMissing.length === 0 || loyaltyMissing.length === 0) return null;
     const supporting = [...emailMissing, ...loyaltyMissing];
     return {
-      category: 'WEAK PUBLIC RETENTION SIGNALS',
-      title: 'The website is not visibly building a customer database',
+      category: 'NO PUBLIC OPT-IN ROUTE',
+      title: 'A guest has no public way to opt into hearing from you',
       problem:
-        'No email capture, SMS club, or loyalty pathway was detected on the analyzed pages. Every guest who leaves without joining a list is a repeat visit left to chance. This does not prove no internal database exists — it proves the public website is not feeding one.',
+        'OBSERVED: no email capture, SMS club or loyalty pathway was detected on the analyzed pages, so a guest who wants to hear from you has nowhere on the site to say so. ' +
+        'NOT OBSERVED: whether you already hold a guest list. A POS loyalty programme, a reservation system\'s contact records, or a till-side signup leaves no public trace, and this audit reads only public pages. ' +
+        'REQUIRES YOUR DATA: how many contacts you hold today and whether anything is sent to them. ' +
+        'This finding is about the public website, not about the quality of your follow-up — that is not something a public page can show.',
       businessImpact:
-        'Repeat customers are the highest-margin revenue a restaurant has. Without an owned contact channel, reactivation depends entirely on paid ads and memory.',
+        'An owned contact channel is the cheapest way to reach a past guest, and the website is not currently feeding one. ' +
+        'Whether that matters depends on what you already hold internally, which is the first thing to check.',
       customerJourneyStage: 'FOLLOW_UP',
       evidenceIds: supporting.map((e) => e.id),
-      impactScore: 70,
-      urgencyScore: 50,
-      confidenceScore: conf(supporting, 75),
+      // Scoped to the observable gap rather than an assumed operational
+      // failure: the old 70/50 ranked this alongside a broken ordering link on
+      // the strength of two absent widgets.
+      impactScore: 45,
+      urgencyScore: 35,
+      confidenceScore: conf(supporting, 65),
       aiFitScore: 85,
       recommendedSolution:
-        'Add a visible email/SMS capture offer, then run an AI Reactivation Campaign once a list exists. Verify in discovery whether an internal POS database already exists.',
+        'First check whether a list already exists in your POS or reservation system — if it does, this is a publishing gap, not a data gap. ' +
+        'If it does not, a visible email/SMS capture offer is the starting point, and an AI Reactivation Campaign only becomes worth discussing once there is a list to reactivate.',
       manualValidationRequired: true,
     };
   },
@@ -140,25 +208,39 @@ const RULES: Rule[] = [
   // CTA problems.
   (ctx) => {
     const noCtas = byType(ctx, 'CTA_SIGNAL', (e) => /no clear action-oriented ctas/i.test(e.fact));
-    const tooMany = byType(ctx, 'CTA_SIGNAL', (e) => /competing ctas/i.test(e.fact));
+    const tooMany = byType(ctx, 'CTA_SIGNAL', (e) => /more than the 8 this audit treats/i.test(e.fact));
     const supporting = noCtas.length > 0 ? noCtas : tooMany;
     if (supporting.length === 0) return null;
     const isMissing = noCtas.length > 0;
     return {
       category: 'CONFUSING CTA HIERARCHY',
-      title: isMissing ? 'The homepage gives visitors no clear next action' : 'Too many competing calls-to-action dilute the next step',
+      title: isMissing
+        ? 'The homepage gives visitors no clear next action'
+        : 'The homepage offers many actions — worth checking which one leads',
       problem: isMissing
         ? 'No order/reserve/call/menu CTAs were detected on the homepage. Visitors with buying intent must hunt for the path to act.'
-        : 'The homepage presents many competing CTAs. When everything shouts, nothing converts; the primary action (reserve or order) should visually dominate.',
-      businessImpact: 'CTA clarity is the difference between a visit and a transaction. Unclear next actions leak ready-to-buy customers.',
+        : // The count is observed. Visual competition and lost conversions are not.
+          'OBSERVED: the homepage presents more distinct action-oriented CTAs than the threshold this audit flags for review. ' +
+          'NOT OBSERVED: whether they compete visually. This audit reads markup, not layout — it cannot see size, position or ' +
+          'contrast, so a long list of actions in a clear hierarchy looks identical to a cluttered one. REQUIRES YOUR DATA: ' +
+          'whether any conversion is actually lost needs website analytics.',
+      businessImpact: isMissing
+        ? 'CTA clarity is the difference between a visit and a transaction. Unclear next actions leak ready-to-buy customers.'
+        : 'If the actions do compete, the cost is visitors who arrive ready to act and hesitate. Whether that is happening here is unmeasured.',
       customerJourneyStage: 'WEBSITE',
       evidenceIds: supporting.map((e) => e.id),
-      impactScore: 60,
-      urgencyScore: 55,
-      confidenceScore: conf(supporting, 70),
+      // A count that triggers a question is not a confirmed usability defect.
+      impactScore: isMissing ? 60 : 35,
+      urgencyScore: isMissing ? 55 : 25,
+      // Below the manual-validation floor for the count-only case: the claim
+      // this finding points at cannot be reached from the markup.
+      confidenceScore: isMissing ? conf(supporting, 70) : Math.min(conf(supporting, 50), 50),
       aiFitScore: 25,
-      recommendedSolution: 'Restructure homepage CTA hierarchy: one primary action above the fold, secondary actions demoted. Basic optimization.',
-      manualValidationRequired: false,
+      recommendedSolution: isMissing
+        ? 'Add a clear primary action above the fold on the homepage. Basic optimization.'
+        : 'Open the homepage on a phone and name the single action you want a first-time visitor to take. If it is not ' +
+          'obvious within a second, demote the rest. Confirm against analytics before treating this as a conversion problem.',
+      manualValidationRequired: !isMissing,
     };
   },
   // Catering / private dining lead capture.
