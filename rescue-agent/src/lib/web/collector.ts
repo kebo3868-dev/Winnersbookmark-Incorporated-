@@ -1,5 +1,5 @@
 import * as cheerio from 'cheerio';
-import type { AnyNode } from 'domhandler';
+import type { AnyNode, Element as DomElement } from 'domhandler';
 import type { Response as UndiciResponse } from 'undici';
 import { validateUrlTarget, normalizeUrl } from '@/lib/validation/url';
 import { safeFetchHop, readBodyCapped } from '@/lib/web/safeFetch';
@@ -279,6 +279,25 @@ const RESERVATION_FIELD_NAME = /reserv|booking|party[-_ ]?size|guests?|covers|se
 const NEWSLETTER_FORM_TEXT = /newsletter|mailing list|subscribe|sign[- ]?up for (our )?(email|updates|offers)|join our (email|list)/i;
 /** A field a customer writes a message into. The clearest mark of an enquiry form. */
 const MESSAGE_FIELD_NAME = /message|comment|enquir|inquir|question|details|request|notes/i;
+/** Bot-protection fields. Present in the markup, never typed into by a person. */
+const CAPTCHA_FIELD = /recaptcha|h-?captcha|turnstile|cf-challenge|friendlycaptcha|hcaptcha|captcha|honeypot/i;
+
+/**
+ * True when a field is something a visitor can actually type into.
+ *
+ * CAPTCHA widgets inject a hidden `<textarea name="g-recaptcha-response">`, so
+ * "this form has a textarea" stopped meaning "a customer can write a message
+ * here" the moment a site added bot protection to its newsletter box.
+ */
+function isCustomerWritable($: cheerio.CheerioAPI, field: DomElement): boolean {
+  const el = $(field);
+  const identity = [el.attr('name'), el.attr('id'), el.attr('class')].filter(Boolean).join(' ');
+  if (CAPTCHA_FIELD.test(identity)) return false;
+  if (el.attr('type') === 'hidden') return false;
+  if (el.attr('hidden') !== undefined || el.attr('aria-hidden') === 'true') return false;
+  if (/display\s*:\s*none|visibility\s*:\s*hidden/i.test(el.attr('style') ?? '')) return false;
+  return true;
+}
 
 /**
  * Classify the forms on a page into customer pathways.
@@ -308,17 +327,29 @@ export function classifyForms($: cheerio.CheerioAPI): { contactFormSignal: boole
     ]
       .filter(Boolean)
       .join(' ');
-    const fieldNames = form
-      .find('input, textarea, select')
-      .map((__, f) => [$(f).attr('name'), $(f).attr('id'), $(f).attr('placeholder'), $(f).attr('type')].filter(Boolean).join(' '))
+    const describe = (f: DomElement) =>
+      [$(f).attr('name'), $(f).attr('id'), $(f).attr('placeholder'), $(f).attr('type')].filter(Boolean).join(' ');
+    const fields = form.find('input, textarea, select');
+    const fieldNames = fields.map((__, f) => describe(f)).get().join(' ');
+    // Field names a CUSTOMER can actually fill in. A hidden CAPTCHA field named
+    // "…-response" must not make a newsletter box look like an enquiry form.
+    const visibleFieldNames = fields
+      .filter((__, f) => isCustomerWritable($, f))
+      .map((__, f) => describe(f))
       .get()
       .join(' ');
     const haystack = `${attrs} ${fieldNames} ${text}`;
 
     const hasDateOrTime = /\b(date|time)\b/i.test(fieldNames) || form.find('input[type="date"], input[type="time"]').length > 0;
     const hasPartySize = /party[-_ ]?size|guests?|covers|seating/i.test(haystack);
+    // Fields alone are enough when they are specific enough. A form carrying
+    // BOTH a date/time and a party-size field is a table request whatever the
+    // button says — "Find a table" matches no booking vocabulary, and demanding
+    // the wording as well made the structural check unreachable on its own.
+    const structurallyAReservation = hasDateOrTime && hasPartySize;
     const looksLikeReservation =
-      RESERVATION_FORM_TEXT.test(haystack) && (hasDateOrTime || hasPartySize || RESERVATION_FIELD_NAME.test(fieldNames));
+      structurallyAReservation ||
+      (RESERVATION_FORM_TEXT.test(haystack) && (hasDateOrTime || hasPartySize || RESERVATION_FIELD_NAME.test(fieldNames)));
     if (looksLikeReservation) {
       reservationFormSignal = true;
       return;
@@ -327,7 +358,14 @@ export function classifyForms($: cheerio.CheerioAPI): { contactFormSignal: boole
     // A newsletter box is an email field and little else. Requiring a message
     // field (or more than a lone email input) separates the two without
     // guessing from wording alone.
-    const hasMessageField = form.find('textarea').length > 0 || MESSAGE_FIELD_NAME.test(fieldNames);
+    //
+    // CAPTCHAs inject a HIDDEN textarea — `g-recaptcha-response` and friends —
+    // so counting textareas naively turned every protected newsletter box into
+    // an "enquiry form", and the hidden field also pushed it past the
+    // newsletter check. A visitor cannot type into any of these, so none of
+    // them is somewhere a customer writes to the restaurant.
+    const writableMessageFields = form.find('textarea').filter((__, f) => isCustomerWritable($, f));
+    const hasMessageField = writableMessageFields.length > 0 || MESSAGE_FIELD_NAME.test(visibleFieldNames);
     const isNewsletterOnly = NEWSLETTER_FORM_TEXT.test(haystack) && !hasMessageField;
     if (isNewsletterOnly) return;
     if (hasMessageField) contactFormSignal = true;

@@ -471,6 +471,12 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
           (collectionIncomplete ? ` ${INCOMPLETE_COLLECTION_CAVEAT}` : ''),
         confidence: 85,
       });
+    } else if (check.key === 'reservation' && reservationFormPage) {
+      // A table-request form was already recorded above. Emitting "no public
+      // reservation pathway was detected" as well would put two contradictory
+      // sentences in the same evidence chain — and the report and the PDF print
+      // the whole chain, so the client reads both. The form record IS the
+      // statement about this pathway; it is bounded, and it stands alone.
     } else {
       evidence.push({
         sourceUrl: home.finalUrl,

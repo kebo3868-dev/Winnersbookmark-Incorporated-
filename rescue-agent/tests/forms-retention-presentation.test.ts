@@ -160,6 +160,119 @@ describe('reservation form detection', () => {
   });
 });
 
+// ── REVIEW FINDINGS on this branch (Codex, PR #61) ────────────────────────
+
+describe('a CAPTCHA textarea does not turn a newsletter box into an enquiry form', () => {
+  // reCAPTCHA injects a HIDDEN <textarea name="g-recaptcha-response">. Counting
+  // textareas naively made every protected newsletter signup an "enquiry form"
+  // and pushed it past the newsletter check — a contact route claimed where a
+  // visitor can type nothing.
+  const PROTECTED_NEWSLETTER = `
+    <a href="tel:+17273674588">Call us</a>
+    <form id="newsletter">
+      <label>Join our mailing list</label>
+      <input type="email" name="email" />
+      <textarea name="g-recaptcha-response" style="display:none"></textarea>
+      <button>Subscribe</button>
+    </form>
+  `;
+
+  it('is not reported as a contact form', () => {
+    expect(pageOf(PROTECTED_NEWSLETTER).contactFormSignal).toBe(false);
+    expect(find(recordsFor(PROTECTED_NEWSLETTER), 'CONTACT_FORM')).toBeUndefined();
+  });
+
+  it('does not let CONTACT_PATH claim an enquiry form exists', () => {
+    const contact = find(recordsFor(PROTECTED_NEWSLETTER), 'CONTACT_PATH');
+    // It may still list "enquiry form" among what is MISSING — that is correct.
+    // What it must not do is report one as an available route.
+    // "…and an enquiry form" is the construction used only when one is FOUND.
+    expect(contact?.fact).not.toMatch(/and an enquiry form/i);
+    expect(contact?.fact).toMatch(/no non-phone contact route/i);
+  });
+
+  it('ignores the other common bot-protection fields too', () => {
+    for (const field of [
+      '<textarea name="h-captcha-response" hidden></textarea>',
+      '<textarea name="cf-turnstile-response" aria-hidden="true"></textarea>',
+      '<textarea class="captcha-box" style="visibility:hidden"></textarea>',
+    ]) {
+      const html = `<form><label>Subscribe to our newsletter</label><input type="email" name="email"/>${field}<button>Go</button></form>`;
+      expect(pageOf(html).contactFormSignal, field).toBe(false);
+    }
+  });
+
+  it('a real enquiry form protected by CAPTCHA is STILL detected', () => {
+    // The guard must not swing the other way and discard genuine forms.
+    const p = pageOf(`
+      <form id="contact">
+        <input name="name" /><input type="email" name="email" />
+        <textarea name="message" placeholder="How can we help?"></textarea>
+        <textarea name="g-recaptcha-response" style="display:none"></textarea>
+        <button>Send</button>
+      </form>
+    `);
+    expect(p.contactFormSignal).toBe(true);
+  });
+});
+
+describe('a table-request form is recognised from its fields alone', () => {
+  // "Find a table" matches no booking vocabulary, so requiring the wording as
+  // well made the structural check unreachable on its own.
+  const FIELDS_ONLY = `
+    <form action="/availability">
+      <input type="date" name="date" />
+      <input type="time" name="time" />
+      <select name="covers"><option>2</option><option>4</option></select>
+      <button type="submit">Find a table</button>
+    </form>
+  `;
+
+  it('detects date + time + party size without booking wording', () => {
+    expect(pageOf(FIELDS_ONLY).reservationFormSignal).toBe(true);
+  });
+
+  it('reports it as a reservation pathway', () => {
+    expect(find(recordsFor(FIELDS_ONLY), 'RESERVATION_PATH')?.fact).toMatch(/table-request form is published/i);
+  });
+
+  it('still needs BOTH signals — a lone date field is not a booking form', () => {
+    const p = pageOf(`<form><input type="date" name="date" /><button>Filter</button></form>`);
+    expect(p.reservationFormSignal).toBe(false);
+  });
+});
+
+describe('a detected reservation form never co-exists with an absence claim', () => {
+  // The report and the PDF print the ENTIRE evidence chain, so emitting both
+  // the form record and "No public reservation pathway was detected" put two
+  // contradictory sentences in front of the client.
+  const FORM_ONLY = `
+    <form><h3>Book a table</h3><input type="date" name="date" /><select name="party_size"><option>2</option></select><button>Request</button></form>
+  `;
+
+  it('emits the form record and NOT the absence record', () => {
+    const reservation = recordsFor(FORM_ONLY).filter((e) => e.evidenceType === 'RESERVATION_PATH');
+    expect(reservation).toHaveLength(1);
+    expect(reservation[0].fact).toMatch(/table-request form is published/i);
+  });
+
+  it('no evidence item anywhere denies a reservation pathway', () => {
+    const denials = recordsFor(FORM_ONLY).filter((e) => /no public reservation pathway was detected/i.test(e.fact));
+    expect(denials, denials.map((d) => d.fact).join(' | ')).toHaveLength(0);
+  });
+
+  it('the absence record still appears when there really is no form', () => {
+    const ev = recordsFor('<a href="tel:+17273674588">Call us</a>');
+    expect(find(ev, 'RESERVATION_PATH')?.fact).toMatch(/no public reservation pathway was detected/i);
+  });
+
+  it('the journey stage is still UNKNOWN once the absence record is gone', () => {
+    const stage = stageOf(recordsFor(FORM_ONLY), 'RESERVATION');
+    expect(stage?.status).toBe('UNKNOWN');
+    expect(stage?.finding).toMatch(/table-request form/i);
+  });
+});
+
 // ── REQUIREMENT 2: the retention bug ──────────────────────────────────────
 
 function marketingClient(count = 3) {
