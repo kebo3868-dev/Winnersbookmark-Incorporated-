@@ -893,3 +893,47 @@ describe('codex P2 (round 4): a button is not the form\'s first field', () => {
     ).toBe('contact');
   });
 });
+
+describe('codex P2 (round 5): which buttons and which wording speak for a form', () => {
+  // Two findings from the release-gate review of 1d7789a, plus five
+  // neighbouring variants Codex did not name, fixed together so this round
+  // does not seed the next one:
+  //   · only real submit controls speak for a form — a <button type="button">
+  //     topic toggle scoped a contact form to gift cards and the audit
+  //     reported no contact route; image inputs' alt text was not read at all;
+  //   · general wording overrides a stated scope unless it narrows itself to
+  //     that one topic — "Contact us about gift cards" no longer advertises
+  //     questions of any kind, while "Contact us", "about anything" and a list
+  //     of several topics still do.
+  const kind = (html: string) => {
+    const r = classifyForms(cheerio.load(`<html><body>${html}</body></html>`));
+    return r.contactFormSignal ? 'contact' : (r.formScopes[0] ?? 'none');
+  };
+  const F = (inner: string, action = '/contact') => `<form action="${action}">${inner}</form>`;
+  const FIELDS = '<input type="email" name="e"/><textarea name="message"></textarea>';
+
+  it.each([
+    ['a type=button topic toggle (codex)', 'contact', F('<input type="email" name="e"/><button type="button">Gift cards</button><textarea name="message"></textarea><button>Send</button>')],
+    ['a type=reset button named for a topic', 'contact', F(`${FIELDS}<button type="reset">Gift card help</button><button>Send</button>`)],
+    ['an input type=button named for a topic', 'contact', F(`${FIELDS}<input type="button" value="Gift cards"><button>Send</button>`)],
+    ['a default <button>, which submits', 'gift card', F(`${FIELDS}<button>Send gift card request</button>`, '/forms')],
+    ['an explicit type=submit button', 'gift card', F(`${FIELDS}<button type="submit">Request a gift card</button>`, '/forms')],
+    ['an input type=submit value', 'gift card', F(`${FIELDS}<input type="submit" value="Send gift card request">`, '/forms')],
+    ['an input type=image, read by its alt text', 'gift card', F(`${FIELDS}<input type="image" src="x.png" alt="Send gift card request">`, '/forms')],
+  ])('buttons: %s → %s', (_label, expected, html) => {
+    expect(kind(html)).toBe(expected);
+  });
+
+  it.each([
+    ['"Contact us about gift cards" (codex)', 'gift card', F(`<h2>Contact us about gift cards</h2>${FIELDS}<button>Send gift card request</button>`, '/gift-card-request')],
+    ['"Any questions about your gift card?"', 'gift card', F(`<h2>Any questions about your gift card?</h2>${FIELDS}<button>Send</button>`, '/gift-card-request')],
+    ['"Get in touch regarding gift cards"', 'gift card', F(`<legend>Get in touch regarding gift cards</legend>${FIELDS}<button>Send</button>`, '/gift-card-request')],
+    ['an unqualified "Contact us"', 'contact', F(`<h2>Contact us</h2>${FIELDS}<button>Send</button>`, '/gift-card-request')],
+    ['a list of several topics', 'contact', F(`<h2>Contact us about reservations, events or gift cards</h2>${FIELDS}<button>Send</button>`)],
+    ['"about anything"', 'contact', F(`<h2>Ask us about anything</h2>${FIELDS}<button>Send</button>`, '/gift-card-request')],
+    ['"General enquiries"', 'contact', F(`<legend>General enquiries</legend>${FIELDS}<button>Send</button>`, '/forms')],
+    ['a qualifier naming no purpose ("for more information")', 'contact', F(`<h2>Contact us for more information</h2>${FIELDS}<button>Send</button>`, '/gift-card-request')],
+  ])('wording: %s → %s', (_label, expected, html) => {
+    expect(kind(html)).toBe(expected);
+  });
+});

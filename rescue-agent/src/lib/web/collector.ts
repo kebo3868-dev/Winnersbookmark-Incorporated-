@@ -457,8 +457,8 @@ export function classifyForms($: cheerio.CheerioAPI): {
     // are the places a form states its purpose. Dropdown options and body
     // prose are excluded from both, because a topic a form mentions and a
     // sentence inside it are not claims about what the form accepts.
-    const identity = `${attrs} ${submitText(form)} ${formHeadings($, form)}`;
-    const scope = GENERAL_ENQUIRY_TEXT.test(identity) ? null : singlePurposeScope(identity);
+    const identity = `${attrs} ${submitText($, form)} ${formHeadings($, form)}`;
+    const scope = invitesGeneralEnquiries(identity) ? null : singlePurposeScope(identity);
     if (scope) {
       if (!formScopes.includes(scope)) formScopes.push(scope);
       return;
@@ -475,8 +475,8 @@ export function classifyForms($: cheerio.CheerioAPI): {
  * A form saying this is never narrowed to a single purpose, however many
  * specific topics it happens to offer.
  */
-const GENERAL_ENQUIRY_TEXT =
-  /general (enquir|inquir|question)|contact[- _]?us|how can we help|ask us|send us a (message|note)|get in touch|any questions/i;
+const GENERAL_ENQUIRY_PHRASE =
+  /general (?:enquir|inquir|question)\w*|contact[- _]?us|how can we help|ask us|send us a (?:message|note)|get in touch|any questions/gi;
 
 /**
  * The headings and legends that name the WHOLE form — where many forms state
@@ -525,13 +525,50 @@ function formHeadings($: cheerio.CheerioAPI, $form: cheerio.Cheerio<DomElement>)
 }
 
 /** The label on a form's own submit control — what it says it does. */
-function submitText($form: cheerio.Cheerio<DomElement>): string {
+function submitText($: cheerio.CheerioAPI, $form: cheerio.Cheerio<DomElement>): string {
+  // SUBMIT CONTROLS ONLY. A <button type="button">Gift cards</button> is a
+  // topic toggle or helper inside a general form, not the form saying what it
+  // is; reading its label as identity scoped a contact form to gift cards and
+  // the audit reported "No public contact pathway was detected". A <button>
+  // with no type submits (its HTML default), as do type="submit" and image
+  // inputs — whose label is their alt text, which was not being read at all.
   const parts: string[] = [];
-  $form.find('button, input[type="submit"]').each((_, el) => {
-    const node = $form.find(el);
-    parts.push(node.text(), node.attr('value') ?? '');
+  $form.find('button, input[type="submit"], input[type="image"]').each((_, el) => {
+    const node = $(el);
+    const type = (node.attr('type') ?? '').toLowerCase();
+    if (el.tagName?.toLowerCase() === 'button' && type !== '' && type !== 'submit') return;
+    parts.push(node.text(), node.attr('value') ?? '', node.attr('alt') ?? '');
   });
   return parts.join(' ').replace(/\s+/g, ' ').trim().slice(0, 120);
+}
+
+/**
+ * Whether a form's identity invites questions of ANY kind.
+ *
+ * General wording is not enough on its own: "Contact us about gift cards" on a
+ * gift-card request form narrows the invitation to that one topic, and reading
+ * its "contact us" as an open invitation cleared the scope and advertised a
+ * general enquiry route that does not exist.
+ *
+ * So each general phrase is checked for a qualifier immediately after it
+ * ("about", "regarding", "for", …). It counts as general UNLESS the qualifier
+ * names exactly one single-purpose topic. Everything else — no qualifier,
+ * "about anything", a list of several topics, or a qualifier naming no
+ * recognised purpose such as "for more information" — stays general. The
+ * unclear cases therefore fall on the side of keeping a contact route, which is
+ * the less damaging error: listing a route the owner can check is better than
+ * telling them they have none.
+ */
+function invitesGeneralEnquiries(identity: string): boolean {
+  for (const match of identity.matchAll(GENERAL_ENQUIRY_PHRASE)) {
+    const after = identity.slice((match.index ?? 0) + match[0].length);
+    const qualifier = after.match(/^\s*(?:about|regarding|concerning|re:?|on|for|with)\s+([^.?!]{1,80})/i)?.[1];
+    if (!qualifier) return true;
+    if (/\b(?:anything|everything|all|other|any\s+(?:topic|question|matter|thing)s?)\b/i.test(qualifier)) return true;
+    if (/,|\/|\bor\b|\band\b/i.test(qualifier)) return true;
+    if (!singlePurposeScope(qualifier)) return true;
+  }
+  return false;
 }
 
 /**
