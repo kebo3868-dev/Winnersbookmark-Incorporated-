@@ -753,3 +753,55 @@ describe('codex P2 (round 2): a form\'s scope is what the form says it is', () =
     expect(giftCard.formScopes).toContain('gift card');
   });
 });
+
+describe('form identity: field labels and page content outside the form do not set scope', () => {
+  // Identity is the form's attributes, submit wording, and its own headings
+  // and legends. Two things are deliberately NOT identity:
+  //   · Field <label>s. A label describes one field. "Gift card number
+  //     (optional)" on a general contact form is a field, not the form's
+  //     purpose — reading it as purpose reproduces the dropdown-topic false
+  //     absence exactly.
+  //   · Anything outside the <form> element. A promo banner or a "Questions?
+  //     Contact us" line elsewhere on the page says nothing about what a
+  //     particular form accepts, and a page can hold several forms.
+  const classify = (html: string) => classifyForms(cheerio.load(`<html><body>${html}</body></html>`));
+
+  it('a field label naming a topic does not narrow a general form', () => {
+    const r = classify(
+      '<form action="/contact"><label>Name <input name="n"/></label>' +
+        '<label>Gift card number (optional) <input name="gc"/></label>' +
+        '<label>Message <textarea name="message"></textarea></label><button>Send</button></form>',
+    );
+    expect(r.contactFormSignal).toBe(true);
+    expect(r.formScopes).toEqual([]);
+  });
+
+  it('gift-card marketing outside a contact form does not narrow it', () => {
+    const r = classify(
+      '<section><h2>Buy gift cards today!</h2><p>Gift cards make great presents.</p></section>' +
+        '<form action="/contact" id="contact"><input type="email" name="e"/><textarea name="message"></textarea><button>Send</button></form>',
+    );
+    expect(r.contactFormSignal).toBe(true);
+    expect(r.formScopes).toEqual([]);
+  });
+
+  it('general-enquiry wording outside a gift-card form does not unscope it', () => {
+    const r = classify(
+      '<p>Questions? Contact us and we will help.</p>' +
+        '<form action="/gift-card-request" id="gift-card-form"><input type="email" name="e"/>' +
+        '<textarea name="message"></textarea><button>Send gift card request</button></form>',
+    );
+    expect(r.contactFormSignal).toBe(false);
+    expect(r.formScopes).toContain('gift card');
+  });
+
+  it('two forms on one page are each classified on their own', () => {
+    const r = classify(
+      '<form action="/gift-card-request"><input type="email" name="e"/><textarea name="message"></textarea>' +
+        '<button>Send gift card request</button></form>' +
+        '<form action="/contact"><input type="email" name="e2"/><textarea name="message"></textarea><button>Send</button></form>',
+    );
+    expect(r.contactFormSignal, 'the contact form is still a contact route').toBe(true);
+    expect(r.formScopes, 'the gift-card form is still scoped').toContain('gift card');
+  });
+});
