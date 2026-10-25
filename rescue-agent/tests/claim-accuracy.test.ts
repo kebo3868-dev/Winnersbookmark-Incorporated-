@@ -966,8 +966,6 @@ describe('codex P2 (round 6): wording is qualified within the element that says 
   it.each([
     ['"gift cards &amp; allergens" (codex)', 'contact', '<h2>Contact us about gift cards &amp; allergens</h2>'],
     ['"gift cards + catering"', 'contact', '<h2>Contact us about gift cards + catering</h2>'],
-    ['"gift cards; allergens"', 'contact', '<h2>Contact us about gift cards; allergens</h2>'],
-    ['"gift cards | events"', 'contact', '<h2>Contact us about gift cards | events</h2>'],
     ['"and", as before', 'contact', '<h2>Contact us about gift cards and allergens</h2>'],
   ])('lists: %s → %s', (_label, expected, heading) => {
     expect(kind(`<form action="/contact">${heading}${FIELDS}<button>Send</button></form>`)).toBe(expected);
@@ -980,5 +978,45 @@ describe('codex P2 (round 6): wording is qualified within the element that says 
   it('end to end: the codex form is reported as a contact route', () => {
     const records = recordsFor(GIFT('aria-label="Contact us for more information"', `${FIELDS}<button>Send gift card request</button>`));
     expect(find(records, 'CONTACT_PATH')?.fact).not.toMatch(/No public contact pathway/i);
+  });
+});
+
+describe('codex P2 (round 7): punctuation that ends a clause does not start a list', () => {
+  // Round 6 counted ";" and "|" as list separators, so an instruction after a
+  // semicolon read as a second topic: "Contact us about gift cards; include
+  // your order number" cleared the scope of a gift-card form and the audit
+  // published a general enquiry route. ";", ":", "|", dashes and "(" end the
+  // qualifier; only "," "/" "&" "+" "or" and "and" join topics.
+  const kind = (heading: string, action = '/gift-card-request', label = ' aria-label="Gift card request"') => {
+    const html = `<form action="${action}"${label}><h2>${heading}</h2><input type="email" name="e"/><textarea name="message"></textarea><button>Send gift card request</button></form>`;
+    const r = classifyForms(cheerio.load(`<html><body>${html}</body></html>`));
+    return r.contactFormSignal ? 'contact' : (r.formScopes[0] ?? 'none');
+  };
+
+  it.each([
+    ['a semicolon then an instruction (codex)', 'Contact us about gift cards; include your order number'],
+    ['a pipe then an instruction', 'Contact us about gift cards | include your order number'],
+    ['a colon then an instruction', 'Contact us about gift cards: include your order number'],
+    ['an em dash then an instruction', 'Contact us about gift cards — include your order number'],
+    ['an en dash then an instruction', 'Contact us about gift cards – include your order number'],
+    ['a parenthetical instruction', 'Contact us about gift cards (include your order number)'],
+  ])('%s keeps the gift-card scope', (_label, heading) => {
+    expect(kind(heading)).toBe('gift card');
+  });
+
+  it.each([
+    ['"&" still joins topics', 'Contact us about gift cards &amp; allergens'],
+    ['"+" still joins topics', 'Contact us about gift cards + catering'],
+    ['a comma still joins topics', 'Contact us about gift cards, events or allergens'],
+  ])('%s, so the form stays a contact route', (_label, heading) => {
+    expect(kind(heading, '/contact', '')).toBe('contact');
+  });
+
+  it('end to end: the codex form is not published as a general enquiry route', () => {
+    const records = recordsFor(
+      '<form action="/gift-card-request" aria-label="Gift card request"><h2>Contact us about gift cards; include your order number</h2><input type="email" name="e"/><textarea name="message"></textarea><button>Send gift card request</button></form>',
+    );
+    expect(find(records, 'CONTACT_PATH')?.fact ?? '').not.toMatch(/by an enquiry form/i);
+    expect(find(records, 'SINGLE_PURPOSE_FORM')?.fact).toMatch(/gift card form/i);
   });
 });

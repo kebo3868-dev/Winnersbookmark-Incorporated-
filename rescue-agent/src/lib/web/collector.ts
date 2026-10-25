@@ -570,11 +570,15 @@ function submitLabels($: cheerio.CheerioAPI, $form: cheerio.Cheerio<DomElement>)
 function invitesGeneralEnquiries(identity: string): boolean {
   for (const match of identity.matchAll(GENERAL_ENQUIRY_PHRASE)) {
     const after = identity.slice((match.index ?? 0) + match[0].length);
-    const qualifier = after.match(/^\s*(?:about|regarding|concerning|re:?|on|for|with)\s+([^.?!]{1,80})/i)?.[1];
+    // The qualifier is one clause. ";", ":", "|", a dash or "(" ends it: in
+    // "Contact us about gift cards; include your order number" what follows
+    // the semicolon is an instruction, not a second topic, and reading it as
+    // one cleared the scope of a gift-card form.
+    const qualifier = after.match(/^\s*(?:about|regarding|concerning|re:?|on|for|with)\s+([^.?!;:|(–—]{1,80})/i)?.[1];
     if (!qualifier) return true;
     if (/\b(?:anything|everything|all|other|any\s+(?:topic|question|matter|thing)s?)\b/i.test(qualifier)) return true;
     // "&" arrives decoded from "&amp;"; "gift cards & allergens" is a list.
-    if (/[,/&+;|]|\bor\b|\band\b/i.test(qualifier)) return true;
+    if (/[,/&+]|\bor\b|\band\b/i.test(qualifier)) return true;
     if (!singlePurposeScope(qualifier)) return true;
   }
   return false;
