@@ -51,6 +51,33 @@ export interface LeadRetentionClient {
 }
 
 /**
+ * Marketing enquiries carry MORE personal data than audit leads — name, email,
+ * phone, company and a free-text message a member of the public typed — and
+ * until now they had no expiry at all. The retention module only ever touched
+ * `auditLead`, so every enquiry submitted through the public marketing site was
+ * kept indefinitely. That is the same promise broken in a worse place: this
+ * data belongs to people who contacted the business, not to its customers.
+ *
+ * `name`, `email` and `message` are NOT NULL in the schema, so they are
+ * overwritten with a redaction marker rather than nulled. The row survives so
+ * enquiry volume and conversion history stay intact.
+ */
+export interface MarketingRetentionClient {
+  marketingLead: {
+    updateMany(args: {
+      where: {
+        createdAt: { lt: Date };
+        NOT: { name: string };
+      };
+      data: { name: string; email: string; message: string; company: null; phone: null; websiteUrl: null; notes: null };
+    }): Promise<{ count: number }>;
+  };
+}
+
+/** Written over fields the schema requires, so a redacted row is unmistakable. */
+export const REDACTED_MARKER = '[redacted — retention window elapsed]';
+
+/**
  * Redact personal fields on leads older than the retention window.
  *
  * Idempotent: the OR clause matches only rows that still hold personal data, so
@@ -71,4 +98,65 @@ export async function redactExpiredLeads(
     data: { contactName: null, email: null, phone: null },
   });
   return count;
+}
+
+/**
+ * Redact personal fields on marketing enquiries older than the retention window.
+ *
+ * Idempotent via `NOT: { name: REDACTED_MARKER }` — an already-redacted row no
+ * longer matches, so repeated sweeps do not rewrite it. Returns how many rows
+ * this call redacted.
+ */
+export async function redactExpiredMarketingLeads(
+  client: MarketingRetentionClient,
+  retentionDays: number,
+  now: Date = new Date(),
+): Promise<number> {
+  const cutoff = new Date(now.getTime() - retentionDays * 24 * 60 * 60 * 1000);
+  const { count } = await client.marketingLead.updateMany({
+    where: {
+      createdAt: { lt: cutoff },
+      NOT: { name: REDACTED_MARKER },
+    },
+    data: {
+      name: REDACTED_MARKER,
+      email: REDACTED_MARKER,
+      message: REDACTED_MARKER,
+      company: null,
+      phone: null,
+      websiteUrl: null,
+      notes: null,
+    },
+  });
+  return count;
+}
+
+/** What a sweep did, so a caller can log or report it without re-querying. */
+export interface RetentionSweepResult {
+  retentionDays: number | null;
+  auditLeadsRedacted: number;
+  marketingLeadsRedacted: number;
+}
+
+/**
+ * Run every retention sweep the system owes.
+ *
+ * One entry point on purpose. Retention was previously a single call against a
+ * single table, buried in a page render, and a second table holding personal
+ * data was added later without anyone noticing it was uncovered. A caller that
+ * asks for "retention" should not have to know how many tables that is.
+ */
+export async function sweepExpiredPii(
+  client: LeadRetentionClient & MarketingRetentionClient,
+  retentionDays: number | null = resolveLeadRetentionDays(),
+  now: Date = new Date(),
+): Promise<RetentionSweepResult> {
+  if (retentionDays === null) {
+    return { retentionDays: null, auditLeadsRedacted: 0, marketingLeadsRedacted: 0 };
+  }
+  const [auditLeadsRedacted, marketingLeadsRedacted] = await Promise.all([
+    redactExpiredLeads(client, retentionDays, now),
+    redactExpiredMarketingLeads(client, retentionDays, now),
+  ]);
+  return { retentionDays, auditLeadsRedacted, marketingLeadsRedacted };
 }

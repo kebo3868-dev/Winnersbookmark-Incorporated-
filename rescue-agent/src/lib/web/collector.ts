@@ -99,6 +99,22 @@ export interface PageExtract {
   pdfLinks: string[];
   hoursText: string | null;
   addressText: string | null;
+  /**
+   * A form a customer can use to write to the restaurant (enquiry, "contact
+   * us", catering request). NOT a newsletter signup — see emailCaptureSignal.
+   *
+   * A form is a non-phone contact route. Reporting that none exists while the
+   * page serves one is the same false negative as discarding a published email
+   * address, and it was reachable the same way: the markup was read, then
+   * thrown away.
+   */
+  contactFormSignal: boolean;
+  /**
+   * A form that requests a table — date, time and party-size fields, or booking
+   * wording. Evidence that a request can be SUBMITTED, never that it reaches a
+   * booking system or that anyone answers it.
+   */
+  reservationFormSignal: boolean;
   emailCaptureSignal: boolean;
   smsCaptureSignal: boolean;
   loyaltySignal: boolean;
@@ -254,6 +270,71 @@ const URL_ATTRIBUTES = [
 
 /** Inline handlers that open a destination: onclick="window.open('…')" and friends. */
 const INLINE_URL_REGEX = /(?:window\.open|location\.(?:href|assign|replace)|location)\s*(?:=|\(\s*)\s*['"]([^'"]{1,300})['"]/gi;
+
+/** Wording that marks a form as a table request rather than a general enquiry. */
+const RESERVATION_FORM_TEXT = /reserv|book[- ]?(a[- ]?)?table|booking|party[- ]?size|number of guests|how many guests|guests?\b.*\bdate|table for/i;
+/** Field names a table-request form carries and a general enquiry form does not. */
+const RESERVATION_FIELD_NAME = /reserv|booking|party[-_ ]?size|guests?|covers|seating|date|time/i;
+/** Wording that marks a form as a newsletter signup, which is NOT a contact route. */
+const NEWSLETTER_FORM_TEXT = /newsletter|mailing list|subscribe|sign[- ]?up for (our )?(email|updates|offers)|join our (email|list)/i;
+/** A field a customer writes a message into. The clearest mark of an enquiry form. */
+const MESSAGE_FIELD_NAME = /message|comment|enquir|inquir|question|details|request|notes/i;
+
+/**
+ * Classify the forms on a page into customer pathways.
+ *
+ * Deliberately conservative in both directions. A newsletter box must not be
+ * reported as a way to contact the restaurant, and a genuine enquiry form must
+ * not be dismissed because it happens to collect an email address — which is
+ * the only field a newsletter box and a contact form reliably share.
+ *
+ * A reservation form is recognised from its FIELDS (date/time/party size) or
+ * explicit booking wording, because "reservations" appearing in a page's prose
+ * says nothing about what the form on it does.
+ */
+export function classifyForms($: cheerio.CheerioAPI): { contactFormSignal: boolean; reservationFormSignal: boolean } {
+  let contactFormSignal = false;
+  let reservationFormSignal = false;
+
+  $('form').each((_, el) => {
+    const form = $(el);
+    const text = form.text().replace(/\s+/g, ' ').trim().slice(0, 600);
+    const attrs = [
+      form.attr('id'),
+      form.attr('name'),
+      form.attr('class'),
+      form.attr('action'),
+      form.attr('aria-label'),
+    ]
+      .filter(Boolean)
+      .join(' ');
+    const fieldNames = form
+      .find('input, textarea, select')
+      .map((__, f) => [$(f).attr('name'), $(f).attr('id'), $(f).attr('placeholder'), $(f).attr('type')].filter(Boolean).join(' '))
+      .get()
+      .join(' ');
+    const haystack = `${attrs} ${fieldNames} ${text}`;
+
+    const hasDateOrTime = /\b(date|time)\b/i.test(fieldNames) || form.find('input[type="date"], input[type="time"]').length > 0;
+    const hasPartySize = /party[-_ ]?size|guests?|covers|seating/i.test(haystack);
+    const looksLikeReservation =
+      RESERVATION_FORM_TEXT.test(haystack) && (hasDateOrTime || hasPartySize || RESERVATION_FIELD_NAME.test(fieldNames));
+    if (looksLikeReservation) {
+      reservationFormSignal = true;
+      return;
+    }
+
+    // A newsletter box is an email field and little else. Requiring a message
+    // field (or more than a lone email input) separates the two without
+    // guessing from wording alone.
+    const hasMessageField = form.find('textarea').length > 0 || MESSAGE_FIELD_NAME.test(fieldNames);
+    const isNewsletterOnly = NEWSLETTER_FORM_TEXT.test(haystack) && !hasMessageField;
+    if (isNewsletterOnly) return;
+    if (hasMessageField) contactFormSignal = true;
+  });
+
+  return { contactFormSignal, reservationFormSignal };
+}
 
 /** Bound on embedded destinations kept per page — untrusted HTML sets no limit of its own. */
 const MAX_EMBED_TARGETS = 50;
@@ -851,13 +932,19 @@ export function extractPage(
   const hoursMatch = bodyText.match(HOURS_REGEX);
   const addressMatch = bodyText.match(ADDRESS_REGEX);
 
-  const formsHtml = $('form').text() + ' ' + ($('form input[type="email"]').length > 0 ? 'email-input' : '');
+  // FORMS ARE CUSTOMER PATHWAYS, AND THEY USED TO BE READ AND DISCARDED.
+  //
+  // `$('form')` was collected into a local that ended at `void formsHtml`, so a
+  // restaurant serving a contact form or a table-request form was still told no
+  // enquiry form was detected. Each form is now classified from its own fields
+  // and wording, so the two kinds are reported separately and neither is
+  // mistaken for a newsletter box.
+  const { contactFormSignal, reservationFormSignal } = classifyForms($);
   const emailCaptureSignal =
     $('form input[type="email"]').length > 0 || /newsletter|join our (email|mailing) list|subscribe/i.test(bodyText);
   const smsCaptureSignal = /text club|sms club|join.{0,20}text|text .{0,10}to \d{5,6}/i.test(bodyText);
   const loyaltySignal = /loyalty|rewards program|vip club|earn points/i.test(bodyText) || Boolean(categorizedLinks.loyalty?.length);
   const giftCardSignal = /gift ?cards?/i.test(bodyText) || Boolean(categorizedLinks.gift_card?.length);
-  void formsHtml;
 
   return {
     requestedUrl,
@@ -887,6 +974,8 @@ export function extractPage(
     pdfLinks: Array.from(pdfLinks).slice(0, 10),
     hoursText: hoursMatch ? hoursMatch[0].slice(0, 200) : null,
     addressText: addressMatch ? terminateAddressAtZip(addressMatch[0]).slice(0, 200) : null,
+    contactFormSignal,
+    reservationFormSignal,
     emailCaptureSignal,
     smsCaptureSignal,
     loyaltySignal,

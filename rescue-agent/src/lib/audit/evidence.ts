@@ -231,6 +231,42 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
     });
   }
 
+  // ── CUSTOMER-FACING FORMS ─────────────────────────────────────────────────
+  //
+  // A form is a route in. The collector read the forms on every page and then
+  // discarded them (`void formsHtml`), so a restaurant serving a contact form
+  // was still told no enquiry form existed — the same false negative as the
+  // discarded email address, reached the same way.
+  const contactFormPage = pages.find((p) => p.contactFormSignal);
+  const reservationFormPage = pages.find((p) => p.reservationFormSignal);
+  if (contactFormPage) {
+    evidence.push({
+      sourceUrl: contactFormPage.finalUrl,
+      evidenceType: 'CONTACT_FORM',
+      fact: 'A customer enquiry form is published on the website.',
+      supportingContext:
+        `Found on ${contactFormPage.finalUrl}. A visitor can write to the restaurant without calling. ` +
+        'Whether the submission reaches anyone, and how quickly it is answered, cannot be observed from a public page ' +
+        'and needs owner confirmation. This is not a newsletter signup, which is recorded separately.',
+      confidence: 85,
+    });
+  }
+  if (reservationFormPage) {
+    evidence.push({
+      sourceUrl: reservationFormPage.finalUrl,
+      evidenceType: 'RESERVATION_PATH',
+      // Carefully bounded: a request form is not a booking system. The wording
+      // deliberately avoids the "pathway is publicly linked" phrasing that
+      // downstream layers read as a working, tested pathway.
+      fact: 'A table-request form is published on the website, but whether it reaches a booking system could not be verified.',
+      supportingContext:
+        `Found on ${reservationFormPage.finalUrl}. The form collects a booking request — date, time or party size. ` +
+        'Submitting it is not the same as holding a table: whether anyone receives the request, how fast it is answered, ' +
+        'and whether the guest gets a confirmation all require owner data. Manual validation required.',
+      confidence: 70,
+    });
+  }
+
   // Hours & address
   const hoursPage = pages.find((p) => p.hoursText);
   evidence.push({
@@ -390,7 +426,7 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
           'This is not evidence that a working pathway exists.',
         confidence: 55,
       });
-    } else if (check.key === 'contact' && (anyPhone || clickToCall || publishedEmail)) {
+    } else if (check.key === 'contact' && (anyPhone || clickToCall || publishedEmail || contactFormPage)) {
       // A PHONE NUMBER IS A CONTACT PATHWAY. SO IS A PUBLISHED EMAIL ADDRESS.
       //
       // The audit first reported "No public contact pathway was detected" on a
@@ -411,20 +447,25 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
       const routes: string[] = [];
       if (anyPhone || clickToCall) routes.push('telephone');
       if (publishedEmail) routes.push('a published email address');
+      if (contactFormPage) routes.push('an enquiry form');
+      const writtenRoute = publishedEmail || contactFormPage;
       const incompleteSuffix = collectionIncomplete ? ' on the pages that could be collected' : '';
       evidence.push({
         sourceUrl: home.finalUrl,
         evidenceType: 'CONTACT_PATH',
-        fact: publishedEmail
-          ? `A contact pathway is publicly available by ${routes.join(' and ')}, but no contact page or enquiry form was detected${incompleteSuffix}.`
+        fact: writtenRoute
+          ? `A contact pathway is publicly available by ${joinRoutes(routes)}${
+              contactFormPage ? '' : ', but no contact page or enquiry form was detected' + incompleteSuffix
+            }.`
           : `A contact pathway is publicly available by telephone, but no non-phone contact route ` +
             `(contact page, enquiry form, or published email address) was detected${incompleteSuffix}.`,
         supportingContext:
           `${anyPhone ? `Phone number published: ${anyPhone.phones[0]}. ` : ''}` +
           `${clickToCall ? 'Click-to-call (tel:) links are present. ' : ''}` +
           `${publishedEmail ? `Public email address published: ${publishedEmail[0]}. ` : ''}` +
-          (publishedEmail
-            ? 'Customers can reach the restaurant by phone or in writing; what happens to an emailed enquiry, and how fast, is not observable from the public site. '
+          `${contactFormPage ? `Enquiry form published on ${contactFormPage.finalUrl}. ` : ''}` +
+          (writtenRoute
+            ? 'Customers can reach the restaurant by phone or in writing; what happens to a written enquiry, and how fast, is not observable from the public site. '
             : 'Customers can reach the restaurant; every enquiry has to become a phone call, so questions that arrive outside service hours have nowhere to go. ') +
           analyzedNote +
           (collectionIncomplete ? ` ${INCOMPLETE_COLLECTION_CAVEAT}` : ''),
@@ -811,6 +852,12 @@ function indefiniteArticle(noun: string): 'A' | 'An' {
 // discarded by the very guard that exists to prevent false claims.
 const NON_CONTACT_ADDRESS =
   /^(?:no-?reply|donotreply|do-not-reply|postmaster|mailer-daemon|abuse|wix|sentry)@|@(?:sentry\.io|wixpress\.com|squarespace\.com|sentry-next\.wixpress\.com|example\.(?:com|org|net)|domain\.com|email\.com)$/i;
+
+/** "a and b" for two, "a, b and c" for three — client-facing prose, not a join. */
+function joinRoutes(routes: string[]): string {
+  if (routes.length <= 1) return routes[0] ?? '';
+  return `${routes.slice(0, -1).join(', ')} and ${routes[routes.length - 1]}`;
+}
 
 /** Pathway categories that assert a customer can transact, and so must be clean. */
 function isTransactional(key: string): boolean {

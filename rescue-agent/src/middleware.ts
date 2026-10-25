@@ -36,6 +36,10 @@ const SIGNED_WEBHOOK_ROUTES = [
   // The scheduled dispatch trigger. A scheduler cannot present Basic Auth, so
   // it carries a shared secret instead and refuses a missing or weak one.
   /^\/api\/frontdesk\/notifications\/cron$/,
+  // The scheduled PII retention sweep. Same reasoning, and the reason it has to
+  // be schedulable at all: retention previously ran only when an operator
+  // opened the Leads page, so the expiry guarantee depended on someone looking.
+  /^\/api\/retention\/sweep$/,
   // Inbound customer SMS and missed-call events. Same HMAC verification as the
   // delivery webhook, and equally fails closed without a configured secret.
   /^\/api\/frontdesk\/sms\/inbound$/,

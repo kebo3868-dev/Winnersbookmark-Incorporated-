@@ -155,6 +155,8 @@ export function analyzeJourney(evidence: EvidenceRecordLike[]): JourneyStageResu
     const res = has(index, 'RESERVATION_PATH');
     const widget = res.filter((e) => /widget was detected/i.test(e.fact));
     const missing = res.filter((e) => /no public reservation pathway was detected/i.test(e.fact));
+    /** A form a customer can submit. Real, and entirely unverified end-to-end. */
+    const form = res.filter((e) => /table-request form is published/i.test(e.fact));
     const broken = has(index, 'BROKEN_LINK', (e) => /reservation/i.test(e.fact));
     // The destination's own page says bookings are off. Worse than unverified:
     // this is a known dead end for a customer who arrives with booking intent.
@@ -176,6 +178,23 @@ export function analyzeJourney(evidence: EvidenceRecordLike[]): JourneyStageResu
           'UNKNOWN',
           'A third-party booking widget was detected, but its destination is rendered in the browser and could not be verified from the public page. Whether customers can actually complete a booking requires manual validation.',
           avgConfidence(widget, 55),
+          true,
+          ids(res),
+        ),
+      );
+    } else if (form.length > 0 && res.length === form.length + missing.length) {
+      // A table-request form and nothing stronger. The form is a real route a
+      // customer can use, so "no reservation pathway" would be false — but
+      // nothing was probed, so RESOLVED_UNVERIFIED (which means a destination
+      // responded) would claim evidence this audit does not have. UNKNOWN with
+      // the reason attached is the honest middle, matching how a JS-rendered
+      // widget is treated: a real mechanism seen, its outcome unknowable.
+      push(
+        stage(
+          'RESERVATION',
+          'UNKNOWN',
+          'A table-request form is published, but no booking destination was resolved, so whether a request reaches a booking system and gets confirmed is unverified. Submitting a form is not the same as holding a table — manual validation required.',
+          avgConfidence(form, 70),
           true,
           ids(res),
         ),

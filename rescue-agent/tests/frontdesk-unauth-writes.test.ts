@@ -1020,13 +1020,13 @@ describe('structural guard: the exempt-route list is pinned', () => {
    */
   const middleware = readFileSync(join(process.cwd(), 'src/middleware.ts'), 'utf8');
 
-  it('exempts exactly the five known self-authenticating routes', () => {
+  it('exempts exactly the six known self-authenticating routes', () => {
     const block = middleware.slice(
       middleware.indexOf('const SIGNED_WEBHOOK_ROUTES'),
       middleware.indexOf('const SELF_AUTHORIZING_AREA'),
     );
     const patterns = [...block.matchAll(/\/\^\\\/([^/]*(?:\\\/[^/]*)*)\$\//g)].map((m) => m[0]);
-    expect(patterns).toHaveLength(5);
+    expect(patterns).toHaveLength(6);
     expect(block).toContain('notifications\\/webhook');
     expect(block).toContain('notifications\\/cron');
     expect(block).toContain('sms\\/inbound');
@@ -1035,6 +1035,11 @@ describe('structural guard: the exempt-route list is pinned', () => {
     // shared secret. It cannot present the operator credential, and it writes
     // only to MarketingLead.
     expect(block).toContain('api\\/marketing\\/leads');
+    // The scheduled PII retention sweep. A scheduler cannot present the
+    // operator credential. It authenticates with CRON_SECRET, and its only
+    // writes REMOVE personal data — it can redact expired leads and marketing
+    // enquiries and nothing else.
+    expect(block).toContain('api\\/retention\\/sweep');
   });
 
   it('keeps the public message endpoint behind an explicit opt-in', () => {
@@ -1048,6 +1053,7 @@ describe('structural guard: the exempt-route list is pinned', () => {
       'src/app/api/frontdesk/sms/inbound/route.ts',
       'src/app/api/frontdesk/auth/login/route.ts',
       'src/app/api/marketing/leads/route.ts',
+      'src/app/api/retention/sweep/route.ts',
     ]) {
       const source = readFileSync(join(process.cwd(), file), 'utf8');
       expect(source, `${file} does not use the bounded recorder`).toContain('noteRejection');
