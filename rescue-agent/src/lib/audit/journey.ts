@@ -22,6 +22,13 @@ const positive = (e: EvidenceRecordLike) => !/no |not |lacks|without|failed|coul
 const negative = (e: EvidenceRecordLike) => !positive(e);
 
 const ids = (items: EvidenceRecordLike[]) => items.map((e) => e.id);
+
+/**
+ * What a phone-only ordering stage cannot see, stated as unknown. Shared by the
+ * channel path and the stored-audit fallback so the two cannot drift apart.
+ */
+const PHONE_ORDERING_NOT_ASSESSED =
+  'Not assessed: whether visitors who would rather order online go elsewhere, and how many orders arrive by phone — that requires order and call records.';
 const avgConfidence = (items: EvidenceRecordLike[], fallback: number) =>
   items.length === 0 ? fallback : Math.round(items.reduce((s, e) => s + e.confidence, 0) / items.length);
 
@@ -346,11 +353,14 @@ export function analyzeJourney(evidence: EvidenceRecordLike[]): JourneyStageResu
         // once. Both used to carry a dead-end clause, so the card said it twice.
         push(stage('ORDERING', 'RISK', `${summary} Order-intent customers hit a dead end.`, confidence, false, evidenceIds));
       } else if (channel.state === 'PHONE_ORDERING_ONLY') {
+        // Status and score unchanged pending the owner's scoring decision on
+        // phone-only ordering. The consequence is no longer asserted: "customers
+        // who will not call are lost" was an unmeasured loss stated as fact.
         push(
           stage(
             'ORDERING',
             'FRICTION',
-            `${summary} Order-intent customers who will not call are lost, and staff answer the phone during service.`,
+            `${summary} ${PHONE_ORDERING_NOT_ASSESSED}`,
             confidence,
             true,
             evidenceIds,
@@ -401,7 +411,7 @@ export function analyzeJourney(evidence: EvidenceRecordLike[]): JourneyStageResu
         stage(
           'ORDERING',
           'FRICTION',
-          'Ordering is by telephone only — the website\'s ordering call-to-action places a phone call rather than opening an online ordering page. Order-intent customers who will not call are lost, and staff answer the phone during service.',
+          `Ordering is by telephone only — the website's ordering call-to-action places a phone call rather than opening an online ordering page. ${PHONE_ORDERING_NOT_ASSESSED}`,
           avgConfidence(telephone, 85),
           true,
           ids(ord),

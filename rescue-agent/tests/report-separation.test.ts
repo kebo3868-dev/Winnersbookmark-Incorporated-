@@ -100,7 +100,8 @@ describe('report separation (owner vs internal sales)', () => {
     expect(owner.header.coverageScore).toBe(70);
     expect(owner.biggestOpportunity).toMatch(/biggest opportunity/i);
     expect(owner.rescuePlan).toHaveLength(3);
-    expect(owner.nextStep.cta).toBe('BOOK A 15-MINUTE RESTAURANT RESCUE REVIEW');
+    // One review length everywhere: the client report books 20 minutes.
+    expect(owner.nextStep.cta).toBe('BOOK A 20-MINUTE RESTAURANT RESCUE REVIEW');
     expect(owner.nextStep.founder).toBe('Keith Warren');
     expect(owner.assumptionsAndLimitations.length).toBeGreaterThan(2);
   });

@@ -262,7 +262,7 @@ describe('buildExecutiveReport', () => {
 
   it('builds a 4-phase 30-day plan with evidence-driven KPIs', () => {
     const dto = buildExecutiveReport(baseInput());
-    expect(dto.thirtyDayPlan.map((p) => p.heading)).toEqual(['VALIDATE', 'FIX THE HIGHEST-FRICTION DIGITAL LEAK', 'AUTOMATE', 'MEASURE']);
+    expect(dto.thirtyDayPlan.map((p) => p.heading)).toEqual(['VALIDATE', 'FIX THE HIGHEST-PRIORITY DIGITAL ISSUE', 'AUTOMATE', 'MEASURE']);
     expect(dto.thirtyDayPlan[0].actions.join(' ')).toMatch(/phone records/i);
     expect(dto.thirtyDayPlan[3].actions.join(' ')).toMatch(/missed calls/i);
   });

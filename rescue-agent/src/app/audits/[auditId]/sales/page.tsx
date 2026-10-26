@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/db';
+import { COMPANY } from '@/lib/config';
 
 export const dynamic = 'force-dynamic';
 
@@ -83,7 +84,7 @@ export default async function SalesBriefPage({ params }: { params: Promise<{ aud
       </section>
 
       <section className="card p-6">
-        <p className="label mb-2">15-Minute Audit Talk Track</p>
+        <p className="label mb-2">{COMPANY.reviewMinutes}-Minute Review Talk Track</p>
         <p className="text-ivory-dim text-sm whitespace-pre-line">{brief.talkTrack}</p>
       </section>
 

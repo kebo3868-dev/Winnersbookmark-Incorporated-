@@ -120,6 +120,21 @@ export const STATE_LABEL: Record<EvidenceState, string> = {
 };
 
 /**
+ * Each state in plain words, for text a person reads aloud or sends.
+ *
+ * The sales brief interpolated the state itself — "[MANUAL_VALIDATION_REQUIRED]"
+ * — into the talk track a rep reads on a call. The state stays the machine
+ * value everything reasons about; this is only how it is said.
+ */
+export const STATE_PLAIN: Record<EvidenceState, string> = {
+  VERIFIED: 'verified from public evidence',
+  STRONG_EVIDENCE: 'strongly indicated, not yet confirmed',
+  INFERRED: 'inferred from public signals, not confirmed',
+  MANUAL_VALIDATION_REQUIRED: "not confirmed — needs the owner's records or a manual check",
+  INSUFFICIENT_DATA: 'not enough public evidence to say',
+};
+
+/**
  * The hedge each state licenses, as a sentence prefix.
  *
  * VERIFIED returns an empty string: a verified finding is stated plainly, and
