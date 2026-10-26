@@ -176,7 +176,7 @@ export default function NewAuditPage() {
             </div>
             <div>
               <label className="label block mb-2">Average Ticket ($)</label>
-              <input value={form.avgTicket} onChange={set('avgTicket')} inputMode="decimal" placeholder="e.g. 45 — sharpens revenue models" />
+              <input value={form.avgTicket} onChange={set('avgTicket')} inputMode="decimal" placeholder="e.g. 45 — optional; prefills the scenario calculator" />
             </div>
           </div>
         </fieldset>
@@ -220,7 +220,7 @@ export default function NewAuditPage() {
           </div>
           <label className="flex items-start gap-3 text-xs text-ivory-dim">
             <input type="checkbox" checked={form.contactConsent} onChange={(e) => setForm((f) => ({ ...f, contactConsent: e.target.checked }))} className="mt-0.5 w-auto" />
-            <span>I agree to be contacted by Winners Bookmark about this audit.</span>
+            <span>I agree to be contacted by Winnersbookmark about this audit.</span>
           </label>
         </fieldset>
 

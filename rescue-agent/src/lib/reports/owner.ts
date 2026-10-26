@@ -1,6 +1,7 @@
 import type { CategoryScoreInput, EvidenceRecordLike, JourneyStageResult } from '@/types/audit';
 import { scoreBand } from '@/lib/scoring/rescueScore';
 import { safeDisplayName } from '@/lib/audit/restaurantName';
+import { COMPANY } from '@/lib/config';
 
 export interface RankedOpportunity {
   category: string;
@@ -175,9 +176,9 @@ export function generateOwnerReport(input: {
     recommendation: recommendTier(input.topLeaks),
     nextStep: {
       cta: 'BOOK A 15-MINUTE RESTAURANT RESCUE REVIEW',
-      company: 'Winners Bookmark Incorporated',
+      company: COMPANY.name,
       founder: 'Keith Warren',
-      footer: 'Designed by Winnersbookmark Incorporated',
+      footer: COMPANY.footer,
     },
     aiNarrativeUsed: Boolean(input.aiNarrative),
   };
@@ -244,7 +245,9 @@ function recommendTier(leaks: RankedOpportunity[]): { tier: string; rationale: s
   if (frontDesk) {
     return {
       tier: 'AI FRONT DESK SYSTEM',
-      rationale: 'The evidence shows a phone-dependent journey with lead-capture gaps — exactly the friction the AI Front Desk System (voice receptionist, missed-call text-back, FAQ automation, lead capture) is built to absorb.',
+      // A potential improvement, not a fix for measured friction: the findings
+      // behind this tier are open questions about phone and inquiry demand.
+      rationale: 'The public evidence raises open questions about phone and inquiry demand that the AI Front Desk System (voice receptionist, missed-call text-back, FAQ automation, lead capture) is designed for. It is a potential improvement, not a fix for a measured problem: no missed calls or lost revenue have been measured, so call and inquiry records should confirm the demand before it is installed.',
     };
   }
   if (reactivation) {

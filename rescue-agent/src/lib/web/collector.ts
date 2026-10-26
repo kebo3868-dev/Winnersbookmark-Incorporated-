@@ -208,6 +208,44 @@ const SOCIAL_HOSTS =
 const DESTINATION_PARAM_KEYS = ['destination', 'dest', 'goto', 'target', 'action', 'widget', 'modal'];
 
 /**
+ * Query parameters that name where to RETURN to, not where the link goes.
+ *
+ * `tmt.spotapps.co/job-listings?spot_id=…&callback_url=…/food-menu` is a job
+ * listing; "menu" appeared only in the address it sends the visitor back to,
+ * and the whole query string was matched, so job listings were filed — and
+ * probed — as menu destinations.
+ */
+const RETURN_PARAM_KEYS = new Set([
+  'callback',
+  'callback_url',
+  'callbackurl',
+  'redirect',
+  'redirect_uri',
+  'redirect_url',
+  'return',
+  'return_url',
+  'returnurl',
+  'return_to',
+  'returnto',
+  'next',
+  'continue',
+  'back',
+  'back_url',
+  'referrer',
+  'referer',
+  'origin',
+]);
+
+/** The query string without return-address parameters, for category matching. */
+function ownQuery(url: URL): string {
+  const kept: string[] = [];
+  url.searchParams.forEach((value, key) => {
+    if (!RETURN_PARAM_KEYS.has(key.toLowerCase())) kept.push(`${key}=${value}`);
+  });
+  return kept.join('&');
+}
+
+/**
  * Normalize a URL fragment for pattern matching.
  *
  * Percent-encoding and `_`/`+` separators hide intent from the category
@@ -263,13 +301,35 @@ export function declaredDestination(url: URL): LinkCategory | null {
  *      exactly as before.
  */
 export function categorizeLink(url: URL, text: string): LinkCategory[] {
-  const structural = matchable(`${url.pathname} ${url.search} ${url.hostname}`);
+  const structural = matchable(`${url.pathname} ${ownQuery(url)} ${url.hostname}`);
   const declared = declaredDestination(url);
   const categories = new Set<LinkCategory>();
   if (declared) categories.add(declared);
   const haystack = declared ? structural : `${structural} ${matchable(text)}`;
   for (const category of ALL_CATEGORIES) {
     if (CATEGORY_PATTERNS[category].test(haystack)) categories.add(category);
+  }
+  // AN ORDERING FLOW'S "MENU" IS NOT THE RESTAURANT'S MENU.
+  //
+  // `tmt.spotapps.co/ordering-menu/?spot_id=` is an ordering endpoint that
+  // names its own menu step; it reached menu evidence because "menu" sits in
+  // its path. An address that is structurally an ordering destination counts
+  // as a menu link only when the wording a customer sees offers the menu —
+  // "View Menu and Order" keeps both, a bare ordering endpoint keeps one.
+  //
+  // Only an IDENTIFIABLE ordering endpoint qualifies: the address must still
+  // name a menu once the endpoint's own step name is removed. Matching any
+  // ordering word instead dropped `/takeout-menu.pdf` and `/menus/delivery` —
+  // real menus — and a site whose only menu was a takeout PDF was reported as
+  // having none.
+  if (
+    !declared &&
+    categories.has('menu') &&
+    ORDERING_ENDPOINT_STEP.test(structural) &&
+    !CATEGORY_PATTERNS.menu.test(structural.replace(ORDERING_ENDPOINT_STEP_ALL, ' ')) &&
+    !CATEGORY_PATTERNS.menu.test(matchable(text))
+  ) {
+    categories.delete('menu');
   }
   // "BOOK CATERING" IS NOT A TABLE RESERVATION.
   //
@@ -290,6 +350,14 @@ export function categorizeLink(url: URL, text: string): LinkCategory[] {
   }
   return Array.from(categories);
 }
+
+/**
+ * The step name an ordering platform gives its own menu screen — SpotHopper's
+ * `ordering-menu`. Deliberately not the general ordering pattern: "takeout",
+ * "delivery" and "order" also name the restaurant's own menu pages.
+ */
+const ORDERING_ENDPOINT_STEP = /\bordering[- ]menus?\b/i;
+const ORDERING_ENDPOINT_STEP_ALL = new RegExp(ORDERING_ENDPOINT_STEP.source, 'gi');
 
 /**
  * Wording that names a TABLE booking specifically, as opposed to the bare verb

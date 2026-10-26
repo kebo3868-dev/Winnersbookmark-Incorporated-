@@ -65,7 +65,7 @@ export function renderStaffAlert(input: StaffAlertInput): RenderedEmail {
     '',
     input.simulated
       ? 'This alert was produced by a simulated provider and was not sent to anyone else.'
-      : 'Sent by the Winners Bookmark AI Front Desk.',
+      : 'Sent by the Winnersbookmark AI Front Desk.',
   ];
 
   return { subject, text: lines.join('\n'), html: toHtml(lines) };

@@ -101,12 +101,12 @@ export function analyzeJourney(evidence: EvidenceRecordLike[]): JourneyStageResu
     const phoneMissing = phone.filter(negative);
     const c2c = has(index, 'CLICK_TO_CALL');
     const c2cMissing = c2c.filter(negative);
+    // FAQ evidence is cited with the stage but does not decide it.
     const faq = has(index, 'FAQ_SIGNAL');
-    const faqMissing = faq.filter(negative);
     const all = [...phone, ...c2c, ...faq];
     if (phoneMissing.some((e) => /any analyzed page/i.test(e.fact))) {
       push(stage('PHONE', 'RISK', 'No phone number was detected on the analyzed pages — phone-intent customers have no visible path to call.', avgConfidence(phoneMissing, 65), true, ids(all)));
-    } else if (c2cMissing.length > 0 || faqMissing.length > 0) {
+    } else if (c2cMissing.length > 0) {
       push(
         stage(
           'PHONE',
@@ -114,18 +114,31 @@ export function analyzeJourney(evidence: EvidenceRecordLike[]): JourneyStageResu
           // States only what was seen. Whether the phone "carries load the
           // website does not absorb" is a conclusion about call volume, and
           // call volume is not observable from a public page.
-          'Observed on the public site: ' +
-            [c2cMissing.length > 0 ? 'mobile visitors cannot tap to call' : '', faqMissing.length > 0 ? 'no dedicated FAQ page was found' : '']
-              .filter(Boolean)
-              .join('; ') +
-            '. How much phone demand this creates, and whether calls go unanswered, requires call records — not assessed here.',
+          'Observed on the public site: mobile visitors cannot tap to call. ' +
+            'How much phone demand this creates, and whether calls go unanswered, requires call records — not assessed here.',
           avgConfidence(all, 70),
           true,
           ids(all),
         ),
       );
     } else {
-      push(stage('PHONE', 'HEALTHY', 'Phone number is visible with click-to-call enabled and FAQ support online. Actual call answer rates require manual validation.', avgConfidence(all, 70), true, ids(all)));
+      // A MISSING FAQ PAGE IS NOT A PHONE PROBLEM (owner decision, PR #63).
+      //
+      // It used to make this stage FRICTION, which the report defines as an
+      // observed obstruction — but nothing obstructs a caller who can see the
+      // number and tap it. The stage is decided by what a caller meets; whether
+      // calls are answered is unmeasured either way, and says so.
+      push(
+        stage(
+          'PHONE',
+          'HEALTHY',
+          'Observed: a phone number is visible and mobile visitors can tap to call. ' +
+            'Not assessed: whether calls are answered, and how quickly — that requires call records.',
+          avgConfidence(all, 70),
+          true,
+          ids(all),
+        ),
+      );
     }
   }
 
@@ -517,10 +530,15 @@ export function analyzeJourney(evidence: EvidenceRecordLike[]): JourneyStageResu
         ),
       );
     } else if (captures.length === 1) {
+      // RESOLVED_UNVERIFIED, not FRICTION. A guest CAN opt in, so nothing in
+      // the customer's path is obstructed; what is missing is a measurement of
+      // whether anyone is followed up, and an unmeasured result is not
+      // customer friction. FRICTION is kept for what a guest actually meets —
+      // here, the case above where no opt-in route exists at all.
       push(
         stage(
           'FOLLOW_UP',
-          'FRICTION',
+          'RESOLVED_UNVERIFIED',
           'Observed: one public retention signal was detected, so there is a single route by which a guest can opt in. ' +
             'Not assessed: whether anyone is contacted, how often, or to what effect — the quality of follow-up is not visible from a public page and requires your own data.',
           avgConfidence(all, 65),
@@ -567,7 +585,9 @@ export function analyzeJourney(evidence: EvidenceRecordLike[]): JourneyStageResu
         ),
       );
     } else {
-      push(stage('REVIEW', 'FRICTION', 'A review profile was provided but no rating was shared, so reputation strength cannot be assessed. Provide the current star rating to complete this.', avgConfidence(reviews, 45), true, ids(reviews)));
+      // UNKNOWN, not FRICTION: an unshared rating is unmeasured, not something
+      // a customer was observed to meet.
+      push(stage('REVIEW', 'UNKNOWN', 'A review profile was provided but no rating was shared, so reputation strength cannot be assessed. Provide the current star rating to complete this.', avgConfidence(reviews, 45), true, ids(reviews)));
     }
   }
 
@@ -606,10 +626,12 @@ export function analyzeJourney(evidence: EvidenceRecordLike[]): JourneyStageResu
         ),
       );
     } else {
+      // RESOLVED_UNVERIFIED for the same reason as FOLLOW_UP: the mechanism is
+      // present, and how well it works is unmeasured — not observed friction.
       push(
         stage(
           'RETURN',
-          'FRICTION',
+          'RESOLVED_UNVERIFIED',
           'Observed: at least one repeat-visit mechanism is publicly present. ' +
             'Not assessed: how much it is used, or whether it brings anyone back — that requires your own data.',
           avgConfidence(positives, 65),

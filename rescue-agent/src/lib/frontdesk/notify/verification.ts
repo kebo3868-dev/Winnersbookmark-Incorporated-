@@ -28,7 +28,7 @@ import { maskNumber, normaliseNumber } from './provider';
 type Db = PrismaClient | Prisma.TransactionClient;
 
 export const VERIFICATION_MESSAGE =
-  'Winners Bookmark front desk test alert. You are on the escalation rota for this restaurant. ' +
+  'Winnersbookmark front desk test alert. You are on the escalation rota for this restaurant. ' +
   'No action needed — reply STOP to opt out of these alerts.';
 
 export type VerificationRequest =

@@ -359,22 +359,29 @@ describe('Phase 2.5 — executive snapshot, scenarios, journey map, prescription
     expect(dto.snapshot.primaryValidationRequirement.length).toBeGreaterThan(10);
   });
 
-  it('attaches an illustrative scenario to eligible findings and shows all assumptions', () => {
+  it('points eligible findings at the optional calculator without attaching any figures', () => {
     const dto = buildExecutiveReport(baseInput());
     const phone = dto.findings.find((f) => f.category.includes('PHONE'))!;
-    expect(phone.scenario).not.toBeNull();
-    expect(phone.scenario!.classification).toBe('ILLUSTRATIVE SCENARIO');
-    expect(phone.scenario!.assumptions.length).toBeGreaterThan(0);
-    // ordering finding is a broken-link category — NOT scenario-eligible under ordering-failure? it IS eligible (ordering)
+    expect(phone.scenarioKind).toBe('phone');
     const ordering = dto.findings.find((f) => f.category.includes('ORDERING'))!;
-    expect(ordering.scenario).not.toBeNull();
+    expect(ordering.scenarioKind).toBe('ordering');
+    // No finding carries a scenario figure of its own.
+    expect(JSON.stringify(dto.findings)).not.toMatch(/about \$|monthlyExposure|annualExposure/);
   });
 
-  it('collects up to 3 top-level scenarios for "What This Could Be Costing You"', () => {
+  it('offers up to 3 optional calculators with no invented quantities', () => {
     const dto = buildExecutiveReport(baseInput());
-    expect(dto.scenarios.length).toBeGreaterThan(0);
-    expect(dto.scenarios.length).toBeLessThanOrEqual(3);
-    for (const sc of dto.scenarios) expect(sc.classification).toBe('ILLUSTRATIVE SCENARIO');
+    expect(dto.scenarioCalculators.length).toBeGreaterThan(0);
+    expect(dto.scenarioCalculators.length).toBeLessThanOrEqual(3);
+    // No average ticket was entered, so nothing at all is prefilled.
+    for (const c of dto.scenarioCalculators) expect(c.prefill).toEqual({});
+    expect('scenarios' in dto).toBe(false);
+  });
+
+  it('prefills only the average ticket the user entered, never a count or rate', () => {
+    const dto = buildExecutiveReport(baseInput({ avgTicket: 52 }));
+    const phone = dto.scenarioCalculators.find((c) => c.kind === 'phone')!;
+    expect(phone.prefill).toEqual({ averageTransaction: 52 });
   });
 
   it('never attaches a scenario to a technical/insufficient finding', () => {
@@ -385,15 +392,18 @@ describe('Phase 2.5 — executive snapshot, scenarios, journey map, prescription
         aiFitScore: 10, rescuePriorityScore: 72, recommendedSolution: 'Fix SSL.', manualValidationRequired: false,
       }],
     }));
-    expect(dto.findings[0].scenario).toBeNull();
-    expect(dto.scenarios).toHaveLength(0);
+    expect(dto.findings[0].scenarioKind).toBeNull();
+    expect(dto.scenarioCalculators).toHaveLength(0);
   });
 
   it('orders the visual journey map and maps UNKNOWN → INSUFFICIENT DATA', () => {
     const dto = buildExecutiveReport(baseInput());
     expect(dto.journeyMap.map((s) => s.stage)).toEqual(['WEBSITE', 'PHONE', 'REVIEW']);
     expect(dto.journeyMap.find((s) => s.stage === 'REVIEW')!.status).toBe('INSUFFICIENT DATA');
-    expect(dto.journeyMap.find((s) => s.stage === 'PHONE')!.status).toBe('MANUAL VALIDATION');
+    // Observed friction stays FRICTION even when sizing it needs owner data;
+    // MANUAL VALIDATION is reserved for a present mechanism whose results are
+    // unmeasured (RESOLVED_UNVERIFIED). Same word as the internal page.
+    expect(dto.journeyMap.find((s) => s.stage === 'PHONE')!.status).toBe('FRICTION');
   });
 
   it('ranks AI opportunities with capabilities and measurement, best-fit first', () => {
@@ -446,11 +456,10 @@ describe('Phase 2.5 — executive snapshot, scenarios, journey map, prescription
     expect(input.overallScore).toBe(68);
   });
 
-  it('scenarios and snapshot never state a confirmed dollar loss', () => {
-    const dto = buildExecutiveReport(baseInput());
-    const serialized = JSON.stringify({ scenarios: dto.scenarios, snapshot: dto.snapshot, findings: dto.findings });
-    // every scenario carries the not-a-confirmed-loss qualifier
-    for (const sc of dto.scenarios) expect(sc.confidenceStatement.toLowerCase()).toContain('not a confirmed loss');
+  it('calculators, snapshot and findings never state a dollar loss', () => {
+    const dto = buildExecutiveReport(baseInput({ avgTicket: 45 }));
+    const serialized = JSON.stringify({ calculators: dto.scenarioCalculators, snapshot: dto.snapshot, findings: dto.findings });
+    expect(serialized).not.toMatch(/\$\s?\d/);
     expect(serialized.toLowerCase()).not.toContain('confirmed loss of');
     expect(serialized.toLowerCase()).not.toContain('you are losing');
   });
@@ -472,11 +481,13 @@ describe('Phase 2.5 — scenario dedupe (review #18)', () => {
         },
       ],
     }));
-    const orderingScenarios = dto.scenarios.filter((s) => s.key === 'ordering');
-    expect(orderingScenarios).toHaveLength(1);
-    const keys = dto.scenarios.map((s) => s.key);
+    const ordering = dto.scenarioCalculators.filter((c) => c.kind === 'ordering');
+    expect(ordering).toHaveLength(1);
+    // the highest-priority finding of that kind is the one offered
+    expect(ordering[0].findingTitle).toBe('Ordering link failing');
+    const keys = dto.scenarioCalculators.map((c) => c.kind);
     expect(new Set(keys).size).toBe(keys.length); // all keys unique
-    // both findings still keep their own inline scenario
-    expect(dto.findings.filter((f) => f.scenario?.key === 'ordering')).toHaveLength(2);
+    // both findings still point at the calculator
+    expect(dto.findings.filter((f) => f.scenarioKind === 'ordering')).toHaveLength(2);
   });
 });

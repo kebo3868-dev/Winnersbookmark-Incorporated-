@@ -121,7 +121,7 @@ export function middleware(request: NextRequest) {
   if (ok) return NextResponse.next();
   return new NextResponse('Authentication required.', {
     status: 401,
-    headers: { 'www-authenticate': 'Basic realm="Winners Bookmark Rescue Agent", charset="UTF-8"' },
+    headers: { 'www-authenticate': 'Basic realm="Winnersbookmark Rescue Agent", charset="UTF-8"' },
   });
 }
 

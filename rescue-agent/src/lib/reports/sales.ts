@@ -112,7 +112,9 @@ export function generateSalesBrief(input: {
     : '"Our website is fine and business is okay — why would we pay for an audit or a system?"';
 
   const objectionStrategy = aiFitLeaks.length > 0
-    ? 'Agree — being too busy is exactly the problem the system absorbs. Reframe: the AI handles the repetitive 80% (hours, directions, FAQs, after-hours inquiries) so staff handle the human 20%. Offer the 15-minute review as zero-commitment proof, walking through their own audit evidence.'
+    // No invented share of calls: what fraction is repetitive is exactly what
+    // their call records would show, and the rep may not supply a number.
+    ? 'Agree — being too busy is exactly the problem the system is built for. Reframe: the AI is designed to take the repetitive questions (hours, directions, FAQs, after-hours inquiries) so staff keep the conversations that need a person — and their own call records will show how much of the load that is before anything is installed. Offer the 15-minute review as zero-commitment proof, walking through their own audit evidence.'
     : 'Do not argue with "fine." Show the specific evidence from the audit and ask one discovery question about what the audit could not see. Position the discovery audit as a way to verify — not a sales pitch.';
 
   const evidenceHook = topLeak?.evidenceIds.length
@@ -148,9 +150,9 @@ export function generateSalesBrief(input: {
       : `Subject: Quick note about the ${restaurantName} website\n\nI ran a digital audit of ${restaurantName} — most of it came back strong. Two or three things public data can't verify are usually where restaurants quietly lose repeat business. Happy to share the report — worth 15 minutes?`,
     callOpener: topLeak
       ? canAssert
-        ? `"Hi, this is [name] with Winners Bookmark — I put together a digital audit of ${restaurantName} and found something I think you'd want to know about: ${lowerFirst(topLeak.title)}. Do you have 90 seconds for the short version?"`
-        : `"Hi, this is [name] with Winners Bookmark — I put together a digital audit of ${restaurantName}. One thing I could not check from the outside: ${lowerFirst(leadTitle ?? topLeak.title)}. Can I ask you about it — 90 seconds?"`
-      : `"Hi, this is [name] with Winners Bookmark — I ran a digital audit of ${restaurantName}. Good news: most of it is solid. I've got two questions the audit couldn't answer that usually decide whether a restaurant is leaking repeat business. 90 seconds?"`,
+        ? `"Hi, this is [name] with Winnersbookmark — I put together a digital audit of ${restaurantName} and found something I think you'd want to know about: ${lowerFirst(topLeak.title)}. Do you have 90 seconds for the short version?"`
+        : `"Hi, this is [name] with Winnersbookmark — I put together a digital audit of ${restaurantName}. One thing I could not check from the outside: ${lowerFirst(leadTitle ?? topLeak.title)}. Can I ask you about it — 90 seconds?"`
+      : `"Hi, this is [name] with Winnersbookmark — I ran a digital audit of ${restaurantName}. Good news: most of it is solid. I've got two questions the audit couldn't answer that usually decide whether a restaurant is leaking repeat business. 90 seconds?"`,
     talkTrack: buildTalkTrack(restaurantName, overallScore, topLeaks, phoneStage, followUpStage, recommendedTier),
     followUpAngle: topLeak
       ? `If no response in 4–5 days: send one specific evidence item (${(canAssert ? evidenceHook : stripDefinitive(evidenceHook)).slice(0, 120)}) as a screenshot/quote with a one-line question. No pitch${canAssert ? '' : ', and keep it as a question — this finding is not confirmed'}. Then a final value-add follow-up a week later.`
@@ -259,7 +261,9 @@ function buildTalkTrack(
       })
       .join('; ');
     lines.push(
-      `MINUTE 5–10 — Top leaks: show the top ${topLeaks.length} findings with their evidence. For each: "here's what we saw, here's why it costs you customers, here's the fix." ` +
+      // "Why it costs you customers" asserted a loss for every finding,
+      // including the ones the brief itself says not to assert.
+      `MINUTE 5–10 — Top findings: show the top ${topLeaks.length} findings with their evidence. For each: "here's what we saw, here's what we could not see, here's how you can check it." ` +
         `Say only what the evidence supports — ${labelled}.`,
     );
     // The combined claim strength of everything being presented. A talk track

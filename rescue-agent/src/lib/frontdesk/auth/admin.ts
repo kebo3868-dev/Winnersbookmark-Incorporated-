@@ -24,7 +24,7 @@ export function requireAdmin(
     return {
       ok: false,
       response: NextResponse.json(
-        { error: 'THIS ACTION REQUIRES A WINNERS BOOKMARK ADMINISTRATOR' },
+        { error: 'THIS ACTION REQUIRES A WINNERSBOOKMARK ADMINISTRATOR' },
         { status: 403 },
       ),
     };

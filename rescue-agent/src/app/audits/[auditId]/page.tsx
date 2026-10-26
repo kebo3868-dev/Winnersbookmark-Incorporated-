@@ -8,16 +8,18 @@ import { presentFailure, shortRunId } from '@/lib/audit/failurePresentation';
 // The same band function the client report and the PDF use. An internal page
 // showing "85%" beside a client page showing "Strong" for the same fact is how
 // two readings of the same evidence get into the same conversation.
-import { confidenceLabel } from '@/lib/reports/executive';
+import { classifyFinding, confidenceLabel, journeyStatusLabel, reportHeadlines } from '@/lib/reports/executive';
 
 export const dynamic = 'force-dynamic';
 
+// Keyed by the client-facing label, so this page prints the same word for a
+// stage that the Executive Report and the PDF print.
 const STATUS_COLORS: Record<string, string> = {
   HEALTHY: 'text-emerald-400 border-emerald-400/30',
-  RESOLVED_UNVERIFIED: 'text-amber-400 border-amber-400/30',
+  'MANUAL VALIDATION': 'text-gold border-gold/40',
   FRICTION: 'text-amber-400 border-amber-400/30',
   RISK: 'text-red-400 border-red-400/30',
-  UNKNOWN: 'text-ivory-faint border-obsidian-line',
+  'INSUFFICIENT DATA': 'text-ivory-faint border-obsidian-line',
 };
 
 export default async function AuditDetailPage({ params }: { params: Promise<{ auditId: string }> }) {
@@ -116,7 +118,7 @@ export default async function AuditDetailPage({ params }: { params: Promise<{ au
           </div>
 
           <section>
-            <h2 className="label mb-4">Top Revenue Leaks</h2>
+            <h2 className="label mb-4">{reportHeadlines(audit.opportunities.slice(0, 3).map(classifyFinding)).findings}</h2>
             {audit.opportunities.length === 0 ? (
               <div className="card p-8 text-ivory-dim text-sm">
                 No revenue leaks were confirmed from public evidence. This is a legitimate outcome — remaining risk sits in areas public analysis cannot see.
@@ -157,7 +159,7 @@ export default async function AuditDetailPage({ params }: { params: Promise<{ au
                 <div key={s.id} className="card p-4">
                   <div className="flex justify-between items-center mb-2">
                     <p className="text-sm text-ivory tracking-wide">{s.stage.replace(/_/g, ' ')}</p>
-                    <span className={`text-[10px] uppercase tracking-wider border rounded px-2 py-0.5 ${STATUS_COLORS[s.status]}`}>{s.status}</span>
+                    <span className={`text-[10px] uppercase tracking-wider border rounded px-2 py-0.5 ${STATUS_COLORS[journeyStatusLabel(s.status)]}`}>{journeyStatusLabel(s.status)}</span>
                   </div>
                   <p className="text-ivory-dim text-xs">{s.finding}</p>
                 </div>

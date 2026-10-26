@@ -1,12 +1,17 @@
 /**
- * REVENUE EXPOSURE SCENARIO MODEL — deterministic, assumption-driven.
+ * OPTIONAL SCENARIO CALCULATOR — deterministic, driven only by figures the user enters.
  *
- * SAFETY CONTRACT (Phase 2.5):
- * - A scenario is an ILLUSTRATIVE mathematical example, never a measured loss.
- * - Every assumption used in a scenario is surfaced to the owner; the model
- *   never silently chooses inputs and shows only an output.
- * - Defaults are labeled "illustrative assumption" — never "industry average"
- *   or "benchmark" (no benchmark data source is integrated).
+ * SAFETY CONTRACT:
+ * - The report never fills a scenario in on its own. It used to multiply
+ *   invented counts ("5 missed calls a day", "3 lost conversions a day") into a
+ *   dollar figure and print it in the executive report; however carefully
+ *   labelled, an invented quantity times a real ticket reads as a measured
+ *   loss. There are now no default quantities anywhere in this module.
+ * - A scenario exists only when every input has been supplied by the user; a
+ *   missing or invalid input yields no scenario rather than a guessed one.
+ * - Every input is shown back with the result and labelled as the user's own
+ *   assumption. The output is a what-if, never a measured loss, a forecast or a
+ *   guaranteed recovery.
  * - Scenarios are gated by explicit eligibility rules; findings that prohibit
  *   interpretation (insufficient-data, metadata/technical signals) get none.
  * - Arithmetic is done in integer cents to avoid floating-point drift.
@@ -15,24 +20,21 @@
 export interface ScenarioAssumption {
   label: string;
   value: string; // display string
-  qualifier: 'illustrative assumption';
+  qualifier: 'your assumption';
 }
 
 export interface RevenueScenario {
   key: string;
   pathwayTitle: string;
   observedFriction: string;
-  classification: 'ILLUSTRATIVE SCENARIO';
+  classification: 'USER-ENTERED SCENARIO';
   assumptions: ScenarioAssumption[];
   formula: string;
   /**
-   * Display strings, rounded to two significant figures and marked "≈".
+   * Display strings, rounded to two significant figures and prefixed "about".
    *
-   * These read "≈ $25,000", not "$24,637.50". The arithmetic is decimal-exact
-   * and the exact value is kept below — but every input is an illustrative
-   * assumption, so printing the output to the cent claimed a precision the
-   * model does not have. A figure given to the cent reads as a measurement;
-   * this one is a magnitude, and says so.
+   * Every input is an assumption, so printing the output to the cent would
+   * claim a precision the model does not have. The exact value is kept below.
    */
   monthlyExposure: string;
   annualExposure: string;
@@ -43,75 +45,31 @@ export interface RevenueScenario {
   confidenceStatement: string;
 }
 
-// ── Centralized illustrative defaults ───────────────────────────────────────
-// All neutral, conservative, clearly illustrative. Not benchmarks.
-export interface ScenarioDefaults {
-  phone: { illustrativeMissedCallsPerDay: number; commercialIntentRate: number; illustrativeTransactionValue: number; operatingDays: number };
-  reservation: { illustrativeLostBookingsPerWeek: number; illustrativePartySize: number; illustrativePerGuestValue: number; operatingWeeks: number };
-  ordering: { illustrativeAbandonedOrdersPerDay: number; illustrativeOrderValue: number; operatingDays: number };
-  lead: { illustrativeMissedLeadsPerMonth: number; illustrativeCloseRate: number; illustrativeEventValue: number; operatingMonths: number };
-  reactivation: { illustrativeLapsedGuestsReengagedPerMonth: number; illustrativeVisitsPerReengagement: number; illustrativeTicket: number; operatingMonths: number };
-  website: { illustrativeLostConversionsPerDay: number; illustrativeConversionValue: number; operatingDays: number };
-}
-
-export const SCENARIO_DEFAULTS: ScenarioDefaults = {
-  phone: { illustrativeMissedCallsPerDay: 5, commercialIntentRate: 0.3, illustrativeTransactionValue: 45, operatingDays: 365 },
-  reservation: { illustrativeLostBookingsPerWeek: 3, illustrativePartySize: 2, illustrativePerGuestValue: 40, operatingWeeks: 52 },
-  ordering: { illustrativeAbandonedOrdersPerDay: 2, illustrativeOrderValue: 35, operatingDays: 365 },
-  lead: { illustrativeMissedLeadsPerMonth: 2, illustrativeCloseRate: 0.5, illustrativeEventValue: 500, operatingMonths: 12 },
-  reactivation: { illustrativeLapsedGuestsReengagedPerMonth: 20, illustrativeVisitsPerReengagement: 2, illustrativeTicket: 40, operatingMonths: 12 },
-  website: { illustrativeLostConversionsPerDay: 3, illustrativeConversionValue: 40, operatingDays: 365 },
-};
-
-/**
- * Return a defaults set with per-transaction dollar values replaced by an
- * owner-supplied average ticket. Rates, counts, and periods stay illustrative;
- * only the money figure the owner actually knows becomes real. The scenario
- * cards keep the "illustrative" labeling because counts/rates remain assumed.
- */
-export function withAverageTicket(avgTicket: number | null, base: ScenarioDefaults = SCENARIO_DEFAULTS): ScenarioDefaults {
-  if (avgTicket === null || !Number.isFinite(avgTicket) || avgTicket <= 0) return base;
-  const t = Math.round(avgTicket * 100) / 100;
-  return {
-    phone: { ...base.phone, illustrativeTransactionValue: t },
-    reservation: { ...base.reservation, illustrativePerGuestValue: t },
-    ordering: { ...base.ordering, illustrativeOrderValue: t },
-    lead: base.lead, // event value is not a per-cover ticket; keep illustrative
-    reactivation: { ...base.reactivation, illustrativeTicket: t },
-    website: { ...base.website, illustrativeConversionValue: t },
-  };
-}
-
 // ── Decimal-safe helpers (integer cents) ────────────────────────────────────
 const toCents = (dollars: number): number => Math.round(dollars * 100);
 const formatUSD = (cents: number): string =>
   `$${(cents / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-const pct = (rate: number): string => `${Math.round(rate * 1000) / 10}%`;
+
+/**
+ * What a scenario is, and the things it is not.
+ *
+ * The figures come only from what the reader types in, and the result still
+ * is not money measured leaving the business, a forecast of what will happen,
+ * or a promise of what a fix returns. Scenarios also overlap — the guest who
+ * does not call is often the guest who does not book — so they never add up.
+ */
+export const SCENARIO_DISCLAIMER =
+  'Optional scenario calculator — it uses only the figures you enter. ' +
+  'The result is a what-if built on your own assumptions: not a measured loss, not a forecast, and not a guaranteed recovery. ' +
+  'Scenarios overlap, so do not add them together.';
 
 /**
  * A scenario OUTPUT, rounded to two significant figures and marked approximate.
  *
- * `formatUSD` stays as it is and is still used for the assumption rows, because
- * an assumption like "average transaction value $45.00" is an exact stated
- * input. The output of multiplying four guesses together is not, and printing
- * it as "$24,637.50" invited the reader to treat a model as a measurement.
+ * `formatUSD` is still used for the assumption rows, because an entered value
+ * like "$45.00" is an exact stated input. The product of several assumptions is
+ * not, and printing it to the cent invited the reader to treat it as measured.
  */
-/**
- * What an illustrative scenario is, and the three things it is not.
- *
- * The section carried "not confirmed losses" and stopped there, which left
- * three readings open that the numbers invite: that the figure is money already
- * lost, that fixing the pathway returns it, and that several scenarios add up to
- * a total. None follows from the model, and the third is actively wrong —
- * scenarios overlap, because the same guest who does not call is often the same
- * guest who does not book.
- */
-export const SCENARIO_DISCLAIMER =
-  'Illustrative scenarios — not confirmed losses, not guaranteed recoveries, and not additive. ' +
-  'Each one multiplies assumptions, shown in full below, that you can replace with your own numbers. ' +
-  'No money has been measured leaving the business, fixing a pathway does not return the figure shown, and the ' +
-  'scenarios overlap — do not add them together.';
-
 export function formatApproxUSD(cents: number): string {
   const dollars = cents / 100;
   if (dollars === 0) return '$0';
@@ -123,16 +81,6 @@ export function formatApproxUSD(cents: number): string {
   // A word carries the same meaning and is in every font.
   return `about $${rounded.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
 }
-
-/**
- * Annual exposure in integer cents = round(count × rate × valueCents × periods).
- * Multiplying an integer cent value by dimensionless factors then rounding once
- * keeps the result decimal-exact for the display precision we need.
- */
-function annualCents(count: number, rate: number, valueDollars: number, periods: number): number {
-  return Math.round(count * rate * toCents(valueDollars) * periods);
-}
-const monthlyFromAnnual = (annual: number): number => Math.round(annual / 12);
 
 // ── Eligibility ─────────────────────────────────────────────────────────────
 // A finding is scenario-eligible only when it maps to a measurable demand or
@@ -169,145 +117,199 @@ export function scenarioKindFor(input: ScenarioEligibilityInput): ScenarioKind |
   return match ? match[1] : null;
 }
 
-// ── Scenario builders ───────────────────────────────────────────────────────
+// ── Calculator specifications ───────────────────────────────────────────────
+// Each pathway's formula is a plain product of its inputs, in the order listed,
+// with the one dollar input converted to cents. The last input is the number
+// of periods in a year, so the product is an annual figure.
 
-export function buildScenario(kind: ScenarioKind, friction = 'Observed on the analyzed public pages.', defaults: ScenarioDefaults = SCENARIO_DEFAULTS): RevenueScenario {
-  switch (kind) {
-    case 'phone': {
-      const d = defaults.phone;
-      const annual = annualCents(d.illustrativeMissedCallsPerDay, d.commercialIntentRate, d.illustrativeTransactionValue, d.operatingDays);
-      return {
-        key: 'phone',
-        pathwayTitle: 'Phone Demand Exposure',
-        observedFriction: friction,
-        classification: 'ILLUSTRATIVE SCENARIO',
-        assumptions: [
-          { label: 'Potentially missed calls per day', value: `${d.illustrativeMissedCallsPerDay}`, qualifier: 'illustrative assumption' },
-          { label: 'Estimated share with order or booking intent', value: pct(d.commercialIntentRate), qualifier: 'illustrative assumption' },
-          { label: 'Illustrative average transaction value', value: formatUSD(toCents(d.illustrativeTransactionValue)), qualifier: 'illustrative assumption' },
-          { label: 'Operating days', value: `${d.operatingDays}`, qualifier: 'illustrative assumption' },
-        ],
-        formula: 'missed calls/day × commercial intent rate × average transaction value × operating days',
-        monthlyExposure: formatApproxUSD(monthlyFromAnnual(annual)),
-        annualExposure: formatApproxUSD(annual),
-        monthlyExposureCents: monthlyFromAnnual(annual),
-        annualExposureCents: annual,
-        dataRequiredToValidate: ['Call logs', 'Missed-call count', 'Caller reason sample', 'Average ticket', 'Operating days'],
-        confidenceStatement: 'Illustrative scenario — not a confirmed loss. Actual call volume, missed-call count, caller intent, and transaction value must be validated against restaurant phone and POS data.',
-      };
-    }
-    case 'reservation': {
-      const d = defaults.reservation;
-      const annual = annualCents(d.illustrativeLostBookingsPerWeek * d.illustrativePartySize, 1, d.illustrativePerGuestValue, d.operatingWeeks);
-      return {
-        key: 'reservation',
-        pathwayTitle: 'Reservation Demand Exposure',
-        observedFriction: friction,
-        classification: 'ILLUSTRATIVE SCENARIO',
-        assumptions: [
-          { label: 'Potentially lost bookings per week', value: `${d.illustrativeLostBookingsPerWeek}`, qualifier: 'illustrative assumption' },
-          { label: 'Illustrative party size', value: `${d.illustrativePartySize}`, qualifier: 'illustrative assumption' },
-          { label: 'Illustrative per-guest value', value: formatUSD(toCents(d.illustrativePerGuestValue)), qualifier: 'illustrative assumption' },
-          { label: 'Operating weeks', value: `${d.operatingWeeks}`, qualifier: 'illustrative assumption' },
-        ],
-        formula: 'lost bookings/week × party size × per-guest value × operating weeks',
-        monthlyExposure: formatApproxUSD(monthlyFromAnnual(annual)),
-        annualExposure: formatApproxUSD(annual),
-        monthlyExposureCents: monthlyFromAnnual(annual),
-        annualExposureCents: annual,
-        dataRequiredToValidate: ['Reservation system logs', 'Turn-away count', 'Average party size', 'Average per-guest spend'],
-        confidenceStatement: 'Illustrative scenario — not a confirmed loss. Actual booking demand, turn-away rate, and per-guest value must be validated against reservation and POS data.',
-      };
-    }
-    case 'ordering': {
-      const d = defaults.ordering;
-      const annual = annualCents(d.illustrativeAbandonedOrdersPerDay, 1, d.illustrativeOrderValue, d.operatingDays);
-      return {
-        key: 'ordering',
-        pathwayTitle: 'Online Ordering Exposure',
-        observedFriction: friction,
-        classification: 'ILLUSTRATIVE SCENARIO',
-        assumptions: [
-          { label: 'Potentially abandoned orders per day', value: `${d.illustrativeAbandonedOrdersPerDay}`, qualifier: 'illustrative assumption' },
-          { label: 'Illustrative average order value', value: formatUSD(toCents(d.illustrativeOrderValue)), qualifier: 'illustrative assumption' },
-          { label: 'Operating days', value: `${d.operatingDays}`, qualifier: 'illustrative assumption' },
-        ],
-        formula: 'abandoned orders/day × average order value × operating days',
-        monthlyExposure: formatApproxUSD(monthlyFromAnnual(annual)),
-        annualExposure: formatApproxUSD(annual),
-        monthlyExposureCents: monthlyFromAnnual(annual),
-        annualExposureCents: annual,
-        dataRequiredToValidate: ['Online ordering analytics', 'Cart abandonment data', 'Average order value', 'Channel mix (direct vs third-party)'],
-        confidenceStatement: 'Illustrative scenario — not a confirmed loss. Actual order abandonment and order value must be validated against ordering-platform analytics.',
-      };
-    }
-    case 'lead': {
-      const d = defaults.lead;
-      const annual = annualCents(d.illustrativeMissedLeadsPerMonth, d.illustrativeCloseRate, d.illustrativeEventValue, d.operatingMonths);
-      return {
-        key: 'lead',
-        pathwayTitle: 'Catering & Event Lead Exposure',
-        observedFriction: friction,
-        classification: 'ILLUSTRATIVE SCENARIO',
-        assumptions: [
-          { label: 'Potentially missed event leads per month', value: `${d.illustrativeMissedLeadsPerMonth}`, qualifier: 'illustrative assumption' },
-          { label: 'Illustrative close rate', value: pct(d.illustrativeCloseRate), qualifier: 'illustrative assumption' },
-          { label: 'Illustrative event value', value: formatUSD(toCents(d.illustrativeEventValue)), qualifier: 'illustrative assumption' },
-          { label: 'Operating months', value: `${d.operatingMonths}`, qualifier: 'illustrative assumption' },
-        ],
-        formula: 'missed leads/month × close rate × event value × operating months',
-        monthlyExposure: formatApproxUSD(monthlyFromAnnual(annual)),
-        annualExposure: formatApproxUSD(annual),
-        monthlyExposureCents: monthlyFromAnnual(annual),
-        annualExposureCents: annual,
-        dataRequiredToValidate: ['Event-inquiry logs', 'Response-time records', 'Historical close rate', 'Average event value'],
-        confidenceStatement: 'Illustrative scenario — not a confirmed loss. Actual lead volume, close rate, and event value must be validated against internal event records.',
-      };
-    }
-    case 'reactivation': {
-      const d = defaults.reactivation;
-      const annual = annualCents(d.illustrativeLapsedGuestsReengagedPerMonth, d.illustrativeVisitsPerReengagement, d.illustrativeTicket, d.operatingMonths);
-      return {
-        key: 'reactivation',
-        pathwayTitle: 'Guest Reactivation Opportunity',
-        observedFriction: friction,
-        classification: 'ILLUSTRATIVE SCENARIO',
-        assumptions: [
-          { label: 'Lapsed guests re-engaged per month', value: `${d.illustrativeLapsedGuestsReengagedPerMonth}`, qualifier: 'illustrative assumption' },
-          { label: 'Illustrative visits per re-engagement', value: `${d.illustrativeVisitsPerReengagement}`, qualifier: 'illustrative assumption' },
-          { label: 'Illustrative average ticket', value: formatUSD(toCents(d.illustrativeTicket)), qualifier: 'illustrative assumption' },
-          { label: 'Operating months', value: `${d.operatingMonths}`, qualifier: 'illustrative assumption' },
-        ],
-        formula: 're-engaged guests/month × visits per re-engagement × average ticket × operating months',
-        monthlyExposure: formatApproxUSD(monthlyFromAnnual(annual)),
-        annualExposure: formatApproxUSD(annual),
-        monthlyExposureCents: monthlyFromAnnual(annual),
-        annualExposureCents: annual,
-        dataRequiredToValidate: ['Guest database size', 'Lapsed-guest count', 'Historical repeat-visit rate', 'Average ticket'],
-        confidenceStatement: 'Illustrative scenario — an opportunity model, not a confirmed loss. Actual database size and repeat behavior must be validated against POS and CRM data.',
-      };
-    }
-    case 'website': {
-      const d = defaults.website;
-      const annual = annualCents(d.illustrativeLostConversionsPerDay, 1, d.illustrativeConversionValue, d.operatingDays);
-      return {
-        key: 'website',
-        pathwayTitle: 'Website Conversion Exposure',
-        observedFriction: friction,
-        classification: 'ILLUSTRATIVE SCENARIO',
-        assumptions: [
-          { label: 'Potentially lost conversions per day', value: `${d.illustrativeLostConversionsPerDay}`, qualifier: 'illustrative assumption' },
-          { label: 'Illustrative value per conversion', value: formatUSD(toCents(d.illustrativeConversionValue)), qualifier: 'illustrative assumption' },
-          { label: 'Operating days', value: `${d.operatingDays}`, qualifier: 'illustrative assumption' },
-        ],
-        formula: 'lost conversions/day × value per conversion × operating days',
-        monthlyExposure: formatApproxUSD(monthlyFromAnnual(annual)),
-        annualExposure: formatApproxUSD(annual),
-        monthlyExposureCents: monthlyFromAnnual(annual),
-        annualExposureCents: annual,
-        dataRequiredToValidate: ['Website analytics', 'Conversion-action tracking', 'Average conversion value', 'Traffic volume'],
-        confidenceStatement: 'Illustrative scenario — not a confirmed loss. Actual traffic, conversion rate, and conversion value must be validated against website analytics.',
-      };
-    }
+export type ScenarioFieldUnit = 'count' | 'percent' | 'usd' | 'periods';
+
+export interface ScenarioField {
+  key: string;
+  label: string;
+  unit: ScenarioFieldUnit;
+  /**
+   * The largest value accepted, in the field's own unit: 366 days, 53 weeks or
+   * 12 months a year; 100 for a percentage; a plausible ceiling for counts and
+   * amounts. One shared period limit let "365 operating months" through, and
+   * unbounded amounts let 1e308 overflow to "about $NaN". At every field's
+   * limit the product still fits exactly in integer cents (see the tests).
+   */
+  max: number;
+}
+
+export interface ScenarioSpec {
+  kind: ScenarioKind;
+  pathwayTitle: string;
+  fields: ScenarioField[];
+  formula: string;
+  dataRequiredToValidate: string[];
+}
+
+export const SCENARIO_SPECS: Record<ScenarioKind, ScenarioSpec> = {
+  phone: {
+    kind: 'phone',
+    pathwayTitle: 'Phone Demand Scenario',
+    fields: [
+      { key: 'missedCallsPerDay', label: 'Missed calls per day', unit: 'count', max: 10_000 },
+      { key: 'commercialIntentPercent', label: 'Share of those calls with order or booking intent (%)', unit: 'percent', max: 100 },
+      { key: 'averageTransaction', label: 'Average transaction value ($)', unit: 'usd', max: 100_000 },
+      { key: 'operatingDays', label: 'Operating days per year', unit: 'periods', max: 366 },
+    ],
+    formula: 'missed calls/day × intent share × average transaction value × operating days',
+    dataRequiredToValidate: ['Call logs', 'Missed-call count', 'Caller reason sample', 'Average ticket', 'Operating days'],
+  },
+  reservation: {
+    kind: 'reservation',
+    pathwayTitle: 'Reservation Demand Scenario',
+    fields: [
+      { key: 'lostBookingsPerWeek', label: 'Booking requests lost per week', unit: 'count', max: 10_000 },
+      { key: 'partySize', label: 'Average party size', unit: 'count', max: 100 },
+      { key: 'perGuestValue', label: 'Average spend per guest ($)', unit: 'usd', max: 100_000 },
+      { key: 'operatingWeeks', label: 'Operating weeks per year', unit: 'periods', max: 53 },
+    ],
+    formula: 'lost bookings/week × party size × spend per guest × operating weeks',
+    dataRequiredToValidate: ['Reservation system logs', 'Turn-away count', 'Average party size', 'Average per-guest spend'],
+  },
+  ordering: {
+    kind: 'ordering',
+    pathwayTitle: 'Online Ordering Scenario',
+    fields: [
+      { key: 'abandonedOrdersPerDay', label: 'Orders abandoned per day', unit: 'count', max: 10_000 },
+      { key: 'averageOrder', label: 'Average order value ($)', unit: 'usd', max: 100_000 },
+      { key: 'operatingDays', label: 'Operating days per year', unit: 'periods', max: 366 },
+    ],
+    formula: 'abandoned orders/day × average order value × operating days',
+    dataRequiredToValidate: ['Online ordering analytics', 'Cart abandonment data', 'Average order value', 'Channel mix (direct vs third-party)'],
+  },
+  lead: {
+    kind: 'lead',
+    pathwayTitle: 'Catering & Event Inquiry Scenario',
+    fields: [
+      { key: 'unansweredInquiriesPerMonth', label: 'Inquiries per month not answered in time', unit: 'count', max: 10_000 },
+      { key: 'closePercent', label: 'Share of answered inquiries you book (%)', unit: 'percent', max: 100 },
+      { key: 'eventValue', label: 'Average event value ($)', unit: 'usd', max: 1_000_000 },
+      { key: 'operatingMonths', label: 'Operating months per year', unit: 'periods', max: 12 },
+    ],
+    formula: 'unanswered inquiries/month × booking share × event value × operating months',
+    dataRequiredToValidate: ['Inquiry acknowledgment records', 'Response-time records', 'Booking records', 'Average event value'],
+  },
+  reactivation: {
+    kind: 'reactivation',
+    pathwayTitle: 'Guest Reactivation Scenario',
+    fields: [
+      { key: 'guestsReengagedPerMonth', label: 'Lapsed guests re-engaged per month', unit: 'count', max: 10_000 },
+      { key: 'visitsPerGuest', label: 'Return visits per re-engaged guest', unit: 'count', max: 100 },
+      { key: 'averageTicket', label: 'Average ticket ($)', unit: 'usd', max: 100_000 },
+      { key: 'operatingMonths', label: 'Operating months per year', unit: 'periods', max: 12 },
+    ],
+    formula: 're-engaged guests/month × visits per guest × average ticket × operating months',
+    dataRequiredToValidate: ['Guest database size', 'Lapsed-guest count', 'Historical repeat-visit rate', 'Average ticket'],
+  },
+  website: {
+    kind: 'website',
+    pathwayTitle: 'Website Conversion Scenario',
+    fields: [
+      { key: 'lostConversionsPerDay', label: 'Website visitors lost before acting, per day', unit: 'count', max: 100_000 },
+      { key: 'valuePerConversion', label: 'Average value per conversion ($)', unit: 'usd', max: 100_000 },
+      { key: 'operatingDays', label: 'Operating days per year', unit: 'periods', max: 366 },
+    ],
+    formula: 'lost conversions/day × value per conversion × operating days',
+    dataRequiredToValidate: ['Website analytics', 'Conversion-action tracking', 'Average conversion value', 'Traffic volume'],
+  },
+};
+
+export type ScenarioValues = Record<string, number | null | undefined>;
+
+const validInput = (field: ScenarioField, value: number | null | undefined): value is number =>
+  typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= field.max;
+
+/**
+ * A typed amount as a number: null when empty, NaN when it is not a plain
+ * non-negative amount. "$1,200", "45.50" and "30%" are accepted; scientific
+ * notation, hex, words and negatives are not — `Number()` alone accepted
+ * "1e308" and "0x10", which is how an overflowing input reached the maths.
+ */
+export function parseScenarioInput(raw: string): number | null {
+  const cleaned = raw.trim().replace(/^\$/, '').replace(/%$/, '').replace(/,/g, '').trim();
+  if (cleaned === '') return null;
+  return /^\d+(\.\d+)?$/.test(cleaned) ? Number(cleaned) : Number.NaN;
+}
+
+const fieldName = (field: ScenarioField) => field.label.replace(/ \((%|\$)\)$/, '');
+const fieldLimit = (field: ScenarioField) =>
+  field.unit === 'usd' ? `$${field.max.toLocaleString('en-US')}` : field.unit === 'percent' ? `${field.max}%` : field.max.toLocaleString('en-US');
+
+/**
+ * What is wrong with the first entered figure that cannot be used, naming the
+ * field and its own limit — or null when every entered figure is usable.
+ * Empty fields are not problems; the calculator simply waits for them.
+ */
+export function scenarioInputProblem(kind: ScenarioKind, values: ScenarioValues): string | null {
+  for (const field of SCENARIO_SPECS[kind].fields) {
+    const v = values[field.key];
+    if (v === null || v === undefined) continue;
+    if (!validInput(field, v)) return `${fieldName(field)} must be a number from 0 to ${fieldLimit(field)}.`;
   }
+  return null;
+}
+
+function display(field: ScenarioField, value: number): string {
+  if (field.unit === 'usd') return formatUSD(toCents(value));
+  if (field.unit === 'percent') return `${value}%`;
+  return `${value}`;
+}
+
+/**
+ * The scenario for the figures the user entered, or null.
+ *
+ * Null — never a guessed figure — whenever any input is missing or invalid.
+ */
+export function calculateScenario(
+  kind: ScenarioKind,
+  values: ScenarioValues,
+  observedFriction = 'Observed on the analyzed public pages.',
+): RevenueScenario | null {
+  const spec = SCENARIO_SPECS[kind];
+  if (!spec.fields.every((f) => validInput(f, values[f.key]))) return null;
+  let annual = 1;
+  for (const field of spec.fields) {
+    const v = values[field.key] as number;
+    annual *= field.unit === 'usd' ? toCents(v) : field.unit === 'percent' ? v / 100 : v;
+  }
+  const annualExposureCents = Math.round(annual);
+  // Defence in depth: the field limits keep every product exact, but a total
+  // that is not a safe integer must never be shown as a completed what-if.
+  if (!Number.isSafeInteger(annualExposureCents)) return null;
+  const monthlyExposureCents = Math.round(annualExposureCents / 12);
+  return {
+    key: kind,
+    pathwayTitle: spec.pathwayTitle,
+    observedFriction,
+    classification: 'USER-ENTERED SCENARIO',
+    assumptions: spec.fields.map((f) => ({ label: f.label, value: display(f, values[f.key] as number), qualifier: 'your assumption' })),
+    formula: spec.formula,
+    monthlyExposure: formatApproxUSD(monthlyExposureCents),
+    annualExposure: formatApproxUSD(annualExposureCents),
+    monthlyExposureCents,
+    annualExposureCents,
+    dataRequiredToValidate: spec.dataRequiredToValidate,
+    confidenceStatement:
+      'A what-if built only on the figures entered above — not a measured loss, not a forecast, and not a guaranteed recovery. Check each figure against the records listed before relying on it.',
+  };
+}
+
+/**
+ * Inputs the user already supplied, mapped onto a calculator's fields.
+ *
+ * Only the average ticket entered when the audit was requested is carried
+ * over, and only into fields that are a per-guest or per-order amount. Event
+ * value is not a per-cover ticket, so it is left for the user. Nothing else is
+ * ever prefilled.
+ */
+export function prefillFromAverageTicket(kind: ScenarioKind, avgTicket: number | null): Record<string, number> {
+  if (avgTicket === null || !Number.isFinite(avgTicket) || avgTicket <= 0) return {};
+  const field = SCENARIO_SPECS[kind].fields.find((f) => f.unit === 'usd');
+  if (!field || kind === 'lead') return {};
+  return { [field.key]: Math.round(avgTicket * 100) / 100 };
 }

@@ -58,7 +58,7 @@ function buildBody(lead: LeadNotification): { subject: string; text: string } {
     '',
     '—',
     `Lead ID: ${lead.id}`,
-    'Stored in the Winners Bookmark leads database. This email is the backup notification channel; the record is the source of truth.',
+    'Stored in the Winnersbookmark leads database. This email is the backup notification channel; the record is the source of truth.',
   ].filter((l): l is string => l !== null);
 
   return { subject, text: lines.join('\n') };
