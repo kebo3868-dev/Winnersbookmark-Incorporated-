@@ -139,6 +139,13 @@ export interface PageExtract {
   loyaltySignal: boolean;
   giftCardSignal: boolean;
   textSample: string;
+  /**
+   * The menu-placeholder signal ("menu coming soon"), read from the page's
+   * main content BEFORE textSample is cut to 4,000 characters. A notice placed
+   * after long navigation was lost to that cut, and a placeholder menu page
+   * was reported as a verified working menu.
+   */
+  menuPlaceholderSignal: string | null;
 }
 
 export type FetchOutcome =
@@ -1336,6 +1343,15 @@ export function extractPage(
   });
 
   const bodyText = textWithNodeBoundaries($('body').get(0)).replace(/\s+/g, ' ').trim().slice(0, MAX_SCAN_TEXT);
+  // Read now, from the full (bounded) text, and kept: textSample is cut to
+  // 4,000 characters below, and a "Menu coming soon" notice after long
+  // navigation fell past the cut. Scoped to the page's content — navigation,
+  // header, footer and asides are dropped — so site chrome elsewhere on the
+  // page cannot mark a working menu as a placeholder.
+  const contentRoot = $('body').clone();
+  contentRoot.find('nav, header, footer, aside, script, style, noscript').remove();
+  const pageMenuPlaceholder =
+    menuPlaceholderSignal(textWithNodeBoundaries(contentRoot.get(0)).replace(/\s+/g, ' ').trim().slice(0, MAX_SCAN_TEXT)) ?? null;
 
   const internalLinks: { href: string; text: string }[] = [];
   const socialLinks = new Set<string>();
@@ -1552,6 +1568,7 @@ export function extractPage(
     loyaltySignal,
     giftCardSignal,
     textSample: bodyText.slice(0, 4000),
+    menuPlaceholderSignal: pageMenuPlaceholder,
   };
 }
 

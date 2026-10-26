@@ -1,6 +1,5 @@
 import {
   detectWidgetVendor,
-  menuPlaceholderSignal,
   normalizePhonesInText,
   type CategorizedLink,
   type PageExtract,
@@ -482,7 +481,7 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
             links.some((l) => sameUrl(l.href, p.finalUrl) || sameUrl(l.href, p.requestedUrl)),
         );
         if (fetched) {
-          const placeholder = menuPlaceholderSignal(fetched.textSample ?? '');
+          const placeholder = fetched.menuPlaceholderSignal;
           evidence.push(
             placeholder
               ? {
@@ -1079,7 +1078,7 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
         probed
           ? { url: link.href, ...probed }
           : fetched
-            ? menuPlaceholderSignal(fetched.textSample ?? '')
+            ? fetched.menuPlaceholderSignal
               ? { url: link.href, status: 'placeholder', note: `fetched during this audit, HTTP ${fetched.httpStatus}` }
               : { url: link.href, status: 'working', note: `fetched during this audit, HTTP ${fetched.httpStatus}` }
             : { url: link.href, status: 'unverified', note: 'not tested' },

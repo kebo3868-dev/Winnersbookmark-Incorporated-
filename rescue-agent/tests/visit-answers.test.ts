@@ -619,3 +619,96 @@ describe('6 — every observation of a menu destination counts, whoever schedule
     expect(menu.status).toBe('FRICTION');
   });
 });
+
+// ── 7. A placeholder notice is read before the text sample is cut ──────────
+
+describe('7 — the placeholder check sees the whole page, not the 4,000-character sample', () => {
+  // extractPage keeps only the first 4,000 characters as textSample, and both
+  // fetched-page checks read that sample. A "Menu coming soon" notice after
+  // long navigation was cut off, and the placeholder page was reported as a
+  // verified working menu (Codex P2 on 69df93e). The signal is now read from
+  // the page content before the cut and stored on the page.
+  const LONG_NAV = `<nav>${Array.from({ length: 300 }, (_, i) => `<a href="/p${i}">Navigation item number ${i}</a>`).join(' ')}</nav>`;
+  const HOME_BODY = BODY_LINKS(['/menu']);
+  const menuPage = (body: string) => extractPage(MENU, MENU, 200, 'text/html', `<html><head><title>Menu</title></head><body>${body}</body></html>`);
+  const run = (menuBody: string, links = ['/menu'], probes: ProbeResult[] = []) => {
+    const { ev, journey, leaks } = analyse([page(BODY_LINKS(links)), menuPage(menuBody)], probes);
+    return {
+      availability: ev.find((e) => e.evidenceType === 'MENU_AVAILABILITY')!,
+      menu: journey.find((s) => s.stage === 'MENU')!,
+      phone: leaks.find((l) => /PHONE-DEPENDENT/.test(l.category))!,
+    };
+  };
+  const expectPlaceholder = (r: ReturnType<typeof run>) => {
+    expect(r.availability.fact).toMatch(/^No readable menu was found/);
+    expect(r.availability.supportingContext).toContain('loads but has no menu published on it yet');
+    expect(r.menu.status).toBe('FRICTION');
+    expect(r.phone.problem).not.toMatch(/does publish[^.]*the menu/i);
+    expect(r.phone.problem).toMatch(/cannot be read online/i);
+    expect([r.phone.impactScore, r.phone.urgencyScore]).toEqual([65, 55]);
+  };
+
+  it('the premise: the notice falls outside textSample, but the stored signal still has it', () => {
+    const p = menuPage(`${LONG_NAV}<main><h1>Menu</h1><p>Our new menu is coming soon!</p></main>`);
+    expect(p.textSample.length).toBe(4000);
+    expect(p.textSample).not.toMatch(/coming soon/i);
+    expect(p.menuPlaceholderSignal).toMatch(/menu coming soon/i);
+  });
+
+  it('placeholder notice AFTER the 4,000-character boundary (codex) → no readable menu', () => {
+    expectPlaceholder(run(`${LONG_NAV}<main><h1>Menu</h1><p>Our new menu is coming soon!</p></main>`));
+  });
+
+  it('placeholder notice BEFORE the boundary → no readable menu (unchanged)', () => {
+    expectPlaceholder(run(`<main><h1>Menu</h1><p>Our new menu is coming soon!</p></main>${LONG_NAV}`));
+  });
+
+  it('the MENU_ACCESS record for the fetched page reports the placeholder too', () => {
+    const { ev } = analyse([page(HOME_BODY), menuPage(`${LONG_NAV}<main><p>Menu is being updated.</p></main>`)]);
+    expect(ev.find((e) => e.evidenceType === 'MENU_ACCESS' && /fetched during this audit/.test(e.fact))?.fact).toMatch(/has no menu published on it yet/);
+  });
+
+  it('a genuine menu after long navigation is still a verified working menu', () => {
+    const r = run(`${LONG_NAV}<main><h1>Menu</h1><h2>Starters</h2><p>Grouper bites $12</p><h2>Mains</h2><p>Grouper sandwich $18</p></main>`);
+    expect(r.availability.fact).toBe(`A working menu was verified at ${MENU}.`);
+    expect(r.menu.status).toBe('HEALTHY');
+    expect(r.phone.problem).toMatch(/does publish[^.]*the menu/i);
+    expect([r.phone.impactScore, r.phone.urgencyScore]).toEqual([40, 30]);
+  });
+
+  it.each([
+    // Plain text, not a link: a link reading "menu" is itself a menu destination.
+    ['the navigation', '<nav><span>Brunch menu coming soon</span></nav>'],
+    ['the footer', '<footer>Our catering menu is coming soon.</footer>'],
+    ['an aside', '<aside>New dessert menu coming soon!</aside>'],
+  ])('a placeholder phrase in %s does not invalidate a working menu', (_label, chrome) => {
+    const r = run(`${chrome}<main><h1>Menu</h1><p>Grouper sandwich $18</p></main>`);
+    expect(r.availability.fact).toBe(`A working menu was verified at ${MENU}.`);
+    expect(r.menu.status).toBe('HEALTHY');
+  });
+
+  it('a placeholder page beside a separate working menu: the working menu decides, the placeholder is disclosed', () => {
+    const DINNER = 'https://probe-grill.test/dinner-menu';
+    const r = run(`${LONG_NAV}<main><p>Our new menu is coming soon!</p></main>`, ['/menu', '/dinner-menu'], [WORKING(DINNER)]);
+    expect(r.availability.fact).toBe(`A working menu was verified at ${DINNER}; 1 other menu link(s) failed when tested or have no menu yet.`);
+    expect(r.availability.supportingContext).toContain(`${MENU} — loads but has no menu published on it yet`);
+    expect(r.menu.status).toBe('FRICTION');
+    expect(r.menu.finding).toMatch(/^A working menu is reachable, but another menu link/);
+    expect(r.phone.problem).toMatch(/does publish[^.]*the menu/i);
+    expect(r.phone.problem).toMatch(/reported separately and does not affect the working menu/i);
+    expect([r.phone.impactScore, r.phone.urgencyScore]).toEqual([40, 30]);
+  });
+
+  it('a single-page site whose menu section is a placeholder after long content → no readable menu', () => {
+    const home = extractPage(
+      HOME,
+      HOME,
+      200,
+      'text/html',
+      `<html><head><title>Probe Grill</title></head><body>${BODY_LINKS(['/#menu'])}${LONG_NAV}<section id="menu"><p>Our new menu is coming soon!</p></section></body></html>`,
+    );
+    const { ev, journey } = analyse([home]);
+    expect(ev.find((e) => e.evidenceType === 'MENU_AVAILABILITY')?.fact).toMatch(/^No readable menu was found/);
+    expect(journey.find((s) => s.stage === 'MENU')?.status).toBe('FRICTION');
+  });
+});
