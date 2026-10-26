@@ -173,6 +173,18 @@ export function analyzeJourney(evidence: EvidenceRecordLike[]): JourneyStageResu
           ids([...menu, availabilityRecord, ...broken]),
         ),
       );
+    } else if (availability && availability.state === 'FAILED') {
+      // Every destination failed. Read which way from the destination list
+      // itself: a failure observed by a probe another category scheduled (a
+      // shared "View Menu and Order" link) leaves no menu-worded record for
+      // the record-by-record checks below to find.
+      const detail = availabilityRecord.supportingContext ?? '';
+      const anyBroken = / — failed when tested \(/.test(detail) || broken.length > 0;
+      push(
+        anyBroken
+          ? stage('MENU', 'RISK', 'A linked menu destination failed when tested.', avgConfidence([availabilityRecord, ...broken], 85), false, ids([...menu, availabilityRecord, ...broken]))
+          : stage('MENU', 'FRICTION', 'The menu link leads to a page with no menu published on it yet — customers looking for the menu do not find one.', avgConfidence([availabilityRecord, ...placeholder], 85), false, ids([...menu, availabilityRecord])),
+      );
     } else if (menu.length === 0) {
       push(stage('MENU', 'UNKNOWN', 'Menu accessibility could not be assessed.', 30, true, []));
     } else if (missing.length > 0) {

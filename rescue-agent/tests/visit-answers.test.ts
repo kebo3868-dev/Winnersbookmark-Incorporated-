@@ -517,3 +517,105 @@ describe('5 — a trailing slash is part of the destination unless a redirect sa
     expect(menu.status).toBe('HEALTHY');
   });
 });
+
+// ── 6. Shared destinations and the fetched homepage ────────────────────────
+
+describe('6 — every observation of a menu destination counts, whoever scheduled it', () => {
+  // A "View Menu and Order" link is both menu and ordering; the orchestrator
+  // probes it once, as ordering, and that result was discarded for the menu.
+  // A single-page site's /#menu link IS the homepage, which was fetched but
+  // excluded. Both left the menu "not verified (not tested)".
+  const FACTS = '<h1>Probe Grill</h1><a href="tel:+17275550000">Call (727) 555-0000</a><p>Hours: Mon-Sun 11am-10pm</p><p>123 Gulf Blvd, Treasure Island, FL 33706</p>';
+  const TOAST = 'https://order.toasttab.com/online/probe-grill';
+  const SHARED = `<a href="${TOAST}">View Menu and Order</a>`;
+  const ordering = (over: Partial<ProbeResult> = {}): ProbeResult =>
+    ({ url: TOAST, category: 'ordering', ok: true, httpStatus: 200, note: 'HTTP 200', exposedInCustomerJourney: true, ...over }) as ProbeResult;
+  const run = (body: string, probes: ProbeResult[] = [], home = HOME) => {
+    const p = extractPage(home, home, 200, 'text/html', `<html><head><title>Probe Grill</title></head><body>${FACTS}${body}</body></html>`);
+    const { ev, journey, leaks } = analyse([p], probes);
+    return {
+      page: p,
+      ev,
+      availability: ev.find((e) => e.evidenceType === 'MENU_AVAILABILITY')!,
+      menu: journey.find((s) => s.stage === 'MENU')!,
+      phone: leaks.find((l) => /PHONE-DEPENDENT/.test(l.category))!,
+    };
+  };
+
+  it('the shared link is categorised as both menu and ordering, and probed once as ordering', () => {
+    const { page: p } = run(SHARED);
+    expect(p.categorizedLinks.menu?.map((l) => l.href)).toEqual([TOAST]);
+    expect(p.categorizedLinks.ordering?.map((l) => l.href)).toEqual([TOAST]);
+  });
+
+  it('shared link, HTTP 200 (codex): the menu is verified — and ordering is NOT', () => {
+    const { availability, menu, phone, ev } = run(SHARED, [ordering()]);
+    expect(availability.fact).toBe(`A working menu was verified at ${TOAST}.`);
+    expect(availability.supportingContext).toContain(`${TOAST} — works (HTTP 200, tested as the ordering destination)`);
+    expect(menu.status).toBe('HEALTHY');
+    expect(phone.problem).toMatch(/does publish[^.]*the menu/i);
+    expect([phone.impactScore, phone.urgencyScore]).toEqual([40, 30]);
+    // A page that loads is a readable menu; it is not a completed order.
+    const orderingFacts = ev.filter((e) => e.evidenceType === 'ORDERING_PATH').map((e) => e.fact).join(' ');
+    expect(orderingFacts).toMatch(/whether a customer can place an order was not verified/i);
+    expect(orderingFacts).not.toMatch(/responded successfully|orders? (?:can be|are being) (?:placed|accepted)/i);
+  });
+
+  it.each([
+    ['HTTP 404', { ok: false, httpStatus: 404, note: 'HTTP 404' }, 'FAILED', 'RISK', /^A linked menu destination failed when tested/],
+    ['a placeholder page', { placeholderSignal: 'menu coming soon: "Menu coming soon"' }, 'FAILED', 'FRICTION', /no menu published on it yet/],
+    ['ordering switched off', { disabledSignal: 'ordering unavailable: "Online ordering is currently unavailable"' }, 'UNVERIFIED', 'UNKNOWN', /not verified/],
+    ["HTTP 405 (refused the audit's GET)", { ok: false, httpStatus: 405, note: 'HTTP 405' }, 'UNVERIFIED', 'UNKNOWN', /not verified/],
+    ['a timeout', { ok: false, httpStatus: undefined, failureKind: 'TIMEOUT', note: 'timed out' }, 'UNVERIFIED', 'UNKNOWN', /not verified/],
+  ] as const)('shared link, %s: menu and journey agree, and the menu is not credited', (_label, over, state, status, finding) => {
+    const { availability, menu, phone } = run(SHARED, [ordering(over as Partial<ProbeResult>)]);
+    const conclusion = /^A working menu/.test(availability.fact) ? 'VERIFIED' : /^No readable menu/.test(availability.fact) ? 'FAILED' : 'UNVERIFIED';
+    expect(conclusion).toBe(state);
+    expect(menu.status).toBe(status);
+    expect(menu.finding).toMatch(finding);
+    expect(phone.problem).not.toMatch(/does publish[^.]*the menu/i);
+    expect(phone.impactScore).toBe(65);
+    if (state === 'FAILED') expect(phone.problem).toMatch(/cannot be read online/i);
+    if (state === 'UNVERIFIED') expect(phone.problem).toMatch(/was not verified/i);
+  });
+
+  it('customer-facing safeguards still apply to a shared link', () => {
+    // An API-shaped endpoint is not somewhere a customer is sent…
+    const api = 'https://www.toasttab.com/probe-grill/v3';
+    const nonCustomer = run(`<a href="${api}">View Menu and Order</a>`, [ordering({ url: api })]);
+    expect(nonCustomer.availability.fact).toMatch(/^Menu availability was not verified/);
+    // …and a failure on a destination only found in markup is not a dead end.
+    const markupOnly = run(SHARED, [ordering({ ok: false, httpStatus: 404, note: 'HTTP 404', exposedInCustomerJourney: false })]);
+    expect(markupOnly.availability.fact).toMatch(/^Menu availability was not verified/);
+    expect(markupOnly.menu.status).toBe('UNKNOWN');
+  });
+
+  it('single-page site, /#menu (codex): the fetched homepage verifies the menu', () => {
+    const { availability, menu, phone, page: p } = run('<a href="/#menu">Menu</a><section id="menu"><h2>Menu</h2><p>Grouper sandwich $18</p></section>');
+    expect(p.categorizedLinks.menu?.map((l) => l.href)).toEqual(['https://probe-grill.test']);
+    expect(availability.fact).toBe('A working menu was verified at https://probe-grill.test.');
+    expect(availability.supportingContext).toContain('— works (fetched during this audit, HTTP 200)');
+    expect(menu.status).toBe('HEALTHY');
+    expect(phone.problem).toMatch(/does publish[^.]*the menu/i);
+    expect([phone.impactScore, phone.urgencyScore]).toEqual([40, 30]);
+  });
+
+  it('single-page site whose menu section is a placeholder → failed, like any fetched page', () => {
+    const { availability, menu, phone } = run('<a href="/#menu">Menu</a><section id="menu"><p>Our new menu is coming soon!</p></section>');
+    expect(availability.fact).toMatch(/^No readable menu was found/);
+    expect(availability.supportingContext).toContain('loads but has no menu published on it yet');
+    expect(menu.status).toBe('FRICTION');
+    expect(phone.problem).toMatch(/cannot be read online/i);
+  });
+
+  it('a /home/#menu link does not match the root homepage — paths stay distinct', () => {
+    const { availability } = run('<a href="/home/#menu">Menu</a>');
+    expect(availability.fact).toMatch(/^Menu availability was not verified/);
+  });
+
+  it('a separate working /menu still decides when the shared link fails', () => {
+    const { availability, menu } = run(`${SHARED}<a href="/menu">Menu</a>`, [ordering({ ok: false, httpStatus: 404, note: 'HTTP 404' }), WORKING(MENU)]);
+    expect(availability.fact).toMatch(/^A working menu was verified at https:\/\/probe-grill\.test\/menu;/);
+    expect(menu.status).toBe('FRICTION');
+  });
+});

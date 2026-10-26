@@ -477,7 +477,6 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
         const sameUrl = (a: string, b: string) => destinationKey(a) === destinationKey(b);
         const fetched = pages.find(
           (p) =>
-            p !== home &&
             p.httpStatus >= 200 &&
             p.httpStatus < 300 &&
             links.some((l) => sameUrl(l.href, p.finalUrl) || sameUrl(l.href, p.requestedUrl)),
@@ -840,8 +839,11 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
 
   // Probes (broken links)
   //
-  // Each menu probe's outcome is also recorded against its own destination, so
-  // MENU AVAILABILITY can judge every menu link on its own.
+  // Every probe's outcome is also recorded against its own URL, so MENU
+  // AVAILABILITY can judge every menu link on its own. Keyed by URL, not by
+  // the category that scheduled the probe: a "View Menu and Order" link is
+  // both menu and ordering, the orchestrator probes it once — as ordering —
+  // and that observation was being thrown away for the menu.
   const menuProbeOutcome = new Map<string, { status: MenuDestinationStatus; note: string }>();
   // Outcomes reached by FOLLOWING a redirect: the probe of /menu that landed
   // on /menu/ observed /menu/ too. Used only for a destination nobody probed
@@ -849,8 +851,7 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
   // addresses, and a direct probe always outranks it.
   const menuRedirectOutcome = new Map<string, { status: MenuDestinationStatus; note: string }>();
   const noteMenu = (probe: ProbeResult, status: MenuDestinationStatus) => {
-    if (probe.category !== 'menu') return;
-    const outcome = { status, note: probe.note };
+    const outcome = { status, note: probe.category === 'menu' ? probe.note : `${probe.note}, tested as the ${probe.category} destination` };
     menuProbeOutcome.set(destinationKey(probe.url), outcome);
     if (probe.finalUrl && destinationKey(probe.finalUrl) !== destinationKey(probe.url)) {
       menuRedirectOutcome.set(destinationKey(probe.finalUrl), { status, note: `${probe.note}, reached by redirect from ${probe.url}` });
@@ -958,6 +959,9 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
         probe.category === 'reservation' ? 'RESERVATION_PATH' : probe.category === 'ordering' ? 'ORDERING_PATH' : 'MENU_ACCESS';
 
       if (probe.disabledSignal && (probe.category === 'reservation' || probe.category === 'ordering')) {
+        // The page says the service is off. Whether it still shows a menu is
+        // not established, so a menu on the same URL stays unverified.
+        noteMenu(probe, probe.placeholderSignal ? 'placeholder' : 'unverified');
         // The destination itself says the service is off. A 200 response with
         // bookings closed is not a working pathway, and reporting it as one was
         // the false claim this branch exists to prevent.
@@ -972,6 +976,10 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
           confidence: 90,
         });
       } else if (probe.category === 'reservation' || probe.category === 'ordering') {
+        // A menu is read, not transacted: the page loading is all a menu needs.
+        // The ordering claim below stays exactly as bounded as before — this
+        // says nothing about whether an order can be placed.
+        noteMenu(probe, probe.placeholderSignal ? 'placeholder' : 'working');
         // Reservations and ordering are transactions the business can switch
         // off, so a 200 says the page exists and nothing about whether the
         // customer can complete the action.
@@ -1040,7 +1048,6 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
     const fetchedMenu = (key: string) =>
       pages.find(
         (p) =>
-          p !== home &&
           p.httpStatus >= 200 &&
           p.httpStatus < 300 &&
           (destinationKey(p.finalUrl) === key || destinationKey(p.requestedUrl) === key),
