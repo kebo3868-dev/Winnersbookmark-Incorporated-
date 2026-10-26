@@ -1,3 +1,4 @@
+import { isUnverifiedSignup } from '@/lib/audit/emailCaptureState';
 import type { EvidenceRecordLike, JourneyStageResult, OpportunityInput } from '@/types/audit';
 
 const MAX_OPPORTUNITIES = 10;
@@ -40,29 +41,46 @@ const conf = (items: EvidenceRecordLike[], cap = 95) =>
 function answeredVisitQuestions(ctx: RuleContext): {
   answered: string[];
   unanswered: string[];
-  /** The menu link failed when tested, or leads to a page with no menu yet. */
+  /** Every linked menu destination failed when tested or has no menu yet. */
   menuFailed: boolean;
-  /** A menu link is published but nothing shows whether it works. */
+  /** No menu destination is verified working, and at least one is unverified. */
   menuUnverified: boolean;
+  /** A menu link failed alongside a menu that works or is unverified — reported, not decisive. */
+  spareMenuFailed: boolean;
 } {
   const positive = (type: string, pattern: RegExp) =>
     byType(ctx, type, (e) => pattern.test(e.fact)).length > 0;
-  // A MENU LINK IS AN ANSWER ONLY WHEN IT IS KNOWN TO WORK.
+  // A MENU IS AN ANSWER ONLY WHEN A DESTINATION IS KNOWN TO WORK.
   //
   // "A menu pathway is publicly linked" was credited on its own, so a site
   // whose only menu link returned 404 was told the menu "is answerable online
-  // without calling" — while the MENU stage of the same audit reported a dead
-  // end — and the phone finding's impact and urgency were cut on that basis.
-  // The menu now counts only with a successful test or fetch behind it; a
-  // failure is named as one, and an untested link is neither credited nor
-  // called missing.
+  // without calling". The repair then over-corrected: any failure anywhere
+  // cancelled the answer, so a verified /menu next to a broken /old-menu was
+  // told "the menu cannot be read online".
+  //
+  // MENU_AVAILABILITY carries the conclusion drawn from every destination
+  // judged on its own (evidence.ts). Hand-built or legacy evidence without it
+  // falls back to the records themselves, where a success anywhere — each one
+  // is a single destination that worked — still outweighs a failure.
+  const availability = byType(ctx, 'MENU_AVAILABILITY')[0]?.fact;
   const menuLinked = positive('MENU_ACCESS', /pathway is publicly (linked|reachable)/i);
-  const menuFailed =
-    byType(ctx, 'BROKEN_LINK', (e) => /menu/i.test(e.fact)).length > 0 ||
-    positive('MENU_ACCESS', /has no menu published on it yet/i);
-  const menuVerified =
-    menuLinked && !menuFailed && positive('MENU_ACCESS', /responded successfully when tested|fetched successfully during this audit/i);
-  const menuUnverified = menuLinked && !menuFailed && !menuVerified;
+  let menuState: 'VERIFIED' | 'FAILED' | 'UNVERIFIED' | 'MISSING';
+  let spareMenuFailed: boolean;
+  if (availability) {
+    menuState = /^A working menu was verified/i.test(availability)
+      ? 'VERIFIED'
+      : /^No readable menu was found/i.test(availability)
+        ? 'FAILED'
+        : 'UNVERIFIED';
+    spareMenuFailed = menuState !== 'FAILED' && /failed when tested/i.test(availability);
+  } else {
+    const succeeded = positive('MENU_ACCESS', /responded successfully when tested|fetched successfully during this audit/i);
+    const failed =
+      byType(ctx, 'BROKEN_LINK', (e) => /menu/i.test(e.fact)).length > 0 ||
+      positive('MENU_ACCESS', /has no menu published on it yet/i);
+    menuState = succeeded ? 'VERIFIED' : failed ? 'FAILED' : menuLinked ? 'UNVERIFIED' : 'MISSING';
+    spareMenuFailed = succeeded && failed;
+  }
   const checks: [string, boolean][] = [
     ['opening hours', positive('HOURS_VISIBILITY', /hours are published/i)],
     ['the address', positive('ADDRESS_VISIBILITY', /address is published/i)],
@@ -75,9 +93,15 @@ function answeredVisitQuestions(ctx: RuleContext): {
   ];
   const answered = checks.filter(([, ok]) => ok).map(([label]) => label);
   const unanswered = checks.filter(([, ok]) => !ok).map(([label]) => label);
-  if (menuVerified) answered.splice(1, 0, 'the menu');
-  else if (!menuLinked && !menuFailed) unanswered.splice(1, 0, 'the menu');
-  return { answered, unanswered, menuFailed, menuUnverified };
+  if (menuState === 'VERIFIED') answered.splice(1, 0, 'the menu');
+  else if (menuState === 'MISSING') unanswered.splice(1, 0, 'the menu');
+  return {
+    answered,
+    unanswered,
+    menuFailed: menuState === 'FAILED',
+    menuUnverified: menuState === 'UNVERIFIED',
+    spareMenuFailed,
+  };
 }
 
 /** Joins a list as prose: "a and b", "a, b and c". */
@@ -140,7 +164,7 @@ const RULES: Rule[] = [
     // and "the phone carries avoidable demand" are two further conclusions, and
     // neither follows: the first is contradicted by published hours, address
     // and menu, and the second cannot be reached at all without call records.
-    const { answered, unanswered, menuFailed, menuUnverified } = answeredVisitQuestions(ctx);
+    const { answered, unanswered, menuFailed, menuUnverified, spareMenuFailed } = answeredVisitQuestions(ctx);
     // Impact and urgency are reduced only when every core question is KNOWN
     // to be answered online. An untested menu link earns no reduction, and
     // neither does it make the title claim a question goes unanswered.
@@ -162,10 +186,15 @@ const RULES: Rule[] = [
           : '') +
         (unanswered.length > 0 ? ` Not found on the analyzed pages: ${prose(unanswered)}.` : '') +
         (menuFailed
-          ? ' The menu link failed when tested or leads to a page with no menu yet, so the menu cannot be read online.'
+          ? ' Every linked menu destination failed when tested or leads to a page with no menu yet, so the menu cannot be read online.'
           : '') +
         (menuUnverified
           ? ' A menu link is published, but whether it opens a working menu was not verified, so it is not counted as answered.'
+          : '') +
+        (spareMenuFailed
+          ? menuUnverified
+            ? ' Another menu link failed when tested; because a menu link remains unverified, this does not show that no readable menu exists.'
+            : ' Another menu link failed when tested or leads to a page with no menu yet; it is reported separately and does not affect the working menu.'
           : '') +
         ' REQUIRES YOUR DATA: how many calls arrive, how many go unanswered, and what share are repeat questions' +
         ' cannot be observed from a public website. This audit does not claim the phone is overloaded or that calls are' +
@@ -208,7 +237,11 @@ const RULES: Rule[] = [
     //
     // `statesAbsence` asks the question the rule actually means, the same way
     // journey.ts does, so a future rewording cannot silently switch it off.
-    const emailMissing = byType(ctx, 'EMAIL_CAPTURE', statesAbsence);
+    const emailMissing = byType(ctx, 'EMAIL_CAPTURE', (e) => statesAbsence(e) && !isUnverifiedSignup(e.fact));
+    // A signup form of unverified purpose leaves the opt-in question open, so
+    // "a guest has no public way to opt in" would turn uncertainty into an
+    // absence.
+    if (byType(ctx, 'EMAIL_CAPTURE', (e) => isUnverifiedSignup(e.fact)).length > 0) return null;
     const loyaltyMissing = byType(ctx, 'LOYALTY_SIGNAL', statesAbsence);
     // AN SMS CLUB IS AN OPT-IN ROUTE.
     //

@@ -1,5 +1,6 @@
 import type { EvidenceRecordLike, JourneyStageResult, JourneyStageName } from '@/types/audit';
 import { parseOrderingChannelFact } from '@/lib/audit/orderingChannel';
+import { isUnverifiedSignup } from '@/lib/audit/emailCaptureState';
 
 type EvidenceIndex = Map<string, EvidenceRecordLike[]>;
 
@@ -417,7 +418,15 @@ export function analyzeJourney(evidence: EvidenceRecordLike[]): JourneyStageResu
     const email = has(index, 'EMAIL_CAPTURE');
     const sms = has(index, 'SMS_CAPTURE');
     const loyalty = has(index, 'LOYALTY_SIGNAL');
-    const captures = [...email.filter(positive), ...sms.filter(positive), ...loyalty.filter(positive)];
+    // A signup form whose purpose is unverified is not an opt-in route — and
+    // not the absence of one either. It is excluded from captures here and
+    // gets its own UNKNOWN finding below when nothing else is confirmed.
+    const unverifiedSignup = email.filter((e) => isUnverifiedSignup(e.fact));
+    const captures = [
+      ...email.filter((e) => positive(e) && !isUnverifiedSignup(e.fact)),
+      ...sms.filter(positive),
+      ...loyalty.filter(positive),
+    ];
     const all = [...email, ...sms, ...loyalty];
     // A PUBLIC SIGNUP BOX IS NOT A FOLLOW-UP SYSTEM.
     //
@@ -429,6 +438,18 @@ export function analyzeJourney(evidence: EvidenceRecordLike[]): JourneyStageResu
     // whether anyone is ever contacted is marked unknown and left to the owner.
     if (all.length === 0) {
       push(stage('FOLLOW_UP', 'UNKNOWN', 'Customer follow-up systems could not be assessed from public signals.', 30, true, []));
+    } else if (captures.length === 0 && unverifiedSignup.length > 0) {
+      push(
+        stage(
+          'FOLLOW_UP',
+          'UNKNOWN',
+          'Observed: a signup form appears on the analyzed pages, but whether it adds guests to an ongoing email list could not be established, and no confirmed email capture, SMS club or loyalty signal was found. ' +
+            'Not assessed: whether a guest can opt into hearing from you — that needs owner confirmation — and whether anyone is contacted, which requires your own data.',
+          avgConfidence(unverifiedSignup, 50),
+          true,
+          ids(all),
+        ),
+      );
     } else if (captures.length === 0) {
       // FRICTION, not RISK. A guest who wants to hear from this restaurant has
       // no public way to opt in — that is customer-visible. It is NOT evidence
@@ -504,9 +525,22 @@ export function analyzeJourney(evidence: EvidenceRecordLike[]): JourneyStageResu
   // RETURN
   {
     const retention = [...has(index, 'EMAIL_CAPTURE'), ...has(index, 'LOYALTY_SIGNAL'), ...has(index, 'GIFT_CARD_SIGNAL')];
-    const positives = retention.filter(positive);
+    const unverifiedSignup = retention.filter((e) => e.evidenceType === 'EMAIL_CAPTURE' && isUnverifiedSignup(e.fact));
+    const positives = retention.filter((e) => positive(e) && !unverifiedSignup.includes(e));
     if (retention.length === 0) {
       push(stage('RETURN', 'UNKNOWN', 'Repeat-visit systems could not be assessed.', 30, true, []));
+    } else if (positives.length === 0 && unverifiedSignup.length > 0) {
+      push(
+        stage(
+          'RETURN',
+          'UNKNOWN',
+          'Observed: no confirmed loyalty, gift-card or contact-list mechanism was detected; a signup form was found whose purpose could not be established. ' +
+            'Not assessed: whether that form invites guests back, and whether guests return anyway — that requires owner confirmation and your own data.',
+          avgConfidence(unverifiedSignup, 50),
+          true,
+          ids(retention),
+        ),
+      );
     } else if (positives.length === 0) {
       // Was RISK with "repeat business appears to depend entirely on memory" —
       // a conclusion about how guests actually behave, drawn from the absence

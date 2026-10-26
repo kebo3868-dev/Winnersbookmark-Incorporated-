@@ -130,6 +130,11 @@ export interface PageExtract {
    */
   unverifiedForms: UnverifiedForm[];
   emailCaptureSignal: boolean;
+  /**
+   * A signup-shaped form was found whose own wording does not establish that
+   * it adds visitors to an ongoing email list (see classifySignupForm).
+   */
+  unverifiedSignupSignal: boolean;
   smsCaptureSignal: boolean;
   loyaltySignal: boolean;
   giftCardSignal: boolean;
@@ -745,45 +750,94 @@ function isEmailOnlyForm($: cheerio.CheerioAPI, form: cheerio.Cheerio<DomElement
   return type === 'email' || /\bemail\b|\be-?mail\b/i.test(name);
 }
 
-/** A submit label that offers to put the visitor on a list: "Sign up", "Join", "Subscribe", … */
+/** A submit label that offers to sign the visitor up to something: "Sign up", "Join", "Register", … */
 const SIGNUP_CONTROL = /^\s*(?:sign\s*-?\s*up|join|subscribe|register|count me in|keep me (?:posted|updated)|stay (?:in touch|updated|connected)|get (?:updates|offers|deals|our newsletter))\b/i;
 /** Fields a list signup asks for besides the email address. Anything else means the form is something else. */
 const SIGNUP_EXTRA_FIELD = /\b(?:(?:first|last|full|your)?[-_ ]?name|fname|lname|phone|mobile|cell|birthday|birth[-_ ]?date|dob|anniversary|zip|postal|post[-_ ]?code)\b/i;
+/**
+ * Form-scoped wording that the signup is to an ONGOING list — what makes it
+ * marketing email capture rather than a one-off registration.
+ */
+const MAILING_LIST_WORDING =
+  /newsletter|mailing[- _]?list|e-?mail[- _]?(?:list|club|updates|offers|news)|subscri(?:be|ption)|news\s*(?:&|and)\s*(?:offers|updates|events)|(?:special|exclusive) offers|promotions|vip[- _]?(?:club|list)|stay in the loop|keep me (?:posted|updated)|be the first to (?:know|hear)/i;
+/**
+ * Form-scoped wording that names a one-off or account purpose. A form saying
+ * this collects an email for that purpose, not for a list.
+ */
+const NON_LIST_PURPOSE =
+  /\brsvp\b|\btickets?\b|tasting|workshop|cooking class|registration|register (?:for|to attend)|create (?:an |your )?account|\baccount\b|log ?in|sign ?in|password|reservation|reserve a table|book (?:a )?table|join (?:our|the) team/i;
+
+/** What a form that collects an email address shows it is for. */
+export type SignupKind =
+  /** Its own wording says it adds visitors to an ongoing list. */
+  | 'MAILING_LIST'
+  /** It names another purpose — an event, an account, a reservation, a job. */
+  | 'OTHER_PURPOSE'
+  /** It looks like a signup but says neither; or it says both. */
+  | 'AMBIGUOUS';
 
 /**
- * True when a form is a list signup that also asks for a name (or phone,
- * birthday, postcode) — "Name, Email, [Sign up]".
+ * Whether a form that collects an email address is marketing email capture.
  *
- * isEmailOnlyForm recognises the bare email box by shape, and that check
- * rejected the extra name field, so a "Sign up" form asking for a name was
- * reported as "no mechanism for collecting visitors' email addresses" and the
- * audit said a guest had no public way to opt in. Shape alone cannot settle
- * this one — an enquiry form can also be name + email — so it takes all of:
- *   · an email field and NO message field (an enquiry form has one);
- *   · every other field a visitor types into is a name, phone, birthday,
- *     anniversary or postcode field;
- *   · a submit control of the form's own whose label starts with a signup
- *     action ("Sign up", "Join", "Subscribe", …);
- *   · the form names no specific purpose (a waitlist, job or gift-card form
- *     is not a mailing list, whatever its button says).
- * Each is a presence check; none reads sentence structure.
+ * A signup BUTTON is not evidence of a mailing list: "Register" on a wine
+ * tasting form, "Join" on a waitlist and "Sign up" on an account form all
+ * collect an email for something else. So a form counts as MAILING_LIST only
+ * when its own wording — attributes, headings, notes, labels, submit text,
+ * consent text — names an ongoing list, newsletter or offers, and names no
+ * other purpose. Wording for both is AMBIGUOUS, as is a signup-shaped form
+ * that names neither.
+ *
+ * One shape keeps its earlier, approved verdict: a form whose ONLY field is
+ * an email address, with no stated purpose, is a signup box by shape — there
+ * is nothing else an email-only box is for. It too is excluded the moment it
+ * names another purpose.
+ *
+ * Returns null for forms that are not signup-shaped at all (a message field,
+ * or a field a list signup does not ask for). Presence checks only.
  */
-export function isSignupForm($: cheerio.CheerioAPI, form: cheerio.Cheerio<DomElement>): boolean {
+export function classifySignupForm($: cheerio.CheerioAPI, form: cheerio.Cheerio<DomElement>): SignupKind | null {
   const writable = form
     .find('input, textarea, select')
     .toArray()
     .filter((f) => isTextEntryField($, f));
   const describe = (f: DomElement) => `${$(f).attr('name') ?? ''} ${$(f).attr('id') ?? ''} ${$(f).attr('placeholder') ?? ''}`;
   const isEmail = (f: DomElement) => ($(f).attr('type') ?? '').toLowerCase() === 'email' || /\be-?mail\b/i.test(describe(f));
-  if (!writable.some(isEmail)) return false;
-  if (writable.some((f) => f.tagName?.toLowerCase() === 'textarea' || MESSAGE_FIELD_NAME.test(describe(f)))) return false;
-  if (!writable.filter((f) => !isEmail(f)).every((f) => SIGNUP_EXTRA_FIELD.test(describe(f)))) return false;
+  if (!writable.some(isEmail)) return null;
+  if (writable.some((f) => f.tagName?.toLowerCase() === 'textarea' || MESSAGE_FIELD_NAME.test(describe(f)))) return null;
+  if (!writable.filter((f) => !isEmail(f)).every((f) => SIGNUP_EXTRA_FIELD.test(describe(f)))) return null;
+
   const labels = submitControls($, form).map((c) => controlLabel($, c));
-  if (!labels.some((l) => SIGNUP_CONTROL.test(l))) return false;
-  const identity = [form.attr('id'), form.attr('name'), form.attr('class'), form.attr('action'), form.attr('aria-label'), ...labels, ...formIntroduction($, form)]
+  // Everything the form says about itself, including field labels and consent
+  // text — "Send me news and offers" beside a tick box is the form saying it.
+  const scoped = [
+    form.attr('id'),
+    form.attr('name'),
+    form.attr('class'),
+    form.attr('action'),
+    form.attr('aria-label'),
+    ...labels,
+    // Text node by text node: cheerio's .text() runs adjacent elements
+    // together, so <h3>RSVP</h3><button>Join</button> read as "RSVPJoin" and
+    // the purpose word went unseen.
+    ...form
+      .find('*')
+      .addBack()
+      .contents()
+      .toArray()
+      .filter((n) => n.type === 'text')
+      .map((n) => $(n).text()),
+    ...form.find('input').toArray().map((f) => describe(f)),
+  ]
     .filter(Boolean)
-    .join(' ');
-  return purposeTopics(identity).length === 0;
+    .join(' ')
+    .replace(/\s+/g, ' ');
+  const list = MAILING_LIST_WORDING.test(scoped);
+  const otherPurpose = NON_LIST_PURPOSE.test(scoped) || purposeTopics(scoped).length > 0;
+  if (list && otherPurpose) return 'AMBIGUOUS';
+  if (otherPurpose) return 'OTHER_PURPOSE';
+  if (list) return 'MAILING_LIST';
+  if (isEmailOnlyForm($, form)) return 'MAILING_LIST';
+  return labels.some((l) => SIGNUP_CONTROL.test(l)) ? 'AMBIGUOUS' : null;
 }
 
 /** Every specific purpose the text names, in table order. */
@@ -1446,8 +1500,16 @@ export function extractPage(
         const hasEmailInput = form.find('input[type="email"]').length > 0;
         if (!hasEmailInput) return false;
         if (NEWSLETTER_FORM_TEXT.test(form.text())) return true;
-        return isEmailOnlyForm($, form) || isSignupForm($, form);
+        return classifySignupForm($, form) === 'MAILING_LIST';
       });
+  // A signup-shaped form whose own wording does not settle whether it adds
+  // visitors to a list. Neither capture nor evidence of none: the evidence
+  // layer reports it as unverified rather than as an absence.
+  const unverifiedSignupSignal =
+    !emailCaptureSignal &&
+    $('form')
+      .toArray()
+      .some((el) => $(el).find('input[type="email"]').length > 0 && classifySignupForm($, $(el)) === 'AMBIGUOUS');
   const smsCaptureSignal = /text club|sms club|join.{0,20}text|text .{0,10}to \d{5,6}/i.test(bodyText);
   const loyaltySignal = /loyalty|rewards program|vip club|earn points/i.test(bodyText) || Boolean(categorizedLinks.loyalty?.length);
   const giftCardSignal = /gift ?cards?/i.test(bodyText) || Boolean(categorizedLinks.gift_card?.length);
@@ -1485,6 +1547,7 @@ export function extractPage(
     formScopes,
     unverifiedForms,
     emailCaptureSignal,
+    unverifiedSignupSignal,
     smsCaptureSignal,
     loyaltySignal,
     giftCardSignal,

@@ -7,6 +7,7 @@ import {
   type UnverifiedForm,
 } from '@/lib/web/collector';
 import type { EvidenceInput } from '@/types/audit';
+import { UNVERIFIED_SIGNUP_FACT } from '@/lib/audit/emailCaptureState';
 import {
   classifyDestination,
   isMethodSemanticsRefusal,
@@ -405,6 +406,9 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
   const phoneOrderCtas = pages.flatMap((p) => p.phoneOrderCtas ?? []);
   const hasPhoneOrdering = phoneOrderCtas.length > 0;
 
+  // Every menu destination customers are offered, judged one by one after
+  // the probe results are in (see MENU AVAILABILITY below).
+  let offeredMenuLinks: CategorizedLink[] = [];
   for (const check of pathChecks) {
     const found = new Map<string, CategorizedLink>();
     for (const page of pages) {
@@ -465,6 +469,7 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
       // successful fetch keeps "verified" and "unknown" apart downstream; the
       // placeholder check matches the probe path's.
       if (check.key === 'menu') {
+        offeredMenuLinks = links;
         const sameUrl = (a: string, b: string) => a.replace(/\/+$/, '') === b.replace(/\/+$/, '');
         const fetched = pages.find(
           (p) =>
@@ -731,9 +736,12 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
 
   // Retention signals
   const emailCapture = pages.some((p) => p.emailCaptureSignal);
+  // A signup form that does not say it adds visitors to a list is reported as
+  // exactly that — not as capture, and not as "no mechanism was detected".
+  const unverifiedSignupPage = emailCapture ? undefined : pages.find((p) => p.unverifiedSignupSignal);
   const smsCapture = pages.some((p) => p.smsCaptureSignal);
   evidence.push({
-    sourceUrl: home.finalUrl,
+    sourceUrl: unverifiedSignupPage?.finalUrl ?? home.finalUrl,
     evidenceType: 'EMAIL_CAPTURE',
     // About collecting the VISITOR's address, not publishing the restaurant's.
     // CONTACT_EMAIL covers the latter; keeping the two apart is what stops a
@@ -741,9 +749,16 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
     // as "there is no way to email them".
     fact: emailCapture
       ? "An email capture mechanism for collecting visitors' addresses (signup form or newsletter invitation) is publicly visible."
-      : "No mechanism for collecting visitors' email addresses (signup form or newsletter invitation) was detected on the analyzed pages.",
-    supportingContext: `${analyzedNote} This concerns list building, not the restaurant's own published contact address.`,
-    confidence: emailCapture ? 85 : 65,
+      : unverifiedSignupPage
+        ? UNVERIFIED_SIGNUP_FACT
+        : "No mechanism for collecting visitors' email addresses (signup form or newsletter invitation) was detected on the analyzed pages.",
+    supportingContext: unverifiedSignupPage
+      ? `Found on ${unverifiedSignupPage.finalUrl}. The form collects an email address and its button reads like a signup, ` +
+        'but nothing in the form says it subscribes visitors to a newsletter, mailing list or offers. It is not counted as ' +
+        'email capture, and it is not evidence that none exists. Owner confirmation required. ' +
+        `${analyzedNote} This concerns list building, not the restaurant's own published contact address.`
+      : `${analyzedNote} This concerns list building, not the restaurant's own published contact address.`,
+    confidence: emailCapture ? 85 : unverifiedSignupPage ? 50 : 65,
   });
   if (smsCapture) {
     evidence.push({
@@ -820,6 +835,13 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
   const markupOnly = (url: string | undefined) => Boolean(url) && embedUrls.has(url as string) && !anchorUrls.has(url as string);
 
   // Probes (broken links)
+  //
+  // Each menu probe's outcome is also recorded against its own destination, so
+  // MENU AVAILABILITY can judge every menu link on its own.
+  const menuProbeOutcome = new Map<string, { status: MenuDestinationStatus; note: string }>();
+  const noteMenu = (probe: ProbeResult, status: MenuDestinationStatus) => {
+    if (probe.category === 'menu') menuProbeOutcome.set(destinationKey(probe.url), { status, note: probe.note });
+  };
   for (const probe of probes) {
     const target = probe.finalUrl ?? probe.url;
     // Explicit flag wins; otherwise a destination is assumed exposed unless it
@@ -838,6 +860,7 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
     // and it is kept out of BROKEN_LINK entirely, because BROKEN_LINK is what
     // the journey and the leak rules read to declare a dead end.
     if (kind !== 'CUSTOMER_FACING') {
+      noteMenu(probe, 'unverified');
       evidence.push({
         sourceUrl: probe.url,
         evidenceType: 'TECHNICAL_SIGNAL',
@@ -863,6 +886,7 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
     // the resource. The destination answered — it simply refused GET. This is
     // an explicit unknown, never a failure.
     if (isMethodSemanticsRefusal(probe.httpStatus)) {
+      noteMenu(probe, 'unverified');
       evidence.push({
         sourceUrl: probe.url,
         evidenceType:
@@ -890,6 +914,7 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
               'so nothing here shows a customer ever reaches it',
           };
       if (!verdict.allowed) {
+        noteMenu(probe, 'unverified');
         // Reached only for an audit-side limitation — a timeout, or the SSRF
         // policy declining to follow. Recorded honestly as unresolved.
         evidence.push({
@@ -902,6 +927,7 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
         });
         continue;
       }
+      noteMenu(probe, 'failed');
       evidence.push({
         sourceUrl: probe.url,
         evidenceType: 'BROKEN_LINK',
@@ -952,6 +978,7 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
           confidence: 80,
         });
       } else if (probe.category === 'menu' && probe.placeholderSignal) {
+        noteMenu(probe, 'placeholder');
         // A menu is read, not transacted, so a reachable menu stays healthy.
         // The one real failure is a page that loads with no menu on it yet.
         evidence.push({
@@ -965,6 +992,7 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
           confidence: 85,
         });
       } else {
+        noteMenu(probe, 'working');
         evidence.push({
           sourceUrl: probe.url,
           evidenceType,
@@ -976,6 +1004,81 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
         });
       }
     }
+  }
+
+  // ── MENU AVAILABILITY ─────────────────────────────────────────────────────
+  //
+  // ONE CONCLUSION, FROM EVERY MENU DESTINATION JUDGED ON ITS OWN.
+  //
+  // Menu results used to be read as a pile of records, so one broken spare
+  // link cancelled a verified working menu: a site with HTTP 200 at /menu and
+  // 404 at /old-menu was told "the menu cannot be read online". Each linked
+  // destination now gets its own status from its own probe or fetch:
+  //   working      responded successfully, or fetched as a source page;
+  //   failed       verified broken;
+  //   placeholder  loads, but has no menu on it yet;
+  //   unverified   not tested, refused the audit's request, or timed out.
+  // Any working destination answers the menu question. With none working, an
+  // unverified one keeps the answer open; only when every destination failed
+  // is there no readable menu. Destinations are sorted by URL, so the
+  // conclusion and its citation do not depend on link order.
+  if (offeredMenuLinks.length > 0) {
+    const fetchedMenu = (key: string) =>
+      pages.find(
+        (p) =>
+          p !== home &&
+          p.httpStatus >= 200 &&
+          p.httpStatus < 300 &&
+          (destinationKey(p.finalUrl) === key || destinationKey(p.requestedUrl) === key),
+      );
+    const destinations = new Map<string, { url: string; status: MenuDestinationStatus; note: string }>();
+    for (const link of offeredMenuLinks) {
+      const key = destinationKey(link.href);
+      if (destinations.has(key)) continue;
+      const probed = menuProbeOutcome.get(key);
+      const fetched = probed ? undefined : fetchedMenu(key);
+      destinations.set(
+        key,
+        probed
+          ? { url: link.href, ...probed }
+          : fetched
+            ? menuPlaceholderSignal(fetched.textSample ?? '')
+              ? { url: link.href, status: 'placeholder', note: `fetched during this audit, HTTP ${fetched.httpStatus}` }
+              : { url: link.href, status: 'working', note: `fetched during this audit, HTTP ${fetched.httpStatus}` }
+            : { url: link.href, status: 'unverified', note: 'not tested' },
+      );
+    }
+    const all = Array.from(destinations.values()).sort((a, b) => a.url.localeCompare(b.url));
+    const working = all.filter((d) => d.status === 'working');
+    const failed = all.filter((d) => d.status === 'failed' || d.status === 'placeholder');
+    const unverified = all.filter((d) => d.status === 'unverified');
+    const LABEL: Record<MenuDestinationStatus, string> = {
+      working: 'works',
+      failed: 'failed when tested',
+      placeholder: 'loads but has no menu published on it yet',
+      unverified: 'not verified',
+    };
+    const others = [
+      failed.length > 0 ? `${failed.length} other menu link(s) failed when tested or have no menu yet` : '',
+      unverified.length > 0 ? `${unverified.length} other menu link(s) were not verified` : '',
+    ].filter(Boolean);
+    const cited = working[0] ?? unverified[0] ?? failed[0];
+    evidence.push({
+      sourceUrl: cited.url,
+      evidenceType: 'MENU_AVAILABILITY',
+      fact:
+        working.length > 0
+          ? `A working menu was verified at ${working[0].url}${others.length > 0 ? `; ${others.join('; ')}` : ''}.`
+          : unverified.length > 0
+            ? `Menu availability was not verified: ${unverified.length} menu link(s) could not be verified` +
+              `${failed.length > 0 ? `, and ${failed.length} failed when tested or have no menu yet` : ''}.`
+            : 'No readable menu was found: every linked menu destination failed when tested or has no menu published yet.',
+      supportingContext:
+        all.map((d) => `${d.url} — ${LABEL[d.status]} (${d.note}).`).join(' ') +
+        ' Each menu link is judged on its own: a working link is not cancelled by a broken one, and a link that was not ' +
+        'verified is neither counted as working nor as broken.',
+      confidence: working.length > 0 ? 90 : unverified.length > 0 ? 55 : 85,
+    });
   }
 
   // Collection failures
@@ -1018,6 +1121,20 @@ const NON_CONTACT_ADDRESS =
 function joinRoutes(routes: string[]): string {
   if (routes.length <= 1) return routes[0] ?? '';
   return `${routes.slice(0, -1).join(', ')} and ${routes[routes.length - 1]}`;
+}
+
+/** What one menu destination showed when tested or fetched. */
+type MenuDestinationStatus = 'working' | 'failed' | 'placeholder' | 'unverified';
+
+/** One key per destination: no fragment, no trailing slash. */
+function destinationKey(url: string): string {
+  try {
+    const u = new URL(url);
+    u.hash = '';
+    return u.toString().replace(/\/+$/, '');
+  } catch {
+    return url.replace(/#.*$/, '').replace(/\/+$/, '');
+  }
 }
 
 /** Why a form's purpose was not established, in words the client can check. */

@@ -47,6 +47,13 @@ export type EvidenceType =
    * the uncertainty on its own.
    */
   | 'FORM_PURPOSE_UNVERIFIED'
+  /**
+   * The one conclusion about whether a readable menu exists, drawn from every
+   * linked menu destination judged on its own (working, failed, placeholder or
+   * unverified). Its supporting context lists each destination and its status,
+   * so the conclusion can be traced to the link that supports it.
+   */
+  | 'MENU_AVAILABILITY'
   | 'CATERING_PATH'
   | 'PRIVATE_DINING_PATH'
   | 'LOYALTY_SIGNAL'
