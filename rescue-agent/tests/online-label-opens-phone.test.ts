@@ -22,7 +22,7 @@ import { describe, expect, it } from 'vitest';
 import React from 'react';
 import zlib from 'node:zlib';
 import { extractPage } from '@/lib/web/collector';
-import { normalizeEvidence } from '@/lib/audit/evidence';
+import { normalizeEvidence, type ProbeResult } from '@/lib/audit/evidence';
 import { analyzeJourney } from '@/lib/audit/journey';
 import { detectRevenueLeaks } from '@/lib/audit/leaks';
 import {
@@ -309,7 +309,7 @@ describe('the channel marker', () => {
     const result = resolveOrderingChannel({
       ...base,
       onlineLabelledPhoneCtas: [{ text: 'ORDER', label: 'ORDER ONLINE' }],
-      destinations: [{ url, exposedInCustomerJourney: false, platform: 'SpotHopper', host: 'tmt.spotapps.co' }],
+      destinations: [{ url, exposedInCustomerJourney: false, platform: 'SpotHopper', host: 'tmt.spotapps.co', discoveredVia: 'PAGE_MARKUP' }],
     });
     expect(result.detail).toContain(`An ordering destination is declared in the page markup (${url}) but is not linked for customers`);
     expect(result.detail).not.toMatch(/No browser-based ordering destination was found/);
@@ -417,6 +417,75 @@ describe('the finding states the observation and claims nothing more', () => {
     const plan = executive.thirtyDayPlan.flatMap((p) => p.actions).join('\n');
     expect(plan).toMatch(/Tap the online ordering button on a phone/);
     expect(plan).not.toMatch(/third-party/i);
+  });
+});
+
+// ── ORDERING URL PROVENANCE (PR #65 review) ─────────────────────────────────
+//
+// An ordering URL typed into the audit form is probed alongside what the page
+// offers. It reached the channel as a destination with no markup provenance,
+// and the phone branch described every such destination as "declared in the
+// page markup" — so a URL the website never mentions was reported, in the
+// evidence, the finding and its recommended fix, as something the site's own
+// code declares. Provenance comes from the collected page (`discoveredVia`),
+// never from the destination list being non-empty.
+
+describe('an ordering URL is described by where it actually came from', () => {
+  const SUPPLIED = 'https://order.supplied-by-operator.example/leverocks';
+  const MARKUP = 'https://tmt.spotapps.co/ordering-menu/?spot_id=';
+  const ORDER_SECTION = '<section><h2>ORDER ONLINE</h2><a href="tel:+17273674588">ORDER</a></section>';
+  const supplied = (url = SUPPLIED): ProbeResult => ({
+    url, category: 'ordering', ok: true, httpStatus: 200, note: 'probed', exposedInCustomerJourney: false,
+  });
+  const run = (html: string, probes: ProbeResult[]) => {
+    const evidence = normalizeEvidence({ pages: [page(`<html><body>${html}${FILLER}</body></html>`)], failures: [], probes }).map(
+      (e, i) => ({ id: `p${i}`, evidenceType: e.evidenceType, fact: e.fact, supportingContext: e.supportingContext ?? null, confidence: e.confidence }),
+    );
+    const journey = analyzeJourney(evidence);
+    const finding = detectRevenueLeaks({ evidence, journey }).find((o) => o.category === CATEGORY);
+    return { channel: channelOf(evidence), finding, journey };
+  };
+  const findingText = (f: { problem: string; businessImpact: string; recommendedSolution: string }) =>
+    [f.problem, f.businessImpact, f.recommendedSolution].join(' ');
+
+  it('1: an operator-supplied URL absent from the website is never called page markup', () => {
+    const { channel, finding } = run(ORDER_SECTION, [supplied()]);
+    expect(channel.supportingContext).not.toMatch(/declared in the page markup/);
+    expect(channel.supportingContext).toContain(`An ordering URL provided for this audit (${SUPPLIED}) was not found on the analyzed pages`);
+    expect(finding).toBeDefined();
+    // The finding and its fix claim no markup destination at all.
+    expect(findingText(finding!)).not.toContain(SUPPLIED);
+    expect(findingText(finding!)).not.toMatch(/markup (also|already) declares/);
+  });
+
+  it('2: a markup URL alongside a supplied URL — each described by its own source', () => {
+    const { channel, finding } = run(`${ORDER_SECTION}<div data-ordering-url="${MARKUP}"></div>`, [supplied()]);
+    const declared = [...(channel.supportingContext ?? '').matchAll(/declared in the page markup \(([^)\s]+)\)/g)].map((m) => m[1]);
+    expect(declared).toEqual([MARKUP]);
+    expect(channel.supportingContext).toContain(`An ordering URL provided for this audit (${SUPPLIED}) was not found on the analyzed pages`);
+    expect(finding!.problem).toContain(`The page markup also declares an online ordering destination (${MARKUP})`);
+    expect(findingText(finding!)).not.toContain(SUPPLIED);
+  });
+
+  it('3: a markup URL with nothing supplied is still reported as declared in the markup', () => {
+    const { channel, finding } = run(`${ORDER_SECTION}<div data-ordering-url="${MARKUP}"></div>`, []);
+    expect(channel.supportingContext).toContain(`An ordering destination is declared in the page markup (${MARKUP}) but is not linked for customers`);
+    expect(channel.supportingContext).not.toMatch(/provided for this audit/);
+    expect(finding!.problem).toContain(`(${MARKUP})`);
+    expect(finding!.recommendedSolution).toMatch(/the markup already declares one/);
+  });
+
+  it('a page-found API endpoint that was probed is neither "supplied" nor an ordering destination in the markup', () => {
+    const api = 'https://x.example/api/v2/orders';
+    const { channel } = run(ORDER_SECTION, [supplied(api)]);
+    expect(channel.supportingContext).not.toMatch(/provided for this audit|declared in the page markup/);
+    expect(channel.supportingContext).toContain('No browser-based ordering destination was found alongside it.');
+  });
+
+  it('a supplied URL raises no finding on a page without the online-ordering label', () => {
+    const { finding, journey } = run('<section><a href="tel:+17273674588">Order</a></section>', [supplied()]);
+    expect(finding).toBeUndefined();
+    expect(journey.find((s) => s.stage === 'ORDERING')?.status).toBe('FRICTION');
   });
 });
 

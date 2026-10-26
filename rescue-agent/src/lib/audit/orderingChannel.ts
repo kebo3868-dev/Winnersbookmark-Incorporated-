@@ -1,4 +1,4 @@
-import { mayClaimVerifiedBroken, type ProbeFailureKind } from './destination';
+import { classifyDestination, mayClaimVerifiedBroken, type ProbeFailureKind } from './destination';
 import type { EvidenceState } from './evidenceState';
 
 /**
@@ -306,17 +306,36 @@ export function resolveOrderingChannel(input: OrderingChannelInput): OrderingCha
   // 3 — telephone precedence. What the customer is offered outranks markup.
   if (phoneOrderCtas.length > 0) {
     const ctas = phoneOrderCtas.slice(0, 3).map((t) => `"${t}"`).join(', ');
-    const declared =
+    // PROVENANCE IS READ FROM THE COLLECTED PAGE, NEVER INFERRED.
+    //
+    // Only a destination the collector read off the page (`discoveredVia`)
+    // may be called "declared in the page markup". Every other entry was added
+    // from a probe. A probe of a customer-facing URL that is not on the page is
+    // the ordering URL supplied on the audit form: page links are recorded
+    // with their provenance, and the only other probes are page-found API
+    // endpoints and assets, which are not ordering destinations at all.
+    const fromMarkup = destinations.filter((d) => d.discoveredVia === 'PAGE_MARKUP');
+    const suppliedOnly = destinations.filter((d) => {
+      if (d.discoveredVia || d.exposedInCustomerJourney) return false;
+      const kind = classifyDestination(d.url).kind;
+      return kind !== 'API_ENDPOINT' && kind !== 'STATIC_ASSET';
+    });
+    const onPage =
       exposed.length > 0
         ? `An ordering destination is also declared in the page markup (${exposed[0].url}), but the action a customer ` +
           'is actually offered is the phone call, so the destination is recorded as context. Whether it is reachable ' +
           'for customers requires manual validation.'
-        : destinations.length > 0
+        : fromMarkup.length > 0
           ? // Declared but not offered: saying "no destination was found" here
             // contradicted the ordering record, which reports this same URL.
-            `An ordering destination is declared in the page markup (${destinations[0].url}) but is not linked for ` +
+            `An ordering destination is declared in the page markup (${fromMarkup[0].url}) but is not linked for ` +
             'customers; the action a customer is offered is the phone call. Whether it works requires manual validation.'
           : 'No browser-based ordering destination was found alongside it.';
+    const declared =
+      suppliedOnly.length > 0
+        ? `${onPage} An ordering URL provided for this audit (${suppliedOnly[0].url}) was not found on the analyzed ` +
+          'pages, so it says nothing about what the website offers customers.'
+        : onPage;
     // "ONLY" IS AN EXCLUSIVITY CLAIM, AND THE SCOPE HAS TO EARN IT.
     //
     // This read "Ordering is by telephone only". The audit reads a bounded
