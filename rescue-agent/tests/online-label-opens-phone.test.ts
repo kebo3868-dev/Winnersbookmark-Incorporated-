@@ -262,6 +262,106 @@ describe('the section boundaries do not hide a real mismatch', () => {
   });
 });
 
+// ── AFFIRMATIVE WORDING AND LOCAL SECTIONS (PR #65 review, af57501) ────────
+//
+// Two defects Codex found in the detection added by this PR:
+//   - the button's own wording was matched as a substring, so honest phone
+//     fallbacks ("Unable to order online? Call to order") were reported as
+//     mislabelled online-ordering buttons — a false finding;
+//   - the heading outline was read once, over the widest section, so an
+//     unrelated page <h1> hid an "Order Online" label in the button's own
+//     container — a missed finding.
+
+describe('only an affirmative "Order Online" on the button itself is a promise', () => {
+  const flaggedAlone = (html: string) => page(`${html}${FILLER}`).onlineLabelledPhoneCtas;
+  const findingFor = (html: string) => {
+    const evidence = normalizeEvidence({ pages: [page(`<html><body>${html}${FILLER}</body></html>`)], failures: [], probes: [] }).map(
+      (e, i) => ({ id: `w${i}`, evidenceType: e.evidenceType, fact: e.fact, supportingContext: e.supportingContext ?? null, confidence: e.confidence }),
+    );
+    return detectRevenueLeaks({ evidence, journey: analyzeJourney(evidence) }).some((o) => o.category === CATEGORY);
+  };
+
+  it.each([
+    'Questions about your online order? Call us',
+    'Unable to order online? Call to order',
+    "Can't order online? Call to order",
+    'Having trouble ordering online? Call us to order',
+    'Prefer not to order online? Call to order',
+  ])('support or fallback wording is not a promise: "%s"', (wording) => {
+    const html = `<a href="tel:+17275551234">${wording}</a>`;
+    expect(page(`${html}${FILLER}`).phoneOrderCtas).toEqual([wording]);
+    expect(flaggedAlone(html)).toEqual([]);
+    expect(findingFor(html)).toBe(false);
+  });
+
+  it('a fallback button explains itself even inside an "Order Online" section', () => {
+    const html = '<section><h2>Order Online</h2><a href="tel:+17275551234">Unable to order online? Call to order</a></section>';
+    expect(flaggedAlone(html)).toEqual([]);
+  });
+
+  it.each(['Order Online', 'ORDER ONLINE NOW', 'Order online now!', 'Online Ordering', 'Order Online →'])(
+    'an affirmative online-order button that dials is still flagged: "%s"',
+    (wording) => {
+      const html = `<a href="tel:+17275551234">${wording}</a>`;
+      expect(flaggedAlone(html)).toEqual([{ text: wording, label: wording }]);
+      expect(findingFor(html)).toBe(true);
+    },
+  );
+
+  it('an affirmative accessible name on a button whose visible text is "Order" is still read', () => {
+    expect(flaggedAlone('<a href="tel:+17275551234" aria-label="Order online now">Order</a>')).toEqual([
+      { text: 'Order', label: 'Order online now' },
+    ]);
+  });
+
+  it('mixed buttons in one card: the affirmative one is flagged, the fallback is not', () => {
+    const html =
+      '<div class="card"><a href="tel:+17275551234">Order Online</a>' +
+      '<a href="tel:+17275551234">Unable to order online? Call to order</a></div>';
+    expect(flaggedAlone(html)).toEqual([{ text: 'Order Online', label: 'Order Online' }]);
+  });
+});
+
+describe('the button\'s own section is read before anything wider', () => {
+  // These pages are short on purpose: with no filler, <body> is within the
+  // section limit, so the page-level heading is in reach of the search.
+  it('an unrelated page <h1> does not hide a local "Order Online" label', () => {
+    const html = '<h1>Restaurant</h1><div><p>Order Online</p><a href="tel:+17275551234">Order</a></div>';
+    expect(page(html).onlineLabelledPhoneCtas).toEqual([{ text: 'Order', label: 'Order Online' }]);
+  });
+
+  it('an unrelated page <h1> does not hide a local "Order Online" heading', () => {
+    const html = '<h1>Restaurant</h1><section><h2>Order Online</h2><a href="tel:+17275551234">Order</a></section>';
+    expect(page(html).onlineLabelledPhoneCtas).toEqual([{ text: 'Order', label: 'Order Online' }]);
+  });
+
+  it('nested headings: "Order Online" › "Pickup" › button, under an unrelated page <h1>', () => {
+    const html =
+      '<h1>Restaurant</h1><section><h2>Order Online</h2>' +
+      '<div><h3>Pickup</h3><a href="tel:+17275551234">Order Pickup</a></div></section>';
+    expect(page(html).onlineLabelledPhoneCtas).toEqual([{ text: 'Order Pickup', label: 'Order Online' }]);
+  });
+
+  it('a local heading naming something else still blocks a wider "Order Online"', () => {
+    const html =
+      '<h1>Restaurant</h1><main><section><h2>Order Online</h2><p>Coming soon.</p></section>' +
+      '<section><h2>Order by Phone</h2><a href="tel:+17275551234">Call to Order</a></section></main>';
+    expect(page(html).onlineLabelledPhoneCtas).toEqual([]);
+  });
+
+  it('a local heading naming something else also blocks a wider non-heading label', () => {
+    const html = '<div><p>Order Online</p><div><h3>Catering</h3><a href="tel:+17275551234">Call to Order</a></div></div>';
+    expect(page(html).onlineLabelledPhoneCtas).toEqual([]);
+  });
+
+  it('a neighbouring card\'s label is not borrowed under an unrelated page <h1>', () => {
+    const html =
+      '<h1>Restaurant</h1><div class="grid"><div class="card"><p>Order Online</p><a href="https://order.toasttab.com/x">Go</a></div>' +
+      '<div class="card"><p>Takeout</p><a href="tel:+17275551234">Call for Takeout</a></div></div>';
+    expect(page(html).onlineLabelledPhoneCtas).toEqual([]);
+  });
+});
+
 // ── EVIDENCE MARKER AND STORED RECORDS ──────────────────────────────────────
 
 describe('the channel marker', () => {

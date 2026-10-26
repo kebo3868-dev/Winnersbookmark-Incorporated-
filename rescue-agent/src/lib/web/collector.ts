@@ -979,13 +979,24 @@ const PHONE_ORDER_INTENT = /\border\b|\bordering\b|carry\s?out|take\s?out|to[-\s
 const ONLINE_ORDER_WORDING = /\border(?:ing)?\s+online\b|\bonline\s+order(?:ing)?\b/i;
 
 /**
- * A section label that says "Order Online" and nothing else.
+ * "Order Online" said as a call to action, and nothing else: "Order Online",
+ * "Order Online Now", "Online Ordering", in any case, with decoration such as
+ * "!" or "→" ignored.
  *
  * Whole-text match on purpose. "Order online at our website or call us to
- * order" is a sentence ABOUT two routes, not a label over the phone button,
- * and reading it as one would report a mismatch the page does not have.
+ * order" is a sentence ABOUT two routes, and "Unable to order online? Call to
+ * order" is a phone fallback; reading either as a promise of online ordering
+ * would report a mismatch the page does not have. A question is never a label.
  */
-const ONLINE_ORDER_LABEL = /^(?:order(?:ing)?\s+online|online\s+order(?:ing)?)\s*[:!.]?$/i;
+function isAffirmativeOnlineOrderLabel(raw: string): boolean {
+  if (raw.includes('?')) return false;
+  const words = raw
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+  return /^(?:order(?:ing)? online|online order(?:ing)?)(?: now)?$/.test(words);
+}
 
 /** How far up from a phone ordering button a section label is looked for. */
 const ORDER_LABEL_MAX_DEPTH = 4;
@@ -1010,18 +1021,25 @@ function isOrderingLink($link: cheerio.Cheerio<DomElement>): boolean {
  * Read in order of directness: the button's own text, its accessible name,
  * then a label in the button's own section.
  *
- * THE BUTTON'S OWN SECTION, NOT A NEIGHBOUR'S. The section is the widest
- * ancestor, at most ORDER_LABEL_MAX_DEPTH levels up, that still holds no more
- * than ORDER_LABEL_MAX_SECTION_TEXT characters and offers no other ordering
- * link. Inside it:
+ * The button's own wording counts only when it is an affirmative "Order
+ * Online"; wording that mentions online ordering without promising it (a
+ * fallback or support line) means the button already describes itself as the
+ * phone route, and nothing around it is read.
+ *
+ * THE BUTTON'S OWN SECTION, NOT A NEIGHBOUR'S. Ancestors are read from the
+ * nearest outward, at most ORDER_LABEL_MAX_DEPTH levels, and only while an
+ * ancestor holds no more than ORDER_LABEL_MAX_SECTION_TEXT characters and
+ * offers no other ordering link. At each level:
  *
  *   - Headings are read as an outline. The button sits under the nearest
  *     heading before it and under each earlier heading of higher rank, so
  *     "Order Online" › "Pickup" › button keeps the label, while "Order Online"
  *     followed by a sibling "Order by Phone" or "Takeout" heading does not.
- *     A button with any heading above it is judged by those headings alone.
- *   - Only a button with no heading above it falls back to a whole-text label
- *     anywhere in the section, such as a menu caption or a line in its card.
+ *     Once a heading is above the button, only headings decide.
+ *   - With no heading above the button yet, a whole-text label in that level,
+ *     such as a menu caption or a line in its card, is the label. Reading the
+ *     nearest level first is what keeps an unrelated page heading, reached
+ *     only further out, from hiding it.
  *
  * Another ordering link in the section ends the climb: an "Order Online"
  * label beside a real ordering link names that link, and the phone button is
@@ -1030,9 +1048,14 @@ function isOrderingLink($link: cheerio.Cheerio<DomElement>): boolean {
  */
 function onlineOrderLabelFor($: cheerio.CheerioAPI, anchor: DomElement, text: string): string | null {
   const $anchor = $(anchor);
-  for (const own of [text, $anchor.attr('aria-label') ?? '', $anchor.attr('title') ?? '']) {
-    if (ONLINE_ORDER_WORDING.test(own)) return own.replace(/\s+/g, ' ').trim().slice(0, 60);
+  const ownWording = [text, $anchor.attr('aria-label') ?? '', $anchor.attr('title') ?? ''];
+  for (const own of ownWording) {
+    if (isAffirmativeOnlineOrderLabel(own)) return own.replace(/\s+/g, ' ').trim().slice(0, 60);
   }
+  // The button mentions online ordering without promising it — a fallback or
+  // a support line ("Unable to order online? Call to order"). It already says
+  // it is the phone route, so no label around it can make it a mismatch.
+  if (ownWording.some((own) => ONLINE_ORDER_WORDING.test(own))) return null;
   const clean = (el: DomElement) => $(el).text().replace(/\s+/g, ' ').trim();
 
   // Narrowest first, so the fallback below prefers the nearest label.
@@ -1050,25 +1073,34 @@ function onlineOrderLabelFor($: cheerio.CheerioAPI, anchor: DomElement, text: st
   }
   if (sections.length === 0) return null;
 
-  const ordered = sections[sections.length - 1].find('h1, h2, h3, h4, h5, h6, a').toArray();
-  const outline: string[] = [];
-  let rank = 7;
-  for (const el of ordered.slice(0, ordered.indexOf(anchor)).reverse()) {
-    const level = Number(/^h([1-6])$/i.exec(el.tagName)?.[1] ?? 7);
-    if (level >= rank) continue;
-    rank = level;
-    outline.push(clean(el));
-  }
-  if (outline.length > 0) return outline.find((heading) => ONLINE_ORDER_LABEL.test(heading)) ?? null;
-
+  // Narrowest section first. A heading found at one level is still read at
+  // every wider level, where a higher-rank heading above it may be its parent.
   for (const scope of sections) {
+    const ordered = scope.find('h1, h2, h3, h4, h5, h6, a').toArray();
+    const outline: string[] = [];
+    let rank = 7;
+    for (const el of ordered.slice(0, ordered.indexOf(anchor)).reverse()) {
+      const level = Number(/^h([1-6])$/i.exec(el.tagName)?.[1] ?? 7);
+      if (level >= rank) continue;
+      rank = level;
+      outline.push(clean(el));
+    }
+    if (outline.length > 0) {
+      const heading = outline.find(isAffirmativeOnlineOrderLabel);
+      if (heading) return heading;
+      continue;
+    }
+    // No heading above the button yet: a whole-text label in this section,
+    // outside links and headings (a heading after the button opens the next
+    // section, and headings are read as the outline above).
     const labelEl = scope
       .find('*')
       .toArray()
       .find((el) => {
         const $el = $(el);
-        if ($el.is('a, script, style') || $el.closest('a').length > 0) return false;
-        return ONLINE_ORDER_LABEL.test(clean(el));
+        if ($el.is('a, script, style, h1, h2, h3, h4, h5, h6')) return false;
+        if ($el.closest('a, h1, h2, h3, h4, h5, h6').length > 0) return false;
+        return isAffirmativeOnlineOrderLabel(clean(el));
       });
     if (labelEl) return clean(labelEl);
   }
