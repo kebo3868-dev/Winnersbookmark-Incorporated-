@@ -346,7 +346,7 @@ export function ExecutivePdf({ dto }: { dto: ExecutiveReportDTO }) {
             {[
               ['Rescue Score', `${dto.snapshot.rescueScore ?? '—'}${dto.snapshot.band ? ` · ${dto.snapshot.band}` : ''}`],
               ['Coverage', dto.snapshot.coverage !== null ? `${dto.snapshot.coverage}%` : '—'],
-              ['Top Recommended Automation', dto.snapshot.topRecommendedAutomation ?? 'Validate first — no automation recommended yet'],
+              [dto.snapshot.topAutomationRequiresValidation ? 'Automation to Validate' : 'Top Recommended Automation', dto.snapshot.topRecommendedAutomation ?? 'Validate first — no automation recommended yet'],
               ['Primary Validation', dto.snapshot.primaryValidationRequirement],
               ['Recommended Next Step', dto.snapshot.recommendedNextStep],
             ].map(([label, value]) => (
@@ -698,12 +698,18 @@ export function ExecutivePdf({ dto }: { dto: ExecutiveReportDTO }) {
           ) : (
             dto.rankedAiOpportunities.map((opp, oi) => (
               <View key={opp.rank} wrap={false}>
-              {oi === 0 && <SectionHeader kicker="Section 06" title="AI Automation Opportunities" />}
+              {oi === 0 && (
+                <>
+                  <SectionHeader kicker="Section 06" title="AI Automation Opportunities" />
+                  <Text style={[s.mutedText, { marginBottom: 8 }]}>{dto.aiOpportunitiesIntro}</Text>
+                </>
+              )}
               <View style={s.card}>
                 <View style={[s.row, { justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }]}>
                   <Text style={{ fontFamily: 'Times-Bold', fontSize: 11.5, color: C.ink }}>#{opp.rank} · {opp.solutionCategory}</Text>
-                  <Text style={[s.badge, { color: C.goldDim, borderColor: C.goldDim }]}>FIT: {opp.fit}</Text>
+                  <Text style={[s.badge, { color: C.goldDim, borderColor: C.goldDim }]}>AUTOMATION FIT: {opp.fit}</Text>
                 </View>
+                <Text style={[s.mutedText, { marginBottom: 5, color: opp.requiresValidation ? C.amber : C.muted }]}>{opp.basis}</Text>
                 <Text style={s.label}>Problem addressed</Text>
                 <Text style={[s.body, { marginBottom: 5 }]}>{opp.problemAddressed}</Text>
                 <Text style={s.label}>Why it fits</Text>

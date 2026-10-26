@@ -112,7 +112,7 @@ export default async function ExecutiveReportPage({ params }: { params: Promise<
         <div className="card p-6 grid sm:grid-cols-2 gap-x-8 gap-y-3 text-sm">
           <SnapshotRow label="Rescue Score">{dto.snapshot.rescueScore ?? '—'}{dto.snapshot.band ? ` · ${dto.snapshot.band}` : ''}</SnapshotRow>
           <SnapshotRow label="Coverage">{dto.snapshot.coverage !== null ? `${dto.snapshot.coverage}%` : '—'}</SnapshotRow>
-          <SnapshotRow label="Top Recommended Automation">{dto.snapshot.topRecommendedAutomation ?? 'Validate first — no automation recommended yet'}</SnapshotRow>
+          <SnapshotRow label={dto.snapshot.topAutomationRequiresValidation ? 'Automation to Validate' : 'Top Recommended Automation'}>{dto.snapshot.topRecommendedAutomation ?? 'Validate first — no automation recommended yet'}</SnapshotRow>
           <SnapshotRow label="Primary Validation">{dto.snapshot.primaryValidationRequirement}</SnapshotRow>
           <SnapshotRow label="Recommended Next Step">{dto.snapshot.recommendedNextStep}</SnapshotRow>
         </div>
@@ -273,12 +273,14 @@ export default async function ExecutiveReportPage({ params }: { params: Promise<
           <p className="text-ivory-dim text-sm">No automation is recommended from current public evidence. Automation should follow validated demand, not precede it.</p>
         ) : (
           <div className="space-y-4">
+            <p className="text-ivory-dim text-sm">{dto.aiOpportunitiesIntro}</p>
             {dto.rankedAiOpportunities.map((opp) => (
               <div key={opp.rank} className="card p-6 text-sm">
                 <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
                   <p className="font-display text-lg text-gold">#{opp.rank} · {opp.solutionCategory}</p>
-                  <span className="text-[10px] uppercase tracking-widest border border-gold/40 text-gold rounded px-2.5 py-1">Fit: {opp.fit}</span>
+                  <span className="text-[10px] uppercase tracking-widest border border-gold/40 text-gold rounded px-2.5 py-1">Automation fit: {opp.fit}</span>
                 </div>
+                <p className={`text-xs mb-3 ${opp.requiresValidation ? 'text-amber-400' : 'text-ivory-faint'}`}>{opp.basis}</p>
                 <Field label="Problem addressed">{opp.problemAddressed}</Field>
                 <Field label="Why it fits">{opp.whyItFits}</Field>
                 <div className="mt-3">

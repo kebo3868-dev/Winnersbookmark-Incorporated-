@@ -228,6 +228,8 @@ export interface ExecutiveSnapshot {
   band: string | null;
   coverage: number | null;
   topRecommendedAutomation: string | null;
+  /** True when the top automation rests on an open question rather than a verified finding. */
+  topAutomationRequiresValidation: boolean;
   primaryValidationRequirement: string;
   recommendedNextStep: string;
 }
@@ -254,6 +256,13 @@ export interface RankedAiOpportunity {
   solutionCategory: string;
   fit: 'STRONG' | 'MODERATE' | 'LIMITED';
   problemAddressed: string;
+  /**
+   * What the recommendation rests on, in one sentence. An automation matched to
+   * an open question is a potential improvement to validate, never a fix for a
+   * measured problem — this says which one the reader is looking at.
+   */
+  basis: string;
+  requiresValidation: boolean;
   whyItFits: string;
   capabilities: string[];
   validationBeforeImplementation: string;
@@ -318,6 +327,8 @@ export interface ExecutiveReportDTO {
   /** What each status word on the journey map means — only the words the map uses. */
   journeyLegend: [JourneyStatusLabel, string][];
   rankedAiOpportunities: RankedAiOpportunity[];
+  /** One sentence introducing Section 06 on screen and in the PDF, from one source. */
+  aiOpportunitiesIntro: string;
   prescription: Prescription;
   decisionBox: DecisionBox;
   cta: ReportCta;
@@ -529,7 +540,7 @@ export function buildExecutiveReport(input: ExecutiveReportInput): ExecutiveRepo
     .map((opp) => ({
       opportunity: opp.title,
       solutionCategory: solutionCategoryFor(opp.category),
-      problemAddressed: firstSentence(opp.problem),
+      problemAddressed: problemAddressedBy(opp),
       whyItFits: opp.businessImpact,
       expectedBenefit: firstSentence(opp.recommendedSolution),
       validationRequired: unknownsFor(opp.category),
@@ -549,7 +560,9 @@ export function buildExecutiveReport(input: ExecutiveReportInput): ExecutiveRepo
       kind: f.scenarioKind,
       pathwayTitle: SCENARIO_SPECS[f.scenarioKind].pathwayTitle,
       findingTitle: f.title,
-      observedFriction: firstSentence(f.problem),
+      // An open question is not observed friction; only a verified finding's
+      // observation may be carried under that name.
+      observedFriction: f.classification === 'VERIFIED FINDING' ? firstSentence(f.problem) : `Open question: ${f.title.replace(/\.$/, '')}.`,
       prefill: prefillFromAverageTicket(f.scenarioKind, input.avgTicket),
     });
   }
@@ -581,6 +594,7 @@ export function buildExecutiveReport(input: ExecutiveReportInput): ExecutiveRepo
     journeyMap,
     journeyLegend: JOURNEY_STATUS_LEGEND.filter(([label]) => usedStatuses.has(label)),
     rankedAiOpportunities,
+    aiOpportunitiesIntro: AI_OPPORTUNITIES_INTRO,
     prescription: buildPrescription(input, findings),
     decisionBox: buildDecisionBox(findings, rankedAiOpportunities),
     cta: {
@@ -666,8 +680,10 @@ export const CONFIDENCE_LEGEND =
 type OppInput = ExecutiveReportInput['opportunities'][number];
 
 function commercialEffectFor(category: string, businessImpact: string): string {
+  // Conditional, because nothing about this restaurant's call volume is known:
+  // the sentence describes what would follow IF demand is phone-heavy.
   if (/PHONE-DEPENDENT/i.test(category))
-    return 'When guest demand depends on a live phone answer, customer intent competes directly with staff attention during peak service, and inquiries that arrive at the wrong moment may go unanswered.';
+    return 'If a meaningful share of guest demand arrives by phone, it competes with staff attention during peak service, and calls that come at the wrong moment may go unanswered. Whether that happens here requires call records.';
   if (/CATERING|PRIVATE|LEAD/i.test(category))
     return 'Event inquiries tend to be high-value, so how quickly they are acknowledged matters. A public link shows the pathway exists; it does not show whether inquiries are answered quickly or slowly, by hand or automatically.';
   if (/RETENTION|REACTIVATION/i.test(category))
@@ -708,6 +724,7 @@ function buildSnapshot(
     band: input.overallScore === null ? null : scoreBand(input.overallScore),
     coverage: input.coverageScore,
     topRecommendedAutomation: ranked[0]?.solutionCategory ?? null,
+    topAutomationRequiresValidation: ranked[0]?.requiresValidation ?? false,
     primaryValidationRequirement: primaryValidation,
     recommendedNextStep: COMPANY.nextStepCta,
   };
@@ -752,6 +769,10 @@ const AI_CAPABILITIES: [RegExp, { capabilities: string[]; measurement: string[] 
   }],
 ];
 
+export const AI_OPPORTUNITIES_INTRO =
+  'Potential improvements matched to the findings above. "Fit" describes how well an automation suits the kind of problem, not evidence that the problem exists here; ' +
+  'none of these rests on measured missed calls or lost revenue, and each should follow validation against your own records.';
+
 function buildRankedAiOpportunities(top: OppInput[]): RankedAiOpportunity[] {
   return top
     .filter((opp) => opp.aiFitScore >= 70)
@@ -761,11 +782,16 @@ function buildRankedAiOpportunities(top: OppInput[]): RankedAiOpportunity[] {
       const caps = AI_CAPABILITIES.find(([re]) => re.test(opp.category) || re.test(solutionCategoryFor(opp.category)))?.[1]
         ?? { capabilities: ['Configured automation matched to the finding'], measurement: ['Response volume', 'Conversion action after response'] };
       const fit = automationLabel(opp.aiFitScore) === 'Strong' ? 'STRONG' : automationLabel(opp.aiFitScore) === 'Moderate' ? 'MODERATE' : 'LIMITED';
+      const requiresValidation = classifyFinding(opp) !== 'VERIFIED FINDING';
       return {
         rank: i + 1,
         solutionCategory: solutionCategoryFor(opp.category),
         fit,
-        problemAddressed: firstSentence(opp.problem),
+        problemAddressed: problemAddressedBy(opp),
+        basis: requiresValidation
+          ? 'Potential improvement — requires operational validation before any implementation. No missed calls or lost revenue have been measured; a public audit cannot see either.'
+          : 'Addresses a verified public finding. Its effect on revenue has not been measured.',
+        requiresValidation,
         whyItFits: opp.businessImpact,
         capabilities: caps.capabilities,
         validationBeforeImplementation: unknownsFor(opp.category),
@@ -775,17 +801,39 @@ function buildRankedAiOpportunities(top: OppInput[]): RankedAiOpportunity[] {
     });
 }
 
+/**
+ * The problem an automation is matched to. For an open question that is the
+ * question itself — quoting the finding's first observation ("no dedicated FAQ
+ * page was found") presented the automation as the fix for that observation.
+ */
+function problemAddressedBy(opp: OppInput): string {
+  return classifyFinding(opp) === 'VERIFIED FINDING' ? firstSentence(opp.problem) : `Open question: ${opp.title.replace(/\.$/, '')}.`;
+}
+
 function buildPrescription(input: ExecutiveReportInput, findings: ExecutiveFinding[]): Prescription {
   const primary = findings[0];
   const tier = input.storedRecommendation?.tier ?? 'AI DISCOVERY AUDIT';
   const frictionStages = input.journey.filter((s) => s.status === 'FRICTION' || s.status === 'RISK').map((s) => JOURNEY_LABELS[s.stage] ?? s.stage);
-  const diagnosis = frictionStages.length > 0
-    ? `The public digital journey shows friction concentrated in: ${frictionStages.join(', ')}. ${primary ? firstSentence(primary.problem) : ''}`.trim()
-    : 'The public digital journey is broadly healthy; the open questions sit in areas a public audit cannot observe.';
+  // OBSERVED FRICTION AND OPEN QUESTIONS ARE SEPARATE SENTENCES.
+  //
+  // The diagnosis used to append the top finding's first observation straight
+  // after the friction list — "friction concentrated in: Ordering. OBSERVED: no
+  // dedicated FAQ page was found." — which read the observation as friction.
+  // Friction names only stages a customer was seen to meet; the top finding is
+  // named for what it is.
+  const observed = frictionStages.length > 0
+    ? `Observed friction in the public journey: ${frictionStages.join(', ')}.`
+    : 'No customer-facing friction was observed in the public journey.';
+  const lead = primary
+    ? primary.classification === 'VERIFIED FINDING'
+      ? ` Highest-priority verified finding: ${primary.title.replace(/\.$/, '')}.`
+      : ` Highest-priority open question, to check against your own records: ${primary.title.replace(/\.$/, '')}.`
+    : ' The open questions sit in areas a public audit cannot observe.';
+  const diagnosis = `${observed}${lead}`;
   const validation = primary?.whatWeDoNotKnow
     ?? 'Review 30 days of phone activity, missed-call counts, guest-question categories, and average ticket data.';
   const prescription = input.storedRecommendation
-    ? `If the validation data confirms the observed friction, ${COMPANY.shortName} recommends ${tier}${primary && primary.internalScores.aiFit >= 70 ? ', beginning with the highest-fit automation identified above,' : ''} as the next step. ${input.storedRecommendation.rationale}`
+    ? `${COMPANY.shortName} recommends ${tier} as the next step${primary && primary.internalScores.aiFit >= 70 ? ', considering the highest-fit automation identified above only once your operating records confirm the open questions it depends on' : ''}. ${input.storedRecommendation.rationale}`
     : `${COMPANY.shortName} recommends validating the highest-priority findings against internal operating data before committing to any system.`;
   return {
     diagnosis,
@@ -793,7 +841,7 @@ function buildPrescription(input: ExecutiveReportInput, findings: ExecutiveFindi
     prescription,
     expectedOperationalRole: [
       'Answer repetitive guest questions',
-      'Capture missed-call and after-hours demand',
+      'Respond to calls staff cannot answer, and to after-hours inquiries — where records show they occur',
       'Route booking and ordering intent',
       'Capture leads for follow-up',
       'Report on response and conversion activity',

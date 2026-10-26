@@ -22,6 +22,7 @@ import { normalizeEvidence } from '@/lib/audit/evidence';
 import { analyzeJourney } from '@/lib/audit/journey';
 import { detectRevenueLeaks } from '@/lib/audit/leaks';
 import { calculateCategoryScores } from '@/lib/scoring/rescueScore';
+import { rankOpportunities } from '@/lib/scoring/priority';
 import {
   buildExecutiveReport,
   journeyStatusLabel,
@@ -29,6 +30,8 @@ import {
   type ExecutiveReportInput,
 } from '@/lib/reports/executive';
 import { COMPANY } from '@/lib/config';
+import { generateOwnerReport } from '@/lib/reports/owner';
+import { generateSalesBrief } from '@/lib/reports/sales';
 import type { EvidenceRecordLike } from '@/types/audit';
 
 const SITE = 'https://leverocks.example/';
@@ -290,6 +293,139 @@ describe('4. observed friction and unmeasured performance are different words', 
     expect(src).toMatch(/journeyStatusLabel\(s\.status\)/);
     expect(src).not.toMatch(/>\{s\.status\}</);
   });
+});
+
+// ── PHONE WORDING (final pre-merge correction on 85622c1) ───────────────────
+//
+// With the Phone stage HEALTHY, the report still diagnosed "friction
+// concentrated in: Ordering. OBSERVED: no dedicated FAQ page was found." and
+// offered the AI Front Desk as addressing "no dedicated FAQ page was found" —
+// reading a missing FAQ page as friction, and an automation as a fix for a
+// problem nobody measured. Observed facts, open questions and demonstrated
+// losses must stay three different things on every surface.
+
+describe('phone wording: observed facts, open questions and losses stay distinct', () => {
+  const LEVEROCKS =
+    '<h1>Leverock\'s</h1><p>Call <a href="tel:+17273674588">(727) 367-4588</a></p>' +
+    '<p>Hours: Mon–Sun 11:30 AM – 9:00 PM</p><p>840 Pasadena Avenue South, St. Petersburg, FL 33707</p>' +
+    '<a href="/st-petersburg-leverock-s-great-seafood-food-menu">Menu</a>' +
+    `<a href="${PRIVATE_PARTY.replace(/&/g, '&amp;')}">Book your party</a>`;
+  // A full page, as Leverock's serves one: meta description, mobile viewport,
+  // contact email and a newsletter signup alongside the phone, hours and menu.
+  const fullPage = () =>
+    normalizeEvidence({
+      pages: [
+        extractPage(SITE, SITE, 200, 'text/html',
+          '<html><head><title>Leverock\'s Great Seafood | St. Petersburg, FL</title>' +
+          '<meta name="description" content="Since 1948, Leverock\'s has been providing quality, value and service.">' +
+          '<meta name="viewport" content="width=device-width, initial-scale=1"></head><body>' +
+          LEVEROCKS +
+          '<p>Email us: <a href="mailto:leverocksgreatseafood@gmail.com">leverocksgreatseafood@gmail.com</a></p>' +
+          '<form><h3>Join our email list</h3><input type="email" name="email"><button>Sign up</button></form>' +
+          '<a href="/gift-cards">Gift Cards</a></body></html>'),
+      ],
+      failures: [],
+      probes: [],
+    }).map((e, i) => ({ id: `p${i}`, evidenceType: e.evidenceType, fact: e.fact, supportingContext: e.supportingContext ?? null, confidence: e.confidence }));
+  const build = () => {
+    const evidence = fullPage();
+    const journey = analyzeJourney(evidence);
+    // Ranked exactly as the audit pipeline ranks them.
+    const leaks = rankOpportunities(detectRevenueLeaks({ evidence, journey }));
+    const categories = calculateCategoryScores(journey, evidence);
+    const owner = generateOwnerReport({
+      restaurantName: "Leverock's Great Seafood", websiteUrl: SITE, location: null, auditStatus: 'COMPLETED', demoMode: false,
+      overallScore: 84, coverageScore: 80, scoreExplanation: 'x', categories, journey, topLeaks: leaks, evidence,
+    });
+    const dto = buildExecutiveReport({ ...reportInput(leaks, journey), storedRecommendation: owner.recommendation });
+    const sales = generateSalesBrief({
+      restaurantName: "Leverock's Great Seafood", overallScore: 84, coverageScore: 80, topLeaks: leaks, journey, evidence,
+      recommendedTier: owner.recommendation.tier,
+    });
+    return { journey, leaks, categories, owner, dto, sales };
+  };
+  /** Every sentence that calls something friction must not be about the FAQ page. */
+  const frictionFaqSentences = (text: string) =>
+    text.split(/(?<=[.!?])\s+/).filter((sentence) => /friction/i.test(sentence) && /FAQ/i.test(sentence));
+  /** Every string value in an object, each checked on its own so fields never run together. */
+  const textValues = (value: unknown, out: string[] = []): string[] => {
+    if (typeof value === 'string') out.push(value);
+    else if (Array.isArray(value)) value.forEach((v) => textValues(v, out));
+    else if (value && typeof value === 'object') Object.values(value).forEach((v) => textValues(v, out));
+    return out;
+  };
+
+  it('the fixture is the Leverock\'s shape: Phone HEALTHY at 90, the phone question still asked', () => {
+    const { journey, categories, leaks } = build();
+    expect(journey.find((s) => s.stage === 'PHONE')!.status).toBe('HEALTHY');
+    expect(categories.find((c) => c.category === 'PHONE_RESPONSE_READINESS')!.score).toBe(90);
+    expect(leaks.find((l) => /PHONE-DEPENDENT/.test(l.category))!.manualValidationRequired).toBe(true);
+  });
+
+  it('the Prescription diagnosis never presents the missing FAQ page as friction', () => {
+    const { dto } = build();
+    expect(dto.prescription.diagnosis).not.toMatch(/FAQ/i);
+    expect(frictionFaqSentences(dto.prescription.diagnosis)).toEqual([]);
+    // The top finding is named as what it is: an open question for the owner's records.
+    expect(dto.prescription.diagnosis).toMatch(/open question/i);
+    expect(dto.prescription.prescription).not.toMatch(/confirms the observed friction/i);
+  });
+
+  it('the AI Front Desk is a potential improvement requiring operational validation', () => {
+    const { dto } = build();
+    const frontDesk = dto.rankedAiOpportunities.find((o) => /Front Desk/.test(o.solutionCategory))!;
+    expect(frontDesk, 'the phone question still maps to the AI Front Desk').toBeDefined();
+    expect(frontDesk.problemAddressed).not.toMatch(/FAQ/i);
+    expect(frontDesk.basis).toMatch(/potential improvement/i);
+    expect(frontDesk.basis).toMatch(/requires operational validation/i);
+    expect(frontDesk.basis).toMatch(/no missed calls or lost revenue (have been|were) measured/i);
+    expect(dto.snapshot.topAutomationRequiresValidation).toBe(true);
+  });
+
+  it('the phone finding\'s commercial effect is conditional, not a description of this restaurant', () => {
+    const { dto } = build();
+    const phone = dto.findings.find((f) => /PHONE-DEPENDENT/.test(f.category))!;
+    expect(phone.commercialEffect).toMatch(/^If /);
+    expect(phone.commercialEffect).toMatch(/requires call records/i);
+  });
+
+  it('the stored recommendation does not call an unmeasured phone question friction', () => {
+    // Only one finding needing validation, so the owner report reaches the
+    // AI Front Desk tier — the branch whose rationale asserted friction.
+    const { leaks, journey, categories } = build();
+    const phoneOnly = leaks.filter((l) => /PHONE-DEPENDENT/.test(l.category));
+    const owner = generateOwnerReport({
+      restaurantName: 'x', websiteUrl: SITE, location: null, auditStatus: 'COMPLETED', demoMode: false,
+      overallScore: 84, coverageScore: 80, scoreExplanation: 'x', categories, journey, topLeaks: phoneOnly, evidence: [],
+    });
+    expect(owner.recommendation.tier).toBe('AI FRONT DESK SYSTEM');
+    expect(owner.recommendation.rationale).not.toMatch(/evidence shows a phone-dependent journey|exactly the friction/i);
+    expect(owner.recommendation.rationale).toMatch(/potential improvement/i);
+    expect(owner.recommendation.rationale).toMatch(/no missed calls or lost revenue (have been|were) measured/i);
+  });
+
+  it('the internal sales brief invents no share of calls and does not tell reps to claim lost customers', () => {
+    const { sales } = build();
+    expect(sales.objectionStrategy).not.toMatch(/\d+\s?%/);
+    expect(sales.talkTrack).not.toMatch(/costs you customers/i);
+  });
+
+  it('no surface pairs "friction" with the FAQ page, and the PDF says the same', async () => {
+    const { dto, sales } = build();
+    const { ExecutivePdf } = await import('@/lib/pdf/ExecutivePdf');
+    const pdf = treeStrings(React.createElement(ExecutivePdf, { dto })).join(' ');
+    for (const [name, texts] of [
+      ['executive DTO', textValues(dto)],
+      ['sales brief', textValues(sales)],
+      ['PDF', treeStrings(React.createElement(ExecutivePdf, { dto }))],
+    ] as const) {
+      expect(texts.flatMap(frictionFaqSentences), name).toEqual([]);
+    }
+    // The calculator offer's "observed friction" holds the open question, not the FAQ observation.
+    for (const offer of dto.scenarioCalculators) expect(offer.observedFriction, offer.kind).not.toMatch(/FAQ/i);
+    expect(pdf).toContain(dto.rankedAiOpportunities[0].basis);
+    expect(pdf).toContain('Automation to Validate');
+  }, 60_000);
 });
 
 // ── 1. HEADLINES ─────────────────────────────────────────────────────────────
