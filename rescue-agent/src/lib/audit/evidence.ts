@@ -836,6 +836,40 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
     }
   }
   const markupOnly = (url: string | undefined) => Boolean(url) && embedUrls.has(url as string) && !anchorUrls.has(url as string);
+  const visibleLink = (url: string | undefined) => Boolean(url) && anchorUrls.has(url as string);
+
+  /**
+   * Why an unexposed probe is not reported as a failure, stated by where the
+   * URL actually is on the collected pages.
+   *
+   * Being probed says nothing about provenance. The orchestrator probes the
+   * reservation and ordering URLs supplied on the audit form first, as owner
+   * hints, then the destinations the pages offer, so an unexposed probe is one
+   * of three things:
+   *   - only in the page markup: an embed no visible link points to;
+   *   - a visible link on the page that was also supplied, and tested as the
+   *     supplied address;
+   *   - on none of the analyzed pages: supplied for the audit alone.
+   * Only the first may be described as being in the page markup.
+   */
+  const unexposedReason = (probe: ProbeResult): string => {
+    if (markupOnly(probe.url) || markupOnly(probe.finalUrl)) {
+      return (
+        'the destination appears only in the page markup — no visible link or button points customers to it, ' +
+        'so nothing here shows a customer ever reaches it'
+      );
+    }
+    if (visibleLink(probe.url) || visibleLink(probe.finalUrl)) {
+      return (
+        'this URL was provided for this audit and also appears as a visible link on the analyzed pages; it was tested ' +
+        'as the supplied address, so whether this result affects customers requires manual validation'
+      );
+    }
+    return (
+      'this URL was provided for this audit and was not found on the analyzed pages, so nothing here shows a ' +
+      'customer ever reaches it'
+    );
+  };
 
   // Probes (broken links)
   //
@@ -920,14 +954,7 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
     }
 
     if (!probe.ok) {
-      const verdict = exposed
-        ? mayClaimVerifiedBroken(probe)
-        : {
-            allowed: false,
-            reason:
-              'the destination appears only in the page markup — no visible link or button points customers to it, ' +
-              'so nothing here shows a customer ever reaches it',
-          };
+      const verdict = exposed ? mayClaimVerifiedBroken(probe) : { allowed: false, reason: unexposedReason(probe) };
       if (!verdict.allowed) {
         noteMenu(probe, 'unverified');
         // Reached only for an audit-side limitation — a timeout, or the SSRF
