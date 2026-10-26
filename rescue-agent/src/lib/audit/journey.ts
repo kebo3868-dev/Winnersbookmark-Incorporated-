@@ -101,12 +101,12 @@ export function analyzeJourney(evidence: EvidenceRecordLike[]): JourneyStageResu
     const phoneMissing = phone.filter(negative);
     const c2c = has(index, 'CLICK_TO_CALL');
     const c2cMissing = c2c.filter(negative);
+    // FAQ evidence is cited with the stage but does not decide it.
     const faq = has(index, 'FAQ_SIGNAL');
-    const faqMissing = faq.filter(negative);
     const all = [...phone, ...c2c, ...faq];
     if (phoneMissing.some((e) => /any analyzed page/i.test(e.fact))) {
       push(stage('PHONE', 'RISK', 'No phone number was detected on the analyzed pages — phone-intent customers have no visible path to call.', avgConfidence(phoneMissing, 65), true, ids(all)));
-    } else if (c2cMissing.length > 0 || faqMissing.length > 0) {
+    } else if (c2cMissing.length > 0) {
       push(
         stage(
           'PHONE',
@@ -114,18 +114,31 @@ export function analyzeJourney(evidence: EvidenceRecordLike[]): JourneyStageResu
           // States only what was seen. Whether the phone "carries load the
           // website does not absorb" is a conclusion about call volume, and
           // call volume is not observable from a public page.
-          'Observed on the public site: ' +
-            [c2cMissing.length > 0 ? 'mobile visitors cannot tap to call' : '', faqMissing.length > 0 ? 'no dedicated FAQ page was found' : '']
-              .filter(Boolean)
-              .join('; ') +
-            '. How much phone demand this creates, and whether calls go unanswered, requires call records — not assessed here.',
+          'Observed on the public site: mobile visitors cannot tap to call. ' +
+            'How much phone demand this creates, and whether calls go unanswered, requires call records — not assessed here.',
           avgConfidence(all, 70),
           true,
           ids(all),
         ),
       );
     } else {
-      push(stage('PHONE', 'HEALTHY', 'Phone number is visible with click-to-call enabled and FAQ support online. Actual call answer rates require manual validation.', avgConfidence(all, 70), true, ids(all)));
+      // A MISSING FAQ PAGE IS NOT A PHONE PROBLEM (owner decision, PR #63).
+      //
+      // It used to make this stage FRICTION, which the report defines as an
+      // observed obstruction — but nothing obstructs a caller who can see the
+      // number and tap it. The stage is decided by what a caller meets; whether
+      // calls are answered is unmeasured either way, and says so.
+      push(
+        stage(
+          'PHONE',
+          'HEALTHY',
+          'Observed: a phone number is visible and mobile visitors can tap to call. ' +
+            'Not assessed: whether calls are answered, and how quickly — that requires call records.',
+          avgConfidence(all, 70),
+          true,
+          ids(all),
+        ),
+      );
     }
   }
 

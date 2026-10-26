@@ -149,7 +149,11 @@ const RULES: Rule[] = [
   // Phone-dependent journey.
   (ctx) => {
     const phoneStage = ctx.journey.find((s) => s.stage === 'PHONE');
-    if (!phoneStage || phoneStage.status === 'HEALTHY' || phoneStage.evidenceIds.length === 0) return null;
+    // Gated on the evidence below, not on the stage status. A missing FAQ page
+    // no longer makes the stage FRICTION, but the open question it raises —
+    // how much demand reaches the phone — is still asked, as a manual-validation
+    // finding that carries no score.
+    if (!phoneStage || phoneStage.evidenceIds.length === 0) return null;
     const c2cMissing = byType(ctx, 'CLICK_TO_CALL', (e) => /no click-to-call/i.test(e.fact));
     const faqMissing = byType(ctx, 'FAQ_SIGNAL', (e) => /no public faq/i.test(e.fact));
     const supporting = [...c2cMissing, ...faqMissing];

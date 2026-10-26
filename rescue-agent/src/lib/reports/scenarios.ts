@@ -128,6 +128,14 @@ export interface ScenarioField {
   key: string;
   label: string;
   unit: ScenarioFieldUnit;
+  /**
+   * The largest value accepted, in the field's own unit: 366 days, 53 weeks or
+   * 12 months a year; 100 for a percentage; a plausible ceiling for counts and
+   * amounts. One shared period limit let "365 operating months" through, and
+   * unbounded amounts let 1e308 overflow to "about $NaN". At every field's
+   * limit the product still fits exactly in integer cents (see the tests).
+   */
+  max: number;
 }
 
 export interface ScenarioSpec {
@@ -143,10 +151,10 @@ export const SCENARIO_SPECS: Record<ScenarioKind, ScenarioSpec> = {
     kind: 'phone',
     pathwayTitle: 'Phone Demand Scenario',
     fields: [
-      { key: 'missedCallsPerDay', label: 'Missed calls per day', unit: 'count' },
-      { key: 'commercialIntentPercent', label: 'Share of those calls with order or booking intent (%)', unit: 'percent' },
-      { key: 'averageTransaction', label: 'Average transaction value ($)', unit: 'usd' },
-      { key: 'operatingDays', label: 'Operating days per year', unit: 'periods' },
+      { key: 'missedCallsPerDay', label: 'Missed calls per day', unit: 'count', max: 10_000 },
+      { key: 'commercialIntentPercent', label: 'Share of those calls with order or booking intent (%)', unit: 'percent', max: 100 },
+      { key: 'averageTransaction', label: 'Average transaction value ($)', unit: 'usd', max: 100_000 },
+      { key: 'operatingDays', label: 'Operating days per year', unit: 'periods', max: 366 },
     ],
     formula: 'missed calls/day × intent share × average transaction value × operating days',
     dataRequiredToValidate: ['Call logs', 'Missed-call count', 'Caller reason sample', 'Average ticket', 'Operating days'],
@@ -155,10 +163,10 @@ export const SCENARIO_SPECS: Record<ScenarioKind, ScenarioSpec> = {
     kind: 'reservation',
     pathwayTitle: 'Reservation Demand Scenario',
     fields: [
-      { key: 'lostBookingsPerWeek', label: 'Booking requests lost per week', unit: 'count' },
-      { key: 'partySize', label: 'Average party size', unit: 'count' },
-      { key: 'perGuestValue', label: 'Average spend per guest ($)', unit: 'usd' },
-      { key: 'operatingWeeks', label: 'Operating weeks per year', unit: 'periods' },
+      { key: 'lostBookingsPerWeek', label: 'Booking requests lost per week', unit: 'count', max: 10_000 },
+      { key: 'partySize', label: 'Average party size', unit: 'count', max: 100 },
+      { key: 'perGuestValue', label: 'Average spend per guest ($)', unit: 'usd', max: 100_000 },
+      { key: 'operatingWeeks', label: 'Operating weeks per year', unit: 'periods', max: 53 },
     ],
     formula: 'lost bookings/week × party size × spend per guest × operating weeks',
     dataRequiredToValidate: ['Reservation system logs', 'Turn-away count', 'Average party size', 'Average per-guest spend'],
@@ -167,9 +175,9 @@ export const SCENARIO_SPECS: Record<ScenarioKind, ScenarioSpec> = {
     kind: 'ordering',
     pathwayTitle: 'Online Ordering Scenario',
     fields: [
-      { key: 'abandonedOrdersPerDay', label: 'Orders abandoned per day', unit: 'count' },
-      { key: 'averageOrder', label: 'Average order value ($)', unit: 'usd' },
-      { key: 'operatingDays', label: 'Operating days per year', unit: 'periods' },
+      { key: 'abandonedOrdersPerDay', label: 'Orders abandoned per day', unit: 'count', max: 10_000 },
+      { key: 'averageOrder', label: 'Average order value ($)', unit: 'usd', max: 100_000 },
+      { key: 'operatingDays', label: 'Operating days per year', unit: 'periods', max: 366 },
     ],
     formula: 'abandoned orders/day × average order value × operating days',
     dataRequiredToValidate: ['Online ordering analytics', 'Cart abandonment data', 'Average order value', 'Channel mix (direct vs third-party)'],
@@ -178,10 +186,10 @@ export const SCENARIO_SPECS: Record<ScenarioKind, ScenarioSpec> = {
     kind: 'lead',
     pathwayTitle: 'Catering & Event Inquiry Scenario',
     fields: [
-      { key: 'unansweredInquiriesPerMonth', label: 'Inquiries per month not answered in time', unit: 'count' },
-      { key: 'closePercent', label: 'Share of answered inquiries you book (%)', unit: 'percent' },
-      { key: 'eventValue', label: 'Average event value ($)', unit: 'usd' },
-      { key: 'operatingMonths', label: 'Operating months per year', unit: 'periods' },
+      { key: 'unansweredInquiriesPerMonth', label: 'Inquiries per month not answered in time', unit: 'count', max: 10_000 },
+      { key: 'closePercent', label: 'Share of answered inquiries you book (%)', unit: 'percent', max: 100 },
+      { key: 'eventValue', label: 'Average event value ($)', unit: 'usd', max: 1_000_000 },
+      { key: 'operatingMonths', label: 'Operating months per year', unit: 'periods', max: 12 },
     ],
     formula: 'unanswered inquiries/month × booking share × event value × operating months',
     dataRequiredToValidate: ['Inquiry acknowledgment records', 'Response-time records', 'Booking records', 'Average event value'],
@@ -190,10 +198,10 @@ export const SCENARIO_SPECS: Record<ScenarioKind, ScenarioSpec> = {
     kind: 'reactivation',
     pathwayTitle: 'Guest Reactivation Scenario',
     fields: [
-      { key: 'guestsReengagedPerMonth', label: 'Lapsed guests re-engaged per month', unit: 'count' },
-      { key: 'visitsPerGuest', label: 'Return visits per re-engaged guest', unit: 'count' },
-      { key: 'averageTicket', label: 'Average ticket ($)', unit: 'usd' },
-      { key: 'operatingMonths', label: 'Operating months per year', unit: 'periods' },
+      { key: 'guestsReengagedPerMonth', label: 'Lapsed guests re-engaged per month', unit: 'count', max: 10_000 },
+      { key: 'visitsPerGuest', label: 'Return visits per re-engaged guest', unit: 'count', max: 100 },
+      { key: 'averageTicket', label: 'Average ticket ($)', unit: 'usd', max: 100_000 },
+      { key: 'operatingMonths', label: 'Operating months per year', unit: 'periods', max: 12 },
     ],
     formula: 're-engaged guests/month × visits per guest × average ticket × operating months',
     dataRequiredToValidate: ['Guest database size', 'Lapsed-guest count', 'Historical repeat-visit rate', 'Average ticket'],
@@ -202,9 +210,9 @@ export const SCENARIO_SPECS: Record<ScenarioKind, ScenarioSpec> = {
     kind: 'website',
     pathwayTitle: 'Website Conversion Scenario',
     fields: [
-      { key: 'lostConversionsPerDay', label: 'Website visitors lost before acting, per day', unit: 'count' },
-      { key: 'valuePerConversion', label: 'Average value per conversion ($)', unit: 'usd' },
-      { key: 'operatingDays', label: 'Operating days per year', unit: 'periods' },
+      { key: 'lostConversionsPerDay', label: 'Website visitors lost before acting, per day', unit: 'count', max: 100_000 },
+      { key: 'valuePerConversion', label: 'Average value per conversion ($)', unit: 'usd', max: 100_000 },
+      { key: 'operatingDays', label: 'Operating days per year', unit: 'periods', max: 366 },
     ],
     formula: 'lost conversions/day × value per conversion × operating days',
     dataRequiredToValidate: ['Website analytics', 'Conversion-action tracking', 'Average conversion value', 'Traffic volume'],
@@ -214,11 +222,37 @@ export const SCENARIO_SPECS: Record<ScenarioKind, ScenarioSpec> = {
 export type ScenarioValues = Record<string, number | null | undefined>;
 
 const validInput = (field: ScenarioField, value: number | null | undefined): value is number =>
-  typeof value === 'number' &&
-  Number.isFinite(value) &&
-  value >= 0 &&
-  (field.unit !== 'percent' || value <= 100) &&
-  (field.unit !== 'periods' || value <= 366);
+  typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= field.max;
+
+/**
+ * A typed amount as a number: null when empty, NaN when it is not a plain
+ * non-negative amount. "$1,200", "45.50" and "30%" are accepted; scientific
+ * notation, hex, words and negatives are not — `Number()` alone accepted
+ * "1e308" and "0x10", which is how an overflowing input reached the maths.
+ */
+export function parseScenarioInput(raw: string): number | null {
+  const cleaned = raw.trim().replace(/^\$/, '').replace(/%$/, '').replace(/,/g, '').trim();
+  if (cleaned === '') return null;
+  return /^\d+(\.\d+)?$/.test(cleaned) ? Number(cleaned) : Number.NaN;
+}
+
+const fieldName = (field: ScenarioField) => field.label.replace(/ \((%|\$)\)$/, '');
+const fieldLimit = (field: ScenarioField) =>
+  field.unit === 'usd' ? `$${field.max.toLocaleString('en-US')}` : field.unit === 'percent' ? `${field.max}%` : field.max.toLocaleString('en-US');
+
+/**
+ * What is wrong with the first entered figure that cannot be used, naming the
+ * field and its own limit — or null when every entered figure is usable.
+ * Empty fields are not problems; the calculator simply waits for them.
+ */
+export function scenarioInputProblem(kind: ScenarioKind, values: ScenarioValues): string | null {
+  for (const field of SCENARIO_SPECS[kind].fields) {
+    const v = values[field.key];
+    if (v === null || v === undefined) continue;
+    if (!validInput(field, v)) return `${fieldName(field)} must be a number from 0 to ${fieldLimit(field)}.`;
+  }
+  return null;
+}
 
 function display(field: ScenarioField, value: number): string {
   if (field.unit === 'usd') return formatUSD(toCents(value));
@@ -244,6 +278,9 @@ export function calculateScenario(
     annual *= field.unit === 'usd' ? toCents(v) : field.unit === 'percent' ? v / 100 : v;
   }
   const annualExposureCents = Math.round(annual);
+  // Defence in depth: the field limits keep every product exact, but a total
+  // that is not a safe integer must never be shown as a completed what-if.
+  if (!Number.isSafeInteger(annualExposureCents)) return null;
   const monthlyExposureCents = Math.round(annualExposureCents / 12);
   return {
     key: kind,

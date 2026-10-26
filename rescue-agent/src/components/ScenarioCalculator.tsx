@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { calculateScenario, SCENARIO_SPECS, type ScenarioKind } from '@/lib/reports/scenarios';
+import { calculateScenario, parseScenarioInput, scenarioInputProblem, SCENARIO_SPECS, type ScenarioKind } from '@/lib/reports/scenarios';
 
 /**
  * OPTIONAL SCENARIO CALCULATOR.
@@ -26,11 +26,10 @@ export default function ScenarioCalculator({
   const [raw, setRaw] = useState<Record<string, string>>(() =>
     Object.fromEntries(spec.fields.map((f) => [f.key, prefill[f.key] !== undefined ? String(prefill[f.key]) : ''])),
   );
-  const values = Object.fromEntries(
-    spec.fields.map((f) => [f.key, raw[f.key].trim() === '' ? null : Number(raw[f.key])]),
-  );
-  const result = calculateScenario(kind, values, observedFriction);
-  const missing = spec.fields.filter((f) => raw[f.key].trim() === '').length;
+  const values = Object.fromEntries(spec.fields.map((f) => [f.key, parseScenarioInput(raw[f.key])]));
+  const problem = scenarioInputProblem(kind, values);
+  const result = problem ? null : calculateScenario(kind, values, observedFriction);
+  const missing = spec.fields.filter((f) => values[f.key] === null).length;
 
   return (
     <div className="card p-5 sm:p-6 border-gold-dim/30">
@@ -67,10 +66,11 @@ export default function ScenarioCalculator({
           <p className="sm:col-span-2 text-gold-dim text-xs">{result.confidenceStatement}</p>
         </div>
       ) : (
-        <p className="mt-4 text-ivory-faint text-xs">
-          {missing > 0
-            ? `Enter all ${spec.fields.length} figures to see a what-if. No figure is shown until every input is yours.`
-            : 'Check the figures: amounts must be zero or more, percentages at most 100, and periods per year at most 366.'}
+        <p className={`mt-4 text-xs ${problem ? 'text-amber-400' : 'text-ivory-faint'}`} role={problem ? 'alert' : undefined}>
+          {problem ??
+            (missing > 0
+              ? `Enter all ${spec.fields.length} figures to see a what-if. No figure is shown until every input is yours.`
+              : 'These figures cannot be calculated exactly. Check each one against its records.')}
         </p>
       )}
       <p className="text-ivory-faint text-[11px] mt-3">Records to check your figures against: {spec.dataRequiredToValidate.join(' · ')}</p>

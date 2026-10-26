@@ -316,10 +316,17 @@ export function categorizeLink(url: URL, text: string): LinkCategory[] {
   // its path. An address that is structurally an ordering destination counts
   // as a menu link only when the wording a customer sees offers the menu —
   // "View Menu and Order" keeps both, a bare ordering endpoint keeps one.
+  //
+  // Only an IDENTIFIABLE ordering endpoint qualifies: the address must still
+  // name a menu once the endpoint's own step name is removed. Matching any
+  // ordering word instead dropped `/takeout-menu.pdf` and `/menus/delivery` —
+  // real menus — and a site whose only menu was a takeout PDF was reported as
+  // having none.
   if (
     !declared &&
     categories.has('menu') &&
-    CATEGORY_PATTERNS.ordering.test(structural) &&
+    ORDERING_ENDPOINT_STEP.test(structural) &&
+    !CATEGORY_PATTERNS.menu.test(structural.replace(ORDERING_ENDPOINT_STEP_ALL, ' ')) &&
     !CATEGORY_PATTERNS.menu.test(matchable(text))
   ) {
     categories.delete('menu');
@@ -343,6 +350,14 @@ export function categorizeLink(url: URL, text: string): LinkCategory[] {
   }
   return Array.from(categories);
 }
+
+/**
+ * The step name an ordering platform gives its own menu screen — SpotHopper's
+ * `ordering-menu`. Deliberately not the general ordering pattern: "takeout",
+ * "delivery" and "order" also name the restaurant's own menu pages.
+ */
+const ORDERING_ENDPOINT_STEP = /\bordering[- ]menus?\b/i;
+const ORDERING_ENDPOINT_STEP_ALL = new RegExp(ORDERING_ENDPOINT_STEP.source, 'gi');
 
 /**
  * Wording that names a TABLE booking specifically, as opposed to the bare verb

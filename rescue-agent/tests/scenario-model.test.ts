@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { calculateScenario, prefillFromAverageTicket, scenarioKindFor, SCENARIO_SPECS } from '@/lib/reports/scenarios';
+import {
+  calculateScenario,
+  parseScenarioInput,
+  prefillFromAverageTicket,
+  scenarioInputProblem,
+  scenarioKindFor,
+  SCENARIO_SPECS,
+} from '@/lib/reports/scenarios';
 
 describe('scenarioKindFor (deterministic eligibility)', () => {
   it('maps eligible demand/conversion categories to a scenario kind', () => {
@@ -106,7 +113,87 @@ describe('calculateScenario (user-entered inputs only, decimal-safe)', () => {
     expect('SCENARIO_DEFAULTS' in mod).toBe(false);
     expect('buildScenario' in mod).toBe(false);
     for (const spec of Object.values(SCENARIO_SPECS)) {
-      for (const field of spec.fields) expect(Object.keys(field).sort()).toEqual(['key', 'label', 'unit']);
+      // A field states what it is and its upper LIMIT — never a value to use.
+      for (const field of spec.fields) expect(Object.keys(field).sort()).toEqual(['key', 'label', 'max', 'unit']);
+    }
+  });
+});
+
+// P2-3 (review of d14e2b7): days, weeks and months shared one limit of 366,
+// so 365 "operating months" produced an annual figure 30× too large.
+describe('P2-3: each period is bounded by its own unit', () => {
+  it('rejects more than 12 operating months, and says so', () => {
+    const lead = { unansweredInquiriesPerMonth: 2, closePercent: 50, eventValue: 500 };
+    expect(calculateScenario('lead', { ...lead, operatingMonths: 365 })).toBeNull();
+    expect(calculateScenario('lead', { ...lead, operatingMonths: 13 })).toBeNull();
+    expect(calculateScenario('lead', { ...lead, operatingMonths: 12 })!.annualExposureCents).toBe(600_000);
+    expect(scenarioInputProblem('lead', { ...lead, operatingMonths: 365 })).toBe('Operating months per year must be a number from 0 to 12.');
+  });
+
+  it('rejects more than 53 operating weeks', () => {
+    const r = { lostBookingsPerWeek: 1, partySize: 2, perGuestValue: 40 };
+    expect(calculateScenario('reservation', { ...r, operatingWeeks: 366 })).toBeNull();
+    expect(calculateScenario('reservation', { ...r, operatingWeeks: 54 })).toBeNull();
+    expect(calculateScenario('reservation', { ...r, operatingWeeks: 53 })).not.toBeNull();
+    expect(scenarioInputProblem('reservation', { ...r, operatingWeeks: 54 })).toMatch(/Operating weeks per year must be a number from 0 to 53/);
+  });
+
+  it('rejects more than 366 operating days', () => {
+    expect(calculateScenario('phone', { ...PHONE, operatingDays: 367 })).toBeNull();
+    expect(calculateScenario('phone', { ...PHONE, operatingDays: 366 })).not.toBeNull();
+  });
+
+  it('every period field carries the limit of its own unit', () => {
+    for (const spec of Object.values(SCENARIO_SPECS)) {
+      const period = spec.fields.find((f) => f.unit === 'periods')!;
+      const expected = /days/i.test(period.label) ? 366 : /weeks/i.test(period.label) ? 53 : /months/i.test(period.label) ? 12 : NaN;
+      expect(period.max, `${spec.kind}: ${period.label}`).toBe(expected);
+    }
+  });
+
+  it('reports no problem for valid or still-empty inputs', () => {
+    expect(scenarioInputProblem('phone', PHONE)).toBeNull();
+    expect(scenarioInputProblem('phone', {})).toBeNull();
+  });
+});
+
+// P2-4 (review of d14e2b7): finite inputs could still overflow — 1e308 dollars
+// produced Infinity cents and "about $NaN" as a completed what-if.
+describe('P2-4: no input can produce an unrepresentable result', () => {
+  it('rejects the reported overflow cases instead of showing $NaN', () => {
+    expect(calculateScenario('ordering', { abandonedOrdersPerDay: 1, averageOrder: 1e308, operatingDays: 365 })).toBeNull();
+    expect(calculateScenario('ordering', { abandonedOrdersPerDay: 0, averageOrder: 1e308, operatingDays: 365 })).toBeNull();
+    expect(calculateScenario('ordering', { abandonedOrdersPerDay: 1e20, averageOrder: 35, operatingDays: 365 })).toBeNull();
+    expect(scenarioInputProblem('ordering', { abandonedOrdersPerDay: 1, averageOrder: 1e308, operatingDays: 365 })).toMatch(
+      /^Average order value must be a number from 0 to \$100,000\.$/,
+    );
+  });
+
+  it('every field has an explicit upper limit', () => {
+    for (const spec of Object.values(SCENARIO_SPECS)) {
+      for (const f of spec.fields) expect(Number.isFinite(f.max) && f.max > 0, `${spec.kind}.${f.key}`).toBe(true);
+    }
+  });
+
+  it('even every input at its limit gives an exact, safely representable total', () => {
+    for (const spec of Object.values(SCENARIO_SPECS)) {
+      const atMax = Object.fromEntries(spec.fields.map((f) => [f.key, f.max]));
+      const sc = calculateScenario(spec.kind, atMax);
+      expect(sc, spec.kind).not.toBeNull();
+      expect(Number.isSafeInteger(sc!.annualExposureCents), spec.kind).toBe(true);
+      expect(sc!.annualExposure, spec.kind).toMatch(/^about \$[\d,]+$/);
+      expect(sc!.monthlyExposure, spec.kind).not.toMatch(/NaN|Infinity/);
+    }
+  });
+
+  it('parses only plain amounts — no scientific notation, hex or words', () => {
+    expect(parseScenarioInput('45')).toBe(45);
+    expect(parseScenarioInput(' 45.50 ')).toBe(45.5);
+    expect(parseScenarioInput('$1,200')).toBe(1200);
+    expect(parseScenarioInput('30%')).toBe(30);
+    expect(parseScenarioInput('')).toBeNull();
+    for (const bad of ['1e308', '1E3', '0x10', 'Infinity', 'NaN', '-5', 'five', '1.2.3']) {
+      expect(Number.isNaN(parseScenarioInput(bad)), bad).toBe(true);
     }
   });
 });

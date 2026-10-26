@@ -98,6 +98,38 @@ describe('3. a link is classified by its own destination, not by a return URL it
     expect(linked?.fact).toMatch(/\(1 link\(s\) found\)/);
     expect(JSON.stringify(menuAccess)).not.toContain('job-listings');
   });
+
+  // P2-1 (review of d14e2b7): the ordering-endpoint exclusion matched any
+  // ordering word in the address, so menu pages for takeout or delivery — and
+  // menu documents — stopped being menus, and a site whose only menu was a
+  // takeout PDF was told no menu pathway existed.
+  it('a takeout, delivery or online-ordering menu page is still a menu link', () => {
+    for (const [href, text] of [
+      ['/takeout-menu.pdf', 'Download PDF'],
+      ['/takeout-menu.pdf', ''],
+      ['/takeout-menu', 'Takeout'],
+      ['/menus/delivery', 'See it'],
+      ['/menu/online-ordering', 'View'],
+      ['/order-menu.pdf', ''],
+    ]) {
+      expect(cats(href, text), `${href} "${text}"`).toContain('menu');
+    }
+  });
+
+  it('a site whose only menu is a takeout PDF reports that menu, not a missing one', () => {
+    const facts = recordsFor('<a href="/takeout-menu.pdf">Download PDF</a><p>Call (727) 555-0100</p>')
+      .filter((e) => e.evidenceType === 'MENU_ACCESS')
+      .map((e) => e.fact);
+    expect(facts.join(' ')).not.toMatch(/no public menu pathway/i);
+    expect(facts.join(' ')).toMatch(/menu pathway is publicly linked \(1 link\(s\) found\)/i);
+    // The PDF friction that main reported for this site is preserved.
+    expect(facts.join(' ')).toMatch(/only detected menu links point to PDF files/i);
+  });
+
+  it('only an identifiable ordering endpoint loses the menu category', () => {
+    expect(cats('https://tmt.spotapps.co/ordering-menu/?spot_id=', '')).toEqual(['ordering']);
+    expect(cats('https://order.example/ordering-menu/food', '')).toContain('menu');
+  });
 });
 
 // ── 2. PRIVATE-EVENT INQUIRIES ──────────────────────────────────────────────
@@ -164,6 +196,62 @@ describe('4. observed friction and unmeasured performance are different words', 
     const retention = calculateCategoryScores(analyzeJourney(records), records).find((c) => c.category === 'CUSTOMER_RETENTION')!;
     expect(retention.score).toBe(70);
     expect(retention.explanation).toMatch(/FOLLOW_UP=RESOLVED_UNVERIFIED, RETURN=RESOLVED_UNVERIFIED/);
+  });
+
+  // P2-2 (review of d14e2b7; owner decision): a missing FAQ page alone must not
+  // lower the Phone score or justify FRICTION. A visible number with working
+  // tap-to-call is HEALTHY whether or not an FAQ page exists; call answering is
+  // stated as not assessed. Observed customer-facing problems keep their status.
+  describe('P2-2: the Phone stage is decided by what a caller meets, not by an FAQ page', () => {
+    const REACHABLE =
+      '<h1>Leverock\'s</h1><p>Call <a href="tel:+17273674588">(727) 367-4588</a></p>' +
+      '<p>Hours: Mon–Sun 11:30 AM – 9:00 PM</p><p>840 Pasadena Avenue South, St. Petersburg, FL 33707</p>' +
+      '<a href="/st-petersburg-leverock-s-great-seafood-food-menu">Menu</a>';
+    const phoneOf = (body: string) => {
+      const records = recordsFor(body);
+      const journey = analyzeJourney(records);
+      return {
+        stage: journey.find((s) => s.stage === 'PHONE')!,
+        score: calculateCategoryScores(journey, records).find((c) => c.category === 'PHONE_RESPONSE_READINESS')!.score,
+        leak: detectRevenueLeaks({ evidence: records, journey }).find((l) => /PHONE-DEPENDENT/.test(l.category)),
+      };
+    };
+
+    it('number + tap-to-call with no FAQ page is HEALTHY, and says call answering is not assessed', () => {
+      const { stage, score } = phoneOf(REACHABLE);
+      expect(stage.status).toBe('HEALTHY');
+      expect(journeyStatusLabel(stage.status)).toBe('HEALTHY');
+      expect(score).toBe(90);
+      expect(stage.finding).toMatch(/Not assessed: whether calls are answered/);
+      expect(stage.manualValidationRequired).toBe(true);
+    });
+
+    it('an FAQ page changes neither the status nor the score', () => {
+      const without = phoneOf(REACHABLE);
+      const withFaq = phoneOf(`${REACHABLE}<a href="/faq">FAQ</a>`);
+      expect(withFaq.stage.status).toBe(without.stage.status);
+      expect(withFaq.score).toBe(without.score);
+    });
+
+    it('missing tap-to-call is still FRICTION — an observed customer-facing problem — and the FAQ page is not cited', () => {
+      const { stage, score } = phoneOf(REACHABLE.replace('<a href="tel:+17273674588">(727) 367-4588</a>', '(727) 367-4588'));
+      expect(stage.status).toBe('FRICTION');
+      expect(score).toBe(60);
+      expect(stage.finding).toMatch(/mobile visitors cannot tap to call/);
+      expect(stage.finding).not.toMatch(/FAQ/i);
+    });
+
+    it('no phone number at all is still RISK', () => {
+      expect(phoneOf('<h1>Leverock\'s</h1><p>Visit us.</p>').stage.status).toBe('RISK');
+    });
+
+    it('the manual-validation phone question is preserved, and still absent where main had none', () => {
+      const { leak } = phoneOf(REACHABLE);
+      expect(leak, 'the unmeasured-demand question should still be asked').toBeDefined();
+      expect(leak!.manualValidationRequired).toBe(true);
+      expect(leak!.problem).toMatch(/does not claim the phone is overloaded/i);
+      expect(phoneOf(`${REACHABLE}<a href="/faq">FAQ</a>`).leak).toBeUndefined();
+    });
   });
 
   it('an unshared review rating is unknown, not friction', () => {
