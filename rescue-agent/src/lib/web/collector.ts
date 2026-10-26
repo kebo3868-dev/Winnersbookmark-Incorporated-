@@ -992,36 +992,85 @@ const ORDER_LABEL_MAX_DEPTH = 4;
 /** Past this much text an ancestor is the page, not the button's section. */
 const ORDER_LABEL_MAX_SECTION_TEXT = 400;
 
+/** A non-telephone link that offers ordering, by its wording or its destination. */
+function isOrderingLink($link: cheerio.Cheerio<DomElement>): boolean {
+  const text = $link.text().replace(/\s+/g, ' ').trim();
+  if (PHONE_ORDER_INTENT.test(text) || ONLINE_ORDER_WORDING.test(text)) return true;
+  try {
+    return categorizeLink(new URL($link.attr('href') ?? '', 'https://placeholder.invalid/'), text).includes('ordering');
+  } catch {
+    return false;
+  }
+}
+
 /**
  * The "Order Online" wording a telephone ordering button is presented under,
  * or null.
  *
  * Read in order of directness: the button's own text, its accessible name,
- * then a label in the button's own section. The section search climbs at most
- * ORDER_LABEL_MAX_DEPTH levels and stops as soon as an ancestor holds more
- * than ORDER_LABEL_MAX_SECTION_TEXT characters, so a label elsewhere on the
- * page never counts. Text inside OTHER links is ignored: an "Order Online"
- * link to a real ordering page beside a "Call to Order" button is two routes,
- * not a mislabelled button.
+ * then a label in the button's own section.
+ *
+ * THE BUTTON'S OWN SECTION, NOT A NEIGHBOUR'S. The section is the widest
+ * ancestor, at most ORDER_LABEL_MAX_DEPTH levels up, that still holds no more
+ * than ORDER_LABEL_MAX_SECTION_TEXT characters and offers no other ordering
+ * link. Inside it:
+ *
+ *   - Headings are read as an outline. The button sits under the nearest
+ *     heading before it and under each earlier heading of higher rank, so
+ *     "Order Online" › "Pickup" › button keeps the label, while "Order Online"
+ *     followed by a sibling "Order by Phone" or "Takeout" heading does not.
+ *     A button with any heading above it is judged by those headings alone.
+ *   - Only a button with no heading above it falls back to a whole-text label
+ *     anywhere in the section, such as a menu caption or a line in its card.
+ *
+ * Another ordering link in the section ends the climb: an "Order Online"
+ * label beside a real ordering link names that link, and the phone button is
+ * a second route rather than a mislabelled one. Text inside other links is
+ * never read as a label for the same reason.
  */
 function onlineOrderLabelFor($: cheerio.CheerioAPI, anchor: DomElement, text: string): string | null {
   const $anchor = $(anchor);
   for (const own of [text, $anchor.attr('aria-label') ?? '', $anchor.attr('title') ?? '']) {
     if (ONLINE_ORDER_WORDING.test(own)) return own.replace(/\s+/g, ' ').trim().slice(0, 60);
   }
+  const clean = (el: DomElement) => $(el).text().replace(/\s+/g, ' ').trim();
+
+  // Narrowest first, so the fallback below prefers the nearest label.
+  const sections: cheerio.Cheerio<DomElement>[] = [];
   let section = $anchor.parent();
   for (let depth = 0; depth < ORDER_LABEL_MAX_DEPTH && section.length > 0; depth++) {
     if (section.text().replace(/\s+/g, ' ').trim().length > ORDER_LABEL_MAX_SECTION_TEXT) break;
-    const labelEl = section
+    const otherOrderingLink = section
+      .find('a[href]')
+      .toArray()
+      .some((a) => a !== anchor && !($(a).attr('href') ?? '').startsWith('tel:') && isOrderingLink($(a)));
+    if (otherOrderingLink) break;
+    sections.push(section);
+    section = section.parent();
+  }
+  if (sections.length === 0) return null;
+
+  const ordered = sections[sections.length - 1].find('h1, h2, h3, h4, h5, h6, a').toArray();
+  const outline: string[] = [];
+  let rank = 7;
+  for (const el of ordered.slice(0, ordered.indexOf(anchor)).reverse()) {
+    const level = Number(/^h([1-6])$/i.exec(el.tagName)?.[1] ?? 7);
+    if (level >= rank) continue;
+    rank = level;
+    outline.push(clean(el));
+  }
+  if (outline.length > 0) return outline.find((heading) => ONLINE_ORDER_LABEL.test(heading)) ?? null;
+
+  for (const scope of sections) {
+    const labelEl = scope
       .find('*')
       .toArray()
       .find((el) => {
         const $el = $(el);
         if ($el.is('a, script, style') || $el.closest('a').length > 0) return false;
-        return ONLINE_ORDER_LABEL.test($el.text().replace(/\s+/g, ' ').trim());
+        return ONLINE_ORDER_LABEL.test(clean(el));
       });
-    if (labelEl) return $(labelEl).text().replace(/\s+/g, ' ').trim();
-    section = section.parent();
+    if (labelEl) return clean(labelEl);
   }
   return null;
 }

@@ -161,6 +161,107 @@ describe('detecting a phone ordering button presented as online ordering', () =>
   });
 });
 
+// ── SECTION BOUNDARIES (PR #65 review) ─────────────────────────────────────
+//
+// The label search climbed past the button's own section and borrowed a
+// neighbour's "Order Online" heading. Each layout below is a correctly labelled
+// page that was reported as a mismatch. The phone link always carries ordering
+// wording, so it IS collected as a phone ordering button; what must not happen
+// is pairing it with a label that belongs to something else.
+
+describe('a label belonging to a neighbouring section or link is not borrowed', () => {
+  const flagged = (html: string) => page(`${html}${FILLER}`).onlineLabelledPhoneCtas;
+  const TOAST = 'https://order.toasttab.com/leverocks';
+
+  it('A: sibling sections "Order Online" (web checkout) and "Order by Phone" (call)', () => {
+    const html =
+      `<main><section><h2>Order Online</h2><a href="${TOAST}">Start order</a></section>` +
+      '<section><h2>Order by Phone</h2><a href="tel:+17275551234">Call to Order</a></section></main>';
+    expect(page(`${html}${FILLER}`).phoneOrderCtas).toEqual(['Call to Order']);
+    expect(flagged(html)).toEqual([]);
+  });
+
+  it('B: the same, with no heading on the phone section', () => {
+    const html =
+      `<main><section><h2>Order Online</h2><a href="${TOAST}">Start order</a></section>` +
+      '<section><a href="tel:+17275551234">Call to Order</a></section></main>';
+    expect(flagged(html)).toEqual([]);
+  });
+
+  it('D: one "Order Online" section offering a web checkout and a phone alternative', () => {
+    const html =
+      `<section><h2>Order Online</h2><a href="${TOAST}">Order Now</a>` +
+      '<a href="tel:+17275551234">Call to Order</a></section>';
+    expect(flagged(html)).toEqual([]);
+  });
+
+  it('L: a card grid with an "Order Online" card (web) beside a "Takeout" card (phone)', () => {
+    const html =
+      `<div class="grid"><div class="card"><h3>Order Online</h3><a href="${TOAST}">Go</a></div>` +
+      '<div class="card"><h3>Takeout</h3><a href="tel:+17275551234">Call for Takeout</a></div></div>';
+    expect(flagged(html)).toEqual([]);
+  });
+});
+
+describe('the section boundaries do not hide a real mismatch', () => {
+  const flagged = (html: string) => page(`${html}${FILLER}`).onlineLabelledPhoneCtas;
+
+  it('Leverock\'s: "ORDER ONLINE" heading over a lone "ORDER" phone button', () => {
+    expect(flagged('<section><h2>ORDER ONLINE</h2><a href="tel:+17273674588">ORDER</a></section>')).toEqual([
+      { text: 'ORDER', label: 'ORDER ONLINE' },
+    ]);
+  });
+
+  it('Leverock\'s, unwrapped: the label sits beside the button under the page\'s own <h1>', () => {
+    const html = '<h1>Leverock\'s Great Seafood</h1><h2>ORDER ONLINE</h2><a href="tel:+17273674588">ORDER</a>';
+    expect(page(html).onlineLabelledPhoneCtas).toEqual([{ text: 'ORDER', label: 'ORDER ONLINE' }]);
+  });
+
+  it('several ordering options, every one of them a phone call, under "Order Online"', () => {
+    const html =
+      '<section><h2>Order Online</h2>' +
+      '<div><h3>Pickup</h3><a href="tel:+17275551234">Order Pickup</a></div>' +
+      '<div><h3>Delivery</h3><a href="tel:+17275551234">Order Delivery</a></div></section>';
+    expect(flagged(html)).toEqual([
+      { text: 'Order Pickup', label: 'Order Online' },
+      { text: 'Order Delivery', label: 'Order Online' },
+    ]);
+  });
+
+  it('two phone ordering buttons side by side under "Order Online"', () => {
+    const html =
+      '<section><h2>Order Online</h2><a href="tel:+17275551234">Order Pickup</a>' +
+      '<a href="tel:+17275551234">Order Catering</a></section>';
+    expect(flagged(html)?.map((c) => c.text)).toEqual(['Order Pickup', 'Order Catering']);
+  });
+
+  it('non-ordering web links in the section do not excuse the phone button', () => {
+    const html =
+      '<section><h2>ORDER ONLINE</h2><a href="/menu">View Menu</a><a href="/gift-cards">Gift Cards</a>' +
+      '<a href="tel:+17273674588">ORDER</a></section>';
+    expect(flagged(html)).toEqual([{ text: 'ORDER', label: 'ORDER ONLINE' }]);
+  });
+
+  it('only the button under the label is flagged when another phone button sits elsewhere', () => {
+    const html =
+      '<section><h2>ORDER ONLINE</h2><a href="tel:+17273674588">ORDER</a></section>' +
+      `<section><h2>Hours</h2><p>${'Open daily. '.repeat(40)}</p><a href="tel:+17273674588">Call to order pickup</a></section>`;
+    expect(page(`${html}${FILLER}`).phoneOrderCtas).toEqual(['ORDER', 'Call to order pickup']);
+    expect(flagged(html)).toEqual([{ text: 'ORDER', label: 'ORDER ONLINE' }]);
+  });
+
+  it('a navigation menu labelled "Order Online" whose item dials', () => {
+    const html = '<nav><ul><li><span>Order Online</span><ul><li><a href="tel:+17275551234">Order</a></li></ul></li></ul></nav>';
+    expect(flagged(html)).toEqual([{ text: 'Order', label: 'Order Online' }]);
+  });
+
+  it('an "Order online" line placed after the button in its own card', () => {
+    expect(flagged('<div class="card"><a href="tel:+17275551234">Order</a><p>Order online</p></div>')).toEqual([
+      { text: 'Order', label: 'Order online' },
+    ]);
+  });
+});
+
 // ── EVIDENCE MARKER AND STORED RECORDS ──────────────────────────────────────
 
 describe('the channel marker', () => {
