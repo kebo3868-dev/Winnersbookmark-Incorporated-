@@ -138,7 +138,7 @@ describe('finding counters state what they count', () => {
   it('publishes the finding total the three classifications divide up', () => {
     const dto = buildExecutiveReport(baseInput());
     expect(dto.score.findingsCount).toBe(dto.findings.length);
-    expect(dto.score.verifiedCount + dto.score.inferredCount + dto.score.manualValidationCount).toBe(dto.score.findingsCount);
+    expect(dto.score.verifiedCount + dto.score.strongCount + dto.score.inferredCount + dto.score.manualValidationCount).toBe(dto.score.findingsCount);
   });
 
   it('counts findings, not evidence items — 22 verified-looking items, one unconfirmed leak', () => {

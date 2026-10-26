@@ -10,6 +10,7 @@ import {
   validationInstruction,
   type EvidenceState,
 } from '@/lib/audit/evidenceState';
+import { evidenceBasisFor } from '@/lib/audit/evidenceBasis';
 
 /**
  * CLAIM SAFETY IN THE SALES BRIEF
@@ -81,6 +82,11 @@ export function generateSalesBrief(input: {
   // device. "Could not check from the outside" would understate it; asserting
   // it would overstate it. It is raised as what the site shows, plus a question.
   const strongLead = leadState === 'STRONG_EVIDENCE';
+  // Where the finding's layers are known — what was verified, what was not
+  // tested, what was not measured — they ARE the status. "Strongly indicated,
+  // not yet confirmed" said less than the audit knew, about a button whose
+  // markup was read straight off the page.
+  const basis = topLeak && !canAssert ? evidenceBasisFor(topLeak.category) : null;
 
   // Lead quality: more confirmed, high-priority pain = better-qualified lead.
   const avgPriority = topLeaks.length ? topLeaks.reduce((s, l) => s + l.rescuePriorityScore, 0) / topLeaks.length : 0;
@@ -111,7 +117,10 @@ export function generateSalesBrief(input: {
   const bestSalesAngle = topLeak
     ? canAssert
       ? `Lead with the audit evidence: "${topLeak.title}". It is verified, concrete, and about their own customers' experience — not about our product. State it plainly.`
-      : `Lead with the audit evidence: "${leadTitle}". Status: ${STATE_PLAIN[leadState]}. Public evidence suggests this and it is NOT confirmed — open it as an observation and a question, never as a statement of fact. ${validationInstruction(leadState, 'this finding')}`
+      : // One status and one instruction. This said the finding was unconfirmed
+        // three times in three phrasings, which reads as nervousness on a call.
+        `Lead with the audit evidence: "${leadTitle}". Status: ${basis ? basis.summary : STATE_PLAIN[leadState]}. ` +
+        `Open it as an observation and a question, never as a statement of fact. ${basis ? basis.nextCheck : validationInstruction(leadState, 'this finding')}`
     : 'Lead with the clean audit: their public presence is solid, so the open question is what happens off-line (calls, follow-up, repeat visits) — which only they can answer.';
 
   const likelyObjection = aiFitLeaks.length > 0
@@ -144,7 +153,9 @@ export function generateSalesBrief(input: {
   const leadClaim = topLeak
     ? canAssert
       ? `one thing stood out: ${verifiedHook}`
-      : strongLead
+      : basis
+        ? `one thing on the website stood out: ${basis.ownerObservation}. ${basis.ownerCaveat}, which is why I would like to check it with you`
+        : strongLead
         ? `one thing the website itself points to: ${openQuestion}. I have not confirmed it end to end and I am not assuming what it costs you, which is why I would like to check it with you`
         : `one thing I could not check from the outside: ${openQuestion}. It is a question, not a finding, which is why I am asking rather than telling`
     : 'most of it came back strong';
@@ -162,7 +173,7 @@ export function generateSalesBrief(input: {
     objectionStrategy,
     recommendedOffer: recommendedTier,
     outreachAngle: topLeak
-      ? `Reference the specific finding (${(leadTitle ?? topLeak.title).toLowerCase()}) with its evidence, offer the full audit free, and anchor the ask to a ${COMPANY.reviewMinutes}-minute review. Evidence first, product second.${canAssert ? '' : ' Frame it as a question — this finding is not confirmed.'}`
+      ? `Reference the specific finding (${(leadTitle ?? topLeak.title).toLowerCase()}) with its evidence, offer the full audit free, and anchor the ask to a ${COMPANY.reviewMinutes}-minute review. Evidence first, product second.${canAssert ? '' : ' Ask about it rather than asserting it.'}`
       : `Compliment what the audit confirmed they do well, then raise the unverifiable areas as open questions worth a ${COMPANY.reviewMinutes}-minute review.`,
     emailOpener: topLeak
       ? `Subject: Found something on the ${restaurantName} website\n\nI ran a digital audit of ${restaurantName} and ${leadClaim}. I put the full findings in a short report — happy to send it over, no strings. Worth ${COMPANY.reviewMinutes} minutes?`
@@ -172,7 +183,9 @@ export function generateSalesBrief(input: {
     callOpener: topLeak
       ? canAssert
         ? `"Hi, this is [name] with Winnersbookmark — I put together a digital audit of ${restaurantName} and found something I think you'd want to know about: ${lowerFirst(topLeak.title)}. Do you have 90 seconds for the short version?"`
-        : strongLead
+        : basis
+          ? `"Hi, this is [name] with Winnersbookmark — I put together a digital audit of ${restaurantName}. One thing on your website I would like to check with you: ${basis.ownerObservation}. Can I ask you about it — 90 seconds?"`
+          : strongLead
           ? `"Hi, this is [name] with Winnersbookmark — I put together a digital audit of ${restaurantName}. One thing your website points to that I would like to check with you: ${lowerFirst(leadTitle ?? topLeak.title)}. Can I ask you about it — 90 seconds?"`
           : `"Hi, this is [name] with Winnersbookmark — I put together a digital audit of ${restaurantName}. One thing I could not check from the outside: ${lowerFirst(leadTitle ?? topLeak.title)}. Can I ask you about it — 90 seconds?"`
       : `"Hi, this is [name] with Winnersbookmark — I ran a digital audit of ${restaurantName}. Good news: most of it is solid. I've got two questions about calls and repeat visits that a public audit can't answer. 90 seconds?"`,
@@ -181,7 +194,8 @@ export function generateSalesBrief(input: {
       ? canAssert
         ? `If no response in 4–5 days: send one specific evidence item (${(verifiedHook ?? '').slice(0, 120)}) as a screenshot/quote with a one-line question. No pitch. Then a final value-add follow-up a week later.`
         : strongLead
-          ? `If no response in 4–5 days: send the observation — "${leadTitle ?? topLeak.title}" — with a one-line question asking whether it matches what they see on their own phone. It is ${STATE_PLAIN[leadState]}: quote it as what the website shows, never as something measured. No pitch. Then a final value-add follow-up a week later.`
+          ? // The status is already in the sales angle; the follow-up only says how to send it.
+            `If no response in 4–5 days: send the observation — "${leadTitle ?? topLeak.title}" — with a one-line question asking whether it matches what they see on their own phone. Quote it as what the website shows. No pitch. Then a final value-add follow-up a week later.`
           : `If no response in 4–5 days: send the open question itself — "${leadTitle ?? topLeak.title}" — as a one-line question. Attach no evidence item: this finding is not confirmed, so there is nothing to quote as fact. No pitch. Then a final value-add follow-up a week later.`
       : 'If no response: follow up once with a single useful observation from the audit, then move to nurture cadence.',
     priority,
@@ -319,30 +333,38 @@ function buildTalkTrack(
   if (topLeaks.length > 0) {
     // Each finding is labelled with the strength it was actually established
     // at, so the rep does not have to remember which of three findings was the
-    // confirmed one while a restaurant owner is listening.
-    const labelled = topLeaks
-      .map((l) => {
-        const state = stateForOpportunity(l);
-        return mayStateDefinitively(state)
-          ? `"${l.title}" — VERIFIED, state it plainly`
-          : `"${stripDefinitive(l.title)}" — ${STATE_PLAIN[state]}: ask about it, do not assert it`;
-      })
-      .join('; ');
+    // confirmed one while a restaurant owner is listening. One line each: run
+    // together with "ask about it, do not assert it" after every one, the list
+    // was a paragraph a rep could not find their place in.
+    const labelled = topLeaks.map((l) => {
+      const state = stateForOpportunity(l);
+      if (mayStateDefinitively(state)) return `• "${l.title}" — VERIFIED, state it plainly`;
+      const layers = evidenceBasisFor(l.category);
+      return `• "${stripDefinitive(l.title)}" — ${layers ? layers.summary : STATE_PLAIN[state]}`;
+    });
     lines.push(
       // "Why it costs you customers" asserted a loss for every finding,
       // including the ones the brief itself says not to assert.
       `${findingsBlock} — Top findings: show the top ${topLeaks.length} findings with their evidence. For each: "here's what we saw, here's what we could not see, here's how you can check it." ` +
-        `Say only what the evidence supports — ${labelled}.`,
+        'Say only what the evidence supports:',
+      ...labelled,
     );
-    // The combined claim strength of everything being presented. A talk track
-    // built on three unconfirmed findings is not a confident conversation, and
-    // saying so here is cheaper than saying it after the call.
-    const combined = inheritState(...topLeaks.map(stateForOpportunity));
-    if (!mayStateDefinitively(combined)) {
+    // One instruction for everything not confirmed, said once. It used to
+    // open "the strongest claim this brief supports overall is: not
+    // confirmed", which read as a verdict on findings whose evidence was
+    // verified.
+    const open = topLeaks.filter((l) => !mayStateDefinitively(stateForOpportunity(l))).length;
+    if (open > 0) {
+      const combined = inheritState(...topLeaks.map(stateForOpportunity));
+      const which =
+        open === topLeaks.length
+          ? topLeaks.length === 1
+            ? 'This finding is not'
+            : `None of these ${topLeaks.length} findings is`
+          : `${open} of these ${topLeaks.length} findings are not`;
       lines.push(
-        `EVIDENCE DISCIPLINE — the strongest claim this brief supports overall is: ${STATE_PLAIN[combined]}. ` +
-          `${validationInstruction(combined, 'these findings')} ` +
-          'Present every finding above as an observation to check with the owner, never as a confirmed defect.',
+        `EVIDENCE DISCIPLINE — ${which} confirmed end to end. ${validationInstruction(combined, 'these findings')} ` +
+          'Present each as an observation to check with the owner, never as a confirmed defect.',
       );
     }
   } else {

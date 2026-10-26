@@ -4,6 +4,7 @@ import { COMPANY, type Contact } from '@/lib/config';
 import { prefillFromAverageTicket, scenarioKindFor, SCENARIO_SPECS, type ScenarioKind } from '@/lib/reports/scenarios';
 import { STATE_LABEL, STATE_PLAIN, stateForOpportunity, type EvidenceState } from '@/lib/audit/evidenceState';
 import { ORDERING_CHANNEL_FLAG, ORDERING_CHANNEL_HEAD } from '@/lib/audit/orderingChannel';
+import { evidenceBasisFor, type EvidenceBasis } from '@/lib/audit/evidenceBasis';
 import { safeDisplayName } from '@/lib/audit/restaurantName';
 import {
   CONFIDENCE_BANDS,
@@ -86,6 +87,34 @@ export function reportHeadlines(classifications: EvidenceClassification[]): Repo
     return { snapshot: 'Executive Snapshot', findings: 'Revenue Leaks and Opportunities to Validate' };
   }
   return { snapshot: 'Executive Snapshot', findings: 'Priority Opportunities to Validate' };
+}
+
+/**
+ * The classification counters under the score, with their labels, for the web
+ * report and the PDF alike — two hand-written copies of these labels is how a
+ * STRONG EVIDENCE finding came to be published as "inferred".
+ */
+export function classificationCounters(score: {
+  verifiedCount: number;
+  strongCount: number;
+  inferredCount: number;
+  manualValidationCount: number;
+}): [number, string][] {
+  return [
+    [score.verifiedCount, 'Verified findings'],
+    [score.strongCount, 'Strong evidence, not tested end to end'],
+    [score.inferredCount, 'Inferred opportunities'],
+    [score.manualValidationCount, 'Need your data to confirm'],
+  ];
+}
+
+/** The sentence introducing the counters, shared by the web report and the PDF. */
+export function classificationIntro(findingsCount: number, evidenceCount: number): string {
+  return (
+    `How the ${findingsCount} finding(s) in Section 04 are classified. These describe the findings, not the ` +
+    `${evidenceCount} evidence items above: evidence behind a finding can be verified — a link read from the page — ` +
+    'while the finding as a whole is not. Every evidence item carries its own confidence label and is listed in the Appendix.'
+  );
 }
 
 /** The canonical evidence state behind a report classification, for callers that need to reason about it. */
@@ -189,7 +218,19 @@ export interface ExecutiveFinding {
   automationOpportunity: string;
   validationRequired: string;
   journeyStage: string;
-  labels: { businessImpact: string; urgency: string; evidenceConfidence: string; automationOpportunity: string; priority: string };
+  /**
+   * What the finding rests on, layer by layer — verified, not yet tested, not
+   * measured — where those layers are known for its type; null otherwise. Shown
+   * with the classification badge so a STRONG EVIDENCE finding over verified
+   * markup does not read as a contradiction. See evidenceBasis.ts.
+   */
+  evidenceBasis: EvidenceBasis | null;
+  /**
+   * `findingConfidence` rates the finding as a whole. It was labelled "Evidence
+   * confidence", and sat beside evidence items labelled Strong while itself
+   * reading Moderate — two ratings of different things under one name.
+   */
+  labels: { businessImpact: string; urgency: string; findingConfidence: string; automationOpportunity: string; priority: string };
   internalScores: { impact: number; urgency: number; confidence: number; aiFit: number; rescuePriority: number };
   evidenceSnapshot: { fact: string; sourceUrl: string | null }[];
   /**
@@ -346,18 +387,21 @@ export interface ExecutiveReportDTO {
     sourcesAnalyzed: number;
     sourcesFailed: number;
     /**
-     * Denominator for the three classification counts below.
+     * Denominator for the four classification counts below.
      *
-     * verified + inferred + manualValidation classify the revenue-leak findings
+     * verified + strong + inferred + manualValidation classify the findings
      * reported in Section 04 — NOT the evidence items. An audit can hold 22
      * verified evidence items and still report zero VERIFIED FINDINGS, because
      * a finding is only verified when the leak it describes was established
      * without needing owner data. Publishing the total alongside them is what
-     * makes the three numbers add up in the reader's head instead of reading as
-     * a verdict on the evidence.
+     * makes the numbers add up in the reader's head instead of reading as a
+     * verdict on the evidence.
      */
     findingsCount: number;
     verifiedCount: number;
+    /** STRONG EVIDENCE: read directly from the website, not confirmed end to end. */
+    strongCount: number;
+    /** INFERRED OPPORTUNITY only. */
     inferredCount: number;
     manualValidationCount: number;
   };
@@ -496,10 +540,11 @@ export function buildExecutiveReport(input: ExecutiveReportInput): ExecutiveRepo
       automationOpportunity: automationLabel(opp.aiFitScore),
       validationRequired: unknownsFor(opp.category),
       journeyStage: JOURNEY_LABELS[opp.customerJourneyStage] ?? opp.customerJourneyStage,
+      evidenceBasis: evidenceBasisFor(opp.category),
       labels: {
         businessImpact: levelLabel(opp.impactScore),
         urgency: levelLabel(opp.urgencyScore),
-        evidenceConfidence: confidenceLabel(opp.confidenceScore),
+        findingConfidence: confidenceLabel(opp.confidenceScore),
         automationOpportunity: automationLabel(opp.aiFitScore),
         priority: priorityLabel(opp.rescuePriorityScore),
       },
@@ -515,19 +560,20 @@ export function buildExecutiveReport(input: ExecutiveReportInput): ExecutiveRepo
     };
   });
 
-  // Three published counters, and they must still sum to the number of findings
+  // Four published counters, and they must still sum to the number of findings
   // printed — a reader who cannot make the numbers add up stops trusting all of
   // them.
   //
-  // STRONG EVIDENCE is counted with the inferred findings, not the verified
-  // ones. The buckets are "may be stated as fact" / "an opportunity, not a
-  // confirmed defect" / "needs a human", and strong-but-not-completed evidence
-  // belongs to the second. Each finding still carries its own STRONG EVIDENCE
-  // badge, so nothing is hidden by the grouping — only the promotion is refused.
+  // STRONG EVIDENCE has its own counter. It was counted with the inferred
+  // findings, so a finding resting on markup read straight off the page was
+  // published as an "inferred opportunity" beside evidence marked verified.
+  // It is still never counted as verified: the buckets are "established as a
+  // whole" / "read directly, not confirmed end to end" / "inferred from
+  // public signals" / "needs a human", and only the first may be stated as
+  // fact.
   const verifiedCount = findings.filter((f) => f.classification === 'VERIFIED FINDING').length;
-  const inferredCount = findings.filter(
-    (f) => f.classification === 'INFERRED OPPORTUNITY' || f.classification === 'STRONG EVIDENCE',
-  ).length;
+  const strongCount = findings.filter((f) => f.classification === 'STRONG EVIDENCE').length;
+  const inferredCount = findings.filter((f) => f.classification === 'INFERRED OPPORTUNITY').length;
   const manualCount = findings.filter((f) => f.classification === 'MANUAL VALIDATION REQUIRED').length;
 
   const stageOrder = Object.keys(JOURNEY_LABELS);
@@ -635,6 +681,7 @@ export function buildExecutiveReport(input: ExecutiveReportInput): ExecutiveRepo
       sourcesFailed: input.sourcesFailed,
       findingsCount: findings.length,
       verifiedCount,
+      strongCount,
       inferredCount,
       manualValidationCount: manualCount,
     },

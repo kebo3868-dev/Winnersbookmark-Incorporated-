@@ -1,7 +1,8 @@
 import React from 'react';
 import { Document, Page, Text, View, Image, StyleSheet } from '@react-pdf/renderer';
-import type { ExecutiveReportDTO } from '@/lib/reports/executive';
-import { CONFIDENCE_EXPLANATION } from '@/lib/scoring/methodology';
+import { classificationCounters, classificationIntro, type ExecutiveReportDTO } from '@/lib/reports/executive';
+import { evidenceBasisRows } from '@/lib/audit/evidenceBasis';
+import { CONFIDENCE_EXPLANATION, FINDING_CLASSIFICATION_NOTE } from '@/lib/scoring/methodology';
 import { SCENARIO_DISCLAIMER, SCENARIO_SPECS } from '@/lib/reports/scenarios';
 
 /**
@@ -181,6 +182,7 @@ export function findingMaySpanPages(finding: ExecutiveReportDTO['findings'][numb
     finding.whatWeDoNotKnow,
     finding.recommendedAction,
     ...finding.whatWeKnow,
+    ...(finding.evidenceBasis ? evidenceBasisRows(finding.evidenceBasis).flat() : []),
   ].join(' ');
   return text.length > 1400;
 }
@@ -406,15 +408,10 @@ export function ExecutivePdf({ dto }: { dto: ExecutiveReportDTO }) {
             ))}
           </View>
           <Text style={[s.mutedText, { marginTop: 8, marginBottom: 5 }]}>
-            How the {dto.score.findingsCount} finding(s) in Section 04 are classified. These describe the findings, not the {dto.score.evidenceCount} evidence
-            items above — every evidence item carries its own confidence label and is listed in the Appendix.
+            {classificationIntro(dto.score.findingsCount, dto.score.evidenceCount)}
           </Text>
           <View style={[s.row, { gap: 8, flexWrap: 'wrap' }]} wrap={false}>
-            {[
-              [`${dto.score.verifiedCount}`, 'Verified from public evidence'],
-              [`${dto.score.inferredCount}`, 'Inferred opportunities'],
-              [`${dto.score.manualValidationCount}`, 'Need your data to confirm'],
-            ].map(([n, label]) => (
+            {classificationCounters(dto.score).map(([n, label]) => (
               <View key={label} style={{ borderWidth: 0.5, borderColor: C.line, borderRadius: 2, paddingVertical: 5, paddingHorizontal: 10, alignItems: 'center' }}>
                 <Text style={{ fontFamily: 'Helvetica-Bold', fontSize: 11, color: C.ink }}>{n}</Text>
                 <Text style={{ fontSize: 6.5, letterSpacing: 0.8, color: C.muted, textTransform: 'uppercase' }}>{label}</Text>
@@ -514,6 +511,25 @@ export function ExecutivePdf({ dto }: { dto: ExecutiveReportDTO }) {
             // a block arriving there says which finding it belongs to. Short
             // cards do not carry the label, because they cannot split.
             const blocks: { key: string; node: React.ReactNode }[] = [
+              // The layers sit directly under the badge, so a STRONG EVIDENCE
+              // badge is never read without what was and was not verified.
+              ...(f.evidenceBasis
+                ? [
+                    {
+                      key: 'basis',
+                      node: (
+                        <View style={{ borderWidth: 0.5, borderColor: C.line, borderRadius: 2, padding: 6, marginBottom: 6 }}>
+                          {evidenceBasisRows(f.evidenceBasis).map(([label, text]) => (
+                            <Text key={label} style={[s.body, { marginBottom: 1 }]}>
+                              <Text style={{ fontFamily: 'Helvetica-Bold' }}>{label}: </Text>
+                              {text}
+                            </Text>
+                          ))}
+                        </View>
+                      ),
+                    },
+                  ]
+                : []),
               {
                 key: 'problem',
                 node: (
@@ -578,7 +594,7 @@ export function ExecutivePdf({ dto }: { dto: ExecutiveReportDTO }) {
                     {[
                       ['Business impact', f.labels.businessImpact],
                       ['Urgency', f.labels.urgency],
-                      ['Evidence confidence', f.labels.evidenceConfidence],
+                      ['Finding confidence', f.labels.findingConfidence],
                       ['Automation opportunity', f.labels.automationOpportunity],
                     ].map(([label, value]) => (
                       <View key={label}>
@@ -862,6 +878,7 @@ export function ExecutivePdf({ dto }: { dto: ExecutiveReportDTO }) {
                 {` — ${definition}`}
               </Text>
             ))}
+            <Text style={[s.mutedText, { marginTop: 3 }]}>{FINDING_CLASSIFICATION_NOTE}</Text>
           </View>
           {/*
             * Rows travel in groups of three.

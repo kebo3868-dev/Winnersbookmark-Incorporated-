@@ -368,10 +368,10 @@ export function resolveOrderingChannel(input: OrderingChannelInput): OrderingCha
           'A visitor who chose to order online is offered a phone call instead. ' +
           scope,
         detail:
-          `Observed automatically from the page markup: call-to-action text ${ctas} is presented under ` +
+          `Verified in the page markup: call-to-action text ${ctas} is presented under ` +
           `"${mislabelled.label}" and resolves to a telephone number (a tel: link), not to a web destination. ` +
-          'The audit read the link; it did not tap the button on a device, and no owner confirmation is recorded in ' +
-          `this audit. ${declared}`,
+          'Not yet tested: no one tapped the button on a phone during this audit, and no owner confirmation is ' +
+          `recorded. ${declared}`,
         failingUrls: [],
       };
     }
