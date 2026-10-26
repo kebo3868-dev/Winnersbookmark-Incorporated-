@@ -10,7 +10,7 @@ import { describe, expect, it } from 'vitest';
 import React from 'react';
 import zlib from 'node:zlib';
 import type { ExecutivePdf as ExecutivePdfType } from '@/lib/pdf/ExecutivePdf';
-import { buildScenario, formatApproxUSD, SCENARIO_DISCLAIMER } from '@/lib/reports/scenarios';
+import { calculateScenario, formatApproxUSD, SCENARIO_DISCLAIMER } from '@/lib/reports/scenarios';
 import { buildExecutiveReport, CONFIDENCE_LEGEND, type ExecutiveReportInput } from '@/lib/reports/executive';
 import { findingMaySpanPages } from '@/lib/pdf/ExecutivePdf';
 import { CONFIDENCE_BANDS } from '@/lib/scoring/methodology';
@@ -64,10 +64,20 @@ const reportInput = (overrides: Partial<ExecutiveReportInput> = {}): ExecutiveRe
   ...overrides,
 });
 
-describe('illustrative scenarios are stated as models, not measurements', () => {
+// Explicit, user-entered figures: the module has no defaults to fall back on.
+const ENTERED = {
+  phone: { missedCallsPerDay: 5, commercialIntentPercent: 30, averageTransaction: 45, operatingDays: 365 },
+  reservation: { lostBookingsPerWeek: 3, partySize: 2, perGuestValue: 40, operatingWeeks: 52 },
+  ordering: { abandonedOrdersPerDay: 2, averageOrder: 35, operatingDays: 365 },
+  lead: { unansweredInquiriesPerMonth: 2, closePercent: 50, eventValue: 500, operatingMonths: 12 },
+  reactivation: { guestsReengagedPerMonth: 20, visitsPerGuest: 2, averageTicket: 40, operatingMonths: 12 },
+  website: { lostConversionsPerDay: 3, valuePerConversion: 40, operatingDays: 365 },
+} as const;
+
+describe('user-entered scenarios are stated as what-ifs, not measurements', () => {
   it('no scenario output is printed to the cent', () => {
-    for (const kind of ['phone', 'reservation', 'ordering', 'lead', 'reactivation', 'website'] as const) {
-      const sc = buildScenario(kind);
+    for (const kind of Object.keys(ENTERED) as (keyof typeof ENTERED)[]) {
+      const sc = calculateScenario(kind, ENTERED[kind])!;
       expect(sc.annualExposure, kind).not.toMatch(/\.\d{2}/);
       expect(sc.monthlyExposure, kind).not.toMatch(/\.\d{2}/);
       expect(sc.annualExposure, kind).toMatch(/^about \$/);
@@ -75,7 +85,7 @@ describe('illustrative scenarios are stated as models, not measurements', () => 
   });
 
   it('the exact arithmetic is still available, so precision was moved and not lost', () => {
-    const sc = buildScenario('phone', 'friction');
+    const sc = calculateScenario('phone', ENTERED.phone, 'friction')!;
     expect(sc.annualExposureCents).toBe(2_463_750);
     expect(sc.monthlyExposureCents).toBe(205_313);
   });
@@ -87,22 +97,21 @@ describe('illustrative scenarios are stated as models, not measurements', () => 
     expect(formatApproxUSD(0)).toBe('$0');
   });
 
-  it('the section disclaimer rules out all three misreadings the numbers invite', () => {
-    // "Not confirmed losses" alone left open: already lost, recoverable by
-    // fixing the pathway, and addable into a total. The third is actively
-    // wrong — the same guest appears in more than one scenario.
-    expect(SCENARIO_DISCLAIMER).toMatch(/not confirmed losses/i);
-    expect(SCENARIO_DISCLAIMER).toMatch(/not guaranteed recoveries/i);
-    expect(SCENARIO_DISCLAIMER).toMatch(/not additive/i);
+  it('the disclaimer rules out every misreading the numbers invite', () => {
+    // Not a measured loss, not a forecast, not a guaranteed recovery, and not
+    // additive — the same guest appears in more than one scenario.
+    expect(SCENARIO_DISCLAIMER).toMatch(/only the figures you enter/i);
+    expect(SCENARIO_DISCLAIMER).toMatch(/not a measured loss/i);
+    expect(SCENARIO_DISCLAIMER).toMatch(/not a forecast/i);
+    expect(SCENARIO_DISCLAIMER).toMatch(/not a guaranteed recovery/i);
     expect(SCENARIO_DISCLAIMER).toMatch(/do not add them together/i);
-    expect(SCENARIO_DISCLAIMER).toMatch(/no money has been measured leaving the business/i);
   });
 
-  it('every scenario still shows every assumption it used', () => {
-    for (const kind of ['phone', 'reservation', 'ordering', 'lead', 'reactivation', 'website'] as const) {
-      const sc = buildScenario(kind);
-      expect(sc.assumptions.length, kind).toBeGreaterThan(0);
-      for (const a of sc.assumptions) expect(a.qualifier, kind).toBe('illustrative assumption');
+  it('every scenario still shows every assumption it used, as the user\'s own', () => {
+    for (const kind of Object.keys(ENTERED) as (keyof typeof ENTERED)[]) {
+      const sc = calculateScenario(kind, ENTERED[kind])!;
+      expect(sc.assumptions.length, kind).toBe(Object.keys(ENTERED[kind]).length);
+      for (const a of sc.assumptions) expect(a.qualifier, kind).toBe('your assumption');
     }
   });
 });
@@ -139,26 +148,24 @@ function pdfStrings(node: unknown, out: string[] = []): string[] {
   return out;
 }
 
-describe('the PDF does not print the same scenario twice', () => {
-  it('a finding card carries a pointer to Section 03, not a second copy of the figures', async () => {
+describe('the PDF prints no scenario figures', () => {
+  it('the export offers the optional calculator, with no dollar amount anywhere', async () => {
     const { ExecutivePdf } = await import('@/lib/pdf/ExecutivePdf');
-    const dto = buildExecutiveReport(reportInput());
-    const scenario = dto.findings[0]?.scenario;
-    expect(scenario, 'fixture must produce a finding with a scenario').toBeDefined();
+    const dto = buildExecutiveReport(reportInput({ avgTicket: 60 }));
+    expect(dto.findings[0].scenarioKind, 'fixture must produce a scenario-eligible finding').toBe('phone');
+    expect(dto.scenarioCalculators.map((c) => c.kind)).toEqual(['phone']);
 
     const text = pdfStrings(React.createElement(ExecutivePdf, { dto })).join('\u0000');
-    const occurrences = text.split(scenario!.monthlyExposure).length - 1;
-    // Once, in Section 03. It used to appear twice: Section 03 and again inside
-    // the matching finding card, putting the same model figure in front of the
-    // reader twice and blurring the line between a model and an evidenced
-    // finding.
-    expect(occurrences, `"${scenario!.monthlyExposure}" should appear exactly once`).toBe(1);
-    expect(text).toContain('An optional illustrative scenario for this pathway is shown in Section 03');
-    // And the pointer says what the scenario is not.
-    expect(text).toContain('not a measured loss');
+    expect(text).toContain('Optional Scenario Calculator');
+    expect(text).not.toMatch(/about \$[\d,]+/);
+    expect(text).not.toMatch(/\$\s?\d/);
+    expect(text).not.toMatch(/What This Could Be Costing You/i);
+    // The finding points to the calculator and says what it is not.
+    expect(text).toContain('An optional calculator for this pathway is described in Section 03');
+    expect(text).toContain('not a measured loss, a forecast or a guaranteed recovery');
   }, 60_000);
 
-  it('the scenario section still carries the full disclaimer', async () => {
+  it('the calculator section carries the full disclaimer', async () => {
     const { ExecutivePdf } = await import('@/lib/pdf/ExecutivePdf');
     const dto = buildExecutiveReport(reportInput());
     const text = pdfStrings(React.createElement(ExecutivePdf, { dto })).join('\u0000');
@@ -216,13 +223,12 @@ describe('the PDF only uses characters its fonts can draw', () => {
     expect(offenders, `undrawable characters: ${offenders.join(' | ')}`).toEqual([]);
   }, 60_000);
 
-  it('scenario figures read as words, not symbols', async () => {
-    const { ExecutivePdf } = await import('@/lib/pdf/ExecutivePdf');
-    const dto = buildExecutiveReport(reportInput());
-    const text = pdfStrings(React.createElement(ExecutivePdf, { dto })).join('\u0000');
-    expect(text).not.toContain('≈');
-    expect(text).toMatch(/about \$[\d,]+/);
-  }, 60_000);
+  it('approximate figures read as words, not symbols', () => {
+    // The export no longer prints scenario figures; the calculator that does
+    // still writes its approximations as words, in case one is ever printed.
+    expect(formatApproxUSD(2_463_750)).toBe('about $25,000');
+    expect(formatApproxUSD(2_463_750)).not.toContain('≈');
+  });
 });
 
 /**

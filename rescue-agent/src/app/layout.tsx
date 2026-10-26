@@ -2,9 +2,10 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import './globals.css';
 import SiteNav from '@/components/SiteNav';
+import { COMPANY } from '@/lib/config';
 
 export const metadata: Metadata = {
-  title: 'Restaurant Rescue Agent — Winners Bookmark Incorporated',
+  title: 'Restaurant Rescue Agent — Winnersbookmark',
   description: 'Restaurant revenue intelligence and AI opportunity detection engine.',
 };
 
@@ -26,7 +27,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               what stopped FRONT DESK falling onto a second line on a phone. */}
           <div className="max-w-6xl mx-auto px-5 sm:px-6 py-4 flex items-center justify-between gap-x-6">
             <Link href="/" className="flex items-baseline gap-3 min-w-0">
-              <span className="font-display text-gold text-base sm:text-lg tracking-wide truncate">WINNERS BOOKMARK</span>
+              <span className="font-display text-gold text-base sm:text-lg tracking-wide truncate">Winnersbookmark</span>
               <span className="label hidden sm:inline">Restaurant Rescue Agent</span>
             </Link>
             <SiteNav items={NAV} />
@@ -38,7 +39,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <main className="max-w-6xl mx-auto px-5 sm:px-6 py-8 sm:py-10 pb-28 sm:pb-10">{children}</main>
         <footer className="border-t border-obsidian-line mt-16">
           <div className="max-w-6xl mx-auto px-6 py-8 flex flex-wrap justify-between gap-4">
-            <p className="label">Designed by Winnersbookmark Incorporated</p>
+            <p className="label">{COMPANY.footer}</p>
             <p className="label">Founder: Keith Warren</p>
           </div>
         </footer>

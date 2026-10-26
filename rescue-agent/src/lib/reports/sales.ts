@@ -148,9 +148,9 @@ export function generateSalesBrief(input: {
       : `Subject: Quick note about the ${restaurantName} website\n\nI ran a digital audit of ${restaurantName} — most of it came back strong. Two or three things public data can't verify are usually where restaurants quietly lose repeat business. Happy to share the report — worth 15 minutes?`,
     callOpener: topLeak
       ? canAssert
-        ? `"Hi, this is [name] with Winners Bookmark — I put together a digital audit of ${restaurantName} and found something I think you'd want to know about: ${lowerFirst(topLeak.title)}. Do you have 90 seconds for the short version?"`
-        : `"Hi, this is [name] with Winners Bookmark — I put together a digital audit of ${restaurantName}. One thing I could not check from the outside: ${lowerFirst(leadTitle ?? topLeak.title)}. Can I ask you about it — 90 seconds?"`
-      : `"Hi, this is [name] with Winners Bookmark — I ran a digital audit of ${restaurantName}. Good news: most of it is solid. I've got two questions the audit couldn't answer that usually decide whether a restaurant is leaking repeat business. 90 seconds?"`,
+        ? `"Hi, this is [name] with Winnersbookmark — I put together a digital audit of ${restaurantName} and found something I think you'd want to know about: ${lowerFirst(topLeak.title)}. Do you have 90 seconds for the short version?"`
+        : `"Hi, this is [name] with Winnersbookmark — I put together a digital audit of ${restaurantName}. One thing I could not check from the outside: ${lowerFirst(leadTitle ?? topLeak.title)}. Can I ask you about it — 90 seconds?"`
+      : `"Hi, this is [name] with Winnersbookmark — I ran a digital audit of ${restaurantName}. Good news: most of it is solid. I've got two questions the audit couldn't answer that usually decide whether a restaurant is leaking repeat business. 90 seconds?"`,
     talkTrack: buildTalkTrack(restaurantName, overallScore, topLeaks, phoneStage, followUpStage, recommendedTier),
     followUpAngle: topLeak
       ? `If no response in 4–5 days: send one specific evidence item (${(canAssert ? evidenceHook : stripDefinitive(evidenceHook)).slice(0, 120)}) as a screenshot/quote with a one-line question. No pitch${canAssert ? '' : ', and keep it as a question — this finding is not confirmed'}. Then a final value-add follow-up a week later.`

@@ -517,10 +517,15 @@ export function analyzeJourney(evidence: EvidenceRecordLike[]): JourneyStageResu
         ),
       );
     } else if (captures.length === 1) {
+      // RESOLVED_UNVERIFIED, not FRICTION. A guest CAN opt in, so nothing in
+      // the customer's path is obstructed; what is missing is a measurement of
+      // whether anyone is followed up, and an unmeasured result is not
+      // customer friction. FRICTION is kept for what a guest actually meets —
+      // here, the case above where no opt-in route exists at all.
       push(
         stage(
           'FOLLOW_UP',
-          'FRICTION',
+          'RESOLVED_UNVERIFIED',
           'Observed: one public retention signal was detected, so there is a single route by which a guest can opt in. ' +
             'Not assessed: whether anyone is contacted, how often, or to what effect — the quality of follow-up is not visible from a public page and requires your own data.',
           avgConfidence(all, 65),
@@ -567,7 +572,9 @@ export function analyzeJourney(evidence: EvidenceRecordLike[]): JourneyStageResu
         ),
       );
     } else {
-      push(stage('REVIEW', 'FRICTION', 'A review profile was provided but no rating was shared, so reputation strength cannot be assessed. Provide the current star rating to complete this.', avgConfidence(reviews, 45), true, ids(reviews)));
+      // UNKNOWN, not FRICTION: an unshared rating is unmeasured, not something
+      // a customer was observed to meet.
+      push(stage('REVIEW', 'UNKNOWN', 'A review profile was provided but no rating was shared, so reputation strength cannot be assessed. Provide the current star rating to complete this.', avgConfidence(reviews, 45), true, ids(reviews)));
     }
   }
 
@@ -606,10 +613,12 @@ export function analyzeJourney(evidence: EvidenceRecordLike[]): JourneyStageResu
         ),
       );
     } else {
+      // RESOLVED_UNVERIFIED for the same reason as FOLLOW_UP: the mechanism is
+      // present, and how well it works is unmeasured — not observed friction.
       push(
         stage(
           'RETURN',
-          'FRICTION',
+          'RESOLVED_UNVERIFIED',
           'Observed: at least one repeat-visit mechanism is publicly present. ' +
             'Not assessed: how much it is used, or whether it brings anyone back — that requires your own data.',
           avgConfidence(positives, 65),

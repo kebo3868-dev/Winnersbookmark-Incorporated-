@@ -32,7 +32,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ aud
     const { renderToBuffer } = await import('@react-pdf/renderer');
     type PdfElement = Parameters<typeof renderToBuffer>[0];
     const buffer = await renderToBuffer(React.createElement(ExecutivePdf, { dto: result.dto }) as unknown as PdfElement);
-    const filename = `Winners-Bookmark-Rescue-Audit-${sanitizeFilename(result.dto.cover.restaurantName)}.pdf`;
+    const filename = `Winnersbookmark-Rescue-Audit-${sanitizeFilename(result.dto.cover.restaurantName)}.pdf`;
     return new NextResponse(new Uint8Array(buffer), {
       status: 200,
       headers: {

@@ -1,7 +1,7 @@
 import { scoreBand } from '@/lib/scoring/rescueScore';
 import { CATEGORY_LABELS } from '@/lib/reports/owner';
 import { COMPANY, type Contact } from '@/lib/config';
-import { buildScenario, scenarioKindFor, withAverageTicket, type RevenueScenario } from '@/lib/reports/scenarios';
+import { prefillFromAverageTicket, scenarioKindFor, SCENARIO_SPECS, type ScenarioKind } from '@/lib/reports/scenarios';
 import { STATE_LABEL, stateForOpportunity, type EvidenceState } from '@/lib/audit/evidenceState';
 import { safeDisplayName } from '@/lib/audit/restaurantName';
 import {
@@ -11,7 +11,7 @@ import {
   type MethodologySection,
 } from '@/lib/scoring/methodology';
 
-export type { RevenueScenario } from '@/lib/reports/scenarios';
+export type { RevenueScenario, ScenarioKind } from '@/lib/reports/scenarios';
 
 /**
  * EXECUTIVE AUDIT REPORT — presentation layer.
@@ -56,6 +56,37 @@ export function classifyFinding(opp: { manualValidationRequired: boolean; confid
   return STATE_LABEL[stateForOpportunity(opp)] as EvidenceClassification;
 }
 
+export interface ReportHeadlines {
+  /** Title of the at-a-glance section. */
+  snapshot: string;
+  /** Title of the ranked findings section. */
+  findings: string;
+}
+
+/**
+ * HEADLINES FOLLOW THE EVIDENCE.
+ *
+ * "Top Revenue Leaks" over a list in which nothing was verified told the reader
+ * money was leaking when the audit had only found places to look. The title
+ * now says what the list is: verified leaks only when every finding in it is
+ * verified, priority opportunities to validate when none is, and both words
+ * when the list is mixed. A verified finding is never relabelled — each card
+ * still carries its own classification badge.
+ *
+ * One function for the web report, the PDF and the internal audit page, so the
+ * three cannot title the same list differently.
+ */
+export function reportHeadlines(classifications: EvidenceClassification[]): ReportHeadlines {
+  const verified = classifications.filter((c) => c === 'VERIFIED FINDING').length;
+  if (classifications.length > 0 && verified === classifications.length) {
+    return { snapshot: 'Executive Revenue Snapshot', findings: 'Top Revenue Leaks' };
+  }
+  if (verified > 0) {
+    return { snapshot: 'Executive Snapshot', findings: 'Revenue Leaks and Opportunities to Validate' };
+  }
+  return { snapshot: 'Executive Snapshot', findings: 'Priority Opportunities to Validate' };
+}
+
 /** The canonical evidence state behind a report classification, for callers that need to reason about it. */
 export function evidenceStateForFinding(opp: { manualValidationRequired: boolean; confidenceScore: number }): EvidenceState {
   return stateForOpportunity(opp);
@@ -66,7 +97,7 @@ export function evidenceStateForFinding(opp: { manualValidationRequired: boolean
 const UNKNOWNS_BY_CATEGORY: [RegExp, string][] = [
   [/PHONE-DEPENDENT/i, 'Actual call volume, missed-call counts, and the share of calls that are repetitive questions require phone records.'],
   [/RETENTION/i, 'Whether an internal guest database already exists in the POS or reservation system — and how large it is — requires owner data.'],
-  [/CATERING|PRIVATE/i, 'Current inquiry volume and response times for catering and private-event leads require internal records.'],
+  [/CATERING|PRIVATE/i, 'How these inquiries are actually handled requires your records: acknowledgment records, response times and booking records for recent catering and private-event inquiries.'],
   [/MENU/i, 'How many visitors give up after failing to view the menu comfortably requires website analytics.'],
   [/ORDERING FAILURE|BROKEN/i, 'How long the pathway has been failing and how many customers hit it requires website analytics.'],
   [/THIRD-PARTY/i, 'The actual order mix between direct and third-party channels, and what commissions cost monthly, requires sales records.'],
@@ -159,7 +190,28 @@ export interface ExecutiveFinding {
   labels: { businessImpact: string; urgency: string; evidenceConfidence: string; automationOpportunity: string; priority: string };
   internalScores: { impact: number; urgency: number; confidence: number; aiFit: number; rescuePriority: number };
   evidenceSnapshot: { fact: string; sourceUrl: string | null }[];
-  scenario: RevenueScenario | null;
+  /**
+   * The optional calculator this finding's pathway can use, or null. A pointer
+   * only — no figures. See `scenarioCalculators`.
+   */
+  scenarioKind: ScenarioKind | null;
+}
+
+/**
+ * An optional scenario calculator offered to the reader — inputs, never values.
+ *
+ * The report used to attach a finished dollar scenario to every eligible
+ * finding, computed from invented counts. It now offers the calculator and
+ * leaves every quantity to the reader; `prefill` carries only figures the user
+ * already entered themselves (the average ticket given when the audit was
+ * requested).
+ */
+export interface ScenarioCalculatorOffer {
+  kind: ScenarioKind;
+  pathwayTitle: string;
+  findingTitle: string;
+  observedFriction: string;
+  prefill: Record<string, number>;
 }
 
 export interface SnapshotPriority {
@@ -183,7 +235,7 @@ export interface ExecutiveSnapshot {
 export interface JourneyMapStage {
   stage: string;
   label: string;
-  status: 'HEALTHY' | 'FRICTION' | 'INSUFFICIENT DATA' | 'UNKNOWN' | 'MANUAL VALIDATION';
+  status: JourneyStatusLabel;
   note: string;
   /**
    * What the stage could NOT see, when the stage says so.
@@ -259,9 +311,12 @@ export interface ExecutiveReportDTO {
     demoMode: boolean;
     auditStatus: string;
   };
+  headlines: ReportHeadlines;
   snapshot: ExecutiveSnapshot;
-  scenarios: RevenueScenario[];
+  scenarioCalculators: ScenarioCalculatorOffer[];
   journeyMap: JourneyMapStage[];
+  /** What each status word on the journey map means — only the words the map uses. */
+  journeyLegend: [JourneyStatusLabel, string][];
   rankedAiOpportunities: RankedAiOpportunity[];
   prescription: Prescription;
   decisionBox: DecisionBox;
@@ -348,6 +403,44 @@ export interface ExecutiveReportDTO {
   }[];
 }
 
+export type JourneyStatusLabel = 'HEALTHY' | 'FRICTION' | 'RISK' | 'MANUAL VALIDATION' | 'INSUFFICIENT DATA';
+
+/**
+ * The one client-facing word for a journey stage's status.
+ *
+ * Every surface — the web report, the PDF and the internal audit page — calls
+ * this, so a stage cannot read FRICTION on one screen and MANUAL VALIDATION on
+ * another. The words keep distinct meanings:
+ *
+ *   FRICTION           something a customer meets on the public site was
+ *                      observed (no tap-to-call, a dead menu link, no opt-in
+ *                      route at all). It stays FRICTION even when the stage
+ *                      also needs owner data to size it: the friction itself
+ *                      was seen.
+ *   MANUAL VALIDATION  the mechanism is present and nothing was seen to
+ *                      obstruct it, but whether it works or performs is
+ *                      unmeasured (RESOLVED_UNVERIFIED).
+ *   INSUFFICIENT DATA  public evidence could not establish the stage at all.
+ *
+ * It used to promote any FRICTION stage carrying a manual-validation flag to
+ * MANUAL VALIDATION on the client report while the internal page still printed
+ * FRICTION, which is the inconsistency this replaces.
+ */
+export function journeyStatusLabel(status: string): JourneyStatusLabel {
+  if (status === 'RESOLVED_UNVERIFIED') return 'MANUAL VALIDATION';
+  if (status === 'HEALTHY' || status === 'FRICTION' || status === 'RISK') return status;
+  return 'INSUFFICIENT DATA';
+}
+
+/** Printed beside the journey map on screen and in the PDF, from one source. */
+export const JOURNEY_STATUS_LEGEND: [JourneyStatusLabel, string][] = [
+  ['HEALTHY', 'the pathway is publicly present and nothing observed obstructs it.'],
+  ['FRICTION', 'something a customer meets on the public site was observed to get in the way.'],
+  ['RISK', 'a core pathway is missing or failing.'],
+  ['MANUAL VALIDATION', 'the mechanism is present; how well it works or performs is unmeasured and needs your records.'],
+  ['INSUFFICIENT DATA', 'public evidence could not establish this stage.'],
+];
+
 const JOURNEY_LABELS: Record<string, string> = {
   DISCOVERY: 'Discovery',
   WEBSITE: 'Website',
@@ -367,14 +460,11 @@ export function buildExecutiveReport(input: ExecutiveReportInput): ExecutiveRepo
   const evidenceById = new Map(input.evidence.map((e) => [e.id, e]));
   const ranked = [...input.opportunities].sort((a, b) => b.rescuePriorityScore - a.rescuePriorityScore);
   const top = ranked.slice(0, MAX_REPORT_FINDINGS);
-  // Owner-supplied average ticket replaces the illustrative per-transaction
-  // dollar figure in scenarios; counts and rates stay illustrative.
-  const scenarioDefaults = withAverageTicket(input.avgTicket);
 
   const findings: ExecutiveFinding[] = top.map((opp, i) => {
     const attached = opp.evidenceIds.map((id) => evidenceById.get(id)).filter((e): e is NonNullable<typeof e> => Boolean(e));
     const classification = classifyFinding(opp);
-    const kind = scenarioKindFor({ category: opp.category, classification });
+    const scenarioKind = scenarioKindFor({ category: opp.category, classification });
     return {
       number: i + 1,
       title: opp.title,
@@ -405,7 +495,7 @@ export function buildExecutiveReport(input: ExecutiveReportInput): ExecutiveRepo
         rescuePriority: opp.rescuePriorityScore,
       },
       evidenceSnapshot: attached.slice(0, 3).map((e) => ({ fact: e.fact, sourceUrl: e.sourceUrl })),
-      scenario: kind ? buildScenario(kind, firstSentence(opp.problem), scenarioDefaults) : null,
+      scenarioKind,
     };
   });
 
@@ -430,7 +520,7 @@ export function buildExecutiveReport(input: ExecutiveReportInput): ExecutiveRepo
     .map((s) => ({
       stage: s.stage,
       label: JOURNEY_LABELS[s.stage] ?? s.stage,
-      status: s.status === 'UNKNOWN' ? 'INSUFFICIENT DATA' : s.status,
+      status: journeyStatusLabel(s.status),
       explanation: firstSentence(s.finding),
     }));
 
@@ -446,22 +536,26 @@ export function buildExecutiveReport(input: ExecutiveReportInput): ExecutiveRepo
       complexity: (opp.aiFitScore >= 90 ? 'Moderate' : 'Moderate') as 'Low' | 'Moderate' | 'High',
     }));
 
-  // Dedupe by scenario key: multiple findings can map to the same ScenarioKind
-  // (e.g. ordering-failure and third-party-ordering both → 'ordering'), which
-  // would otherwise render duplicate cards with identical dollars and duplicate
-  // React keys. Findings are already ranked, so the first instance of each kind
-  // is the highest-priority one and is the one we keep.
-  const seenScenarioKeys = new Set<string>();
-  const scenarios = findings
-    .map((f) => f.scenario)
-    .filter((sc): sc is RevenueScenario => Boolean(sc))
-    .filter((sc) => {
-      if (seenScenarioKeys.has(sc.key)) return false;
-      seenScenarioKeys.add(sc.key);
-      return true;
-    })
-    .slice(0, 3);
+  // One calculator per scenario kind: several findings can map to the same
+  // kind (e.g. ordering-failure and third-party-ordering both → 'ordering').
+  // Findings are already ranked, so the first instance of each kind is the
+  // highest-priority one and is the one offered.
+  const seenScenarioKinds = new Set<ScenarioKind>();
+  const scenarioCalculators: ScenarioCalculatorOffer[] = [];
+  for (const f of findings) {
+    if (!f.scenarioKind || seenScenarioKinds.has(f.scenarioKind) || scenarioCalculators.length >= 3) continue;
+    seenScenarioKinds.add(f.scenarioKind);
+    scenarioCalculators.push({
+      kind: f.scenarioKind,
+      pathwayTitle: SCENARIO_SPECS[f.scenarioKind].pathwayTitle,
+      findingTitle: f.title,
+      observedFriction: firstSentence(f.problem),
+      prefill: prefillFromAverageTicket(f.scenarioKind, input.avgTicket),
+    });
+  }
   const rankedAiOpportunities = buildRankedAiOpportunities(top);
+  const journeyMap = buildJourneyMap(input.journey);
+  const usedStatuses = new Set(journeyMap.map((s) => s.status));
   const snapshot = buildSnapshot(input, findings, rankedAiOpportunities);
 
   return {
@@ -481,9 +575,11 @@ export function buildExecutiveReport(input: ExecutiveReportInput): ExecutiveRepo
       demoMode: input.demoMode,
       auditStatus: input.auditStatus,
     },
+    headlines: reportHeadlines(findings.map((f) => f.classification)),
     snapshot,
-    scenarios,
-    journeyMap: buildJourneyMap(input.journey),
+    scenarioCalculators,
+    journeyMap,
+    journeyLegend: JOURNEY_STATUS_LEGEND.filter(([label]) => usedStatuses.has(label)),
     rankedAiOpportunities,
     prescription: buildPrescription(input, findings),
     decisionBox: buildDecisionBox(findings, rankedAiOpportunities),
@@ -573,7 +669,7 @@ function commercialEffectFor(category: string, businessImpact: string): string {
   if (/PHONE-DEPENDENT/i.test(category))
     return 'When guest demand depends on a live phone answer, customer intent competes directly with staff attention during peak service, and inquiries that arrive at the wrong moment may go unanswered.';
   if (/CATERING|PRIVATE|LEAD/i.test(category))
-    return 'High-value event inquiries reward speed-to-response; when they depend on manual handling, intent that arrives after hours or during a rush may cool before anyone replies.';
+    return 'Event inquiries tend to be high-value, so how quickly they are acknowledged matters. A public link shows the pathway exists; it does not show whether inquiries are answered quickly or slowly, by hand or automatically.';
   if (/RETENTION|REACTIVATION/i.test(category))
     return 'Without an owned channel to invite guests back, repeat visits depend on memory and paid reach rather than a repeatable, measurable workflow.';
   if (/ORDERING|THIRD-PARTY/i.test(category))
@@ -623,20 +719,10 @@ function buildJourneyMap(journey: ExecutiveReportInput['journey']): JourneyMapSt
   const byStage = new Map(journey.map((s) => [s.stage, s]));
   return JOURNEY_MAP_ORDER.filter((stage) => byStage.has(stage)).map((stage) => {
     const s = byStage.get(stage)!;
-    let status: JourneyMapStage['status'];
-    if (s.status === 'UNKNOWN') status = 'INSUFFICIENT DATA';
-    // A resolved-but-unverified destination is exactly what MANUAL VALIDATION
-    // already means to a reader of this report, so it maps onto the existing
-    // vocabulary rather than adding a fifth word to a client-facing document.
-    // Stated explicitly rather than relying on the manualValidationRequired
-    // flag below, so the mapping cannot silently change if that flag does.
-    else if (s.status === 'RESOLVED_UNVERIFIED') status = 'MANUAL VALIDATION';
-    else if (s.manualValidationRequired && s.status !== 'HEALTHY') status = 'MANUAL VALIDATION';
-    else status = s.status as JourneyMapStage['status'];
     return {
       stage,
       label: JOURNEY_LABELS[stage] ?? stage,
-      status,
+      status: journeyStatusLabel(s.status),
       note: firstSentence(s.finding),
       limitation: limitationSentence(s.finding),
     };
@@ -801,9 +887,15 @@ function buildSummary(input: ExecutiveReportInput, findings: ExecutiveFinding[])
   if (healthy.length > 0) parts.push(`The strongest areas of the current digital operation are: ${healthy.join(', ')}.`);
   if (friction.length > 0) parts.push(`Public evidence suggests guest friction concentrated in: ${friction.join(', ')}.`);
   if (findings.length > 0) {
-    parts.push(
-      `The most important potential revenue opportunities identified are: ${findings.map((f) => f.title.toLowerCase()).join('; ')}.`,
-    );
+    // Only verified findings may be called revenue leaks; see reportHeadlines.
+    const verified = findings.filter((f) => f.classification === 'VERIFIED FINDING').length;
+    const lead =
+      verified === findings.length
+        ? 'The verified revenue leaks identified are'
+        : verified > 0
+          ? 'The priority findings, verified and to be validated, are'
+          : 'No revenue loss was verified from public evidence. The priority opportunities to validate are';
+    parts.push(`${lead}: ${findings.map((f) => f.title.toLowerCase()).join('; ')}.`);
     const manual = findings.filter((f) => f.classification === 'MANUAL VALIDATION REQUIRED').length;
     if (manual > 0) parts.push(`${manual} of these should be validated against internal call, booking, or sales data before being treated as confirmed.`);
     parts.push(`Ownership should prioritize the first finding in this report; the 30-day plan sequences validation, fixes, and automation in order.`);
@@ -821,7 +913,7 @@ function buildThirtyDayPlan(
 
   const validate: string[] = [];
   if (has(/PHONE|CONTACT|CATERING/i)) validate.push('Pull 30 days of phone records: total calls, missed calls, and the most common call reasons.');
-  if (has(/CATERING|PRIVATE/i)) validate.push('Review how catering and private-event inquiries arrive today and how quickly they get a response.');
+  if (has(/CATERING|PRIVATE/i)) validate.push('Pull acknowledgment records, response times and booking records for recent catering and private-event inquiries before deciding whether any automation is needed.');
   if (has(/ORDERING|THIRD-PARTY/i)) validate.push('Confirm the online ordering workflow end-to-end and the direct vs third-party order mix.');
   if (has(/RETENTION/i)) validate.push('Check whether the POS or reservation system already holds a guest contact database, and its size.');
   if (input.journey.some((s) => s.stage === 'RESERVATION' && s.status !== 'HEALTHY')) validate.push('Review reservation patterns: how bookings arrive and where requests are lost.');
@@ -858,6 +950,7 @@ const METHODOLOGY: string[] = [
   'The system does not know true missed-call volume without phone records; phone-related findings describe exposure, not measured losses.',
   'The system does not know actual booking or order conversion without internal data.',
   'No financial losses are stated as confirmed facts anywhere in this report; where impact is discussed, it describes potential exposure.',
+  'The report contains no estimated dollar or volume figures. The optional scenario calculator in the online report uses only figures you enter, and its result is not a measured loss, a forecast or a guaranteed recovery.',
   'Findings marked "manual validation required" need owner data, staff input, or records unavailable to a public audit.',
   'Review and reputation platforms are not analyzed in this audit scope; a dedicated reputation analysis is recommended.',
   'Public websites can change after the audit date; evidence reflects what was publicly accessible when collected.',

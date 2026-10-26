@@ -1,9 +1,10 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { loadExecutiveReport } from '@/lib/reports/executiveData';
-import type { ExecutiveFinding, RevenueScenario, JourneyMapStage } from '@/lib/reports/executive';
+import type { ExecutiveFinding, JourneyMapStage } from '@/lib/reports/executive';
 import { CONFIDENCE_EXPLANATION } from '@/lib/scoring/methodology';
 import { SCENARIO_DISCLAIMER } from '@/lib/reports/scenarios';
+import ScenarioCalculator from '@/components/ScenarioCalculator';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,7 +16,6 @@ const CLASSIFICATION_STYLES: Record<string, string> = {
   'INFERRED OPPORTUNITY': 'text-gold border-gold/40',
   'MANUAL VALIDATION REQUIRED': 'text-amber-400 border-amber-400/40',
   'INSUFFICIENT DATA': 'text-ivory-faint border-obsidian-line',
-  'ILLUSTRATIVE SCENARIO': 'text-gold border-gold/40',
 };
 
 const STATUS_STYLES: Record<string, string> = {
@@ -23,7 +23,7 @@ const STATUS_STYLES: Record<string, string> = {
   RESOLVED_UNVERIFIED: 'text-amber-400 border-amber-400/40',
   FRICTION: 'text-amber-400 border-amber-400/40',
   RISK: 'text-red-400 border-red-400/40',
-  'MANUAL VALIDATION': 'text-amber-400 border-amber-400/40',
+  'MANUAL VALIDATION': 'text-gold border-gold/40',
   'INSUFFICIENT DATA': 'text-ivory-faint border-obsidian-line',
   UNKNOWN: 'text-ivory-faint border-obsidian-line',
 };
@@ -92,8 +92,8 @@ export default async function ExecutiveReportPage({ params }: { params: Promise<
         <p className="label pt-4">{dto.cover.preparedBy}</p>
       </header>
 
-      {/* EXECUTIVE REVENUE SNAPSHOT */}
-      <Section kicker="At a Glance" title="Executive Revenue Snapshot">
+      {/* EXECUTIVE SNAPSHOT — titled by the evidence; see reportHeadlines. */}
+      <Section kicker="At a Glance" title={dto.headlines.snapshot}>
         <p className="text-ivory-dim text-sm mb-5">The whole audit in sixty seconds: the top priorities, the score, and the single most important thing to validate.</p>
         <div className="grid sm:grid-cols-3 gap-4 mb-6">
           {dto.snapshot.priorities.map((p) => (
@@ -142,7 +142,7 @@ export default async function ExecutiveReportPage({ params }: { params: Promise<
           {[
             [dto.score.evidenceCount, 'Evidence items collected'],
             [dto.score.sourcesAnalyzed, 'Pages analyzed'],
-            [dto.score.findingsCount, 'Revenue-leak findings'],
+            [dto.score.findingsCount, 'Priority findings'],
           ].map(([n, label]) => (
             <div key={String(label)} className="border border-obsidian-line rounded px-4 py-2 text-center">
               <p className="font-display text-lg text-ivory">{n}</p>
@@ -151,7 +151,7 @@ export default async function ExecutiveReportPage({ params }: { params: Promise<
           ))}
         </div>
         <p className="text-ivory-faint text-xs mt-5 mb-2">
-          How the {dto.score.findingsCount} revenue-leak finding(s) in Section 04 are classified. These describe the findings, not the {dto.score.evidenceCount} evidence items above — every evidence item carries its own confidence label and is listed in the Appendix.
+          How the {dto.score.findingsCount} finding(s) in Section 04 are classified. These describe the findings, not the {dto.score.evidenceCount} evidence items above — every evidence item carries its own confidence label and is listed in the Appendix.
         </p>
         <div className="flex flex-wrap gap-3">
           {[
@@ -201,20 +201,31 @@ export default async function ExecutiveReportPage({ params }: { params: Promise<
         </details>
       </Section>
 
-      {/* WHAT THIS COULD BE COSTING YOU */}
-      {dto.scenarios.length > 0 && (
-        <Section kicker="Section 03" title="What This Could Be Costing You">
-          <div className="border border-gold-dim/40 rounded px-4 py-3 mb-5 text-gold-dim text-xs uppercase tracking-widest text-center">
-            {SCENARIO_DISCLAIMER}
-          </div>
-          <div className="space-y-5">
-            {dto.scenarios.map((sc) => <ScenarioCard key={sc.key} scenario={sc} />)}
-          </div>
+      {/*
+        * OPTIONAL SCENARIO CALCULATOR. The report used to print dollar
+        * scenarios here computed from invented quantities. It now offers a
+        * calculator, closed by default, that shows nothing until the reader
+        * has entered every figure themselves.
+        */}
+      {dto.scenarioCalculators.length > 0 && (
+        <Section kicker="Section 03" title="Optional Scenario Calculator">
+          <p className="text-ivory-dim text-sm mb-4">
+            This audit does not measure money. If you want to size a pathway, enter your own figures below; the calculator multiplies them and shows its working.
+          </p>
+          <details className="card">
+            <summary className="px-4 sm:px-6 py-4 cursor-pointer label hover:text-gold">Open the calculator</summary>
+            <div className="px-4 sm:px-6 pb-6 space-y-5 border-t border-obsidian-line pt-4">
+              <p className="text-gold-dim text-xs">{SCENARIO_DISCLAIMER}</p>
+              {dto.scenarioCalculators.map((c) => (
+                <ScenarioCalculator key={c.kind} kind={c.kind} findingTitle={c.findingTitle} observedFriction={c.observedFriction} prefill={c.prefill} />
+              ))}
+            </div>
+          </details>
         </Section>
       )}
 
-      {/* TOP REVENUE LEAKS */}
-      <Section kicker="Section 04" title="Top Revenue Leaks">
+      {/* FINDINGS — "Top Revenue Leaks" only when the findings are verified. */}
+      <Section kicker="Section 04" title={dto.headlines.findings}>
         {dto.findings.length === 0 ? (
           <p className="text-ivory-dim text-sm">
             No high-priority revenue leaks were confirmed from public evidence. Remaining risk sits in areas a public audit cannot see — phone handling, follow-up, and repeat business — which we recommend validating directly.
@@ -228,7 +239,15 @@ export default async function ExecutiveReportPage({ params }: { params: Promise<
 
       {/* VISUAL CUSTOMER JOURNEY */}
       <Section kicker="Section 05" title="Customer Journey Map">
-        <p className="text-ivory-dim text-sm mb-5">Where guest friction clusters across the journey, from discovery to return.</p>
+        <p className="text-ivory-dim text-sm mb-3">Where guest friction clusters across the journey, from discovery to return.</p>
+        <dl className="text-xs text-ivory-faint space-y-1 mb-5">
+          {dto.journeyLegend.map(([label, meaning]) => (
+            <div key={label}>
+              <dt className={`inline uppercase tracking-wide ${STATUS_STYLES[label]?.split(' ')[0] ?? ''}`}>{label}</dt>
+              <dd className="inline"> — {meaning}</dd>
+            </div>
+          ))}
+        </dl>
         <div className="flex flex-col gap-2">
           {dto.journeyMap.map((stage, i) => <JourneyMapRow key={stage.stage} stage={stage} isLast={i === dto.journeyMap.length - 1} />)}
         </div>
@@ -459,42 +478,6 @@ function SnapshotRow({ label, children }: { label: string; children: React.React
   );
 }
 
-function ScenarioCard({ scenario }: { scenario: RevenueScenario }) {
-  return (
-    <div className="card p-7 border-gold-dim/30">
-      <div className="flex flex-wrap items-start justify-between gap-3 mb-2">
-        <h3 className="font-display text-lg text-ivory">{scenario.pathwayTitle}</h3>
-        <span className={`text-[10px] uppercase tracking-widest border rounded px-2.5 py-1 ${CLASSIFICATION_STYLES['ILLUSTRATIVE SCENARIO']}`}>{scenario.classification}</span>
-      </div>
-      <Field label="Observed friction">{scenario.observedFriction}</Field>
-      <div className="mt-4 grid sm:grid-cols-2 gap-3">
-        <div>
-          <p className="label mb-1">Illustrative assumptions</p>
-          <ul className="text-ivory-dim text-sm space-y-0.5">
-            {scenario.assumptions.map((a: RevenueScenario['assumptions'][number], i: number) => (
-              <li key={i} className="flex justify-between gap-4 border-b border-obsidian-line/60 py-1">
-                <span>{a.label}</span><span className="text-ivory font-semibold whitespace-nowrap">{a.value}</span>
-              </li>
-            ))}
-          </ul>
-          <p className="text-ivory-faint text-[11px] mt-2">Formula: {scenario.formula}</p>
-        </div>
-        <div className="flex flex-col justify-center items-center bg-obsidian-soft/60 rounded p-4">
-          <p className="label">Illustrative monthly exposure</p>
-          <p className="font-display text-2xl text-gold">{scenario.monthlyExposure}</p>
-          <p className="label mt-3">Illustrative annual exposure</p>
-          <p className="font-display text-3xl text-gold">{scenario.annualExposure}</p>
-        </div>
-      </div>
-      <div className="mt-4">
-        <p className="label mb-1">Data required to validate</p>
-        <p className="text-ivory-dim text-sm">{scenario.dataRequiredToValidate.join(' · ')}</p>
-      </div>
-      <p className="text-gold-dim text-xs mt-4 border-t border-gold-dim/20 pt-3">{scenario.confidenceStatement}</p>
-    </div>
-  );
-}
-
 function JourneyMapRow({ stage, isLast }: { stage: JourneyMapStage; isLast: boolean }) {
   return (
     <div>
@@ -564,10 +547,10 @@ function FindingCard({ finding }: { finding: ExecutiveFinding }) {
         <Field label="What we do not yet know">{finding.whatWeDoNotKnow}</Field>
         <Field label="Recommended next action">{finding.recommendedAction}</Field>
       </div>
-      {finding.scenario && (
-        <div className="mt-5 border-t border-gold-dim/20 pt-4">
-          <ScenarioCard scenario={finding.scenario} />
-        </div>
+      {finding.scenarioKind && (
+        <p className="mt-5 border-t border-obsidian-line pt-4 text-ivory-faint text-xs">
+          An optional calculator for this pathway is in Section 03. It uses only figures you enter and is not a measured loss, forecast or guaranteed recovery.
+        </p>
       )}
       <div className="flex flex-wrap gap-6 border-t border-obsidian-line mt-5 pt-4">
         {[

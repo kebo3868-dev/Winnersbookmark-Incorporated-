@@ -26,7 +26,7 @@ export default async function SalesBriefPage({ params }: { params: Promise<{ aud
   return (
     <div className="max-w-3xl mx-auto space-y-8">
       <div className="border border-red-400/50 bg-red-950/20 rounded px-4 py-3 text-center">
-        <p className="text-red-300 text-xs uppercase tracking-widest font-semibold">Winners Bookmark Internal Sales Intelligence</p>
+        <p className="text-red-300 text-xs uppercase tracking-widest font-semibold">Winnersbookmark Internal Sales Intelligence</p>
         <p className="text-red-400/80 text-[11px] uppercase tracking-widest mt-1">Confidential — Internal Use Only. Never share with the restaurant.</p>
       </div>
 

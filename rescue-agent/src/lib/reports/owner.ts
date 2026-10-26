@@ -1,6 +1,7 @@
 import type { CategoryScoreInput, EvidenceRecordLike, JourneyStageResult } from '@/types/audit';
 import { scoreBand } from '@/lib/scoring/rescueScore';
 import { safeDisplayName } from '@/lib/audit/restaurantName';
+import { COMPANY } from '@/lib/config';
 
 export interface RankedOpportunity {
   category: string;
@@ -175,9 +176,9 @@ export function generateOwnerReport(input: {
     recommendation: recommendTier(input.topLeaks),
     nextStep: {
       cta: 'BOOK A 15-MINUTE RESTAURANT RESCUE REVIEW',
-      company: 'Winners Bookmark Incorporated',
+      company: COMPANY.name,
       founder: 'Keith Warren',
-      footer: 'Designed by Winnersbookmark Incorporated',
+      footer: COMPANY.footer,
     },
     aiNarrativeUsed: Boolean(input.aiNarrative),
   };

@@ -356,20 +356,44 @@ const RULES: Rule[] = [
     const faqMissing = byType(ctx, 'FAQ_SIGNAL', (e) => /no public faq/i.test(e.fact));
     const present = [...catering, ...privateDining];
     if (present.length === 0) return null;
+    // A LINK SHOWS A PATHWAY EXISTS, NOT HOW IT IS HANDLED.
+    //
+    // This finding said "the visible inquiry path appears to rely on manual
+    // handling" — on Leverock's, from one "Book your party" link, in an audit
+    // that also recorded "no public catering pathway". Nothing public shows
+    // whether an inquiry is acknowledged by a person, a system, or not at all,
+    // or how fast. So the finding now names only the pathway that was seen,
+    // asks for the records that would settle it, and does not put automation
+    // forward until they do: impact and urgency are not claimed, confidence
+    // sits under the manual-validation floor, and the automation fit stays
+    // below the bar for an AI recommendation.
+    const subject =
+      catering.length > 0 && privateDining.length > 0 ? 'Catering and private-event' : catering.length > 0 ? 'Catering' : 'Private-event';
+    const seen = prose([
+      ...(catering.length > 0 ? ['a catering pathway'] : []),
+      ...(privateDining.length > 0 ? ['a private-event pathway'] : []),
+    ]);
+    const noun = subject.toLowerCase();
     return {
+      // Machine key unchanged: report consumers dispatch on /CATERING/.
       category: 'CATERING LEAD CAPTURE OPPORTUNITY',
-      title: 'High-ticket inquiries (catering / private dining) depend on manual response',
+      title: `${subject} inquiry handling requires validation`,
       problem:
-        'The restaurant advertises catering and/or private dining, but the visible inquiry path appears to rely on manual handling. High-ticket leads that arrive after hours or during a rush risk slow responses, and speed-to-lead usually decides who wins the booking.',
-      businessImpact: 'Catering and private events are among the highest-margin orders a restaurant takes. A single lost event can outweigh dozens of covers.',
+        `${subject} inquiry handling requires validation. OBSERVED: ${seen} is publicly linked. ` +
+        'NOT OBSERVED: how those inquiries are received, acknowledged or answered — a link shows that a pathway exists, ' +
+        'not whether handling is manual, automated, fast or slow. ' +
+        `REQUIRES YOUR DATA: acknowledgment records, response times and booking records for recent ${noun} inquiries.`,
+      businessImpact:
+        `${subject} bookings are high-value, so how their inquiries are handled matters. Whether any are slowed or lost is unmeasured here.`,
       customerJourneyStage: 'CONTACT',
       evidenceIds: [...present, ...faqMissing].map((e) => e.id),
-      impactScore: 70,
-      urgencyScore: 55,
-      confidenceScore: Math.min(conf(present, 75), 65),
-      aiFitScore: 90,
+      impactScore: 50,
+      urgencyScore: 35,
+      confidenceScore: Math.min(conf(present, 75), 55),
+      aiFitScore: 60,
       recommendedSolution:
-        'AI-assisted lead capture and qualification for event inquiries (instant acknowledgment, structured intake, human handoff). Validate current response times in discovery.',
+        `Before recommending any automation, collect acknowledgment records, response times and booking records for recent ${noun} inquiries. ` +
+        'If they show slow or missed responses, AI-assisted intake (instant acknowledgment, structured intake, human handoff) is the matched fix; if they do not, no automation is needed here.',
       manualValidationRequired: true,
     };
   },
