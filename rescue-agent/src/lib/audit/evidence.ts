@@ -1,4 +1,11 @@
-import { detectWidgetVendor, normalizePhonesInText, type CategorizedLink, type PageExtract, type UnverifiedForm } from '@/lib/web/collector';
+import {
+  detectWidgetVendor,
+  menuPlaceholderSignal,
+  normalizePhonesInText,
+  type CategorizedLink,
+  type PageExtract,
+  type UnverifiedForm,
+} from '@/lib/web/collector';
 import type { EvidenceInput } from '@/types/audit';
 import {
   classifyDestination,
@@ -450,6 +457,45 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
           : `Example link text: "${first.text || '(no text)'}" → ${firstHref}`,
         confidence: fromEmbed ? 85 : 90,
       });
+      // A MENU PAGE THE AUDIT FETCHED IS A TESTED MENU PAGE.
+      //
+      // The orchestrator never probes a link to a page it already collected,
+      // so a menu that was crawled successfully left only "publicly linked"
+      // behind — indistinguishable from a link nobody tested. Recording the
+      // successful fetch keeps "verified" and "unknown" apart downstream; the
+      // placeholder check matches the probe path's.
+      if (check.key === 'menu') {
+        const sameUrl = (a: string, b: string) => a.replace(/\/+$/, '') === b.replace(/\/+$/, '');
+        const fetched = pages.find(
+          (p) =>
+            p !== home &&
+            p.httpStatus >= 200 &&
+            p.httpStatus < 300 &&
+            links.some((l) => sameUrl(l.href, p.finalUrl) || sameUrl(l.href, p.requestedUrl)),
+        );
+        if (fetched) {
+          const placeholder = menuPlaceholderSignal(fetched.textSample ?? '');
+          evidence.push(
+            placeholder
+              ? {
+                  sourceUrl: fetched.finalUrl,
+                  evidenceType: 'MENU_ACCESS',
+                  fact: `The linked menu destination is reachable but has no menu published on it yet (fetched during this audit, HTTP ${fetched.httpStatus}).`,
+                  supportingContext: `${fetched.finalUrl}. Signal read from the page — ${placeholder}. Customers who follow the menu link do not find a menu.`,
+                  confidence: 85,
+                }
+              : {
+                  sourceUrl: fetched.finalUrl,
+                  evidenceType: 'MENU_ACCESS',
+                  fact: `The linked menu page was fetched successfully during this audit (HTTP ${fetched.httpStatus}).`,
+                  supportingContext:
+                    `${fetched.finalUrl}. Collected as one of the audit's source pages, so it was not probed separately. ` +
+                    'This confirms the page loads; whether it shows a complete, current menu is not assessed.',
+                  confidence: 85,
+                },
+          );
+        }
+      }
       if (check.key === 'ordering' && found.size >= 3) {
         const hosts = new Set(Array.from(found.keys()).map(hostOf));
         if (hosts.size >= 3) {

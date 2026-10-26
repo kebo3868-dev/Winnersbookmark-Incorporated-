@@ -37,12 +37,34 @@ const conf = (items: EvidenceRecordLike[], cap = 95) =>
  * to ask. An audit that holds the answers and still reports the questions
  * unanswered is contradicting itself, and the owner knows it first.
  */
-function answeredVisitQuestions(ctx: RuleContext): { answered: string[]; unanswered: string[] } {
+function answeredVisitQuestions(ctx: RuleContext): {
+  answered: string[];
+  unanswered: string[];
+  /** The menu link failed when tested, or leads to a page with no menu yet. */
+  menuFailed: boolean;
+  /** A menu link is published but nothing shows whether it works. */
+  menuUnverified: boolean;
+} {
   const positive = (type: string, pattern: RegExp) =>
     byType(ctx, type, (e) => pattern.test(e.fact)).length > 0;
+  // A MENU LINK IS AN ANSWER ONLY WHEN IT IS KNOWN TO WORK.
+  //
+  // "A menu pathway is publicly linked" was credited on its own, so a site
+  // whose only menu link returned 404 was told the menu "is answerable online
+  // without calling" — while the MENU stage of the same audit reported a dead
+  // end — and the phone finding's impact and urgency were cut on that basis.
+  // The menu now counts only with a successful test or fetch behind it; a
+  // failure is named as one, and an untested link is neither credited nor
+  // called missing.
+  const menuLinked = positive('MENU_ACCESS', /pathway is publicly (linked|reachable)/i);
+  const menuFailed =
+    byType(ctx, 'BROKEN_LINK', (e) => /menu/i.test(e.fact)).length > 0 ||
+    positive('MENU_ACCESS', /has no menu published on it yet/i);
+  const menuVerified =
+    menuLinked && !menuFailed && positive('MENU_ACCESS', /responded successfully when tested|fetched successfully during this audit/i);
+  const menuUnverified = menuLinked && !menuFailed && !menuVerified;
   const checks: [string, boolean][] = [
     ['opening hours', positive('HOURS_VISIBILITY', /hours are published/i)],
-    ['the menu', positive('MENU_ACCESS', /pathway is publicly (linked|reachable)/i)],
     ['the address', positive('ADDRESS_VISIBILITY', /address is published/i)],
     [
       'how to get in touch',
@@ -51,10 +73,11 @@ function answeredVisitQuestions(ctx: RuleContext): { answered: string[]; unanswe
         positive('CONTACT_FORM', /is published/i),
     ],
   ];
-  return {
-    answered: checks.filter(([, ok]) => ok).map(([label]) => label),
-    unanswered: checks.filter(([, ok]) => !ok).map(([label]) => label),
-  };
+  const answered = checks.filter(([, ok]) => ok).map(([label]) => label);
+  const unanswered = checks.filter(([, ok]) => !ok).map(([label]) => label);
+  if (menuVerified) answered.splice(1, 0, 'the menu');
+  else if (!menuLinked && !menuFailed) unanswered.splice(1, 0, 'the menu');
+  return { answered, unanswered, menuFailed, menuUnverified };
 }
 
 /** Joins a list as prose: "a and b", "a, b and c". */
@@ -117,30 +140,43 @@ const RULES: Rule[] = [
     // and "the phone carries avoidable demand" are two further conclusions, and
     // neither follows: the first is contradicted by published hours, address
     // and menu, and the second cannot be reached at all without call records.
-    const { answered, unanswered } = answeredVisitQuestions(ctx);
-    const coreQuestionsAnswered = unanswered.length === 0;
+    const { answered, unanswered, menuFailed, menuUnverified } = answeredVisitQuestions(ctx);
+    // Impact and urgency are reduced only when every core question is KNOWN
+    // to be answered online. An untested menu link earns no reduction, and
+    // neither does it make the title claim a question goes unanswered.
+    const coreQuestionsAnswered = unanswered.length === 0 && !menuFailed && !menuUnverified;
+    const knownGap = unanswered.length > 0 || menuFailed;
     const observed = [
       faqMissing.length > 0 ? 'no dedicated FAQ page was found' : '',
       c2cMissing.length > 0 ? 'mobile visitors cannot tap to call' : '',
     ].filter(Boolean);
     return {
       category: 'PHONE-DEPENDENT CUSTOMER JOURNEY',
-      title: coreQuestionsAnswered
-        ? 'Phone demand is unmeasured, and the website cannot show whether it is avoidable'
-        : 'Common visit questions are not answered on the website',
+      title: knownGap
+        ? 'Common visit questions are not answered on the website'
+        : 'Phone demand is unmeasured, and the website cannot show whether it is avoidable',
       problem:
         `OBSERVED: ${prose(observed) || 'the phone is the primary published route in'}.` +
         (answered.length > 0
           ? ` The website does publish ${prose(answered)}, so those questions are answerable online without calling.`
           : '') +
         (unanswered.length > 0 ? ` Not found on the analyzed pages: ${prose(unanswered)}.` : '') +
+        (menuFailed
+          ? ' The menu link failed when tested or leads to a page with no menu yet, so the menu cannot be read online.'
+          : '') +
+        (menuUnverified
+          ? ' A menu link is published, but whether it opens a working menu was not verified, so it is not counted as answered.'
+          : '') +
         ' REQUIRES YOUR DATA: how many calls arrive, how many go unanswered, and what share are repeat questions' +
         ' cannot be observed from a public website. This audit does not claim the phone is overloaded or that calls are' +
         ' being missed — it cannot see either.',
       businessImpact: coreQuestionsAnswered
         ? 'If call volume turns out to be high and largely repetitive, answering those calls automatically is worth measuring. ' +
           'Whether that is the case here is an open question, not a finding.'
-        : 'Questions a visitor cannot answer online tend to arrive by phone instead. How much demand that creates here is unmeasured.',
+        : knownGap
+          ? 'Questions a visitor cannot answer online tend to arrive by phone instead. How much demand that creates here is unmeasured.'
+          : 'Whether visitors can answer these questions online was not fully verified, so whether the website reduces phone ' +
+            'demand is not established. How much demand reaches the phone is unmeasured.',
       customerJourneyStage: 'PHONE',
       evidenceIds: [...phoneStage.evidenceIds],
       // An unmeasured question is not a high-impact confirmed problem. Impact

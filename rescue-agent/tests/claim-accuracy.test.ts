@@ -57,6 +57,10 @@ const ANSWERS_EVERYTHING = [
   ev('HOURS_VISIBILITY', 'Business hours are published on the website.'),
   ev('ADDRESS_VISIBILITY', 'A street address is published on the website.'),
   ev('MENU_ACCESS', 'A menu pathway is publicly linked (2 link(s) found).'),
+  // The fixture is a site that ANSWERS everything, so its menu link is one
+  // known to work. A link alone is no longer credited (codex P2 on 2b12c75);
+  // that case is pinned in tests/visit-answers.test.ts.
+  ev('MENU_ACCESS', 'The linked menu destination responded successfully when tested (HTTP 200).'),
   ev('CONTACT_PATH', 'A contact pathway is publicly available by telephone and a published email address.'),
 ];
 

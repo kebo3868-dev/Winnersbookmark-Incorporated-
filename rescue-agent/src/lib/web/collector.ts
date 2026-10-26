@@ -745,6 +745,47 @@ function isEmailOnlyForm($: cheerio.CheerioAPI, form: cheerio.Cheerio<DomElement
   return type === 'email' || /\bemail\b|\be-?mail\b/i.test(name);
 }
 
+/** A submit label that offers to put the visitor on a list: "Sign up", "Join", "Subscribe", … */
+const SIGNUP_CONTROL = /^\s*(?:sign\s*-?\s*up|join|subscribe|register|count me in|keep me (?:posted|updated)|stay (?:in touch|updated|connected)|get (?:updates|offers|deals|our newsletter))\b/i;
+/** Fields a list signup asks for besides the email address. Anything else means the form is something else. */
+const SIGNUP_EXTRA_FIELD = /\b(?:(?:first|last|full|your)?[-_ ]?name|fname|lname|phone|mobile|cell|birthday|birth[-_ ]?date|dob|anniversary|zip|postal|post[-_ ]?code)\b/i;
+
+/**
+ * True when a form is a list signup that also asks for a name (or phone,
+ * birthday, postcode) — "Name, Email, [Sign up]".
+ *
+ * isEmailOnlyForm recognises the bare email box by shape, and that check
+ * rejected the extra name field, so a "Sign up" form asking for a name was
+ * reported as "no mechanism for collecting visitors' email addresses" and the
+ * audit said a guest had no public way to opt in. Shape alone cannot settle
+ * this one — an enquiry form can also be name + email — so it takes all of:
+ *   · an email field and NO message field (an enquiry form has one);
+ *   · every other field a visitor types into is a name, phone, birthday,
+ *     anniversary or postcode field;
+ *   · a submit control of the form's own whose label starts with a signup
+ *     action ("Sign up", "Join", "Subscribe", …);
+ *   · the form names no specific purpose (a waitlist, job or gift-card form
+ *     is not a mailing list, whatever its button says).
+ * Each is a presence check; none reads sentence structure.
+ */
+export function isSignupForm($: cheerio.CheerioAPI, form: cheerio.Cheerio<DomElement>): boolean {
+  const writable = form
+    .find('input, textarea, select')
+    .toArray()
+    .filter((f) => isTextEntryField($, f));
+  const describe = (f: DomElement) => `${$(f).attr('name') ?? ''} ${$(f).attr('id') ?? ''} ${$(f).attr('placeholder') ?? ''}`;
+  const isEmail = (f: DomElement) => ($(f).attr('type') ?? '').toLowerCase() === 'email' || /\be-?mail\b/i.test(describe(f));
+  if (!writable.some(isEmail)) return false;
+  if (writable.some((f) => f.tagName?.toLowerCase() === 'textarea' || MESSAGE_FIELD_NAME.test(describe(f)))) return false;
+  if (!writable.filter((f) => !isEmail(f)).every((f) => SIGNUP_EXTRA_FIELD.test(describe(f)))) return false;
+  const labels = submitControls($, form).map((c) => controlLabel($, c));
+  if (!labels.some((l) => SIGNUP_CONTROL.test(l))) return false;
+  const identity = [form.attr('id'), form.attr('name'), form.attr('class'), form.attr('action'), form.attr('aria-label'), ...labels, ...formIntroduction($, form)]
+    .filter(Boolean)
+    .join(' ');
+  return purposeTopics(identity).length === 0;
+}
+
 /** Every specific purpose the text names, in table order. */
 function purposeTopics(text: string): string[] {
   return SINGLE_PURPOSE_FORMS.filter(([pattern]) => pattern.test(text)).map(([, label]) => label);
@@ -1405,7 +1446,7 @@ export function extractPage(
         const hasEmailInput = form.find('input[type="email"]').length > 0;
         if (!hasEmailInput) return false;
         if (NEWSLETTER_FORM_TEXT.test(form.text())) return true;
-        return isEmailOnlyForm($, form);
+        return isEmailOnlyForm($, form) || isSignupForm($, form);
       });
   const smsCaptureSignal = /text club|sms club|join.{0,20}text|text .{0,10}to \d{5,6}/i.test(bodyText);
   const loyaltySignal = /loyalty|rewards program|vip club|earn points/i.test(bodyText) || Boolean(categorizedLinks.loyalty?.length);
@@ -1671,6 +1712,20 @@ const PLACEHOLDER_CONTENT_PATTERNS: [RegExp, string][] = [
   [/menu\s+(?:is\s+)?(?:currently\s+)?being\s+updated/i, 'menu being updated'],
   [/check\s+back\s+soon\s+for\s+(?:our\s+)?menu/i, 'menu pending'],
 ];
+
+/**
+ * The placeholder signal for a menu page the audit already holds the text of
+ * — a page collected as a source, which is never probed separately. Same
+ * patterns and output as the probe path, so a collected page and a probed
+ * page are judged alike.
+ */
+export function menuPlaceholderSignal(text: string): string | undefined {
+  for (const [pattern, label] of PLACEHOLDER_CONTENT_PATTERNS) {
+    const match = pattern.exec(text);
+    if (match) return `${label}: "${match[0].trim().slice(0, 120)}"`;
+  }
+  return undefined;
+}
 
 /**
  * Content-level signals read from a destination's own page.
