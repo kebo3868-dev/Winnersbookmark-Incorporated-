@@ -3,6 +3,7 @@ import { CATEGORY_LABELS } from '@/lib/reports/owner';
 import { COMPANY, type Contact } from '@/lib/config';
 import { prefillFromAverageTicket, scenarioKindFor, SCENARIO_SPECS, type ScenarioKind } from '@/lib/reports/scenarios';
 import { STATE_LABEL, STATE_PLAIN, stateForOpportunity, type EvidenceState } from '@/lib/audit/evidenceState';
+import { ORDERING_CHANNEL_FLAG, ORDERING_CHANNEL_HEAD } from '@/lib/audit/orderingChannel';
 import { safeDisplayName } from '@/lib/audit/restaurantName';
 import {
   CONFIDENCE_BANDS,
@@ -96,6 +97,7 @@ export function evidenceStateForFinding(opp: { manualValidationRequired: boolean
 // sentences state exactly which internal data the public audit cannot see.
 const UNKNOWNS_BY_CATEGORY: [RegExp, string][] = [
   [/PHONE-DEPENDENT/i, 'Actual call volume, missed-call counts, and the share of calls that are repetitive questions require phone records.'],
+  [/ORDER BUTTON/i, 'Whether visitors who tap the button go on to call and order, how many orders arrive by phone or online, and whether the online ordering system is set up require order and call records, the ordering provider\'s account, and a tap test on a phone.'],
   [/RETENTION/i, 'Whether an internal guest database already exists in the POS or reservation system — and how large it is — requires owner data.'],
   [/CATERING|PRIVATE/i, 'How these inquiries are actually handled requires your records: acknowledgment records, response times and booking records for recent catering and private-event inquiries.'],
   [/MENU/i, 'How many visitors give up after failing to view the menu comfortably requires website analytics.'],
@@ -689,6 +691,10 @@ function commercialEffectFor(category: string, businessImpact: string): string {
   // the sentence describes what would follow IF demand is phone-heavy.
   if (/PHONE-DEPENDENT/i.test(category))
     return 'If a meaningful share of guest demand arrives by phone, it competes with staff attention during peak service, and calls that come at the wrong moment may go unanswered. Whether that happens here requires call records.';
+  // Observed on the page; nothing about what visitors did next is known, so
+  // no effect is claimed — not even a conditional one.
+  if (/ORDER BUTTON/i.test(category))
+    return 'No effect on orders, conversion or revenue is claimed: the audit observed what the button does, not what visitors did after tapping it.';
   if (/CATERING|PRIVATE|LEAD/i.test(category))
     return 'Event inquiries tend to be high-value, so how quickly they are acknowledged matters. A public link shows the pathway exists; it does not show whether inquiries are answered quickly or slowly, by hand or automatically.';
   if (/RETENTION|REACTIVATION/i.test(category))
@@ -968,6 +974,7 @@ function buildThirtyDayPlan(
   if (has(/PHONE|CONTACT|CATERING/i)) validate.push('Pull 30 days of phone records: total calls, missed calls, and the most common call reasons.');
   if (has(/CATERING|PRIVATE/i)) validate.push('Pull acknowledgment records, response times and booking records for recent catering and private-event inquiries before deciding whether any automation is needed.');
   if (has(/ORDERING|THIRD-PARTY/i)) validate.push('Confirm the online ordering workflow end-to-end and the direct vs third-party order mix.');
+  if (has(/ORDER BUTTON/i)) validate.push('Tap the online ordering button on a phone, and decide whether online ordering should be offered or the section should say ordering is by phone.');
   if (has(/RETENTION/i)) validate.push('Check whether the POS or reservation system already holds a guest contact database, and its size.');
   if (input.journey.some((s) => s.stage === 'RESERVATION' && s.status !== 'HEALTHY')) validate.push('Review reservation patterns: how bookings arrive, and whether any requests go unanswered.');
   validate.push('Walk each finding marked "manual validation required" against your own operating data.');
@@ -985,6 +992,7 @@ function buildThirtyDayPlan(
   if (has(/PHONE|CONTACT/i)) kpis.push('Missed calls per week and answered-inquiry rate');
   if (has(/CATERING|PRIVATE/i)) kpis.push('Event-inquiry response time and inquiries converted');
   if (has(/ORDERING|THIRD-PARTY|MENU/i)) kpis.push('Online order clicks and direct-order share');
+  if (has(/ORDER BUTTON/i)) kpis.push('Orders arriving online versus by phone, once the button leads where its label says');
   if (has(/RETENTION/i)) kpis.push('New guest contacts captured per week and reactivation response rate');
   if (has(/CTA|TECHNICAL/i)) kpis.push('Website conversion actions (calls, bookings, orders) per hundred visits');
   if (kpis.length === 0) kpis.push('Booking conversion, direct-order share, and repeat-guest rate');
@@ -1061,8 +1069,8 @@ export function evidenceTypeLabel(type: string): string {
 /** Evidence text with machine codes replaced by the words they stand for. */
 export function presentEvidenceText(text: string): string {
   return text
-    .replace(/^ORDERING CHANNEL:\s*[A-Z_]+(\s*\[DESTINATION_RESOLVED\])?\s*—\s*/, '')
-    .replace(/\s*\[DESTINATION_RESOLVED\]/g, '')
+    .replace(ORDERING_CHANNEL_HEAD, '')
+    .replace(ORDERING_CHANNEL_FLAG, '')
     .replace(/Evidence confidence: ([A-Z_]+)\./g, (whole, code: string) =>
       code in STATE_PLAIN ? `Evidence: ${STATE_PLAIN[code as EvidenceState]}.` : whole,
     )

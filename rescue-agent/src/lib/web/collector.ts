@@ -95,6 +95,17 @@ export interface PageExtract {
    * only wording that offers to take an order.
    */
   phoneOrderCtas: string[];
+  /**
+   * Telephone ordering buttons that are LABELLED as online ordering — the
+   * button's own wording says "Order Online", or it sits in a section whose
+   * label does. `label` is the wording that promised online ordering.
+   *
+   * A phone ordering button is not a defect. A button presented as online
+   * ordering that opens the dialler is: a visitor who chose the online route is
+   * handed a phone call instead. This is an automated observation of the
+   * markup; it does not record that anyone tapped the button.
+   */
+  onlineLabelledPhoneCtas?: { text: string; label: string }[];
   socialLinks: string[];
   pdfLinks: string[];
   hoursText: string | null;
@@ -964,6 +975,138 @@ const MAX_SCRIPT_SCAN = 200_000;
  */
 const PHONE_ORDER_INTENT = /\border\b|\bordering\b|carry\s?out|take\s?out|to[-\s]?go|pick\s?up/i;
 
+/** Wording that presents an action as ONLINE ordering. */
+const ONLINE_ORDER_WORDING = /\border(?:ing)?\s+online\b|\bonline\s+order(?:ing)?\b/i;
+
+/**
+ * "Order Online" said as a call to action, and nothing else: "Order Online",
+ * "Order Online Now", "Online Ordering", in any case, with decoration such as
+ * "!" or "→" ignored.
+ *
+ * Whole-text match on purpose. "Order online at our website or call us to
+ * order" is a sentence ABOUT two routes, and "Unable to order online? Call to
+ * order" is a phone fallback; reading either as a promise of online ordering
+ * would report a mismatch the page does not have. A question is never a label.
+ */
+function isAffirmativeOnlineOrderLabel(raw: string): boolean {
+  if (raw.includes('?')) return false;
+  const words = raw
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+  return /^(?:order(?:ing)? online|online order(?:ing)?)(?: now)?$/.test(words);
+}
+
+/** How far up from a phone ordering button a section label is looked for. */
+const ORDER_LABEL_MAX_DEPTH = 4;
+/** Past this much text an ancestor is the page, not the button's section. */
+const ORDER_LABEL_MAX_SECTION_TEXT = 400;
+
+/** A non-telephone link that offers ordering, by its wording or its destination. */
+function isOrderingLink($link: cheerio.Cheerio<DomElement>): boolean {
+  const text = $link.text().replace(/\s+/g, ' ').trim();
+  if (PHONE_ORDER_INTENT.test(text) || ONLINE_ORDER_WORDING.test(text)) return true;
+  try {
+    return categorizeLink(new URL($link.attr('href') ?? '', 'https://placeholder.invalid/'), text).includes('ordering');
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * The "Order Online" wording a telephone ordering button is presented under,
+ * or null.
+ *
+ * Read in order of directness: the button's own text, its accessible name,
+ * then a label in the button's own section.
+ *
+ * The button's own wording counts only when it is an affirmative "Order
+ * Online"; wording that mentions online ordering without promising it (a
+ * fallback or support line) means the button already describes itself as the
+ * phone route, and nothing around it is read.
+ *
+ * THE BUTTON'S OWN SECTION, NOT A NEIGHBOUR'S. Ancestors are read from the
+ * nearest outward, at most ORDER_LABEL_MAX_DEPTH levels, and only while an
+ * ancestor holds no more than ORDER_LABEL_MAX_SECTION_TEXT characters and
+ * offers no other ordering link. At each level:
+ *
+ *   - Headings are read as an outline. The button sits under the nearest
+ *     heading before it and under each earlier heading of higher rank, so
+ *     "Order Online" › "Pickup" › button keeps the label, while "Order Online"
+ *     followed by a sibling "Order by Phone" or "Takeout" heading does not.
+ *     Once a heading is above the button, only headings decide.
+ *   - With no heading above the button yet, a whole-text label in that level,
+ *     such as a menu caption or a line in its card, is the label. Reading the
+ *     nearest level first is what keeps an unrelated page heading, reached
+ *     only further out, from hiding it.
+ *
+ * Another ordering link in the section ends the climb: an "Order Online"
+ * label beside a real ordering link names that link, and the phone button is
+ * a second route rather than a mislabelled one. Text inside other links is
+ * never read as a label for the same reason.
+ */
+function onlineOrderLabelFor($: cheerio.CheerioAPI, anchor: DomElement, text: string): string | null {
+  const $anchor = $(anchor);
+  const ownWording = [text, $anchor.attr('aria-label') ?? '', $anchor.attr('title') ?? ''];
+  for (const own of ownWording) {
+    if (isAffirmativeOnlineOrderLabel(own)) return own.replace(/\s+/g, ' ').trim().slice(0, 60);
+  }
+  // The button mentions online ordering without promising it — a fallback or
+  // a support line ("Unable to order online? Call to order"). It already says
+  // it is the phone route, so no label around it can make it a mismatch.
+  if (ownWording.some((own) => ONLINE_ORDER_WORDING.test(own))) return null;
+  const clean = (el: DomElement) => $(el).text().replace(/\s+/g, ' ').trim();
+
+  // Narrowest first, so the fallback below prefers the nearest label.
+  const sections: cheerio.Cheerio<DomElement>[] = [];
+  let section = $anchor.parent();
+  for (let depth = 0; depth < ORDER_LABEL_MAX_DEPTH && section.length > 0; depth++) {
+    if (section.text().replace(/\s+/g, ' ').trim().length > ORDER_LABEL_MAX_SECTION_TEXT) break;
+    const otherOrderingLink = section
+      .find('a[href]')
+      .toArray()
+      .some((a) => a !== anchor && !($(a).attr('href') ?? '').startsWith('tel:') && isOrderingLink($(a)));
+    if (otherOrderingLink) break;
+    sections.push(section);
+    section = section.parent();
+  }
+  if (sections.length === 0) return null;
+
+  // Narrowest section first. A heading found at one level is still read at
+  // every wider level, where a higher-rank heading above it may be its parent.
+  for (const scope of sections) {
+    const ordered = scope.find('h1, h2, h3, h4, h5, h6, a').toArray();
+    const outline: string[] = [];
+    let rank = 7;
+    for (const el of ordered.slice(0, ordered.indexOf(anchor)).reverse()) {
+      const level = Number(/^h([1-6])$/i.exec(el.tagName)?.[1] ?? 7);
+      if (level >= rank) continue;
+      rank = level;
+      outline.push(clean(el));
+    }
+    if (outline.length > 0) {
+      const heading = outline.find(isAffirmativeOnlineOrderLabel);
+      if (heading) return heading;
+      continue;
+    }
+    // No heading above the button yet: a whole-text label in this section,
+    // outside links and headings (a heading after the button opens the next
+    // section, and headings are read as the outline above).
+    const labelEl = scope
+      .find('*')
+      .toArray()
+      .find((el) => {
+        const $el = $(el);
+        if ($el.is('a, script, style, h1, h2, h3, h4, h5, h6')) return false;
+        if ($el.closest('a, h1, h2, h3, h4, h5, h6').length > 0) return false;
+        return isAffirmativeOnlineOrderLabel(clean(el));
+      });
+    if (labelEl) return clean(labelEl);
+  }
+  return null;
+}
+
 /** Anchor text that marks a link as a builder/vendor credit rather than a customer action. */
 /**
  * Anchor text that may mark a builder/vendor credit.
@@ -1441,13 +1584,18 @@ export function extractPage(
   let clickToCallLinks = 0;
   const ctas: string[] = [];
   const phoneOrderCtas: string[] = [];
+  const onlineLabelledPhoneCtas: { text: string; label: string }[] = [];
 
   $('a[href]').each((_, el) => {
     const hrefRaw = $(el).attr('href') ?? '';
     const text = $(el).text().replace(/\s+/g, ' ').trim().slice(0, 120);
     if (hrefRaw.startsWith('tel:')) {
       clickToCallLinks++;
-      if (text && PHONE_ORDER_INTENT.test(text) && phoneOrderCtas.length < 10) phoneOrderCtas.push(text);
+      if (text && PHONE_ORDER_INTENT.test(text) && phoneOrderCtas.length < 10) {
+        phoneOrderCtas.push(text);
+        const label = onlineOrderLabelFor($, el, text);
+        if (label !== null) onlineLabelledPhoneCtas.push({ text, label });
+      }
       return;
     }
     if (hrefRaw.startsWith('mailto:')) {
@@ -1632,6 +1780,7 @@ export function extractPage(
     vendorCredits: vendorCredits.slice(0, 10),
     assetHosts: Array.from(assetHosts).slice(0, 40),
     phoneOrderCtas,
+    onlineLabelledPhoneCtas,
     socialLinks: Array.from(socialLinks).slice(0, 10),
     pdfLinks: Array.from(pdfLinks).slice(0, 10),
     hoursText: hoursMatch ? hoursMatch[0].slice(0, 200) : null,

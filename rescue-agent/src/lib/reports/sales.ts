@@ -76,6 +76,11 @@ export function generateSalesBrief(input: {
   const topLeak = leadFinding?.leak ?? null;
   const leadState: EvidenceState = leadFinding?.state ?? 'INSUFFICIENT_DATA';
   const canAssert = mayStateDefinitively(leadState);
+  // Strongly indicated by what the website itself shows, but not confirmed end
+  // to end — for example a button read from the markup and never tapped on a
+  // device. "Could not check from the outside" would understate it; asserting
+  // it would overstate it. It is raised as what the site shows, plus a question.
+  const strongLead = leadState === 'STRONG_EVIDENCE';
 
   // Lead quality: more confirmed, high-priority pain = better-qualified lead.
   const avgPriority = topLeaks.length ? topLeaks.reduce((s, l) => s + l.rescuePriorityScore, 0) / topLeaks.length : 0;
@@ -139,7 +144,9 @@ export function generateSalesBrief(input: {
   const leadClaim = topLeak
     ? canAssert
       ? `one thing stood out: ${verifiedHook}`
-      : `one thing I could not check from the outside: ${openQuestion}. It is a question, not a finding, which is why I am asking rather than telling`
+      : strongLead
+        ? `one thing the website itself points to: ${openQuestion}. I have not confirmed it end to end and I am not assuming what it costs you, which is why I would like to check it with you`
+        : `one thing I could not check from the outside: ${openQuestion}. It is a question, not a finding, which is why I am asking rather than telling`
     : 'most of it came back strong';
 
   return {
@@ -165,13 +172,17 @@ export function generateSalesBrief(input: {
     callOpener: topLeak
       ? canAssert
         ? `"Hi, this is [name] with Winnersbookmark — I put together a digital audit of ${restaurantName} and found something I think you'd want to know about: ${lowerFirst(topLeak.title)}. Do you have 90 seconds for the short version?"`
-        : `"Hi, this is [name] with Winnersbookmark — I put together a digital audit of ${restaurantName}. One thing I could not check from the outside: ${lowerFirst(leadTitle ?? topLeak.title)}. Can I ask you about it — 90 seconds?"`
+        : strongLead
+          ? `"Hi, this is [name] with Winnersbookmark — I put together a digital audit of ${restaurantName}. One thing your website points to that I would like to check with you: ${lowerFirst(leadTitle ?? topLeak.title)}. Can I ask you about it — 90 seconds?"`
+          : `"Hi, this is [name] with Winnersbookmark — I put together a digital audit of ${restaurantName}. One thing I could not check from the outside: ${lowerFirst(leadTitle ?? topLeak.title)}. Can I ask you about it — 90 seconds?"`
       : `"Hi, this is [name] with Winnersbookmark — I ran a digital audit of ${restaurantName}. Good news: most of it is solid. I've got two questions about calls and repeat visits that a public audit can't answer. 90 seconds?"`,
     talkTrack: buildTalkTrack(restaurantName, overallScore, topLeaks, phoneStage, followUpStage, recommendedTier),
     followUpAngle: topLeak
       ? canAssert
         ? `If no response in 4–5 days: send one specific evidence item (${(verifiedHook ?? '').slice(0, 120)}) as a screenshot/quote with a one-line question. No pitch. Then a final value-add follow-up a week later.`
-        : `If no response in 4–5 days: send the open question itself — "${leadTitle ?? topLeak.title}" — as a one-line question. Attach no evidence item: this finding is not confirmed, so there is nothing to quote as fact. No pitch. Then a final value-add follow-up a week later.`
+        : strongLead
+          ? `If no response in 4–5 days: send the observation — "${leadTitle ?? topLeak.title}" — with a one-line question asking whether it matches what they see on their own phone. It is ${STATE_PLAIN[leadState]}: quote it as what the website shows, never as something measured. No pitch. Then a final value-add follow-up a week later.`
+          : `If no response in 4–5 days: send the open question itself — "${leadTitle ?? topLeak.title}" — as a one-line question. Attach no evidence item: this finding is not confirmed, so there is nothing to quote as fact. No pitch. Then a final value-add follow-up a week later.`
       : 'If no response: follow up once with a single useful observation from the audit, then move to nurture cadence.',
     priority,
   };
@@ -265,9 +276,13 @@ function buildDiscoveryQuestions(topLeaks: RankedOpportunity[], journey: Journey
   const followUp = journey.find((s) => s.stage === 'FOLLOW_UP');
   const hasCatering = topLeaks.some((l) => /CATERING/i.test(l.category));
   const hasOrdering = topLeaks.some((l) => /ORDERING/i.test(l.category));
+  const orderButtonMismatch = topLeaks.some((l) => /ORDER BUTTON/i.test(l.category));
 
   if (phone && phone.status !== 'HEALTHY') {
     questions.push('During your busiest service periods, what happens when your team cannot immediately answer the phone?');
+  }
+  if (orderButtonMismatch) {
+    questions.push('Your website\'s online ordering button places a phone call — is online ordering meant to be offered, or is ordering by phone the plan?');
   }
   questions.push('What questions does your staff answer repeatedly every day — on the phone or at the door?');
   if (followUp && followUp.status !== 'HEALTHY') {
