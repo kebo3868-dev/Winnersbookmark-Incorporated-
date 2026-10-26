@@ -94,21 +94,37 @@ export const UNKNOWN_EXPLANATION =
  * because thresholds depend on it (a finding under 60 is forced to manual
  * validation), and it is no longer displayed as if it were a measurement.
  */
+//
+// A LABEL GRADES THE FACT IT IS ATTACHED TO — NOTHING THE FACT SAYS WAS NOT SEEN.
+//
+// The Moderate band once used "a published enquiry form" as its example, while
+// the enquiry-form record is emitted at 85 and displayed as Strong: the web
+// report and the PDF printed Strong beside guidance calling the same record
+// Moderate. The score was right for what that record claims — the form is
+// there, and its own wording invites general enquiries, both read directly;
+// delivery is stated as not observed. So the examples now name the records
+// each band actually labels, and separate the three things a form record can
+// be about: that it exists, what it is for, and whether submissions arrive.
 export const CONFIDENCE_BANDS: [string, string][] = [
   [
     'Strong',
     'Read directly from a page that was fetched, or from the response to a request that was made. Nothing about the ' +
-      'fact depends on inference.',
+      'fact depends on inference. A published enquiry form whose own wording invites general enquiries is Strong for ' +
+      'exactly that: the form is there and says so. Whether a submission arrives or is answered is not part of that ' +
+      'fact — the record states it was not observed, and no label covers it.',
   ],
   [
     'Moderate',
-    'Observed on a public page, with part of what it describes outside public view. A published enquiry form is ' +
-      'Moderate: the form is visibly there, and whether anyone answers it cannot be seen from outside.',
+    'Observed on a public page, with part of what it describes outside public view. A published table-request form is ' +
+      'Moderate: the form is visibly there, and whether a request reaches a booking system cannot be seen from ' +
+      'outside. So is a form scoped to one purpose: whether the restaurant also takes other enquiries through it needs ' +
+      'owner confirmation.',
   ],
   [
     'Preliminary',
     'A signal consistent with the fact that does not establish it — including the absence of something the crawl may ' +
-      'simply not have reached. A starting point for a question, not a conclusion.',
+      'simply not have reached. A starting point for a question, not a conclusion. A form whose own wording does not ' +
+      'establish whether it takes general enquiries is Preliminary.',
   ],
 ];
 

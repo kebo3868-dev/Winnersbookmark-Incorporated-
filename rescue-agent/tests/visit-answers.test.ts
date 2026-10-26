@@ -712,3 +712,62 @@ describe('7 — the placeholder check sees the whole page, not the 4,000-charact
     expect(journey.find((s) => s.stage === 'MENU')?.status).toBe('FRICTION');
   });
 });
+
+// ── 8. Content headers belong to the content; site chrome does not ─────────
+
+describe('8 — placeholder scoping follows DOM context, not tag names', () => {
+  // Removing every <header> to drop site chrome also removed headers that
+  // introduce the page's own content: <main><header><h1>Our menu is coming
+  // soon!</h1></header></main> read as a verified working menu (Codex P2 on
+  // eb3c3e9). Headers and footers are now chrome only when they sit outside
+  // main, article and section.
+  const LONG_NAV = `<nav>${Array.from({ length: 300 }, (_, i) => `<a href="/p${i}">Navigation item number ${i}</a>`).join(' ')}</nav>`;
+  const REAL_MENU = '<h1>Menu</h1><h2>Mains</h2><p>Grouper sandwich $18</p>';
+  const run = (menuBody: string, links = ['/menu'], probes: ProbeResult[] = []) => {
+    const menuPage = extractPage(MENU, MENU, 200, 'text/html', `<html><head><title>Menu</title></head><body>${menuBody}</body></html>`);
+    const { ev, journey, leaks } = analyse([page(BODY_LINKS(links)), menuPage], probes);
+    return {
+      signal: menuPage.menuPlaceholderSignal,
+      availability: ev.find((e) => e.evidenceType === 'MENU_AVAILABILITY')!,
+      menu: journey.find((s) => s.stage === 'MENU')!,
+      phone: leaks.find((l) => /PHONE-DEPENDENT/.test(l.category))!,
+    };
+  };
+
+  it.each([
+    ['a header inside main (codex)', '<main><header><h1>Our menu is coming soon!</h1></header></main>'],
+    ['a header inside article', '<article><header><h2>Menu coming soon</h2></header><p>Thanks for your patience.</p></article>'],
+    ['a header inside section', '<section id="menu"><header><h2>Our new menu will be posted soon</h2></header></section>'],
+    ['a footer inside main', '<main><h1>Menu</h1><footer>Our menu is currently being updated.</footer></main>'],
+    ['a content header after 4,000+ characters of navigation', `${LONG_NAV}<main><header><h1>Our menu is coming soon!</h1></header></main>`],
+  ])('%s → placeholder detected: no readable menu, FRICTION, 65/55', (_label, body) => {
+    const r = run(body);
+    expect(r.signal).not.toBeNull();
+    expect(r.availability.fact).toMatch(/^No readable menu was found/);
+    expect(r.menu.status).toBe('FRICTION');
+    expect(r.phone.problem).not.toMatch(/does publish[^.]*the menu/i);
+    expect([r.phone.impactScore, r.phone.urgencyScore]).toEqual([65, 55]);
+  });
+
+  it.each([
+    ['a site-wide header', `<header><p>New brunch menu coming soon!</p></header><main>${REAL_MENU}</main>`],
+    ['a site-wide footer', `<main>${REAL_MENU}</main><footer>Our catering menu is coming soon.</footer>`],
+    ['navigation inside main', `<main><nav><span>Kids menu coming soon</span></nav>${REAL_MENU}</main>`],
+    ['an aside inside article', `<article>${REAL_MENU}<aside>Dessert menu coming soon</aside></article>`],
+  ])('placeholder wording only in %s does not invalidate a genuine menu', (_label, body) => {
+    const r = run(body);
+    expect(r.signal).toBeNull();
+    expect(r.availability.fact).toBe(`A working menu was verified at ${MENU}.`);
+    expect(r.menu.status).toBe('HEALTHY');
+    expect([r.phone.impactScore, r.phone.urgencyScore]).toEqual([40, 30]);
+  });
+
+  it('a content-header placeholder beside a separate working menu: the working menu keeps its credit', () => {
+    const DINNER = 'https://probe-grill.test/dinner-menu';
+    const r = run('<main><header><h1>Our menu is coming soon!</h1></header></main>', ['/menu', '/dinner-menu'], [WORKING(DINNER)]);
+    expect(r.availability.fact).toBe(`A working menu was verified at ${DINNER}; 1 other menu link(s) failed when tested or have no menu yet.`);
+    expect(r.menu.status).toBe('FRICTION');
+    expect(r.phone.problem).toMatch(/does publish[^.]*the menu/i);
+    expect([r.phone.impactScore, r.phone.urgencyScore]).toEqual([40, 30]);
+  });
+});

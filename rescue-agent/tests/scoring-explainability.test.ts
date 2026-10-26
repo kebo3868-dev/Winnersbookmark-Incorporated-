@@ -259,3 +259,82 @@ describe('codex P2: the retention category stays a usable machine key', () => {
     ).toBe('reactivation');
   });
 });
+
+describe('codex P2: the confidence guide names each form record under the label it is shown with', () => {
+  // The Moderate band used "a published enquiry form" as its example, while
+  // the enquiry-form record is emitted at 85 and shown as Strong — the web
+  // report and the PDF printed both. These tests read the labels from real
+  // generated evidence through the same DTO both surfaces render.
+  const reportFor = async (body: string) => {
+    const { extractPage } = await import('@/lib/web/collector');
+    const { normalizeEvidence } = await import('@/lib/audit/evidence');
+    const url = 'https://guide-grill.test/';
+    const page = extractPage(url, url, 200, 'text/html', `<html><head><title>Guide Grill</title></head><body><h1>Guide Grill</h1>${body}</body></html>`);
+    const evidence = normalizeEvidence({ pages: [page], failures: [], probes: [] }).map((e, i) => ({
+      id: `g${i}`,
+      evidenceType: e.evidenceType,
+      fact: e.fact,
+      supportingContext: e.supportingContext ?? null,
+      confidence: e.confidence,
+      sourceUrl: e.sourceUrl,
+    }));
+    return buildExecutiveReport({ ...reportInput(), evidence, journey: analyzeJourney(evidence) });
+  };
+  const reportInput = (): ExecutiveReportInput => ({
+    auditId: 'guide',
+    restaurantName: 'Guide Grill',
+    websiteUrl: 'https://guide-grill.test',
+    location: null,
+    auditDate: '2026-10-26',
+    auditStatus: 'COMPLETED',
+    demoMode: false,
+    contact: { company: 'Winnersbookmark', consultantName: 'Keith Warren', phone: '727-291-5965', email: null, bookingUrl: null, fallbackText: 'Call Keith.' },
+    bookingQrDataUrl: null,
+    avgTicket: null,
+    overallScore: 70,
+    coverageScore: 80,
+    sourcesCollected: 1,
+    sourcesFailed: 0,
+    evidence: [],
+    opportunities: [],
+    journey: [],
+    categoryScores: [],
+    storedSummary: null,
+    storedSummaryWasAiEnhanced: false,
+    storedRecommendation: null,
+  });
+  const FIELDS = '<input name="name"/><input type="email" name="email"/><textarea name="message"></textarea>';
+  const bandMentioning = (dto: Awaited<ReturnType<typeof reportFor>>, pattern: RegExp) =>
+    dto.confidenceBands.filter(([, definition]) => pattern.test(definition)).map(([label]) => label);
+  const shownLabel = (dto: Awaited<ReturnType<typeof reportFor>>, type: string) =>
+    dto.appendix.find((e) => e.evidenceType === type)?.confidenceLabel;
+
+  it('the enquiry-form record is shown with the label the guide gives an enquiry form (codex)', async () => {
+    const dto = await reportFor(`<form action="/contact">${FIELDS}<button>Send</button></form>`);
+    expect(shownLabel(dto, 'CONTACT_FORM')).toBe('Strong');
+    // Every band that uses an enquiry form as an example is the band the record is shown under.
+    expect(bandMentioning(dto, /enquiry form/i)).toEqual([shownLabel(dto, 'CONTACT_FORM')]);
+  });
+
+  it.each([
+    ['RESERVATION_PATH', /table-request form/i, '<form action="/book"><input type="date" name="date"/><input type="time" name="time"/><select name="party_size"><option>2</option></select><button>Request</button></form>'],
+    ['SINGLE_PURPOSE_FORM', /form scoped to one purpose/i, `<form action="/gift-card-request">${FIELDS}<button>Send</button></form>`],
+    ['FORM_PURPOSE_UNVERIFIED', /does not establish whether it takes general enquiries/i, `<form action="/forms">${FIELDS}<button>Send</button></form>`],
+  ])('the guide names %s under the label it is shown with', async (type, example, body) => {
+    const dto = await reportFor(body);
+    expect(shownLabel(dto, type)).toBeDefined();
+    expect(bandMentioning(dto, example)).toEqual([shownLabel(dto, type)]);
+  });
+
+  it('the guide separates a form existing from submissions arriving', () => {
+    const strong = new Map(CONFIDENCE_BANDS).get('Strong')!;
+    expect(strong).toMatch(/whether a submission arrives or is answered is not part of that fact/i);
+    expect(strong).toMatch(/not observed/i);
+  });
+
+  it('the web report and the PDF render exactly these bands', async () => {
+    const dto = await reportFor('');
+    expect(dto.confidenceBands).toEqual(CONFIDENCE_BANDS);
+    for (const [label, definition] of CONFIDENCE_BANDS) expect(dto.confidenceLegend).toContain(`${label}: ${definition}`);
+  });
+});

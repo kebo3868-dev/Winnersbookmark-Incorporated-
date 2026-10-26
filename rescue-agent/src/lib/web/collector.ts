@@ -1345,11 +1345,21 @@ export function extractPage(
   const bodyText = textWithNodeBoundaries($('body').get(0)).replace(/\s+/g, ' ').trim().slice(0, MAX_SCAN_TEXT);
   // Read now, from the full (bounded) text, and kept: textSample is cut to
   // 4,000 characters below, and a "Menu coming soon" notice after long
-  // navigation fell past the cut. Scoped to the page's content — navigation,
-  // header, footer and asides are dropped — so site chrome elsewhere on the
-  // page cannot mark a working menu as a placeholder.
+  // navigation fell past the cut. Scoped to the page's content, so site
+  // chrome elsewhere on the page cannot mark a working menu as a placeholder.
+  //
+  // Chrome is decided by DOM context, not by tag alone. Navigation and asides
+  // are dropped wherever they are. A <header> or <footer> is dropped only when
+  // it is site-wide — outside any main, article or section. Inside one it
+  // introduces that content: <main><header><h1>Our menu is coming
+  // soon!</h1></header></main> IS the page's message, and dropping every
+  // header hid it and reported a verified working menu.
   const contentRoot = $('body').clone();
-  contentRoot.find('nav, header, footer, aside, script, style, noscript').remove();
+  contentRoot.find('nav, aside, script, style, noscript').remove();
+  contentRoot
+    .find('header, footer')
+    .filter((_, el) => $(el).parents('main, article, section').length === 0)
+    .remove();
   const pageMenuPlaceholder =
     menuPlaceholderSignal(textWithNodeBoundaries(contentRoot.get(0)).replace(/\s+/g, ' ').trim().slice(0, MAX_SCAN_TEXT)) ?? null;
 
