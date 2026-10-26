@@ -8,6 +8,7 @@ import {
 } from '@/lib/web/collector';
 import type { EvidenceInput } from '@/types/audit';
 import { UNVERIFIED_SIGNUP_FACT } from '@/lib/audit/emailCaptureState';
+import { normalizeUrl } from '@/lib/validation/url';
 import {
   classifyDestination,
   isMethodSemanticsRefusal,
@@ -470,7 +471,10 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
       // placeholder check matches the probe path's.
       if (check.key === 'menu') {
         offeredMenuLinks = links;
-        const sameUrl = (a: string, b: string) => a.replace(/\/+$/, '') === b.replace(/\/+$/, '');
+        // Exact destinations only: /menu and /menu/ are different addresses
+        // unless the fetch itself redirected between them (requestedUrl vs
+        // finalUrl), which is the one observed equivalence.
+        const sameUrl = (a: string, b: string) => destinationKey(a) === destinationKey(b);
         const fetched = pages.find(
           (p) =>
             p !== home &&
@@ -839,8 +843,18 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
   // Each menu probe's outcome is also recorded against its own destination, so
   // MENU AVAILABILITY can judge every menu link on its own.
   const menuProbeOutcome = new Map<string, { status: MenuDestinationStatus; note: string }>();
+  // Outcomes reached by FOLLOWING a redirect: the probe of /menu that landed
+  // on /menu/ observed /menu/ too. Used only for a destination nobody probed
+  // directly, so an observed redirect is the one thing that joins two
+  // addresses, and a direct probe always outranks it.
+  const menuRedirectOutcome = new Map<string, { status: MenuDestinationStatus; note: string }>();
   const noteMenu = (probe: ProbeResult, status: MenuDestinationStatus) => {
-    if (probe.category === 'menu') menuProbeOutcome.set(destinationKey(probe.url), { status, note: probe.note });
+    if (probe.category !== 'menu') return;
+    const outcome = { status, note: probe.note };
+    menuProbeOutcome.set(destinationKey(probe.url), outcome);
+    if (probe.finalUrl && destinationKey(probe.finalUrl) !== destinationKey(probe.url)) {
+      menuRedirectOutcome.set(destinationKey(probe.finalUrl), { status, note: `${probe.note}, reached by redirect from ${probe.url}` });
+    }
   };
   for (const probe of probes) {
     const target = probe.finalUrl ?? probe.url;
@@ -1035,7 +1049,7 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
     for (const link of offeredMenuLinks) {
       const key = destinationKey(link.href);
       if (destinations.has(key)) continue;
-      const probed = menuProbeOutcome.get(key);
+      const probed = menuProbeOutcome.get(key) ?? menuRedirectOutcome.get(key);
       const fetched = probed ? undefined : fetchedMenu(key);
       destinations.set(
         key,
@@ -1126,14 +1140,23 @@ function joinRoutes(routes: string[]): string {
 /** What one menu destination showed when tested or fetched. */
 type MenuDestinationStatus = 'working' | 'failed' | 'placeholder' | 'unverified';
 
-/** One key per destination: no fragment, no trailing slash. */
+/**
+ * One key per destination — the collector's own normalisation, so a key here
+ * matches the link it came from. The fragment is dropped and the host
+ * lower-cased; a trailing slash is dropped ONLY on the root path.
+ *
+ * Stripping every trailing slash merged /menu and /menu/ — two resources a
+ * server may answer differently — so whichever probe ran last overwrote the
+ * other, and a 200 at /menu beside a 404 at /menu/ came out as "every menu
+ * destination failed" or as a verified menu depending on probe order. Two
+ * addresses are the same destination only when a redirect shows it (see
+ * MENU AVAILABILITY).
+ */
 function destinationKey(url: string): string {
   try {
-    const u = new URL(url);
-    u.hash = '';
-    return u.toString().replace(/\/+$/, '');
+    return normalizeUrl(new URL(url));
   } catch {
-    return url.replace(/#.*$/, '').replace(/\/+$/, '');
+    return url.replace(/#.*$/, '');
   }
 }
 

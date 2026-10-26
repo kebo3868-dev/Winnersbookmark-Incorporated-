@@ -439,3 +439,81 @@ describe('4 — the MENU journey stage follows MENU_AVAILABILITY', () => {
     }
   });
 });
+
+// ── 5. /menu and /menu/ are different destinations ─────────────────────────
+
+describe('5 — a trailing slash is part of the destination unless a redirect says otherwise', () => {
+  // Stripping every trailing slash merged /menu and /menu/, so the probe that
+  // ran last overwrote the other: 200 at /menu beside 404 at /menu/ gave "every
+  // menu destination failed" or a verified menu depending on probe order.
+  const SLASH = 'https://probe-grill.test/menu/';
+  const run = (links: string[], probes: ProbeResult[], extraPages: ReturnType<typeof page>[] = []) => {
+    const { ev, journey, leaks } = analyse([page(BODY_LINKS(links)), ...extraPages], probes);
+    return {
+      availability: ev.find((e) => e.evidenceType === 'MENU_AVAILABILITY')!,
+      broken: ev.filter((e) => e.evidenceType === 'BROKEN_LINK'),
+      menu: journey.find((s) => s.stage === 'MENU')!,
+      phone: leaks.find((l) => /PHONE-DEPENDENT/.test(l.category))!,
+    };
+  };
+
+  it('200 at /menu, 404 at /menu/: the same verdict in every link and probe order (codex)', () => {
+    const verdicts = new Set<string>();
+    for (const links of [['/menu', '/menu/'], ['/menu/', '/menu']]) {
+      for (const probes of [[WORKING(MENU), BROKEN(SLASH)], [BROKEN(SLASH), WORKING(MENU)]]) {
+        const { availability, broken, menu, phone } = run(links, probes);
+        const label = `links ${links} / probes ${probes.map((p) => p.httpStatus)}`;
+        expect(availability.fact, label).toBe(`A working menu was verified at ${MENU}; 1 other menu link(s) failed when tested or have no menu yet.`);
+        expect(availability.sourceUrl, label).toBe(MENU);
+        expect(availability.supportingContext, label).toContain(`${MENU} — works (HTTP 200)`);
+        expect(availability.supportingContext, label).toContain(`${SLASH} — failed when tested (HTTP 404)`);
+        expect(broken.map((b) => b.sourceUrl), label).toEqual([SLASH]);
+        expect(menu.status, label).toBe('FRICTION');
+        expect(phone.problem, label).toMatch(/does publish[^.]*the menu/i);
+        expect(phone.problem, label).toMatch(/reported separately and does not affect the working menu/i);
+        expect(phone.impactScore, label).toBe(40);
+        verdicts.add(`${availability.fact}|${availability.supportingContext}|${menu.status}|${phone.problem}`);
+      }
+    }
+    expect(verdicts.size).toBe(1);
+  });
+
+  it('a redirect from /menu to /menu/ is what makes them one destination', () => {
+    const { availability, menu } = run(['/menu', '/menu/'], [probe(MENU, { finalUrl: SLASH })]);
+    expect(availability.fact).toBe(`A working menu was verified at ${MENU}.`);
+    expect(availability.supportingContext).toContain(`${SLASH} — works (HTTP 200, reached by redirect from ${MENU})`);
+    expect(menu.status).toBe('HEALTHY');
+  });
+
+  it('a redirect that lands on a 404 fails both addresses', () => {
+    const { availability } = run(['/menu', '/menu/'], [probe(MENU, { finalUrl: SLASH, ok: false, httpStatus: 404, note: 'HTTP 404' })]);
+    expect(availability.fact).toMatch(/^No readable menu was found/);
+  });
+
+  it('a direct probe outranks what a redirect implied', () => {
+    const { availability } = run(['/menu', '/menu/'], [probe(MENU, { finalUrl: SLASH }), BROKEN(SLASH)]);
+    expect(availability.supportingContext).toContain(`${SLASH} — failed when tested (HTTP 404)`);
+    expect(availability.fact).toMatch(/^A working menu was verified at https:\/\/probe-grill\.test\/menu;/);
+  });
+
+  it('without a redirect, untested /menu/ is not verified by a working /menu', () => {
+    const { availability } = run(['/menu', '/menu/'], [WORKING(MENU)]);
+    expect(availability.supportingContext).toContain(`${SLASH} — not verified (not tested)`);
+    expect(availability.fact).toBe(`A working menu was verified at ${MENU}; 1 other menu link(s) were not verified.`);
+  });
+
+  it('a page fetched at /menu/ does not verify a link to /menu', () => {
+    const fetched = extractPage(SLASH, SLASH, 200, 'text/html', '<html><body><h1>Menu</h1><p>Grouper $18</p></body></html>');
+    const { availability, menu } = run(['/menu'], [], [fetched]);
+    expect(availability.fact).toMatch(/^Menu availability was not verified/);
+    expect(menu.status).toBe('UNKNOWN');
+  });
+
+  it('a page requested at /menu that redirected to /menu/ verifies both', () => {
+    const fetched = extractPage(MENU, SLASH, 200, 'text/html', '<html><body><h1>Menu</h1><p>Grouper $18</p></body></html>');
+    const { availability, menu } = run(['/menu', '/menu/'], [], [fetched]);
+    expect(availability.fact).toBe(`A working menu was verified at ${MENU}.`);
+    expect(availability.supportingContext).toContain(`${SLASH} — works (fetched during this audit, HTTP 200)`);
+    expect(menu.status).toBe('HEALTHY');
+  });
+});
