@@ -416,7 +416,7 @@ export default async function ExecutiveReportPage({ params }: { params: Promise<
                   <p className="text-ivory-dim text-[13px] leading-relaxed mt-1.5 break-words">{e.supportingContext}</p>
                 )}
                 <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px]">
-                  <span className="text-gold-dim uppercase tracking-wider">{e.evidenceType.replace(/_/g, ' ')}</span>
+                  <span className="text-gold-dim uppercase tracking-wider">{e.evidenceLabel}</span>
                   {/*
                     * The label, without the percentage. "90%" and "85%" came
                     * from a hand-assigned constant per observation type, and

@@ -1,8 +1,10 @@
 import type { EvidenceRecordLike, JourneyStageResult } from '@/types/audit';
 import type { RankedOpportunity } from './owner';
+import { COMPANY } from '@/lib/config';
 import {
   inheritState,
   mayStateDefinitively,
+  STATE_PLAIN,
   stateForOpportunity,
   stateRank,
   validationInstruction,
@@ -103,8 +105,8 @@ export function generateSalesBrief(input: {
 
   const bestSalesAngle = topLeak
     ? canAssert
-      ? `Lead with the audit evidence: "${topLeak.title}". It is verified, concrete, and about their money — not about our product. State it plainly.`
-      : `Lead with the audit evidence: "${leadTitle}". [${leadState}] Public evidence suggests this and it is NOT confirmed — open it as an observation and a question, never as a statement of fact. ${validationInstruction(leadState, 'this finding')}`
+      ? `Lead with the audit evidence: "${topLeak.title}". It is verified, concrete, and about their own customers' experience — not about our product. State it plainly.`
+      : `Lead with the audit evidence: "${leadTitle}". Status: ${STATE_PLAIN[leadState]}. Public evidence suggests this and it is NOT confirmed — open it as an observation and a question, never as a statement of fact. ${validationInstruction(leadState, 'this finding')}`
     : 'Lead with the clean audit: their public presence is solid, so the open question is what happens off-line (calls, follow-up, repeat visits) — which only they can answer.';
 
   const likelyObjection = aiFitLeaks.length > 0
@@ -114,20 +116,30 @@ export function generateSalesBrief(input: {
   const objectionStrategy = aiFitLeaks.length > 0
     // No invented share of calls: what fraction is repetitive is exactly what
     // their call records would show, and the rep may not supply a number.
-    ? 'Agree — being too busy is exactly the problem the system is built for. Reframe: the AI is designed to take the repetitive questions (hours, directions, FAQs, after-hours inquiries) so staff keep the conversations that need a person — and their own call records will show how much of the load that is before anything is installed. Offer the 15-minute review as zero-commitment proof, walking through their own audit evidence.'
+    ? `Agree — being too busy is exactly the problem the system is built for. Reframe: the AI is designed to take the repetitive questions (hours, directions, FAQs, after-hours inquiries) so staff keep the conversations that need a person — and their own call records will show how much of the load that is before anything is installed. Offer the ${COMPANY.reviewMinutes}-minute review as zero-commitment proof, walking through their own audit evidence.`
     : 'Do not argue with "fine." Show the specific evidence from the audit and ask one discovery question about what the audit could not see. Position the discovery audit as a way to verify — not a sales pitch.';
 
-  const evidenceHook = topLeak?.evidenceIds.length
-    ? input.evidence.find((e) => e.id === topLeak.evidenceIds[0])?.fact ?? topLeak.problem
-    : 'the public audit of their website';
+  // WHAT A PROSPECT IS SHOWN IS CHOSEN BY MEANING, NOT BY POSITION.
+  //
+  // The hook used to be the finding's FIRST attached evidence record. For the
+  // phone question that record is "A phone number is publicly displayed" — a
+  // verified, healthy signal — and the email then told the owner the audit
+  // "could not confirm" it. Now:
+  //   - a verified finding quotes an observed GAP from its own evidence (a fact
+  //     stating something was missing or failed), never a presence signal;
+  //   - an unverified finding quotes no evidence at all. It is raised as the
+  //     open question it is, because there is nothing confirmed to quote.
+  const observedGap = topLeak && canAssert ? observedGapFor(topLeak, input.evidence) : null;
+  const verifiedHook = topLeak ? observedGap ?? firstSentence(topLeak.problem) : null;
+  const openQuestion = topLeak ? lowerFirst(leadTitle ?? topLeak.title) : null;
 
   // The one sentence a rep may actually say out loud about the lead finding.
   // Derived from the state, so a weaker finding cannot be phrased as a stronger
   // one however the surrounding copy is edited later.
   const leadClaim = topLeak
     ? canAssert
-      ? `one thing stood out: ${evidenceHook}`
-      : `one thing worth a look: public evidence suggests ${lowerFirst(stripDefinitive(evidenceHook))} — I could not confirm it from the outside, which is why I am asking rather than telling`
+      ? `one thing stood out: ${verifiedHook}`
+      : `one thing I could not check from the outside: ${openQuestion}. It is a question, not a finding, which is why I am asking rather than telling`
     : 'most of it came back strong';
 
   return {
@@ -143,19 +155,23 @@ export function generateSalesBrief(input: {
     objectionStrategy,
     recommendedOffer: recommendedTier,
     outreachAngle: topLeak
-      ? `Reference the specific finding (${(leadTitle ?? topLeak.title).toLowerCase()}) with its evidence, offer the full audit free, and anchor the ask to a 15-minute review. Evidence first, product second.${canAssert ? '' : ' Frame it as a question — this finding is not confirmed.'}`
-      : 'Compliment what the audit confirmed they do well, then raise the unverifiable areas as open questions worth 15 minutes.',
+      ? `Reference the specific finding (${(leadTitle ?? topLeak.title).toLowerCase()}) with its evidence, offer the full audit free, and anchor the ask to a ${COMPANY.reviewMinutes}-minute review. Evidence first, product second.${canAssert ? '' : ' Frame it as a question — this finding is not confirmed.'}`
+      : `Compliment what the audit confirmed they do well, then raise the unverifiable areas as open questions worth a ${COMPANY.reviewMinutes}-minute review.`,
     emailOpener: topLeak
-      ? `Subject: Found something on the ${restaurantName} website\n\nI ran a digital audit of ${restaurantName} and ${leadClaim}. I put the full findings in a short report — happy to send it over, no strings. Worth 15 minutes?`
-      : `Subject: Quick note about the ${restaurantName} website\n\nI ran a digital audit of ${restaurantName} — most of it came back strong. Two or three things public data can't verify are usually where restaurants quietly lose repeat business. Happy to share the report — worth 15 minutes?`,
+      ? `Subject: Found something on the ${restaurantName} website\n\nI ran a digital audit of ${restaurantName} and ${leadClaim}. I put the full findings in a short report — happy to send it over, no strings. Worth ${COMPANY.reviewMinutes} minutes?`
+      // No general claim about what restaurants "lose": the open areas are
+      // named as unknowns, which is all the audit can say about them.
+      : `Subject: Quick note about the ${restaurantName} website\n\nI ran a digital audit of ${restaurantName} — most of it came back strong. A few things public data can't verify — calls, follow-up and repeat visits — are worth a short conversation. Happy to share the report — worth ${COMPANY.reviewMinutes} minutes?`,
     callOpener: topLeak
       ? canAssert
         ? `"Hi, this is [name] with Winnersbookmark — I put together a digital audit of ${restaurantName} and found something I think you'd want to know about: ${lowerFirst(topLeak.title)}. Do you have 90 seconds for the short version?"`
         : `"Hi, this is [name] with Winnersbookmark — I put together a digital audit of ${restaurantName}. One thing I could not check from the outside: ${lowerFirst(leadTitle ?? topLeak.title)}. Can I ask you about it — 90 seconds?"`
-      : `"Hi, this is [name] with Winnersbookmark — I ran a digital audit of ${restaurantName}. Good news: most of it is solid. I've got two questions the audit couldn't answer that usually decide whether a restaurant is leaking repeat business. 90 seconds?"`,
+      : `"Hi, this is [name] with Winnersbookmark — I ran a digital audit of ${restaurantName}. Good news: most of it is solid. I've got two questions about calls and repeat visits that a public audit can't answer. 90 seconds?"`,
     talkTrack: buildTalkTrack(restaurantName, overallScore, topLeaks, phoneStage, followUpStage, recommendedTier),
     followUpAngle: topLeak
-      ? `If no response in 4–5 days: send one specific evidence item (${(canAssert ? evidenceHook : stripDefinitive(evidenceHook)).slice(0, 120)}) as a screenshot/quote with a one-line question. No pitch${canAssert ? '' : ', and keep it as a question — this finding is not confirmed'}. Then a final value-add follow-up a week later.`
+      ? canAssert
+        ? `If no response in 4–5 days: send one specific evidence item (${(verifiedHook ?? '').slice(0, 120)}) as a screenshot/quote with a one-line question. No pitch. Then a final value-add follow-up a week later.`
+        : `If no response in 4–5 days: send the open question itself — "${leadTitle ?? topLeak.title}" — as a one-line question. Attach no evidence item: this finding is not confirmed, so there is nothing to quote as fact. No pitch. Then a final value-add follow-up a week later.`
       : 'If no response: follow up once with a single useful observation from the audit, then move to nurture cadence.',
     priority,
   };
@@ -204,6 +220,41 @@ function stripDefinitive(text: string): string {
     .replace(/\bfailed when tested\b/gi, 'did not respond as expected when tested');
 }
 
+/**
+ * Minute ranges for the review agenda — frame, score, findings, verify, next
+ * step — contiguous from 0 and ending at the review length. The next step takes
+ * whatever the first four leave, so changing the review length cannot leave the
+ * agenda adding up to something else.
+ */
+function reviewAgenda(totalMinutes: number): string[] {
+  const bounds = [0];
+  for (const length of [2, 3, 6, 5]) bounds.push(bounds[bounds.length - 1] + length);
+  bounds.push(Math.max(totalMinutes, bounds[bounds.length - 1] + 1));
+  return bounds.slice(0, -1).map((start, i) => `MINUTE ${start}–${bounds[i + 1]}`);
+}
+
+/**
+ * The first fact in a verified finding's own evidence that states a GAP —
+ * something missing, failed or not found — or null when it has none.
+ *
+ * Read for meaning, not position: evidence is attached in whatever order the
+ * journey stage collected it, and a presence signal ("A phone number is
+ * publicly displayed") is the opposite of a problem to show an owner.
+ */
+const GAP_FACT = /\b(no|not|without|lacks?|missing|failed|fails|could not|cannot|only)\b/i;
+function observedGapFor(leak: RankedOpportunity, evidence: EvidenceRecordLike[]): string | null {
+  for (const id of leak.evidenceIds) {
+    const record = evidence.find((e) => e.id === id);
+    if (record && GAP_FACT.test(record.fact.slice(0, 80))) return record.fact;
+  }
+  return null;
+}
+
+function firstSentence(text: string): string {
+  const match = text.match(/^.*?[.!?](\s|$)/);
+  return (match ? match[0] : text).trim();
+}
+
 function lowerFirst(text: string): string {
   return text.charAt(0).toLowerCase() + text.slice(1);
 }
@@ -242,11 +293,13 @@ function buildTalkTrack(
   tier: string,
 ): string {
   const lines: string[] = [];
-  lines.push(`MINUTE 0–2 — Frame: "I audited ${name}'s public digital presence the way a customer experiences it. Everything I'm about to show you is evidence from your own website — and I'll flag anything that's an assumption."`);
+  // Built from the configured review length, so the agenda always totals it.
+  const [frame, scoreBlock, findingsBlock, verify, nextStep] = reviewAgenda(COMPANY.reviewMinutes);
+  lines.push(`${frame} — Frame: "I audited ${name}'s public digital presence the way a customer experiences it. Everything I'm about to show you is evidence from your own website — and I'll flag anything that's an assumption."`);
   lines.push(
     score !== null
-      ? `MINUTE 2–5 — Score: walk through the Rescue Score (${score}/100) and coverage. Emphasize what scored well first — credibility before critique.`
-      : 'MINUTE 2–5 — Coverage: explain what could and could not be verified publicly. Honesty about limits is the differentiator.',
+      ? `${scoreBlock} — Score: walk through the Rescue Score (${score}/100) and coverage. Emphasize what scored well first — credibility before critique.`
+      : `${scoreBlock} — Coverage: explain what could and could not be verified publicly. Honesty about limits is the differentiator.`,
   );
   if (topLeaks.length > 0) {
     // Each finding is labelled with the strength it was actually established
@@ -257,13 +310,13 @@ function buildTalkTrack(
         const state = stateForOpportunity(l);
         return mayStateDefinitively(state)
           ? `"${l.title}" — VERIFIED, state it plainly`
-          : `"${stripDefinitive(l.title)}" — ${state}, ask about it, do not assert it`;
+          : `"${stripDefinitive(l.title)}" — ${STATE_PLAIN[state]}: ask about it, do not assert it`;
       })
       .join('; ');
     lines.push(
       // "Why it costs you customers" asserted a loss for every finding,
       // including the ones the brief itself says not to assert.
-      `MINUTE 5–10 — Top findings: show the top ${topLeaks.length} findings with their evidence. For each: "here's what we saw, here's what we could not see, here's how you can check it." ` +
+      `${findingsBlock} — Top findings: show the top ${topLeaks.length} findings with their evidence. For each: "here's what we saw, here's what we could not see, here's how you can check it." ` +
         `Say only what the evidence supports — ${labelled}.`,
     );
     // The combined claim strength of everything being presented. A talk track
@@ -272,15 +325,15 @@ function buildTalkTrack(
     const combined = inheritState(...topLeaks.map(stateForOpportunity));
     if (!mayStateDefinitively(combined)) {
       lines.push(
-        `EVIDENCE DISCIPLINE — the strongest claim this brief supports overall is ${combined}. ` +
+        `EVIDENCE DISCIPLINE — the strongest claim this brief supports overall is: ${STATE_PLAIN[combined]}. ` +
           `${validationInstruction(combined, 'these findings')} ` +
           'Present every finding above as an observation to check with the owner, never as a confirmed defect.',
       );
     }
   } else {
-    lines.push('MINUTE 5–10 — Findings: public presence is solid; pivot to the three areas public data cannot see (calls, follow-up, reactivation) and ask the discovery questions.');
+    lines.push(`${findingsBlock} — Findings: public presence is solid; pivot to the three areas public data cannot see (calls, follow-up, reactivation) and ask the discovery questions.`);
   }
-  lines.push(`MINUTE 10–13 — Verify: ask the top discovery questions. Their answers confirm or kill the assumptions — say so out loud, it builds trust.`);
-  lines.push(`MINUTE 13–15 — Next step: recommend ${tier} and explain exactly why the evidence points there. If their answers changed the picture, say that instead. Book the follow-up before hanging up.`);
+  lines.push(`${verify} — Verify: ask the top discovery questions. Their answers confirm or kill the assumptions — say so out loud, it builds trust.`);
+  lines.push(`${nextStep} — Next step: recommend ${tier} and explain exactly why the evidence points there. If their answers changed the picture, say that instead. Book the follow-up before hanging up.`);
   return lines.join('\n');
 }

@@ -6,6 +6,7 @@ import {
   containsDefinitiveFailureLanguage,
   inheritState,
   mayStateDefinitively,
+  STATE_PLAIN,
   stateForOpportunity,
   stateRank,
 } from '@/lib/audit/evidenceState';
@@ -131,7 +132,9 @@ describe('language inherits the evidence state', () => {
 
   it('says explicitly what still needs validating', () => {
     const content = brief([leak()]);
-    expect(content.bestSalesAngle).toMatch(/MANUAL_VALIDATION_REQUIRED/);
+    // The status is stated in words a rep can read aloud, never as the raw code.
+    expect(content.bestSalesAngle).toContain(`Status: ${STATE_PLAIN.MANUAL_VALIDATION_REQUIRED}.`);
+    expect(content.bestSalesAngle).not.toMatch(/MANUAL_VALIDATION_REQUIRED/);
     expect(content.bestSalesAngle).toMatch(/not confirmed|NOT confirmed/i);
     expect(content.bestSalesAngle).toMatch(/complete the customer flow|ask the owner/i);
   });
@@ -157,7 +160,8 @@ describe('language inherits the evidence state', () => {
       leak({ title: 'Unconfirmed thing' }),
     ]);
     expect(content.talkTrack).toMatch(/"Confirmed thing" — VERIFIED, state it plainly/);
-    expect(content.talkTrack).toMatch(/"Unconfirmed thing" — MANUAL_VALIDATION_REQUIRED, ask about it, do not assert it/);
+    expect(content.talkTrack).toContain(`"Unconfirmed thing" — ${STATE_PLAIN.MANUAL_VALIDATION_REQUIRED}: ask about it, do not assert it`);
+    expect(content.talkTrack).not.toMatch(/MANUAL_VALIDATION_REQUIRED/);
   });
 });
 

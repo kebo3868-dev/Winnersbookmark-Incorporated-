@@ -2,7 +2,7 @@ import { scoreBand } from '@/lib/scoring/rescueScore';
 import { CATEGORY_LABELS } from '@/lib/reports/owner';
 import { COMPANY, type Contact } from '@/lib/config';
 import { prefillFromAverageTicket, scenarioKindFor, SCENARIO_SPECS, type ScenarioKind } from '@/lib/reports/scenarios';
-import { STATE_LABEL, stateForOpportunity, type EvidenceState } from '@/lib/audit/evidenceState';
+import { STATE_LABEL, STATE_PLAIN, stateForOpportunity, type EvidenceState } from '@/lib/audit/evidenceState';
 import { safeDisplayName } from '@/lib/audit/restaurantName';
 import {
   CONFIDENCE_BANDS,
@@ -404,7 +404,10 @@ export interface ExecutiveReportDTO {
    */
   scoringMethodology: MethodologySection[];
   appendix: {
+    /** The machine code, kept for anything that reasons about the record. */
     evidenceType: string;
+    /** What the client reads in place of the code. */
+    evidenceLabel: string;
     fact: string;
     supportingContext: string | null;
     sourceUrl: string | null;
@@ -484,7 +487,7 @@ export function buildExecutiveReport(input: ExecutiveReportInput): ExecutiveRepo
       problem: opp.problem,
       whyItMatters: opp.businessImpact,
       commercialEffect: commercialEffectFor(opp.category, opp.businessImpact),
-      whatWeKnow: attached.slice(0, 3).map((e) => e.fact),
+      whatWeKnow: attached.slice(0, 3).map((e) => presentEvidenceText(e.fact)),
       whatWeDoNotKnow: unknownsFor(opp.category),
       potentialEffect: opp.businessImpact,
       recommendedAction: opp.recommendedSolution,
@@ -505,7 +508,7 @@ export function buildExecutiveReport(input: ExecutiveReportInput): ExecutiveRepo
         aiFit: opp.aiFitScore,
         rescuePriority: opp.rescuePriorityScore,
       },
-      evidenceSnapshot: attached.slice(0, 3).map((e) => ({ fact: e.fact, sourceUrl: e.sourceUrl })),
+      evidenceSnapshot: attached.slice(0, 3).map((e) => ({ fact: presentEvidenceText(e.fact), sourceUrl: e.sourceUrl })),
       scenarioKind,
     };
   });
@@ -651,10 +654,12 @@ export function buildExecutiveReport(input: ExecutiveReportInput): ExecutiveRepo
     confidenceLegend: CONFIDENCE_LEGEND,
     confidenceBands: CONFIDENCE_BANDS,
     scoringMethodology: scoringMethodology(),
+    // Stored evidence keeps its machine codes; the client sees readable words.
     appendix: input.evidence.map((e) => ({
       evidenceType: e.evidenceType,
-      fact: e.fact,
-      supportingContext: e.supportingContext,
+      evidenceLabel: evidenceTypeLabel(e.evidenceType),
+      fact: presentEvidenceText(e.fact),
+      supportingContext: e.supportingContext === null ? null : presentEvidenceText(e.supportingContext),
       sourceUrl: e.sourceUrl,
       confidence: e.confidence,
       confidenceLabel: confidenceLabel(e.confidence),
@@ -964,7 +969,7 @@ function buildThirtyDayPlan(
   if (has(/CATERING|PRIVATE/i)) validate.push('Pull acknowledgment records, response times and booking records for recent catering and private-event inquiries before deciding whether any automation is needed.');
   if (has(/ORDERING|THIRD-PARTY/i)) validate.push('Confirm the online ordering workflow end-to-end and the direct vs third-party order mix.');
   if (has(/RETENTION/i)) validate.push('Check whether the POS or reservation system already holds a guest contact database, and its size.');
-  if (input.journey.some((s) => s.stage === 'RESERVATION' && s.status !== 'HEALTHY')) validate.push('Review reservation patterns: how bookings arrive and where requests are lost.');
+  if (input.journey.some((s) => s.stage === 'RESERVATION' && s.status !== 'HEALTHY')) validate.push('Review reservation patterns: how bookings arrive, and whether any requests go unanswered.');
   validate.push('Walk each finding marked "manual validation required" against your own operating data.');
 
   const highestDirect = top.filter((o) => o.aiFitScore < 70);
@@ -986,7 +991,7 @@ function buildThirtyDayPlan(
 
   return [
     { phase: 'DAYS 1–7', heading: 'VALIDATE', actions: validate },
-    { phase: 'DAYS 8–14', heading: 'FIX THE HIGHEST-FRICTION DIGITAL LEAK', actions: fix },
+    { phase: 'DAYS 8–14', heading: 'FIX THE HIGHEST-PRIORITY DIGITAL ISSUE', actions: fix },
     { phase: 'DAYS 15–21', heading: 'AUTOMATE', actions: automate },
     { phase: 'DAYS 22–30', heading: 'MEASURE', actions: kpis.map((k) => `Track: ${k}.`) },
   ];
@@ -1006,6 +1011,68 @@ const METHODOLOGY: string[] = [
 
 // Re-export for the scorecard footnote.
 export { CATEGORY_LABELS };
+
+// ── Readable evidence for client-facing output ──────────────────────────────
+//
+// The appendix printed each record's internal type code (BUSINESS_IDENTITY,
+// CLICK_TO_CALL) and the ordering-channel record's machine prefix
+// ("ORDERING CHANNEL: PHONE_ORDERING_ONLY —", "Evidence confidence: VERIFIED").
+// Those codes stay in the stored evidence, where the engine reasons about them;
+// this is only how a client reads them.
+
+const EVIDENCE_TYPE_LABEL: Record<string, string> = {
+  BUSINESS_IDENTITY: 'Business identity',
+  PHONE_VISIBILITY: 'Phone number',
+  CLICK_TO_CALL: 'Tap to call',
+  HOURS_VISIBILITY: 'Opening hours',
+  ADDRESS_VISIBILITY: 'Address',
+  MENU_ACCESS: 'Menu',
+  MENU_AVAILABILITY: 'Menu availability',
+  RESERVATION_PATH: 'Reservations',
+  RESERVATION_PLATFORM: 'Reservation platform',
+  ORDERING_PATH: 'Ordering',
+  ORDERING_CHANNEL: 'Ordering channel',
+  ORDERING_PLATFORM: 'Ordering platform',
+  CONTACT_PATH: 'Contact',
+  CONTACT_EMAIL: 'Contact email',
+  CONTACT_FORM: 'Contact form',
+  SINGLE_PURPOSE_FORM: 'Single-purpose form',
+  FORM_PURPOSE_UNVERIFIED: 'Form (purpose not established)',
+  CATERING_PATH: 'Catering',
+  PRIVATE_DINING_PATH: 'Private dining',
+  LOYALTY_SIGNAL: 'Loyalty',
+  EMAIL_CAPTURE: 'Email signup',
+  SMS_CAPTURE: 'Text-message signup',
+  FAQ_SIGNAL: 'FAQ',
+  SOCIAL_LINK: 'Social profiles',
+  CTA_SIGNAL: 'Calls to action',
+  BROKEN_LINK: 'Link check',
+  TECHNICAL_SIGNAL: 'Technical',
+  MOBILE_SIGNAL: 'Mobile',
+  GIFT_CARD_SIGNAL: 'Gift cards',
+  REVIEW_SIGNAL: 'Reviews',
+};
+
+/** A readable label for an evidence type; unknown codes become plain words. */
+export function evidenceTypeLabel(type: string): string {
+  return EVIDENCE_TYPE_LABEL[type] ?? plainWords(type);
+}
+
+/** Evidence text with machine codes replaced by the words they stand for. */
+export function presentEvidenceText(text: string): string {
+  return text
+    .replace(/^ORDERING CHANNEL:\s*[A-Z_]+(\s*\[DESTINATION_RESOLVED\])?\s*—\s*/, '')
+    .replace(/\s*\[DESTINATION_RESOLVED\]/g, '')
+    .replace(/Evidence confidence: ([A-Z_]+)\./g, (whole, code: string) =>
+      code in STATE_PLAIN ? `Evidence: ${STATE_PLAIN[code as EvidenceState]}.` : whole,
+    )
+    .replace(/\b[A-Z]{3,}(?:_[A-Z]+)+\b/g, plainWords);
+}
+
+function plainWords(code: string): string {
+  const words = code.toLowerCase().replace(/_/g, ' ');
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
 
 /** Sanitize a restaurant name into a safe PDF filename. */
 export function sanitizeFilename(name: string): string {

@@ -3,7 +3,18 @@
  * they are never scattered through report templates. Values here are PUBLIC
  * (they appear on client deliverables); never put secrets in this file.
  */
+/**
+ * Length of the Restaurant Rescue Review, in minutes — the ONE place it is set.
+ *
+ * The client report and PDF booked a 20-minute review while the sales brief
+ * asked the same prospect for 15 minutes and timed its agenda to 15. Every
+ * mention of the review's length, and the talk-track agenda, is now built from
+ * this value.
+ */
+const REVIEW_MINUTES = 20;
+
 export const COMPANY = {
+  reviewMinutes: REVIEW_MINUTES,
   name: 'Winnersbookmark',
   shortName: 'Winnersbookmark',
   founder: 'Keith Warren',
@@ -12,8 +23,8 @@ export const COMPANY = {
   footer: 'Designed by Winnersbookmark',
   productName: 'Restaurant Rescue Audit',
   reportSubtitle: 'Restaurant Revenue Intelligence & AI Opportunity Assessment',
-  nextStepCta: 'Schedule a 20-minute Restaurant Rescue Review to compare the public audit with your actual operating data.',
-  ctaHeadline: 'BOOK YOUR 20-MINUTE RESTAURANT RESCUE REVIEW',
+  nextStepCta: `Schedule a ${REVIEW_MINUTES}-minute Restaurant Rescue Review to compare the public audit with your actual operating data.`,
+  ctaHeadline: `BOOK YOUR ${REVIEW_MINUTES}-MINUTE RESTAURANT RESCUE REVIEW`,
   ctaSubtext: 'Compare this public audit with your actual call, booking, ordering, and operating data.',
 } as const;
 

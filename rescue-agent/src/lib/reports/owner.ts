@@ -175,7 +175,7 @@ export function generateOwnerReport(input: {
     assumptionsAndLimitations: assumptions,
     recommendation: recommendTier(input.topLeaks),
     nextStep: {
-      cta: 'BOOK A 15-MINUTE RESTAURANT RESCUE REVIEW',
+      cta: `BOOK A ${COMPANY.reviewMinutes}-MINUTE RESTAURANT RESCUE REVIEW`,
       company: COMPANY.name,
       founder: 'Keith Warren',
       footer: COMPANY.footer,

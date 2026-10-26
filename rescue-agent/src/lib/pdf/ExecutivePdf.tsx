@@ -882,7 +882,7 @@ export function ExecutivePdf({ dto }: { dto: ExecutiveReportDTO }) {
                     <Text style={{ fontSize: 7.5, color: C.muted, marginTop: 2 }}>{e.supportingContext}</Text>
                   ) : null}
                   <Text style={{ fontSize: 6.8, color: C.muted, marginTop: 1 }}>
-                    {e.evidenceType}
+                    {e.evidenceLabel}
                     {e.sourceUrl ? ` · ${e.sourceUrl.length > 90 ? `${e.sourceUrl.slice(0, 90)}…` : e.sourceUrl}` : ''}
                     {/* Label only — see the note on the web report's appendix. */}
                     {` · confidence: ${e.confidenceLabel}`}
