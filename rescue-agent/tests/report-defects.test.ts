@@ -160,7 +160,7 @@ describe('a markup-only URL is not a customer-facing failed transaction link', (
 
   it('classifies ordering as phone-based when the visible CTA is tel:', () => {
     const stage = stageIn(MARKUP_ONLY, 'ORDERING', [failing]);
-    expect(stage?.finding).toMatch(/telephone only/i);
+    expect(stage?.finding).toMatch(/places a telephone call/i);
   });
 
   it('labels a markup URL with no tel: CTA as unverified exposure', () => {

@@ -29,3 +29,6 @@ out/
 
 # TypeScript incremental build cache — machine-local, never shared
 *.tsbuildinfo
+
+# Review evidence for a release check: large binaries, deliberately not in git.
+rescue-agent/.review/

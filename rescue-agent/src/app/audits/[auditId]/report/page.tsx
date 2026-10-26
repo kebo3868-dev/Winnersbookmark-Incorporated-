@@ -2,6 +2,8 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { loadExecutiveReport } from '@/lib/reports/executiveData';
 import type { ExecutiveFinding, RevenueScenario, JourneyMapStage } from '@/lib/reports/executive';
+import { CONFIDENCE_EXPLANATION } from '@/lib/scoring/methodology';
+import { SCENARIO_DISCLAIMER } from '@/lib/reports/scenarios';
 
 export const dynamic = 'force-dynamic';
 
@@ -50,13 +52,20 @@ export default async function ExecutiveReportPage({ params }: { params: Promise<
       )}
 
       {/* COVER */}
-      <header className="card border-gold-dim/30 px-10 py-14 text-center space-y-5 relative overflow-hidden">
+      {/*
+        * px-6 on mobile, not px-10. With 40px of padding each side a 360px
+        * viewport leaves 238px for a 244px heading, so "RESTAURANT RESCUE
+        * AUDIT" painted past its own box; the type scale drops a step at the
+        * same width rather than breaking the word mid-way.
+        */}
+      <header className="card border-gold-dim/30 px-6 sm:px-10 py-14 text-center space-y-5 relative overflow-hidden">
         <p className="label text-gold">Winnersbookmark</p>
-        <h1 className="font-display text-4xl text-ivory tracking-wide">RESTAURANT RESCUE AUDIT</h1>
+        <h1 className="font-display text-3xl sm:text-4xl text-ivory tracking-wide">RESTAURANT RESCUE AUDIT</h1>
         <p className="text-gold-dim text-sm">{dto.cover.subtitle}</p>
         <div className="pt-6 space-y-1">
-          <p className="font-display text-2xl text-ivory">{dto.cover.restaurantName}</p>
-          <p className="text-ivory-dim text-sm">{dto.cover.websiteUrl}{dto.cover.location ? ` · ${dto.cover.location}` : ''}</p>
+          {/* A restaurant's own name can be one long word; it must wrap, not spill. */}
+          <p className="font-display text-2xl text-ivory break-words">{dto.cover.restaurantName}</p>
+          <p className="text-ivory-dim text-sm break-all">{dto.cover.websiteUrl}{dto.cover.location ? ` · ${dto.cover.location}` : ''}</p>
           <p className="text-ivory-faint text-xs">Audit date: {dto.cover.auditDate}</p>
           {dto.cover.auditStatus === 'PARTIALLY_COMPLETED' && (
             <p className="text-amber-300 text-xs uppercase tracking-widest pt-2">Audit partially completed — see Methodology &amp; Limitations</p>
@@ -142,7 +151,7 @@ export default async function ExecutiveReportPage({ params }: { params: Promise<
           ))}
         </div>
         <p className="text-ivory-faint text-xs mt-5 mb-2">
-          How the {dto.score.findingsCount} revenue-leak finding(s) in Section 04 are classified. These describe the findings, not the {dto.score.evidenceCount} evidence items above — every evidence item carries its own confidence score and is listed in the Appendix.
+          How the {dto.score.findingsCount} revenue-leak finding(s) in Section 04 are classified. These describe the findings, not the {dto.score.evidenceCount} evidence items above — every evidence item carries its own confidence label and is listed in the Appendix.
         </p>
         <div className="flex flex-wrap gap-3">
           {[
@@ -156,13 +165,47 @@ export default async function ExecutiveReportPage({ params }: { params: Promise<
             </div>
           ))}
         </div>
+
+        {/*
+          * HOW THE SCORE IS CALCULATED, NEXT TO THE SCORE.
+          *
+          * A 0–100 figure under the words "Rescue Score" was printed with
+          * nothing saying which direction it ran, what it measured, how the
+          * categories were weighted, what coverage divided by, or that an
+          * unassessed category is dropped from the average rather than scored
+          * zero. Collapsed by default so it does not crowd the score, and on
+          * the page rather than in a footnote.
+          */}
+        <details className="card mt-6">
+          <summary className="px-4 sm:px-6 py-4 cursor-pointer label hover:text-gold">
+            How this score is calculated
+          </summary>
+          <div className="px-4 sm:px-6 pb-5 space-y-5 border-t border-obsidian-line pt-4">
+            {dto.scoringMethodology.map((section) => (
+              <div key={section.heading}>
+                <p className="text-ivory text-sm">{section.heading}</p>
+                <p className="text-ivory-faint text-[13px] leading-relaxed mt-1">{section.body}</p>
+                {section.rows && (
+                  <dl className="mt-2.5 space-y-1.5">
+                    {section.rows.map(([term, definition]) => (
+                      <div key={term} className="text-[13px] leading-relaxed">
+                        <dt className="text-gold-dim inline">{term}</dt>
+                        <dd className="text-ivory-faint inline"> — {definition}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                )}
+              </div>
+            ))}
+          </div>
+        </details>
       </Section>
 
       {/* WHAT THIS COULD BE COSTING YOU */}
       {dto.scenarios.length > 0 && (
         <Section kicker="Section 03" title="What This Could Be Costing You">
           <div className="border border-gold-dim/40 rounded px-4 py-3 mb-5 text-gold-dim text-xs uppercase tracking-widest text-center">
-            Illustrative scenarios — not confirmed losses. Every assumption is shown so you can replace it with your real numbers.
+            {SCENARIO_DISCLAIMER}
           </div>
           <div className="space-y-5">
             {dto.scenarios.map((sc) => <ScenarioCard key={sc.key} scenario={sc} />)}
@@ -312,7 +355,21 @@ export default async function ExecutiveReportPage({ params }: { params: Promise<
 
       {/* APPENDIX */}
       <Section kicker="Appendix" title="Full Evidence Chain">
-        <p className="text-ivory-faint text-[13px] leading-relaxed mb-4">{dto.confidenceLegend}</p>
+        {/*
+          * The rubric as a definition list, not one run-on paragraph. As a
+          * single string it rendered as nine wrapped lines on a 360px phone:
+          * complete, but a reader checking what "Moderate" means on their own
+          * badge had to read the whole block to find it.
+          */}
+        <p className="text-ivory-faint text-[13px] leading-relaxed mb-3">{CONFIDENCE_EXPLANATION}</p>
+        <dl className="mb-5 space-y-2">
+          {dto.confidenceBands.map(([label, definition]) => (
+            <div key={label} className="text-[13px] leading-relaxed">
+              <dt className="text-ivory-dim inline">{label}</dt>
+              <dd className="text-ivory-faint inline break-words"> — {definition}</dd>
+            </div>
+          ))}
+        </dl>
         <details className="card">
           <summary className="px-4 sm:px-6 py-4 cursor-pointer label hover:text-gold">Show all {dto.appendix.length} evidence items</summary>
           <div className="divide-y divide-obsidian-line max-h-[480px] overflow-y-auto">
@@ -326,14 +383,28 @@ export default async function ExecutiveReportPage({ params }: { params: Promise<
                * 12px.
                */
               <div key={i} className="px-4 sm:px-6 py-4">
-                <p className="text-[15px] sm:text-sm text-ivory leading-relaxed">{e.fact}</p>
+                {/*
+                  * break-words on both. An evidence fact can carry an email
+                  * address or a hostname as one unbreakable token — at 360px
+                  * "harbourpointseafood@harbourpointgrill.test" pushed this
+                  * paragraph 30px past its own box, and the row with it. The
+                  * text wraps instead; nothing is truncated.
+                  */}
+                <p className="text-[15px] sm:text-sm text-ivory leading-relaxed break-words">{e.fact}</p>
                 {e.supportingContext && (
-                  <p className="text-ivory-dim text-[13px] leading-relaxed mt-1.5">{e.supportingContext}</p>
+                  <p className="text-ivory-dim text-[13px] leading-relaxed mt-1.5 break-words">{e.supportingContext}</p>
                 )}
                 <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px]">
                   <span className="text-gold-dim uppercase tracking-wider">{e.evidenceType.replace(/_/g, ' ')}</span>
+                  {/*
+                    * The label, without the percentage. "90%" and "85%" came
+                    * from a hand-assigned constant per observation type, and
+                    * nothing distinguished them — printing one invited the
+                    * reader to treat it as a probability the audit never
+                    * calculated. The band is defined in the legend above.
+                    */}
                   <span className="text-ivory-faint">
-                    Confidence: <span className="text-ivory-dim">{e.confidenceLabel} ({e.confidence}%)</span>
+                    Confidence: <span className="text-ivory-dim">{e.confidenceLabel}</span>
                   </span>
                 </div>
                 {e.sourceUrl && (
@@ -431,7 +502,16 @@ function JourneyMapRow({ stage, isLast }: { stage: JourneyMapStage; isLast: bool
         <span className={`shrink-0 w-40 text-xs uppercase tracking-widest border rounded px-3 py-2 text-center ${STATUS_STYLES[stage.status] ?? STATUS_STYLES.UNKNOWN}`}>{stage.status}</span>
         <div className="flex-1">
           <p className="text-ivory text-sm font-semibold">{stage.label}</p>
-          <p className="text-ivory-faint text-xs">{stage.note}</p>
+          <p className="text-ivory-faint text-xs break-words">{stage.note}</p>
+          {/*
+            * What the stage could not see, on the row with what it did see.
+            * The map used to show only the first sentence of a finding, which
+            * dropped the "Not assessed" half on the surface a client scans
+            * fastest — leaving an observation to read as a conclusion.
+            */}
+          {stage.limitation && (
+            <p className="text-ivory-faint/70 text-xs italic mt-0.5 break-words">{stage.limitation}</p>
+          )}
         </div>
       </div>
       {!isLast && <div className="ml-[4.5rem] h-3 border-l border-obsidian-line" aria-hidden />}

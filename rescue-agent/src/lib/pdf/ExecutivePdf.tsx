@@ -1,6 +1,8 @@
 import React from 'react';
 import { Document, Page, Text, View, Image, StyleSheet } from '@react-pdf/renderer';
 import type { ExecutiveReportDTO, RevenueScenario } from '@/lib/reports/executive';
+import { CONFIDENCE_EXPLANATION } from '@/lib/scoring/methodology';
+import { SCENARIO_DISCLAIMER } from '@/lib/reports/scenarios';
 
 /**
  * Executive Audit Report PDF (Phase 2.5). Deterministic generation via
@@ -49,6 +51,87 @@ const s = StyleSheet.create({
   row: { flexDirection: 'row' },
   label: { fontSize: 7, letterSpacing: 1.4, color: C.muted, textTransform: 'uppercase', marginBottom: 2 },
 });
+
+/**
+ * A "— continued" line that appears only on the pages AFTER the one a block
+ * started on.
+ *
+ * react-pdf gives a `fixed` element one thing a continuation label needs — it
+ * repeats on every page its parent spans — and not the other: there is no flag
+ * saying "this is not the first of them". `render` does supply the page number,
+ * so the first page a given id renders on is recorded and every higher page
+ * number is a continuation. Layout runs before paint, so by the time the text
+ * is painted the recorded page is the true first one.
+ *
+ * The alternative, a label above every block after the first, put two of them
+ * on one page whenever two blocks landed on the same page — which reads as a
+ * mistake rather than as a continuation.
+ *
+ * The bookkeeping is PER RENDER, held in a Map the document creates and passes
+ * down. It was module scope first, which is a bug whenever two reports render
+ * at once in the same process: react-pdf's layout is async, so a second
+ * document starting would clear the first one's recorded pages mid-layout and
+ * its labels would come out wrong.
+ */
+export type ContinuationLedger = Map<string, number>;
+
+function ContinuedLabel({ id, text, ledger }: { id: string; text: string; ledger: ContinuationLedger }) {
+  return (
+    <Text
+      fixed
+      style={{ fontSize: 6.5, letterSpacing: 0.8, color: C.muted, textTransform: 'uppercase', marginBottom: 2 }}
+      render={({ pageNumber }) => {
+        const seen = ledger.get(id);
+        if (seen === undefined || pageNumber < seen) {
+          ledger.set(id, pageNumber);
+          return '';
+        }
+        return pageNumber > seen ? text : '';
+      }}
+    />
+  );
+}
+
+/** Split a list into fixed-size groups, so a page break falls between groups. */
+function chunk<T>(items: T[], size: number): T[][] {
+  const groups: T[][] = [];
+  for (let i = 0; i < items.length; i += size) groups.push(items.slice(i, i + size));
+  return groups;
+}
+
+/**
+ * Whether a finding card is too tall to be guaranteed a single page.
+ *
+ * This decides BOTH how the card is laid out and whether its blocks carry
+ * continuation labels, and the two have to agree. A card that fits on a page is
+ * rendered as one unbreakable block, so it never splits and needs no label. A
+ * card that cannot be guaranteed a page is allowed to break between its blocks,
+ * and every block after the first then names the finding it belongs to.
+ *
+ * Deciding the label from length alone was wrong: the first attempt let a short
+ * card wrap anyway — it simply started near the foot of a page — and the
+ * continuation arrived under a bare "THE BUSINESS PROBLEM" heading with nothing
+ * saying which finding it belonged to. Tying the layout and the label to the
+ * same predicate makes that impossible: either the card is whole, or it is
+ * labelled.
+ *
+ * Character count, not measured height: the real height depends on font metrics
+ * the layout engine computes later, and this only has to be conservative. A
+ * Letter page at this type size holds roughly 1,800 characters of card body
+ * plus the card's own chrome, so 1,400 leaves headroom.
+ */
+export function findingMaySpanPages(finding: ExecutiveReportDTO['findings'][number]): boolean {
+  const text = [
+    finding.title,
+    finding.problem,
+    finding.whyItMatters,
+    finding.commercialEffect,
+    finding.whatWeDoNotKnow,
+    finding.recommendedAction,
+    ...finding.whatWeKnow,
+  ].join(' ');
+  return text.length > 1400;
+}
 
 function classificationColor(classification: string): string {
   if (classification === 'VERIFIED FINDING') return C.green;
@@ -155,6 +238,9 @@ function ScenarioBlock({ scenario, compact }: { scenario: RevenueScenario; compa
 }
 
 export function ExecutivePdf({ dto }: { dto: ExecutiveReportDTO }) {
+  // Per-render bookkeeping for the continuation labels: one ledger per
+  // document, so two reports rendering at once cannot disturb each other.
+  const continuationLedger: ContinuationLedger = new Map();
   return (
     <Document
       title={`${dto.cover.productName} — ${dto.cover.restaurantName}`}
@@ -248,7 +334,14 @@ export function ExecutivePdf({ dto }: { dto: ExecutiveReportDTO }) {
         {/* SCORE */}
         <View style={s.section}>
           <SectionHeader kicker="Section 02" title="Restaurant Rescue Score" />
-          <View style={[s.row, { gap: 14, marginBottom: 10 }]}>
+          {/*
+            * wrap={false}: the two score cards are one unit. Without it the row
+            * broke across pages 2 and 3, putting the Rescue Score at the bottom
+            * of one page and the Coverage figure it must be read against at the
+            * top of the next. The pair fits inside one page by a wide margin,
+            * so this never produces an unfillable page.
+            */}
+          <View style={[s.row, { gap: 14, marginBottom: 10 }]} wrap={false}>
             <View style={[s.card, { flex: 1, alignItems: 'center' }]}>
               <Text style={[s.label, { marginBottom: 4 }]}>Rescue Score</Text>
               <Text style={{ fontFamily: 'Times-Bold', fontSize: 32, color: C.goldDim, marginBottom: 4 }}>
@@ -279,9 +372,9 @@ export function ExecutivePdf({ dto }: { dto: ExecutiveReportDTO }) {
           </View>
           <Text style={[s.mutedText, { marginTop: 8, marginBottom: 5 }]}>
             How the {dto.score.findingsCount} revenue-leak finding(s) in Section 04 are classified. These describe the findings, not the {dto.score.evidenceCount} evidence
-            items above — every evidence item carries its own confidence score and is listed in the Appendix.
+            items above — every evidence item carries its own confidence label and is listed in the Appendix.
           </Text>
-          <View style={[s.row, { gap: 8, flexWrap: 'wrap' }]}>
+          <View style={[s.row, { gap: 8, flexWrap: 'wrap' }]} wrap={false}>
             {[
               [`${dto.score.verifiedCount}`, 'Verified from public evidence'],
               [`${dto.score.inferredCount}`, 'Inferred opportunities'],
@@ -293,19 +386,68 @@ export function ExecutivePdf({ dto }: { dto: ExecutiveReportDTO }) {
               </View>
             ))}
           </View>
+
+          {/*
+            * HOW THE SCORE IS CALCULATED, IN THE SAME SECTION AS THE SCORE.
+            *
+            * The PDF printed a 0–100 figure and never said what it measured,
+            * which way it ran, how the categories were weighted, what coverage
+            * divided by, or that an unassessed category is dropped from the
+            * average rather than scored zero. Same DTO field as the web report,
+            * so the two cannot describe the arithmetic differently.
+            */}
         </View>
+
+        {/*
+          * A SIBLING SECTION, NOT A NESTED BLOCK.
+          *
+          * Nested inside Section 02's View this cost a page: when a wrapping
+          * parent View breaks, react-pdf reserves the parent's full laid-out
+          * height, so the next sibling started after it — page 4 carried four
+          * lines of prose and four-fifths white space. As its own section the
+          * prose flows and the next section follows it on the same page. The
+          * blocks deliberately carry no wrap={false}: holding each one together
+          * produced the same orphaned page from the other direction.
+          *
+          * Neither failure trips the glyph-count floor in the pagination test,
+          * which is why every page is also inspected by eye.
+          */}
+        <Text style={[s.label, { marginBottom: 4 }]}>How this score is calculated</Text>
+        {dto.scoringMethodology.map((section, i) => (
+          <View key={section.heading} style={{ marginBottom: i === dto.scoringMethodology.length - 1 ? 22 : 6 }}>
+            <Text style={{ fontFamily: 'Helvetica-Bold', fontSize: 8, color: C.ink, marginBottom: 2 }}>{section.heading}</Text>
+            <Text style={[s.mutedText, { marginBottom: section.rows ? 3 : 0 }]}>{section.body}</Text>
+            {section.rows?.map(([term, definition]) => (
+              <Text key={term} style={[s.mutedText, { marginBottom: 1 }]}>
+                <Text style={{ color: C.goldDim }}>{term}</Text>
+                {` — ${definition}`}
+              </Text>
+            ))}
+          </View>
+        ))}
 
         {/* WHAT THIS COULD BE COSTING YOU */}
         {dto.scenarios.length > 0 && (
-          <View style={s.section}>
-            <SectionHeader kicker="Section 03" title="What This Could Be Costing You" />
-            <View style={{ borderWidth: 0.75, borderColor: C.goldDim, borderRadius: 3, padding: 6, marginBottom: 10 }}>
-              <Text style={{ fontSize: 7.5, color: C.goldDim, textAlign: 'center', letterSpacing: 0.5 }}>
-                Illustrative scenarios — not confirmed losses. Every assumption is shown so you can replace it with your real numbers.
-              </Text>
+          // NOT WRAPPED IN A SECTION VIEW.
+          //
+          // react-pdf reserves a wrapping View's full laid-out height when it
+          // breaks, so a section whose cards could not all fit the remainder of
+          // a page started a new page and left the previous one short — the
+          // page before this one carried four lines and four-fifths white
+          // space. As direct children, the header and the first card fill that
+          // space and the rest flows on.
+          <>
+            <View wrap={false}>
+              <SectionHeader kicker="Section 03" title="What This Could Be Costing You" />
+              <View style={{ borderWidth: 0.75, borderColor: C.goldDim, borderRadius: 3, padding: 6, marginBottom: 10 }}>
+                <Text style={{ fontSize: 7.5, color: C.goldDim, textAlign: 'center', letterSpacing: 0.5 }}>
+                  {SCENARIO_DISCLAIMER}
+                </Text>
+              </View>
             </View>
             {dto.scenarios.map((sc) => <ScenarioBlock key={sc.key} scenario={sc} />)}
-          </View>
+            <View style={{ marginBottom: 22 }} />
+          </>
         )}
 
         {/* TOP REVENUE LEAKS */}
@@ -316,45 +458,138 @@ export function ExecutivePdf({ dto }: { dto: ExecutiveReportDTO }) {
               No high-priority revenue leaks were confirmed from public evidence. Remaining risk sits in areas a public audit cannot see — phone handling, follow-up, and repeat business — which we recommend validating directly.
             </Text>
           )}
-          {dto.findings.map((f) => (
-            <View key={f.number} style={[s.card, { marginBottom: 14 }]}>
-              <View style={[s.row, { justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }]}>
-                <Text style={{ fontFamily: 'Times-Bold', fontSize: 12, color: C.ink, flex: 1, paddingRight: 8 }}>
-                  {f.number}. {f.title}
-                </Text>
-                <Text style={[s.badge, { color: classificationColor(f.classification), borderColor: classificationColor(f.classification) }]}>{f.classification}</Text>
-              </View>
-              <Text style={[s.mutedText, { marginBottom: 6 }]}>Customer journey stage: {f.journeyStage} · Priority: {f.labels.priority}</Text>
-              <Text style={[s.label]}>The business problem</Text>
-              <Text style={[s.body, { marginBottom: 6 }]}>{f.problem}</Text>
-              <Text style={[s.label]}>Why it matters</Text>
-              <Text style={[s.body, { marginBottom: 6 }]}>{f.whyItMatters}</Text>
-              <Text style={[s.label]}>Potential commercial effect</Text>
-              <Text style={[s.body, { marginBottom: 6 }]}>{f.commercialEffect}</Text>
-              <Text style={[s.label]}>What we know</Text>
-              {f.whatWeKnow.map((k, i) => (
-                <Text key={i} style={[s.body, { marginBottom: 2 }]}>•  {k}</Text>
-              ))}
-              <Text style={[s.label, { marginTop: 5 }]}>What we do not yet know</Text>
-              <Text style={[s.body, { marginBottom: 6 }]}>{f.whatWeDoNotKnow}</Text>
-              <Text style={[s.label]}>Recommended next action</Text>
-              <Text style={[s.body, { marginBottom: 8 }]}>{f.recommendedAction}</Text>
-              {f.scenario && <ScenarioBlock scenario={f.scenario} compact />}
-              <View style={[s.row, { gap: 14, borderTopWidth: 0.5, borderTopColor: C.line, paddingTop: 6, marginTop: 8 }]}>
-                {[
-                  ['Business impact', f.labels.businessImpact],
-                  ['Urgency', f.labels.urgency],
-                  ['Evidence confidence', f.labels.evidenceConfidence],
-                  ['Automation opportunity', f.labels.automationOpportunity],
-                ].map(([label, value]) => (
-                  <View key={label}>
-                    <Text style={{ fontSize: 6.5, letterSpacing: 0.8, color: C.muted, textTransform: 'uppercase' }}>{label}</Text>
-                    <Text style={{ fontFamily: 'Helvetica-Bold', fontSize: 8.5, color: C.ink }}>{value}</Text>
+          {dto.findings.map((f) => {
+            // PAGINATION: BREAK BETWEEN BLOCKS, NEVER INSIDE ONE.
+            //
+            // The card was a single wrappable View, so a page break could land
+            // anywhere — between a label and the text it introduces, or between
+            // a finding's title and its first sentence. Each labelled block is
+            // now kept whole, so a break always falls at a boundary a reader
+            // can follow.
+            //
+            // CONTINUATION LABELS. A card long enough to span pages repeats its
+            // own number and title above each block after the first, so a block
+            // arriving at the top of a page says which finding it belongs to.
+            // Short cards do not carry the labels, because they cannot split.
+            const blocks: { key: string; node: React.ReactNode }[] = [
+              {
+                key: 'problem',
+                node: (
+                  <>
+                    <Text style={[s.label]}>The business problem</Text>
+                    <Text style={[s.body, { marginBottom: 6 }]}>{f.problem}</Text>
+                  </>
+                ),
+              },
+              {
+                key: 'why',
+                node: (
+                  <>
+                    <Text style={[s.label]}>Why it matters</Text>
+                    <Text style={[s.body, { marginBottom: 6 }]}>{f.whyItMatters}</Text>
+                  </>
+                ),
+              },
+              {
+                key: 'effect',
+                node: (
+                  <>
+                    <Text style={[s.label]}>Potential commercial effect</Text>
+                    <Text style={[s.body, { marginBottom: 6 }]}>{f.commercialEffect}</Text>
+                  </>
+                ),
+              },
+              {
+                key: 'known',
+                node: (
+                  <>
+                    <Text style={[s.label]}>What we know</Text>
+                    {f.whatWeKnow.map((k, i) => (
+                      <Text key={i} style={[s.body, { marginBottom: 2 }]}>•  {k}</Text>
+                    ))}
+                  </>
+                ),
+              },
+              {
+                key: 'unknown',
+                node: (
+                  <>
+                    <Text style={[s.label, { marginTop: 5 }]}>What we do not yet know</Text>
+                    <Text style={[s.body, { marginBottom: 6 }]}>{f.whatWeDoNotKnow}</Text>
+                  </>
+                ),
+              },
+              {
+                key: 'action',
+                node: (
+                  <>
+                    <Text style={[s.label]}>Recommended next action</Text>
+                    <Text style={[s.body, { marginBottom: 8 }]}>{f.recommendedAction}</Text>
+                    {/*
+                      * The scenario itself is NOT repeated here. Every scenario
+                      * was rendered twice — once in Section 03 and again inside
+                      * the matching finding — which put the same money figure in
+                      * front of the reader twice and blurred the line between an
+                      * illustrative model and an evidenced finding. The pointer
+                      * keeps the connection; Section 03 keeps the numbers.
+                      */}
+                    {f.scenario && (
+                      <Text style={[s.mutedText, { marginBottom: 4 }]}>
+                        An optional illustrative scenario for this pathway is shown in Section 03. It is a model built on
+                        assumptions you can replace, not a measured loss and not an amount this finding has quantified.
+                      </Text>
+                    )}
+                  </>
+                ),
+              },
+              {
+                key: 'labels',
+                node: (
+                  <View style={[s.row, { gap: 14, borderTopWidth: 0.5, borderTopColor: C.line, paddingTop: 6, marginTop: 8 }]}>
+                    {[
+                      ['Business impact', f.labels.businessImpact],
+                      ['Urgency', f.labels.urgency],
+                      ['Evidence confidence', f.labels.evidenceConfidence],
+                      ['Automation opportunity', f.labels.automationOpportunity],
+                    ].map(([label, value]) => (
+                      <View key={label}>
+                        <Text style={{ fontSize: 6.5, letterSpacing: 0.8, color: C.muted, textTransform: 'uppercase' }}>{label}</Text>
+                        <Text style={{ fontFamily: 'Helvetica-Bold', fontSize: 8.5, color: C.ink }}>{value}</Text>
+                      </View>
+                    ))}
+                  </View>
+                ),
+              },
+            ];
+            const maySpanPages = findingMaySpanPages(f);
+            return (
+              // wrap={!maySpanPages ? false : undefined}: a card that fits a
+              // page is placed whole, so it cannot be continued at all.
+              <View key={f.number} style={[s.card, { marginBottom: 14 }]} wrap={maySpanPages}>
+                <View wrap={false}>
+                  <View style={[s.row, { justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }]}>
+                    <Text style={{ fontFamily: 'Times-Bold', fontSize: 12, color: C.ink, flex: 1, paddingRight: 8 }}>
+                      {f.number}. {f.title}
+                    </Text>
+                    <Text style={[s.badge, { color: classificationColor(f.classification), borderColor: classificationColor(f.classification) }]}>{f.classification}</Text>
+                  </View>
+                  <Text style={[s.mutedText, { marginBottom: 6 }]}>Customer journey stage: {f.journeyStage} · Priority: {f.labels.priority}</Text>
+                </View>
+                {maySpanPages && (
+                  <ContinuedLabel
+                    id={`finding-${f.number}`}
+                    text={`${f.number}. ${f.title} — continued`}
+                    ledger={continuationLedger}
+                  />
+                )}
+                {blocks.map((block) => (
+                  <View key={block.key} wrap={false}>
+                    {block.node}
                   </View>
                 ))}
               </View>
-            </View>
-          ))}
+            );
+          })}
         </View>
 
         {/* VISUAL CUSTOMER JOURNEY */}
@@ -370,6 +605,10 @@ export function ExecutivePdf({ dto }: { dto: ExecutiveReportDTO }) {
                 <View style={{ flex: 1 }}>
                   <Text style={{ fontFamily: 'Helvetica-Bold', fontSize: 9, color: C.ink }}>{stage.label}</Text>
                   <Text style={{ fontSize: 7.5, color: C.muted }}>{stage.note}</Text>
+                  {/* The limitation travels with the observation — see the web report. */}
+                  {stage.limitation ? (
+                    <Text style={{ fontSize: 7, color: C.muted, fontStyle: 'italic' }}>{stage.limitation}</Text>
+                  ) : null}
                 </View>
               </View>
               {i < dto.journeyMap.length - 1 && <View style={{ marginLeft: 59, height: 6, borderLeftWidth: 0.75, borderLeftColor: C.line }} />}
@@ -509,24 +748,59 @@ export function ExecutivePdf({ dto }: { dto: ExecutiveReportDTO }) {
           <Text style={[s.mutedText, { marginBottom: 4 }]}>
             Every material claim in this report traces to the evidence below, collected from publicly accessible pages on the audit date.
           </Text>
-          {/* Same legend as the web report, from the same DTO field. */}
-          <Text style={[s.mutedText, { marginBottom: 8 }]}>{dto.confidenceLegend}</Text>
-          {dto.appendix.map((e, i) => (
-            <View key={i} style={{ borderBottomWidth: 0.5, borderBottomColor: C.line, paddingVertical: 4 }} wrap={false}>
-              <Text style={{ fontSize: 8.5, color: C.ink }}>{e.fact}</Text>
-              {e.supportingContext ? (
-                <Text style={{ fontSize: 7.5, color: C.muted, marginTop: 2 }}>{e.supportingContext}</Text>
-              ) : null}
-              <Text style={{ fontSize: 6.8, color: C.muted, marginTop: 1 }}>
-                {e.evidenceType}
-                {e.sourceUrl ? ` · ${e.sourceUrl.length > 90 ? `${e.sourceUrl.slice(0, 90)}…` : e.sourceUrl}` : ''}
-                {` · confidence: ${e.confidenceLabel} (${e.confidence}%)`}
-              </Text>
-            </View>
-          ))}
-          <Text style={{ fontSize: 6.8, color: C.muted, marginTop: 10, letterSpacing: 0.5 }}>
+          {/*
+            * PROVENANCE AT THE HEAD OF THE CHAIN, NOT TRAILING AFTER IT.
+            *
+            * This line used to sit after the evidence list. A single short Text
+            * following a variable-length list orphans: with the appendix ending
+            * near a page boundary it was pushed onto a page of its own, which
+            * then carried nothing but this line and the running footer. It
+            * identifies the evidence chain, so the head of the chain is where
+            * it belongs, and there it cannot be separated from anything.
+            */}
+          <Text style={{ fontSize: 6.8, color: C.muted, marginBottom: 4, letterSpacing: 0.5 }}>
             {dto.valueSignals.confidentialityNote} · Prepared for {dto.valueSignals.preparedFor} by {dto.valueSignals.preparedBy} · Audit {dto.valueSignals.auditId} · {dto.valueSignals.auditDate}
           </Text>
+          {/* Same rubric as the web report, laid out the same way — one
+            * introductory sentence, then the bands as their own lines. As a
+            * single concatenated string it read as an unscannable block. */}
+          <Text style={s.mutedText}>{CONFIDENCE_EXPLANATION}</Text>
+          <View style={{ marginTop: 2, marginBottom: 8 }} wrap={false}>
+            {dto.confidenceBands.map(([label, definition]) => (
+              <Text key={label} style={[s.mutedText, { marginTop: 1 }]}>
+                <Text style={{ color: C.goldDim }}>{label}</Text>
+                {` — ${definition}`}
+              </Text>
+            ))}
+          </View>
+          {/*
+            * Rows travel in groups of three.
+            *
+            * One row per block let the LAST row strand on a page of its own:
+            * the pagination test caught a final page carrying evidence item 22
+            * and the running footer, and nothing else. Grouping moves the break
+            * to a group boundary, so a page that starts the tail of the
+            * appendix carries several rows rather than one. Three rows is a
+            * small fraction of a page, so a group never exceeds one.
+            */}
+          {chunk(dto.appendix, 3).map((group, gi) => (
+            <View key={gi} wrap={false}>
+              {group.map((e, i) => (
+                <View key={i} style={{ borderBottomWidth: 0.5, borderBottomColor: C.line, paddingVertical: 4 }}>
+                  <Text style={{ fontSize: 8.5, color: C.ink }}>{e.fact}</Text>
+                  {e.supportingContext ? (
+                    <Text style={{ fontSize: 7.5, color: C.muted, marginTop: 2 }}>{e.supportingContext}</Text>
+                  ) : null}
+                  <Text style={{ fontSize: 6.8, color: C.muted, marginTop: 1 }}>
+                    {e.evidenceType}
+                    {e.sourceUrl ? ` · ${e.sourceUrl.length > 90 ? `${e.sourceUrl.slice(0, 90)}…` : e.sourceUrl}` : ''}
+                    {/* Label only — see the note on the web report's appendix. */}
+                    {` · confidence: ${e.confidenceLabel}`}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          ))}
         </View>
       </Page>
     </Document>

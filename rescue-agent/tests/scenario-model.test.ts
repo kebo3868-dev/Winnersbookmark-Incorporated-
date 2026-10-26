@@ -22,9 +22,21 @@ describe('scenarioKindFor (deterministic eligibility)', () => {
 describe('buildScenario (decimal-safe, assumptions always shown)', () => {
   it('computes the documented phone example exactly (5 × 0.30 × $45 × 365 = $24,637.50)', () => {
     const sc = buildScenario('phone', 'friction');
-    expect(sc.annualExposure).toBe('$24,637.50');
-    expect(sc.monthlyExposure).toBe('$2,053.13'); // 24637.50 / 12 rounded to cents
+    // The arithmetic is still decimal-exact and still asserted — on the cents,
+    // which is where exactness belongs.
+    expect(sc.annualExposureCents).toBe(2_463_750);
+    expect(sc.monthlyExposureCents).toBe(205_313); // 24637.50 / 12 rounded to cents
     expect(sc.classification).toBe('ILLUSTRATIVE SCENARIO');
+  });
+
+  it('displays the output as a magnitude, not to the cent', () => {
+    // "$24,637.50" reads as a measurement. Every input to it is an illustrative
+    // assumption, so the displayed figure is rounded to two significant figures
+    // and marked approximate.
+    const sc = buildScenario('phone', 'friction');
+    expect(sc.annualExposure).toBe('about $25,000');
+    expect(sc.monthlyExposure).toBe('about $2,100');
+    expect(sc.annualExposure).not.toMatch(/\.\d{2}/);
   });
 
   it('surfaces every assumption used, each labeled illustrative — never a hidden input', () => {
@@ -44,7 +56,8 @@ describe('buildScenario (decimal-safe, assumptions always shown)', () => {
       expect(sc.confidenceStatement.toLowerCase()).toContain('not a confirmed loss');
       expect(sc.dataRequiredToValidate.length).toBeGreaterThan(0);
       expect(sc.assumptions.length).toBeGreaterThan(0);
-      expect(sc.annualExposure).toMatch(/^\$[\d,]+\.\d{2}$/);
+      expect(sc.annualExposure).toMatch(/^about \$[\d,]+$/);
+      expect(sc.annualExposureCents).toBeGreaterThan(0);
     }
   });
 
@@ -57,7 +70,8 @@ describe('buildScenario (decimal-safe, assumptions always shown)', () => {
 
   it('is decimal-exact for reservation (3 × 2 × $40 × 52 = $12,480.00)', () => {
     const sc = buildScenario('reservation');
-    expect(sc.annualExposure).toBe('$12,480.00');
+    expect(sc.annualExposureCents).toBe(1_248_000);
+    expect(sc.annualExposure).toBe('about $12,000');
   });
 
   it('exposes centralized defaults for configuration', () => {
@@ -72,7 +86,8 @@ describe('withAverageTicket (owner-supplied ticket refinement)', () => {
     const defaults = withAverageTicket(60);
     const phone = buildScenario('phone', 'friction', defaults);
     // 5 missed/day × 0.30 intent × $60 × 365 = $32,850.00
-    expect(phone.annualExposure).toBe('$32,850.00');
+    expect(phone.annualExposureCents).toBe(3_285_000);
+    expect(phone.annualExposure).toBe('about $33,000');
     // assumption row reflects the real ticket
     expect(phone.assumptions.some((a) => a.value === '$60.00')).toBe(true);
     // still illustrative

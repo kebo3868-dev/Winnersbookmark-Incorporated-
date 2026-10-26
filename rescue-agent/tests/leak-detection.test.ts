@@ -57,7 +57,14 @@ describe('detectRevenueLeaks', () => {
     expect(phone).toBeDefined();
     expect(phone!.manualValidationRequired).toBe(true);
     expect(phone!.problem).not.toMatch(/is missing calls|misses \d+ calls/i);
-    expect(phone!.problem).toMatch(/potential missed-call exposure/i);
+    // Was: toMatch(/potential missed-call exposure/i). That phrase asserted
+    // missed-call exposure from a missing FAQ page, which is a conclusion about
+    // call volume the audit cannot observe. The finding must now name what it
+    // needs instead of implying the answer.
+    expect(phone!.problem).toMatch(/call records|requires your data/i);
+    expect(phone!.problem).not.toMatch(/missed-call exposure/i);
+    // States the limit explicitly rather than leaving the reader to infer it.
+    expect(phone!.problem).toMatch(/does not claim the phone is overloaded/i);
   });
 
   it('forces manualValidationRequired below 60 confidence', () => {

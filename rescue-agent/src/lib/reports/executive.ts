@@ -4,6 +4,12 @@ import { COMPANY, type Contact } from '@/lib/config';
 import { buildScenario, scenarioKindFor, withAverageTicket, type RevenueScenario } from '@/lib/reports/scenarios';
 import { STATE_LABEL, stateForOpportunity, type EvidenceState } from '@/lib/audit/evidenceState';
 import { safeDisplayName } from '@/lib/audit/restaurantName';
+import {
+  CONFIDENCE_BANDS,
+  CONFIDENCE_EXPLANATION,
+  scoringMethodology,
+  type MethodologySection,
+} from '@/lib/scoring/methodology';
 
 export type { RevenueScenario } from '@/lib/reports/scenarios';
 
@@ -179,6 +185,16 @@ export interface JourneyMapStage {
   label: string;
   status: 'HEALTHY' | 'FRICTION' | 'INSUFFICIENT DATA' | 'UNKNOWN' | 'MANUAL VALIDATION';
   note: string;
+  /**
+   * What the stage could NOT see, when the stage says so.
+   *
+   * The map kept only the first sentence of a stage's finding, which was fine
+   * while findings were one sentence. They are now written as "Observed: … Not
+   * assessed: …", so truncating dropped the half that keeps an observation from
+   * reading as a conclusion — on the very surface a client scans fastest. Null
+   * when the stage states no limitation.
+   */
+  limitation: string | null;
 }
 
 export interface RankedAiOpportunity {
@@ -300,6 +316,27 @@ export interface ExecutiveReportDTO {
    * reads as false precision, which is the opposite of what it is for.
    */
   confidenceLegend: string;
+  /**
+   * The same rubric, kept structured.
+   *
+   * The flat string renders as a nine-line run-on paragraph on a 360px phone —
+   * readable, but not scannable: the reader has to parse prose to find out what
+   * their own badge means. The interface and the PDF lay these out as a
+   * definition list; the string remains for anything that needs one sentence.
+   */
+  confidenceBands: [string, string][];
+  /**
+   * How the Rescue Score, coverage and confidence are calculated, in the words
+   * the client reads.
+   *
+   * The report printed a 0–100 score under the words "Rescue Score" and never
+   * said what it measured, which direction it ran, how the categories were
+   * weighted, what coverage divided by, or that an unknown stage is dropped
+   * from the average rather than scored zero. Quoted from
+   * `@/lib/scoring/methodology` so the interface and the PDF cannot describe
+   * the arithmetic differently.
+   */
+  scoringMethodology: MethodologySection[];
   appendix: {
     evidenceType: string;
     fact: string;
@@ -502,6 +539,8 @@ export function buildExecutiveReport(input: ExecutiveReportInput): ExecutiveRepo
     },
     methodologyAndLimitations: METHODOLOGY,
     confidenceLegend: CONFIDENCE_LEGEND,
+    confidenceBands: CONFIDENCE_BANDS,
+    scoringMethodology: scoringMethodology(),
     appendix: input.evidence.map((e) => ({
       evidenceType: e.evidenceType,
       fact: e.fact,
@@ -514,18 +553,17 @@ export function buildExecutiveReport(input: ExecutiveReportInput): ExecutiveRepo
 }
 
 /**
- * Written from the same thresholds `confidenceLabel` uses, so the legend cannot
- * describe bands the labels do not follow.
+ * Assembled from the rubric itself, so the legend cannot describe bands the
+ * labels do not follow.
  *
- * States what the number measures, which is the part that was missing: how
- * directly the fact was observed on a public page — never how likely the
- * business outcome is, and never a prediction.
+ * It no longer quotes percentage ranges, because the percentages are no longer
+ * shown. They were hand-assigned constants per observation type: a reader
+ * cannot act on the difference between 85% and 90%, and a printed percentage
+ * invites them to read it as a probability the audit never calculated. The
+ * bands are defined by HOW the fact was obtained, which has a checkable answer.
  */
 export const CONFIDENCE_LEGEND =
-  'Confidence describes how directly each fact was observed on a public page — not how likely an outcome is. ' +
-  'Strong (80–100%): read directly from the page or a tested response. ' +
-  'Moderate (60–79%): observed, with part of the picture outside public view. ' +
-  'Preliminary (under 60%): a signal worth checking, not a conclusion.';
+  `${CONFIDENCE_EXPLANATION} ` + CONFIDENCE_BANDS.map(([label, definition]) => `${label}: ${definition}`).join(' ');
 
 // ── Section builders (all deterministic, evidence-derived) ──────────────────
 
@@ -595,7 +633,13 @@ function buildJourneyMap(journey: ExecutiveReportInput['journey']): JourneyMapSt
     else if (s.status === 'RESOLVED_UNVERIFIED') status = 'MANUAL VALIDATION';
     else if (s.manualValidationRequired && s.status !== 'HEALTHY') status = 'MANUAL VALIDATION';
     else status = s.status as JourneyMapStage['status'];
-    return { stage, label: JOURNEY_LABELS[stage] ?? stage, status, note: firstSentence(s.finding) };
+    return {
+      stage,
+      label: JOURNEY_LABELS[stage] ?? stage,
+      status,
+      note: firstSentence(s.finding),
+      limitation: limitationSentence(s.finding),
+    };
   });
 }
 
@@ -698,16 +742,41 @@ function buildDecisionBox(findings: ExecutiveFinding[], ranked: RankedAiOpportun
 
 function interpretScore(score: number | null): string {
   if (score === null) return 'Public evidence was insufficient to produce an overall score. See Methodology & Limitations.';
-  if (score >= 90) return 'The public-facing digital operation is exceptionally strong; remaining opportunities are refinements, not repairs.';
-  if (score >= 80) return 'A strong digital revenue foundation with specific, addressable optimization opportunities.';
-  if (score >= 70) return 'A workable foundation with measurable revenue leakage in specific parts of the guest journey.';
-  if (score >= 60) return 'Guests encounter meaningful friction at several points in the digital journey; prioritized fixes are warranted.';
-  return 'The digital guest journey is a high-priority rescue opportunity; several fundamental pathways need attention.';
+  // NO BAND MAY ASSERT A MEASURED LOSS.
+  //
+  // "measurable revenue leakage" told the reader money had been measured
+  // leaving the business. Nothing in this audit measures money. Each band now
+  // describes the state of the PUBLIC SIGNALS the score is computed from, and
+  // says so.
+  if (score >= 90) return 'The public signals this audit checks are close to complete; what remains are refinements rather than repairs.';
+  if (score >= 80) return 'The public signals are strong, with specific gaps worth addressing. No financial loss is measured by this score.';
+  if (score >= 70) return 'A workable public foundation with identified gaps in specific parts of the guest journey. Whether those gaps cost money is not measured here.';
+  if (score >= 60) return 'Several parts of the public guest journey show friction or could not be verified; these are the places to look first.';
+  return 'Multiple core pathways are missing, broken, or unverifiable from public pages. This is where a review should start.';
 }
 
 function firstSentence(text: string): string {
   const match = text.match(/^.*?[.!?](\s|$)/);
   return (match ? match[0] : text).trim().slice(0, 240);
+}
+
+/**
+ * The sentence in a journey finding that states what was NOT established.
+ *
+ * Recognised by the openings the engine actually writes — "Not assessed:",
+ * "Not observed:", "Requires your data:" — plus a stage that names the records
+ * it would need. Deliberately pattern-matched rather than taken as "everything
+ * after the first sentence": a stage may carry several observed sentences, and
+ * only the limitation belongs on the second line of the map.
+ */
+function limitationSentence(text: string): string | null {
+  const sentences = text.split(/(?<=[.!?])\s+/);
+  const found = sentences.find((s) =>
+    /^(not assessed|not observed|requires your data)\b/i.test(s.trim()) ||
+    /\brequires (call records|your own data|owner data)\b/i.test(s) ||
+    /\bnot assessed here\b/i.test(s),
+  );
+  return found ? found.trim().slice(0, 240) : null;
 }
 
 function buildSummary(input: ExecutiveReportInput, findings: ExecutiveFinding[]): string {

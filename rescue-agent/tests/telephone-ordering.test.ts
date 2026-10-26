@@ -52,7 +52,11 @@ describe('telephone precedence — the Leverock\'s case', () => {
     const stage = orderingStage(LEVEROCKS_SHAPE);
     expect(stage?.status).not.toBe('HEALTHY');
     expect(stage?.status).toBe('FRICTION');
-    expect(stage?.finding).toMatch(/telephone only/i);
+    expect(stage?.finding).toMatch(/places a telephone call/i);
+    // The observed CTA's destination is a fact. "Telephone only" was not: the
+    // crawl never covered every page, so exclusivity was never in scope.
+    expect(stage?.finding).not.toMatch(/telephone only/i);
+    expect(stage?.finding).toMatch(/not established either way/i);
   });
 
   it('records the config destination as context, never as the pathway', () => {
@@ -142,7 +146,7 @@ describe('a broken ordering link still outranks the phone', () => {
       { url: 'https://www.spothopperapp.com/order-online/x', category: 'ordering', ok: false, httpStatus: 500, note: 'HTTP 500' },
     ]);
     expect(stage?.status).toBe('FRICTION');
-    expect(stage?.finding).toMatch(/telephone only/i);
+    expect(stage?.finding).toMatch(/places a telephone call/i);
     expect(stage?.status).not.toBe('RISK');
   });
 });

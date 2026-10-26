@@ -502,7 +502,7 @@ describe('confidence numbers are explained, not left as bare percentages', () =>
   it('publishes a legend saying what the number measures', () => {
     const dto = buildExecutiveReport(reportInput());
     expect(dto.confidenceLegend).toBe(CONFIDENCE_LEGEND);
-    expect(dto.confidenceLegend).toMatch(/how directly each fact was observed/i);
+    expect(dto.confidenceLegend).toMatch(/how directly a fact was observed/i);
     expect(dto.confidenceLegend).toMatch(/not how likely an outcome is/i);
   });
 
@@ -517,17 +517,34 @@ describe('confidence numbers are explained, not left as bare percentages', () =>
     expect(dto.appendix.map((e) => e.confidenceLabel)).toEqual(['Strong', 'Strong', 'Moderate', 'Preliminary']);
   });
 
-  it('the legend thresholds match confidenceLabel, so they cannot drift', () => {
+  it('the band boundaries are unchanged, so labels stay stable', () => {
     expect(confidenceLabel(80)).toBe('Strong');
     expect(confidenceLabel(79)).toBe('Moderate');
     expect(confidenceLabel(60)).toBe('Moderate');
     expect(confidenceLabel(59)).toBe('Preliminary');
-    expect(CONFIDENCE_LEGEND).toContain('80–100');
-    expect(CONFIDENCE_LEGEND).toContain('60–79');
-    expect(CONFIDENCE_LEGEND).toContain('under 60');
   });
 
-  it('keeps the raw score alongside the label — the label replaces nothing', () => {
+  it('the legend quotes no percentage ranges, because none are displayed', () => {
+    // It used to read "Strong (80–100%)". The displayed numbers are gone — they
+    // were hand-assigned constants per observation type, and nothing told a
+    // reader what separated an 85 from a 90 — so a legend explaining ranges
+    // would now be explaining something the report never shows. Each band is
+    // defined by HOW the fact was obtained instead.
+    // Narrow on purpose: the legend DOES use the words "85%" and "90%", in the
+    // sentence saying the audit has no basis for telling them apart. What must
+    // be gone is a band defined by a range.
+    for (const range of ['80–100', '60–79', 'under 60']) {
+      expect(CONFIDENCE_LEGEND, range).not.toContain(range);
+    }
+    expect(CONFIDENCE_LEGEND).toMatch(/it is a label, not a percentage/i);
+    expect(CONFIDENCE_LEGEND).toMatch(/read directly from a page/i);
+    expect(CONFIDENCE_LEGEND).toMatch(/outside public view/i);
+  });
+
+  it('keeps the raw score in the DTO — only the display is a label', () => {
+    // Thresholds still depend on the number (a finding under 60 is forced to
+    // manual validation), so the DTO keeps it. The interface and the PDF show
+    // the band.
     const dto = buildExecutiveReport(reportInput());
     expect(dto.appendix[0].confidence).toBe(90);
     expect(dto.appendix[0].confidenceLabel).toBe('Strong');

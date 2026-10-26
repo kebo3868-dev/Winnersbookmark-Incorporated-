@@ -25,8 +25,20 @@ export interface RevenueScenario {
   classification: 'ILLUSTRATIVE SCENARIO';
   assumptions: ScenarioAssumption[];
   formula: string;
-  monthlyExposure: string; // formatted USD
-  annualExposure: string; // formatted USD
+  /**
+   * Display strings, rounded to two significant figures and marked "≈".
+   *
+   * These read "≈ $25,000", not "$24,637.50". The arithmetic is decimal-exact
+   * and the exact value is kept below — but every input is an illustrative
+   * assumption, so printing the output to the cent claimed a precision the
+   * model does not have. A figure given to the cent reads as a measurement;
+   * this one is a magnitude, and says so.
+   */
+  monthlyExposure: string;
+  annualExposure: string;
+  /** The exact computed values in integer cents, so the arithmetic stays provable. */
+  monthlyExposureCents: number;
+  annualExposureCents: number;
   dataRequiredToValidate: string[];
   confidenceStatement: string;
 }
@@ -75,6 +87,42 @@ const toCents = (dollars: number): number => Math.round(dollars * 100);
 const formatUSD = (cents: number): string =>
   `$${(cents / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const pct = (rate: number): string => `${Math.round(rate * 1000) / 10}%`;
+
+/**
+ * A scenario OUTPUT, rounded to two significant figures and marked approximate.
+ *
+ * `formatUSD` stays as it is and is still used for the assumption rows, because
+ * an assumption like "average transaction value $45.00" is an exact stated
+ * input. The output of multiplying four guesses together is not, and printing
+ * it as "$24,637.50" invited the reader to treat a model as a measurement.
+ */
+/**
+ * What an illustrative scenario is, and the three things it is not.
+ *
+ * The section carried "not confirmed losses" and stopped there, which left
+ * three readings open that the numbers invite: that the figure is money already
+ * lost, that fixing the pathway returns it, and that several scenarios add up to
+ * a total. None follows from the model, and the third is actively wrong —
+ * scenarios overlap, because the same guest who does not call is often the same
+ * guest who does not book.
+ */
+export const SCENARIO_DISCLAIMER =
+  'Illustrative scenarios — not confirmed losses, not guaranteed recoveries, and not additive. ' +
+  'Each one multiplies assumptions, shown in full below, that you can replace with your own numbers. ' +
+  'No money has been measured leaving the business, fixing a pathway does not return the figure shown, and the ' +
+  'scenarios overlap — do not add them together.';
+
+export function formatApproxUSD(cents: number): string {
+  const dollars = cents / 100;
+  if (dollars === 0) return '$0';
+  const magnitude = Math.pow(10, Math.floor(Math.log10(Math.abs(dollars))) - 1);
+  const rounded = Math.round(dollars / magnitude) * magnitude;
+  // "about", not "≈". The PDF's embedded Times and Helvetica subsets have no
+  // glyph for U+2248, so it rendered as a tofu box sitting on top of the
+  // dollar sign — a visual defect on the figure the client looks at hardest.
+  // A word carries the same meaning and is in every font.
+  return `about $${rounded.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
+}
 
 /**
  * Annual exposure in integer cents = round(count × rate × valueCents × periods).
@@ -140,8 +188,10 @@ export function buildScenario(kind: ScenarioKind, friction = 'Observed on the an
           { label: 'Operating days', value: `${d.operatingDays}`, qualifier: 'illustrative assumption' },
         ],
         formula: 'missed calls/day × commercial intent rate × average transaction value × operating days',
-        monthlyExposure: formatUSD(monthlyFromAnnual(annual)),
-        annualExposure: formatUSD(annual),
+        monthlyExposure: formatApproxUSD(monthlyFromAnnual(annual)),
+        annualExposure: formatApproxUSD(annual),
+        monthlyExposureCents: monthlyFromAnnual(annual),
+        annualExposureCents: annual,
         dataRequiredToValidate: ['Call logs', 'Missed-call count', 'Caller reason sample', 'Average ticket', 'Operating days'],
         confidenceStatement: 'Illustrative scenario — not a confirmed loss. Actual call volume, missed-call count, caller intent, and transaction value must be validated against restaurant phone and POS data.',
       };
@@ -161,8 +211,10 @@ export function buildScenario(kind: ScenarioKind, friction = 'Observed on the an
           { label: 'Operating weeks', value: `${d.operatingWeeks}`, qualifier: 'illustrative assumption' },
         ],
         formula: 'lost bookings/week × party size × per-guest value × operating weeks',
-        monthlyExposure: formatUSD(monthlyFromAnnual(annual)),
-        annualExposure: formatUSD(annual),
+        monthlyExposure: formatApproxUSD(monthlyFromAnnual(annual)),
+        annualExposure: formatApproxUSD(annual),
+        monthlyExposureCents: monthlyFromAnnual(annual),
+        annualExposureCents: annual,
         dataRequiredToValidate: ['Reservation system logs', 'Turn-away count', 'Average party size', 'Average per-guest spend'],
         confidenceStatement: 'Illustrative scenario — not a confirmed loss. Actual booking demand, turn-away rate, and per-guest value must be validated against reservation and POS data.',
       };
@@ -181,8 +233,10 @@ export function buildScenario(kind: ScenarioKind, friction = 'Observed on the an
           { label: 'Operating days', value: `${d.operatingDays}`, qualifier: 'illustrative assumption' },
         ],
         formula: 'abandoned orders/day × average order value × operating days',
-        monthlyExposure: formatUSD(monthlyFromAnnual(annual)),
-        annualExposure: formatUSD(annual),
+        monthlyExposure: formatApproxUSD(monthlyFromAnnual(annual)),
+        annualExposure: formatApproxUSD(annual),
+        monthlyExposureCents: monthlyFromAnnual(annual),
+        annualExposureCents: annual,
         dataRequiredToValidate: ['Online ordering analytics', 'Cart abandonment data', 'Average order value', 'Channel mix (direct vs third-party)'],
         confidenceStatement: 'Illustrative scenario — not a confirmed loss. Actual order abandonment and order value must be validated against ordering-platform analytics.',
       };
@@ -202,8 +256,10 @@ export function buildScenario(kind: ScenarioKind, friction = 'Observed on the an
           { label: 'Operating months', value: `${d.operatingMonths}`, qualifier: 'illustrative assumption' },
         ],
         formula: 'missed leads/month × close rate × event value × operating months',
-        monthlyExposure: formatUSD(monthlyFromAnnual(annual)),
-        annualExposure: formatUSD(annual),
+        monthlyExposure: formatApproxUSD(monthlyFromAnnual(annual)),
+        annualExposure: formatApproxUSD(annual),
+        monthlyExposureCents: monthlyFromAnnual(annual),
+        annualExposureCents: annual,
         dataRequiredToValidate: ['Event-inquiry logs', 'Response-time records', 'Historical close rate', 'Average event value'],
         confidenceStatement: 'Illustrative scenario — not a confirmed loss. Actual lead volume, close rate, and event value must be validated against internal event records.',
       };
@@ -223,8 +279,10 @@ export function buildScenario(kind: ScenarioKind, friction = 'Observed on the an
           { label: 'Operating months', value: `${d.operatingMonths}`, qualifier: 'illustrative assumption' },
         ],
         formula: 're-engaged guests/month × visits per re-engagement × average ticket × operating months',
-        monthlyExposure: formatUSD(monthlyFromAnnual(annual)),
-        annualExposure: formatUSD(annual),
+        monthlyExposure: formatApproxUSD(monthlyFromAnnual(annual)),
+        annualExposure: formatApproxUSD(annual),
+        monthlyExposureCents: monthlyFromAnnual(annual),
+        annualExposureCents: annual,
         dataRequiredToValidate: ['Guest database size', 'Lapsed-guest count', 'Historical repeat-visit rate', 'Average ticket'],
         confidenceStatement: 'Illustrative scenario — an opportunity model, not a confirmed loss. Actual database size and repeat behavior must be validated against POS and CRM data.',
       };
@@ -243,8 +301,10 @@ export function buildScenario(kind: ScenarioKind, friction = 'Observed on the an
           { label: 'Operating days', value: `${d.operatingDays}`, qualifier: 'illustrative assumption' },
         ],
         formula: 'lost conversions/day × value per conversion × operating days',
-        monthlyExposure: formatUSD(monthlyFromAnnual(annual)),
-        annualExposure: formatUSD(annual),
+        monthlyExposure: formatApproxUSD(monthlyFromAnnual(annual)),
+        annualExposure: formatApproxUSD(annual),
+        monthlyExposureCents: monthlyFromAnnual(annual),
+        annualExposureCents: annual,
         dataRequiredToValidate: ['Website analytics', 'Conversion-action tracking', 'Average conversion value', 'Traffic volume'],
         confidenceStatement: 'Illustrative scenario — not a confirmed loss. Actual traffic, conversion rate, and conversion value must be validated against website analytics.',
       };

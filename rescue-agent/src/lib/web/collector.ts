@@ -100,8 +100,9 @@ export interface PageExtract {
   hoursText: string | null;
   addressText: string | null;
   /**
-   * A form a customer can use to write to the restaurant (enquiry, "contact
-   * us", catering request). NOT a newsletter signup — see emailCaptureSignal.
+   * A form whose OWN evidence shows it takes general enquiries — a
+   * GENERAL_CONTACT form (see FormPurpose). NOT a newsletter signup — see
+   * emailCaptureSignal — and never set by a message box alone.
    *
    * A form is a non-phone contact route. Reporting that none exists while the
    * page serves one is the same false negative as discarding a published email
@@ -115,11 +116,36 @@ export interface PageExtract {
    * booking system or that anyone answers it.
    */
   reservationFormSignal: boolean;
+  /**
+   * Purposes of forms that accept exactly ONE kind of request (e.g. "gift
+   * card"). These are NOT counted in contactFormSignal: a gift-card order form
+   * is not somewhere a guest asks about allergens. Kept so the report can name
+   * what it found instead of silently dropping it.
+   */
+  formScopes: string[];
+  /**
+   * Forms a customer could write into whose purpose could not be established
+   * (UNVERIFIED_PURPOSE). Neither a contact route nor evidence that none
+   * exists; reported as an explicit unknown.
+   */
+  unverifiedForms: UnverifiedForm[];
   emailCaptureSignal: boolean;
+  /**
+   * A signup-shaped form was found whose own wording does not establish that
+   * it adds visitors to an ongoing email list (see classifySignupForm).
+   */
+  unverifiedSignupSignal: boolean;
   smsCaptureSignal: boolean;
   loyaltySignal: boolean;
   giftCardSignal: boolean;
   textSample: string;
+  /**
+   * The menu-placeholder signal ("menu coming soon"), read from the page's
+   * main content BEFORE textSample is cut to 4,000 characters. A notice placed
+   * after long navigation was lost to that cut, and a placeholder menu page
+   * was reported as a verified working menu.
+   */
+  menuPlaceholderSignal: string | null;
 }
 
 export type FetchOutcome =
@@ -245,8 +271,36 @@ export function categorizeLink(url: URL, text: string): LinkCategory[] {
   for (const category of ALL_CATEGORIES) {
     if (CATEGORY_PATTERNS[category].test(haystack)) categories.add(category);
   }
+  // "BOOK CATERING" IS NOT A TABLE RESERVATION.
+  //
+  // A fresh audit filed "Book Catering" → /catering.html as BOTH catering and
+  // reservation, because the bare verb `\bbook\b` in the anchor text matches
+  // the reservation pattern. RESERVATION_PATH is a transactional claim: it
+  // drives the RESERVATION journey stage and told the owner a public booking
+  // pathway existed where the link opens a catering page.
+  //
+  // Narrow by construction. The reservation category survives whenever
+  // anything names a TABLE booking — "reserv", "book a table", or a booking
+  // platform's host — so a genuine reservation link is untouched. Only a
+  // generic booking verb sitting beside a more specific hospitality
+  // destination is dropped.
+  if (categories.has('reservation') && !TABLE_BOOKING_EVIDENCE.test(haystack)) {
+    const moreSpecific: LinkCategory[] = ['catering', 'private_dining', 'events', 'gift_card', 'careers'];
+    if (moreSpecific.some((c) => categories.has(c))) categories.delete('reservation');
+  }
   return Array.from(categories);
 }
+
+/**
+ * Wording that names a TABLE booking specifically, as opposed to the bare verb
+ * "book" that any kind of booking shares.
+ *
+ * Kept separate from CATEGORY_PATTERNS.reservation because the two answer
+ * different questions: that pattern asks "might this be a booking of some
+ * kind", this one asks "is a table what is being booked".
+ */
+const TABLE_BOOKING_EVIDENCE =
+  /reserv|book[- ]?(a[- ]?)?table|table[- ]?booking|waitlist|opentable|resy|tock|sevenrooms|yelp.*reservations/i;
 
 /**
  * Attributes that carry a destination URL for an element a script will turn
@@ -300,6 +354,84 @@ function isCustomerWritable($: cheerio.CheerioAPI, field: DomElement): boolean {
 }
 
 /**
+ * Input types that are controls, not places a visitor types anything.
+ *
+ * `isCustomerWritable` answers "could a visitor interact with this", and a
+ * submit button passes that. Form identity needs the narrower question —
+ * "is this somewhere a visitor writes" — or an `<input type="submit">` placed
+ * before a form's title becomes its "first field", the title stops counting,
+ * and a gift-card form is reported as a general enquiry route.
+ */
+const CONTROL_INPUT_TYPES = new Set(['submit', 'button', 'reset', 'image', 'checkbox', 'radio']);
+
+/** A field a visitor types into: writable, and not a button, toggle or choice control. */
+function isTextEntryField($: cheerio.CheerioAPI, field: DomElement): boolean {
+  if (!isCustomerWritable($, field)) return false;
+  return !CONTROL_INPUT_TYPES.has(($(field).attr('type') ?? '').toLowerCase());
+}
+
+/**
+ * What a form a customer can write into is FOR, as far as the form itself
+ * shows.
+ *
+ *   GENERAL_CONTACT     the form's own evidence invites general enquiries —
+ *                       "Contact us", "Get in touch", action="/contact", a
+ *                       topic menu offering "General question" — and names no
+ *                       single purpose.
+ *   PURPOSE_SPECIFIC    the form names exactly one purpose (gift cards, jobs,
+ *                       catering, …) and nothing in it invites general
+ *                       enquiries.
+ *   UNVERIFIED_PURPOSE  anything else: no evidence either way, evidence both
+ *                       ways, several purposes, or no usable submit control.
+ *
+ * WHY THREE, AND WHY THIS IS NOT A PARSER.
+ *
+ * Two classes forced a verdict on every form. To reach one, the classifier
+ * tried to read how general wording was qualified — "Contact us ABOUT gift
+ * cards" — by splitting on commas, "and", "&", semicolons, brackets and
+ * dashes. Nine review rounds produced nine counter-examples, because
+ * punctuation cannot tell "gift cards, events or allergens" (a list) from
+ * "gift cards, and we will get back to you" (a sentence that carries on).
+ *
+ * The question it was trying to answer has no reliable answer from markup, so
+ * it is no longer asked. Each piece of evidence is checked only for PRESENCE:
+ * does the form say something general, does it name a purpose. When the two
+ * agree there is a verdict. When they conflict, or neither is present, the
+ * honest answer is that the purpose is not established — and the report says
+ * so, instead of guessing in either direction.
+ *
+ * A MESSAGE BOX IS NOT EVIDENCE OF PURPOSE. Gift-card, job and catering forms
+ * all carry one. Before this change a form with a message box and no stated
+ * purpose was counted as a general enquiry route; it is now UNVERIFIED_PURPOSE.
+ */
+export type FormPurpose = 'GENERAL_CONTACT' | 'PURPOSE_SPECIFIC' | 'UNVERIFIED_PURPOSE';
+
+/** Why a form's purpose could not be established. */
+export type UnverifiedReason =
+  /** Nothing in the form says what it is for. */
+  | 'NO_PURPOSE_EVIDENCE'
+  /** The form invites general enquiries AND names a specific purpose. */
+  | 'CONFLICTING_EVIDENCE'
+  /** The form names more than one specific purpose, and nothing general. */
+  | 'SEVERAL_PURPOSES'
+  /** No visible, enabled submit control: whether it can be sent is unknown. */
+  | 'NO_USABLE_SUBMIT_CONTROL';
+
+export interface UnverifiedForm {
+  reason: UnverifiedReason;
+  /** Specific purposes the form names, e.g. ["gift card"]. May be empty. */
+  topics: string[];
+}
+
+export interface ClassifiedForm {
+  purpose: FormPurpose;
+  /** Specific purposes the form names about itself. One for PURPOSE_SPECIFIC. */
+  topics: string[];
+  /** Set only when purpose is UNVERIFIED_PURPOSE. */
+  reason?: UnverifiedReason;
+}
+
+/**
  * Classify the forms on a page into customer pathways.
  *
  * Deliberately conservative in both directions. A newsletter box must not be
@@ -310,23 +442,34 @@ function isCustomerWritable($: cheerio.CheerioAPI, field: DomElement): boolean {
  * A reservation form is recognised from its FIELDS (date/time/party size) or
  * explicit booking wording, because "reservations" appearing in a page's prose
  * says nothing about what the form on it does.
+ *
+ * Every other form a customer can write a message into gets a FormPurpose.
  */
-export function classifyForms($: cheerio.CheerioAPI): { contactFormSignal: boolean; reservationFormSignal: boolean } {
-  let contactFormSignal = false;
+export function classifyForms($: cheerio.CheerioAPI): {
+  /** True when at least one GENERAL_CONTACT form was found. */
+  contactFormSignal: boolean;
+  reservationFormSignal: boolean;
+  /** Purposes of PURPOSE_SPECIFIC forms, e.g. "gift card". Never general enquiry. */
+  formScopes: string[];
+  /** UNVERIFIED_PURPOSE forms, with the reason each could not be classified. */
+  unverifiedForms: UnverifiedForm[];
+  /** Every message-bearing form, in page order. */
+  forms: ClassifiedForm[];
+} {
   let reservationFormSignal = false;
+  const forms: ClassifiedForm[] = [];
 
   $('form').each((_, el) => {
     const form = $(el);
     const text = form.text().replace(/\s+/g, ' ').trim().slice(0, 600);
-    const attrs = [
+    const attrList = [
       form.attr('id'),
       form.attr('name'),
       form.attr('class'),
       form.attr('action'),
       form.attr('aria-label'),
-    ]
-      .filter(Boolean)
-      .join(' ');
+    ].filter((a): a is string => Boolean(a));
+    const attrs = attrList.join(' ');
     const describe = (f: DomElement) =>
       [$(f).attr('name'), $(f).attr('id'), $(f).attr('placeholder'), $(f).attr('type')].filter(Boolean).join(' ');
     const fields = form.find('input, textarea, select');
@@ -368,11 +511,347 @@ export function classifyForms($: cheerio.CheerioAPI): { contactFormSignal: boole
     const hasMessageField = writableMessageFields.length > 0 || MESSAGE_FIELD_NAME.test(visibleFieldNames);
     const isNewsletterOnly = NEWSLETTER_FORM_TEXT.test(haystack) && !hasMessageField;
     if (isNewsletterOnly) return;
-    if (hasMessageField) contactFormSignal = true;
+    if (!hasMessageField) return;
+
+    // EVIDENCE COMES FROM THE FORM ITSELF.
+    //
+    // Its attributes, the labels on its own submit controls, and the headings,
+    // legends and instructions that introduce it (see formIntroduction). Field
+    // labels, dropdown options and body prose part-way down are excluded —
+    // "Gift card number (optional)" on a contact form is a field, not the
+    // form's purpose — as is everything outside the <form>, because a page can
+    // hold several forms and a banner speaks for none of them.
+    const identity = [...attrList, ...submitControls($, form).map((c) => controlLabel($, c)), ...formIntroduction($, form)].join(' ');
+    forms.push(decidePurpose($, form, identity));
   });
 
-  return { contactFormSignal, reservationFormSignal };
+  const formScopes: string[] = [];
+  const unverifiedForms: UnverifiedForm[] = [];
+  for (const f of forms) {
+    if (f.purpose === 'PURPOSE_SPECIFIC' && !formScopes.includes(f.topics[0])) formScopes.push(f.topics[0]);
+    if (f.purpose === 'UNVERIFIED_PURPOSE') unverifiedForms.push({ reason: f.reason!, topics: f.topics });
+  }
+  return {
+    contactFormSignal: forms.some((f) => f.purpose === 'GENERAL_CONTACT'),
+    reservationFormSignal,
+    formScopes,
+    unverifiedForms,
+    forms,
+  };
 }
+
+/**
+ * The verdict, from presence of evidence only.
+ *
+ * Order matters in one place. A form that names exactly one purpose and says
+ * nothing general is PURPOSE_SPECIFIC even without a usable submit control:
+ * that verdict claims only what the form is for, never that it can be sent.
+ * A GENERAL_CONTACT verdict, which the report counts as a route in, requires
+ * a submit control a visitor can see and press.
+ */
+function decidePurpose($: cheerio.CheerioAPI, form: cheerio.Cheerio<DomElement>, identity: string): ClassifiedForm {
+  const topics = purposeTopics(identity);
+  const general = GENERAL_CONTACT_WORDING.test(identity) || offersGeneralTopic($, form);
+  const unverified = (reason: UnverifiedReason): ClassifiedForm => ({ purpose: 'UNVERIFIED_PURPOSE', topics, reason });
+
+  if (topics.length === 1 && !general) return { purpose: 'PURPOSE_SPECIFIC', topics };
+  if (!hasUsableSubmitControl($, form)) return unverified('NO_USABLE_SUBMIT_CONTROL');
+  if (general && topics.length === 0) return { purpose: 'GENERAL_CONTACT', topics };
+  if (general) return unverified('CONFLICTING_EVIDENCE');
+  if (topics.length > 1) return unverified('SEVERAL_PURPOSES');
+  return unverified('NO_PURPOSE_EVIDENCE');
+}
+
+/**
+ * Wording by which a form invites enquiries of any kind.
+ *
+ * Matched for presence only. Whatever follows it — "about gift cards", "for
+ * more information", ", and we will reply" — is not interpreted; if the form
+ * also names a specific purpose the two conflict and the purpose is
+ * UNVERIFIED. Bare "enquiry" is deliberately absent: "Gift card enquiry" is a
+ * purpose, not an open invitation. "Feedback" is absent too: a feedback box
+ * is addressed to the restaurant, but it does not promise an answer.
+ */
+const GENERAL_CONTACT_WORDING =
+  /contact(?!less)|general[- _]?(?:enquir|inquir|question)|get[- _]?in[- _]?touch|how can we help|ask us|send us a (?:message|note)|message us|drop us a (?:line|note)|write to us|any questions|questions or comments/i;
+
+/**
+ * A topic menu that offers a general choice — "General question", "Other",
+ * "Something else" — is the form itself saying it takes any enquiry.
+ *
+ * Only menus whose name says they choose a topic count. An amount menu on a
+ * gift-card form offering "Other amount" is not an invitation to ask about
+ * allergens.
+ */
+function offersGeneralTopic($: cheerio.CheerioAPI, form: cheerio.Cheerio<DomElement>): boolean {
+  return form
+    .find('select')
+    .toArray()
+    .filter((s) => isCustomerWritable($, s))
+    .filter((s) => /topic|subject|reason|regarding|enquiry|inquiry|department|category/i.test(`${$(s).attr('name') ?? ''} ${$(s).attr('id') ?? ''}`))
+    .some((s) =>
+      $(s)
+        .find('option')
+        .toArray()
+        .some((o) => /^\s*(?:general\b|other\s*$|other (?:question|enquiry|inquiry|topic)|something else|anything else)/i.test($(o).text())),
+    );
+}
+
+/**
+ * Characters read from each heading, note or submit label. Bounded because the
+ * HTML is untrusted, and generous because a purpose named past the bound
+ * would go unseen: a 200-character cut let "Contact us … gift cards" read as
+ * general contact.
+ */
+const IDENTITY_TEXT_BOUND = 1000;
+
+/**
+ * The headings, legends and instructions that introduce the WHOLE form —
+ * where many forms state their purpose.
+ *
+ * Only elements inside the form count: a heading above a form describes a page
+ * section, which may hold several forms. But inside the form not every heading
+ * speaks for it either. Collecting every descendant legend turned
+ * `<fieldset><legend>Gift card number (optional)</legend>` — one optional field
+ * group in a contact form — into the purpose of the whole form, and the audit
+ * reported "No public contact pathway was detected" on a page serving a contact
+ * form. A field-group legend is a field label by another name, and field labels
+ * are excluded from identity for exactly this reason.
+ *
+ * An element therefore introduces the form only when BOTH hold:
+ *   · it is not inside a field group — a fieldset holding only some of the
+ *     form's writable fields. A fieldset wrapping every field is the form
+ *     itself, whether or not the submit button sits inside it;
+ *   · it comes before the form's first writable field. A heading or note
+ *     part-way down introduces the fields after it, not the form — which is
+ *     also why "For any questions about delivery call the restaurant" below a
+ *     gift-card form's fields is not read as an invitation.
+ */
+function formIntroduction($: cheerio.CheerioAPI, $form: cheerio.Cheerio<DomElement>): string[] {
+  // Text-entry fields only. Counting a submit or button input as a "field" let
+  // a control placed before the title hide the title from identity.
+  const isWritable = (f: DomElement) => isTextEntryField($, f);
+  const writable = $form.find('input, textarea, select').toArray().filter(isWritable);
+  // Document order within the form, so "before the first field" is decidable.
+  const order = new Map($form.find('*').toArray().map((el, i) => [el, i] as const));
+  const firstField = writable.length > 0 ? (order.get(writable[0]) ?? Infinity) : Infinity;
+
+  const inFieldGroup = (el: DomElement): boolean =>
+    $(el)
+      .parentsUntil($form, 'fieldset')
+      .toArray()
+      .some((fs) => $(fs).find('input, textarea, select').toArray().filter(isWritable).length < writable.length);
+
+  return $form
+    .find('legend, h1, h2, h3, h4, h5, h6, p')
+    .toArray()
+    .filter((el) => !inFieldGroup(el) && (order.get(el) ?? Infinity) < firstField)
+    .map((el) => $(el).text().replace(/\s+/g, ' ').trim().slice(0, IDENTITY_TEXT_BOUND))
+    .filter(Boolean);
+}
+
+/**
+ * The form's own submit controls.
+ *
+ * SUBMIT CONTROLS ONLY. A <button type="button">Gift cards</button> is a
+ * topic toggle or helper inside a general form, not the form saying what it
+ * is. A <button> with no type submits (its HTML default), as do type="submit"
+ * and image inputs. A control outside the form that names it with form="id"
+ * submits it too.
+ */
+function submitControls($: cheerio.CheerioAPI, $form: cheerio.Cheerio<DomElement>): DomElement[] {
+  const isSubmit = (el: DomElement) => {
+    const tag = el.tagName?.toLowerCase();
+    const type = ($(el).attr('type') ?? '').toLowerCase();
+    if (tag === 'button') return type === '' || type === 'submit';
+    return type === 'submit' || type === 'image';
+  };
+  const id = $form.attr('id');
+  // A control inside the form that names a DIFFERENT form with form="…"
+  // submits that other form, not this one.
+  const inside = $form
+    .find('button, input')
+    .toArray()
+    .filter((el) => isSubmit(el) && ($(el).attr('form') === undefined || $(el).attr('form') === id));
+  const outside = id
+    ? $('button[form], input[form]')
+        .toArray()
+        .filter((el) => $(el).attr('form') === id && isSubmit(el))
+    : [];
+  return [...inside, ...outside];
+}
+
+/** What a submit control says it does — its text, value, or an image's alt text. */
+function controlLabel($: cheerio.CheerioAPI, el: DomElement): string {
+  const node = $(el);
+  return [node.text(), node.attr('value') ?? '', node.attr('alt') ?? ''].join(' ').replace(/\s+/g, ' ').trim().slice(0, IDENTITY_TEXT_BOUND);
+}
+
+/**
+ * Whether a visitor can see and press a control that sends this form.
+ *
+ * A form with no submit control, or only hidden or disabled ones, may still
+ * be sent by a script this audit does not run — but that cannot be observed,
+ * so the form is not counted as a route in.
+ */
+function hasUsableSubmitControl($: cheerio.CheerioAPI, $form: cheerio.Cheerio<DomElement>): boolean {
+  const hidden = (el: DomElement) => {
+    const node = $(el);
+    return (
+      node.attr('hidden') !== undefined ||
+      node.attr('aria-hidden') === 'true' ||
+      /display\s*:\s*none|visibility\s*:\s*hidden/i.test(node.attr('style') ?? '')
+    );
+  };
+  if ($form.toArray().some(hidden)) return false;
+  return submitControls($, $form).some(
+    (el) =>
+      $(el).attr('disabled') === undefined &&
+      !hidden(el) &&
+      !$(el).parentsUntil($form).toArray().some(hidden),
+  );
+}
+
+/**
+ * Forms that accept exactly one kind of request.
+ *
+ * Matched on the form's own attributes and wording, which is what distinguishes
+ * "order a gift card" from "ask us anything". A guest with a question about
+ * allergens cannot use a gift-card order form, so recording one as a general
+ * contact route tells the owner they have a reply channel they do not have.
+ */
+const SINGLE_PURPOSE_FORMS: [RegExp, string][] = [
+  [/gift[- _]?card|gift[- _]?certificate|e-?gift/i, 'gift card'],
+  [/careers?|employment|job[- _]?application|apply[- _]?now|hiring/i, 'job application'],
+  [/catering[- _]?(request|order|enquiry|inquiry)/i, 'catering request'],
+  [/private[- _]?(party|parties|event|dining)[- _]?(request|enquiry|inquiry|form)/i, 'private event request'],
+  [/waitlist|waiting[- _]?list/i, 'waitlist'],
+  // "Feedback" is deliberately absent. A feedback box is addressed to the
+  // restaurant and a guest with a question can use it, so suppressing it would
+  // deny a contact route that exists — the error this table is meant to avoid,
+  // in the opposite direction.
+];
+
+/**
+ * True when the only thing a visitor can type into this form is an email
+ * address — the shape of a signup box.
+ *
+ * Checkbox and hidden fields are ignored: a consent tick and a CAPTCHA token
+ * are not somewhere a visitor writes anything, and counting them made a bare
+ * signup box look like a multi-field form. A gift-card request (name, amount,
+ * message) or an enquiry form (name, message) has other writable fields and so
+ * is never matched here.
+ */
+function isEmailOnlyForm($: cheerio.CheerioAPI, form: cheerio.Cheerio<DomElement>): boolean {
+  // Same definition of "a field a visitor types into" as form identity uses,
+  // so the two cannot drift. This also now excludes reset and image inputs,
+  // which the inline list here had missed.
+  const writable = form
+    .find('input, textarea, select')
+    .toArray()
+    .filter((f) => isTextEntryField($, f));
+  if (writable.length !== 1) return false;
+  const only = writable[0];
+  const type = ($(only).attr('type') ?? '').toLowerCase();
+  const name = `${$(only).attr('name') ?? ''} ${$(only).attr('id') ?? ''} ${$(only).attr('placeholder') ?? ''}`;
+  return type === 'email' || /\bemail\b|\be-?mail\b/i.test(name);
+}
+
+/** A submit label that offers to sign the visitor up to something: "Sign up", "Join", "Register", … */
+const SIGNUP_CONTROL = /^\s*(?:sign\s*-?\s*up|join|subscribe|register|count me in|keep me (?:posted|updated)|stay (?:in touch|updated|connected)|get (?:updates|offers|deals|our newsletter))\b/i;
+/** Fields a list signup asks for besides the email address. Anything else means the form is something else. */
+const SIGNUP_EXTRA_FIELD = /\b(?:(?:first|last|full|your)?[-_ ]?name|fname|lname|phone|mobile|cell|birthday|birth[-_ ]?date|dob|anniversary|zip|postal|post[-_ ]?code)\b/i;
+/**
+ * Form-scoped wording that the signup is to an ONGOING list — what makes it
+ * marketing email capture rather than a one-off registration.
+ */
+const MAILING_LIST_WORDING =
+  /newsletter|mailing[- _]?list|e-?mail[- _]?(?:list|club|updates|offers|news)|subscri(?:be|ption)|news\s*(?:&|and)\s*(?:offers|updates|events)|(?:special|exclusive) offers|promotions|vip[- _]?(?:club|list)|stay in the loop|keep me (?:posted|updated)|be the first to (?:know|hear)/i;
+/**
+ * Form-scoped wording that names a one-off or account purpose. A form saying
+ * this collects an email for that purpose, not for a list.
+ */
+const NON_LIST_PURPOSE =
+  /\brsvp\b|\btickets?\b|tasting|workshop|cooking class|registration|register (?:for|to attend)|create (?:an |your )?account|\baccount\b|log ?in|sign ?in|password|reservation|reserve a table|book (?:a )?table|join (?:our|the) team/i;
+
+/** What a form that collects an email address shows it is for. */
+export type SignupKind =
+  /** Its own wording says it adds visitors to an ongoing list. */
+  | 'MAILING_LIST'
+  /** It names another purpose — an event, an account, a reservation, a job. */
+  | 'OTHER_PURPOSE'
+  /** It looks like a signup but says neither; or it says both. */
+  | 'AMBIGUOUS';
+
+/**
+ * Whether a form that collects an email address is marketing email capture.
+ *
+ * A signup BUTTON is not evidence of a mailing list: "Register" on a wine
+ * tasting form, "Join" on a waitlist and "Sign up" on an account form all
+ * collect an email for something else. So a form counts as MAILING_LIST only
+ * when its own wording — attributes, headings, notes, labels, submit text,
+ * consent text — names an ongoing list, newsletter or offers, and names no
+ * other purpose. Wording for both is AMBIGUOUS, as is a signup-shaped form
+ * that names neither.
+ *
+ * One shape keeps its earlier, approved verdict: a form whose ONLY field is
+ * an email address, with no stated purpose, is a signup box by shape — there
+ * is nothing else an email-only box is for. It too is excluded the moment it
+ * names another purpose.
+ *
+ * Returns null for forms that are not signup-shaped at all (a message field,
+ * or a field a list signup does not ask for). Presence checks only.
+ */
+export function classifySignupForm($: cheerio.CheerioAPI, form: cheerio.Cheerio<DomElement>): SignupKind | null {
+  const writable = form
+    .find('input, textarea, select')
+    .toArray()
+    .filter((f) => isTextEntryField($, f));
+  const describe = (f: DomElement) => `${$(f).attr('name') ?? ''} ${$(f).attr('id') ?? ''} ${$(f).attr('placeholder') ?? ''}`;
+  const isEmail = (f: DomElement) => ($(f).attr('type') ?? '').toLowerCase() === 'email' || /\be-?mail\b/i.test(describe(f));
+  if (!writable.some(isEmail)) return null;
+  if (writable.some((f) => f.tagName?.toLowerCase() === 'textarea' || MESSAGE_FIELD_NAME.test(describe(f)))) return null;
+  if (!writable.filter((f) => !isEmail(f)).every((f) => SIGNUP_EXTRA_FIELD.test(describe(f)))) return null;
+
+  const labels = submitControls($, form).map((c) => controlLabel($, c));
+  // Everything the form says about itself, including field labels and consent
+  // text — "Send me news and offers" beside a tick box is the form saying it.
+  const scoped = [
+    form.attr('id'),
+    form.attr('name'),
+    form.attr('class'),
+    form.attr('action'),
+    form.attr('aria-label'),
+    ...labels,
+    // Text node by text node: cheerio's .text() runs adjacent elements
+    // together, so <h3>RSVP</h3><button>Join</button> read as "RSVPJoin" and
+    // the purpose word went unseen.
+    ...form
+      .find('*')
+      .addBack()
+      .contents()
+      .toArray()
+      .filter((n) => n.type === 'text')
+      .map((n) => $(n).text()),
+    ...form.find('input').toArray().map((f) => describe(f)),
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .replace(/\s+/g, ' ');
+  const list = MAILING_LIST_WORDING.test(scoped);
+  const otherPurpose = NON_LIST_PURPOSE.test(scoped) || purposeTopics(scoped).length > 0;
+  if (list && otherPurpose) return 'AMBIGUOUS';
+  if (otherPurpose) return 'OTHER_PURPOSE';
+  if (list) return 'MAILING_LIST';
+  if (isEmailOnlyForm($, form)) return 'MAILING_LIST';
+  return labels.some((l) => SIGNUP_CONTROL.test(l)) ? 'AMBIGUOUS' : null;
+}
+
+/** Every specific purpose the text names, in table order. */
+function purposeTopics(text: string): string[] {
+  return SINGLE_PURPOSE_FORMS.filter(([pattern]) => pattern.test(text)).map(([, label]) => label);
+}
+
 
 /** Bound on embedded destinations kept per page — untrusted HTML sets no limit of its own. */
 const MAX_EMBED_TARGETS = 50;
@@ -587,11 +1066,11 @@ function textWithNodeBoundaries(root: AnyNode | undefined): string {
   return chunks.join('');
 }
 
-type HopResult =
+export type HopResult =
   | { kind: 'response'; response: UndiciResponse; finalUrl: string }
   | { kind: 'failure'; status: 'UNAVAILABLE' | 'BLOCKED' | 'TIMEOUT' | 'ERROR'; httpStatus?: number; note: string };
 
-function classifyFetchError(error: unknown, timeoutMs: number): HopResult {
+export function classifyFetchError(error: unknown, timeoutMs: number): HopResult {
   const chain: string[] = [];
   let current: unknown = error;
   for (let depth = 0; depth < 5 && current instanceof Error; depth++) {
@@ -605,7 +1084,27 @@ function classifyFetchError(error: unknown, timeoutMs: number): HopResult {
   if (/TimeoutError|UND_ERR_CONNECT_TIMEOUT|timeout/i.test(joined)) {
     return { kind: 'failure', status: 'TIMEOUT', note: `Request timed out after ${timeoutMs / 1000}s` };
   }
-  return { kind: 'failure', status: 'UNAVAILABLE', note: `Network failure: ${joined.slice(0, 200)}` };
+  // A READER-FACING NOTE, NOT A STACK OF ERROR CODES.
+  //
+  // This note is stored on the evidence record and printed in the client PDF's
+  // appendix, where it read: "Network failure: TypeError fetch failed |
+  // ENOTFOUND Error getaddrinfo ENOTFOUND www.spothopperapp.com". That is
+  // internal diagnostic text on a page of careful claims, and it tells the
+  // owner nothing they can act on. The cause is classified into plain language
+  // instead; the raw chain still reaches the server log.
+  if (/ENOTFOUND|EAI_AGAIN|getaddrinfo/i.test(joined)) {
+    return { kind: 'failure', status: 'UNAVAILABLE', note: 'The address could not be resolved (no DNS record answered)' };
+  }
+  if (/ECONNREFUSED/i.test(joined)) {
+    return { kind: 'failure', status: 'UNAVAILABLE', note: 'The destination refused the connection' };
+  }
+  if (/ECONNRESET|UND_ERR_SOCKET|socket hang up/i.test(joined)) {
+    return { kind: 'failure', status: 'UNAVAILABLE', note: 'The connection was closed before a response arrived' };
+  }
+  if (/CERT|SSL|TLS|self[- ]signed/i.test(joined)) {
+    return { kind: 'failure', status: 'UNAVAILABLE', note: 'The destination presented a certificate that could not be verified' };
+  }
+  return { kind: 'failure', status: 'UNAVAILABLE', note: 'The destination could not be reached' };
 }
 
 /**
@@ -844,6 +1343,25 @@ export function extractPage(
   });
 
   const bodyText = textWithNodeBoundaries($('body').get(0)).replace(/\s+/g, ' ').trim().slice(0, MAX_SCAN_TEXT);
+  // Read now, from the full (bounded) text, and kept: textSample is cut to
+  // 4,000 characters below, and a "Menu coming soon" notice after long
+  // navigation fell past the cut. Scoped to the page's content, so site
+  // chrome elsewhere on the page cannot mark a working menu as a placeholder.
+  //
+  // Chrome is decided by DOM context, not by tag alone. Navigation and asides
+  // are dropped wherever they are. A <header> or <footer> is dropped only when
+  // it is site-wide — outside any main, article or section. Inside one it
+  // introduces that content: <main><header><h1>Our menu is coming
+  // soon!</h1></header></main> IS the page's message, and dropping every
+  // header hid it and reported a verified working menu.
+  const contentRoot = $('body').clone();
+  contentRoot.find('nav, aside, script, style, noscript').remove();
+  contentRoot
+    .find('header, footer')
+    .filter((_, el) => $(el).parents('main, article, section').length === 0)
+    .remove();
+  const pageMenuPlaceholder =
+    menuPlaceholderSignal(textWithNodeBoundaries(contentRoot.get(0)).replace(/\s+/g, ' ').trim().slice(0, MAX_SCAN_TEXT)) ?? null;
 
   const internalLinks: { href: string; text: string }[] = [];
   const socialLinks = new Set<string>();
@@ -977,9 +1495,47 @@ export function extractPage(
   // enquiry form was detected. Each form is now classified from its own fields
   // and wording, so the two kinds are reported separately and neither is
   // mistaken for a newsletter box.
-  const { contactFormSignal, reservationFormSignal } = classifyForms($);
+  const { contactFormSignal, reservationFormSignal, formScopes, unverifiedForms } = classifyForms($);
+  // AN EMAIL FIELD IS NOT AN INVITATION TO JOIN A LIST.
+  //
+  // This was `$('form input[type="email"]').length > 0`, which fired on the
+  // email field of a gift-card request form — so a fresh audit reported "an
+  // email capture mechanism for collecting visitors' addresses (signup form or
+  // newsletter invitation) is publicly visible" on a site with no signup
+  // anywhere. That claim then fed the retention category, which is the precise
+  // error of reading a gift-card signal as a follow-up system.
+  //
+  // EMAIL_CAPTURE requires an actual invitation: newsletter wording in the page
+  // text, a form whose own wording offers a subscription, or a form that IS a
+  // signup box by shape.
+  //
+  // The wording tests alone were not enough, and the gap was a false ABSENCE —
+  // the same error as discarding a published email address. A footer box whose
+  // only field is an email input and whose button reads "Sign Up" or "Join"
+  // carries none of the newsletter vocabulary, and restaurant sites are full of
+  // them; the audit was reporting "no mechanism for collecting visitors' email
+  // addresses" on pages that plainly had one. Shape settles it: a form a
+  // visitor can only put an email address into is a signup box whatever the
+  // button says, and a gift-card or enquiry form has other fields.
   const emailCaptureSignal =
-    $('form input[type="email"]').length > 0 || /newsletter|join our (email|mailing) list|subscribe/i.test(bodyText);
+    /newsletter|join our (email|mailing) list|subscribe/i.test(bodyText) ||
+    $('form')
+      .toArray()
+      .some((el) => {
+        const form = $(el);
+        const hasEmailInput = form.find('input[type="email"]').length > 0;
+        if (!hasEmailInput) return false;
+        if (NEWSLETTER_FORM_TEXT.test(form.text())) return true;
+        return classifySignupForm($, form) === 'MAILING_LIST';
+      });
+  // A signup-shaped form whose own wording does not settle whether it adds
+  // visitors to a list. Neither capture nor evidence of none: the evidence
+  // layer reports it as unverified rather than as an absence.
+  const unverifiedSignupSignal =
+    !emailCaptureSignal &&
+    $('form')
+      .toArray()
+      .some((el) => $(el).find('input[type="email"]').length > 0 && classifySignupForm($, $(el)) === 'AMBIGUOUS');
   const smsCaptureSignal = /text club|sms club|join.{0,20}text|text .{0,10}to \d{5,6}/i.test(bodyText);
   const loyaltySignal = /loyalty|rewards program|vip club|earn points/i.test(bodyText) || Boolean(categorizedLinks.loyalty?.length);
   const giftCardSignal = /gift ?cards?/i.test(bodyText) || Boolean(categorizedLinks.gift_card?.length);
@@ -1014,11 +1570,15 @@ export function extractPage(
     addressText: addressMatch ? terminateAddressAtZip(addressMatch[0]).slice(0, 200) : null,
     contactFormSignal,
     reservationFormSignal,
+    formScopes,
+    unverifiedForms,
     emailCaptureSignal,
+    unverifiedSignupSignal,
     smsCaptureSignal,
     loyaltySignal,
     giftCardSignal,
     textSample: bodyText.slice(0, 4000),
+    menuPlaceholderSignal: pageMenuPlaceholder,
   };
 }
 
@@ -1242,6 +1802,20 @@ const PLACEHOLDER_CONTENT_PATTERNS: [RegExp, string][] = [
   [/menu\s+(?:is\s+)?(?:currently\s+)?being\s+updated/i, 'menu being updated'],
   [/check\s+back\s+soon\s+for\s+(?:our\s+)?menu/i, 'menu pending'],
 ];
+
+/**
+ * The placeholder signal for a menu page the audit already holds the text of
+ * — a page collected as a source, which is never probed separately. Same
+ * patterns and output as the probe path, so a collected page and a probed
+ * page are judged alike.
+ */
+export function menuPlaceholderSignal(text: string): string | undefined {
+  for (const [pattern, label] of PLACEHOLDER_CONTENT_PATTERNS) {
+    const match = pattern.exec(text);
+    if (match) return `${label}: "${match[0].trim().slice(0, 120)}"`;
+  }
+  return undefined;
+}
 
 /**
  * Content-level signals read from a destination's own page.

@@ -272,11 +272,20 @@ export function resolveOrderingChannel(input: OrderingChannelInput): OrderingCha
       state: 'PHONE_ORDERING_ONLY',
       evidenceState: 'VERIFIED',
       destinationResolved,
+      // "ONLY" IS AN EXCLUSIVITY CLAIM, AND THE SCOPE HAS TO EARN IT.
+      //
+      // This read "Ordering is by telephone only". The audit reads a bounded
+      // set of public pages; it cannot know that no online ordering exists on a
+      // page it did not fetch, behind a script it did not run, or in an app. It
+      // CAN say what the ordering button it found actually does. The claim is
+      // now scoped to the pages analyzed, which is the claim the evidence
+      // supports.
       summary:
-        'Ordering is by telephone only: the ordering call-to-action places a phone call rather than opening an ' +
-        'online ordering page. Telephone ordering is a legitimate ordering pathway, and it is not online ordering.',
+        'The ordering call-to-action found on the analyzed pages places a telephone call rather than opening an ' +
+        'online ordering page. Telephone ordering is a legitimate ordering pathway, and it is not online ordering. ' +
+        'Whether online ordering exists somewhere this audit did not reach is not established either way.',
       detail:
-        `Call-to-action text ${ctas} linked to a telephone number. ` +
+        `Call-to-action text ${ctas} resolves to a telephone number (a tel: link), not to a web destination. ` +
         (exposed.length > 0
           ? `An ordering destination is also declared in the page markup (${exposed[0].url}), but the action a customer ` +
             'is actually offered is the phone call, so the destination is recorded as context. Whether it is reachable ' +

@@ -55,10 +55,18 @@ describe('calculateOverallScore', () => {
 
 describe('scoreBand', () => {
   it('maps bands per spec', () => {
-    expect(scoreBand(95)).toBe('ELITE DIGITAL OPERATOR');
-    expect(scoreBand(85)).toBe('STRONG WITH OPTIMIZATION OPPORTUNITIES');
-    expect(scoreBand(75)).toBe('MODERATE REVENUE LEAKAGE');
-    expect(scoreBand(65)).toBe('SIGNIFICANT CUSTOMER JOURNEY FRICTION');
-    expect(scoreBand(59)).toBe('RESTAURANT RESCUE PRIORITY');
+    expect(scoreBand(95)).toBe('PUBLIC SIGNALS NEARLY COMPLETE');
+    expect(scoreBand(85)).toBe('STRONG PUBLIC SIGNALS, SPECIFIC GAPS');
+    expect(scoreBand(75)).toBe('WORKABLE, WITH GAPS TO VALIDATE');
+    expect(scoreBand(65)).toBe('MULTIPLE FRICTION POINTS');
+    expect(scoreBand(59)).toBe('PRIORITY FOR REVIEW');
+  });
+
+  it('no band asserts a measured financial loss', () => {
+    // "MODERATE REVENUE LEAKAGE" sat under the score and told the reader money
+    // had been measured leaving the business. This audit measures no money.
+    for (const score of [95, 85, 75, 65, 59, 20, 0]) {
+      expect(scoreBand(score), `band for ${score}`).not.toMatch(/revenue|leakage|loss|cost|\$/i);
+    }
   });
 });

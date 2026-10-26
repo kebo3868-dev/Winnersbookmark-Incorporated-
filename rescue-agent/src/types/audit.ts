@@ -25,6 +25,35 @@ export type EvidenceType =
    * is the site collecting the visitor's address for marketing.
    */
   | 'CONTACT_FORM'
+  /**
+   * A form that accepts exactly ONE kind of request — a gift-card order, a job
+   * application, a catering enquiry.
+   *
+   * Deliberately NOT CONTACT_FORM. A guest asking about allergens or a lost
+   * umbrella cannot use a gift-card order form, so counting one as "you can
+   * write to this restaurant" tells an owner they have a reply channel they do
+   * not have. Recording the scope keeps the distinction visible in the report
+   * instead of resolving it in either direction silently.
+   */
+  | 'SINGLE_PURPOSE_FORM'
+  /**
+   * A form a customer can write into whose purpose the form itself does not
+   * establish — no stated purpose, general and specific wording at once,
+   * several purposes, or no usable submit control.
+   *
+   * Neither CONTACT_FORM nor SINGLE_PURPOSE_FORM: it is not counted as a
+   * route in, and it is not evidence that no route exists. The type name is
+   * printed as the record's label in the report and the PDF, so it carries
+   * the uncertainty on its own.
+   */
+  | 'FORM_PURPOSE_UNVERIFIED'
+  /**
+   * The one conclusion about whether a readable menu exists, drawn from every
+   * linked menu destination judged on its own (working, failed, placeholder or
+   * unverified). Its supporting context lists each destination and its status,
+   * so the conclusion can be traced to the link that supports it.
+   */
+  | 'MENU_AVAILABILITY'
   | 'CATERING_PATH'
   | 'PRIVATE_DINING_PATH'
   | 'LOYALTY_SIGNAL'

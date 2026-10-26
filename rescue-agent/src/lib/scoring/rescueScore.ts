@@ -41,12 +41,20 @@ export function calculateOverallScore(categories: CategoryScoreInput[]): Overall
   };
 }
 
+/**
+ * The band names describe the PUBLIC SIGNALS, not money.
+ *
+ * "MODERATE REVENUE LEAKAGE" sat directly under the score and told the reader
+ * revenue had been measured leaking. This audit measures no revenue at all — it
+ * scores a defined set of public signals — so a band naming revenue was a claim
+ * the system cannot support anywhere in the report.
+ */
 export function scoreBand(score: number): string {
-  if (score >= 90) return 'ELITE DIGITAL OPERATOR';
-  if (score >= 80) return 'STRONG WITH OPTIMIZATION OPPORTUNITIES';
-  if (score >= 70) return 'MODERATE REVENUE LEAKAGE';
-  if (score >= 60) return 'SIGNIFICANT CUSTOMER JOURNEY FRICTION';
-  return 'RESTAURANT RESCUE PRIORITY';
+  if (score >= 90) return 'PUBLIC SIGNALS NEARLY COMPLETE';
+  if (score >= 80) return 'STRONG PUBLIC SIGNALS, SPECIFIC GAPS';
+  if (score >= 70) return 'WORKABLE, WITH GAPS TO VALIDATE';
+  if (score >= 60) return 'MULTIPLE FRICTION POINTS';
+  return 'PRIORITY FOR REVIEW';
 }
 
 // RESOLVED_UNVERIFIED sits between HEALTHY and FRICTION deliberately. A
