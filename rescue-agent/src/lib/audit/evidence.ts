@@ -978,8 +978,10 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
       } else if (probe.category === 'reservation' || probe.category === 'ordering') {
         // A menu is read, not transacted: the page loading is all a menu needs.
         // The ordering claim below stays exactly as bounded as before — this
-        // says nothing about whether an order can be placed.
-        noteMenu(probe, probe.placeholderSignal ? 'placeholder' : 'working');
+        // says nothing about whether an order can be placed. An
+        // access-restricted answer is not the page loading: the audit never
+        // saw it, so a menu on the same URL stays unverified.
+        noteMenu(probe, isAccessRestricted(probe) ? 'unverified' : probe.placeholderSignal ? 'placeholder' : 'working');
         // Reservations and ordering are transactions the business can switch
         // off, so a 200 says the page exists and nothing about whether the
         // customer can complete the action.
@@ -998,6 +1000,20 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
             `The destination responded, which confirms it exists and is reachable. It does not confirm that ${service} ` +
             `being accepted — a page with ${offState} responds identically. Manual validation required.`,
           confidence: 80,
+        });
+      } else if (probe.category === 'menu' && isAccessRestricted(probe)) {
+        // 401/403/429: the server answered and would not show the page.
+        // Reachable, never verified — the audit did not see a menu.
+        noteMenu(probe, 'unverified');
+        evidence.push({
+          sourceUrl: probe.url,
+          evidenceType,
+          fact: `The menu destination could not be verified when tested (HTTP ${probe.httpStatus}, access restricted) — manual validation required.`,
+          supportingContext:
+            `${resolved ? `${probe.url} → resolves to ${resolved}. ` : `${probe.url}. `}` +
+            `${probe.note}. The server answered but refused to show the page, so whether it shows a menu was not observed. ` +
+            'It is not reported as working, and not as broken.',
+          confidence: 55,
         });
       } else if (probe.category === 'menu' && probe.placeholderSignal) {
         noteMenu(probe, 'placeholder');
@@ -1142,6 +1158,15 @@ const NON_CONTACT_ADDRESS =
 function joinRoutes(routes: string[]): string {
   if (routes.length <= 1) return routes[0] ?? '';
   return `${routes.slice(0, -1).join(', ')} and ${routes[routes.length - 1]}`;
+}
+
+/**
+ * 401, 403 or 429. probeLink reports these as ok — the destination exists and
+ * answered — but the server refused to show the page, so nothing about its
+ * content was observed. Reachable, never verified.
+ */
+function isAccessRestricted(probe: ProbeResult): boolean {
+  return probe.ok && (probe.httpStatus === 401 || probe.httpStatus === 403 || probe.httpStatus === 429);
 }
 
 /** What one menu destination showed when tested or fetched. */
