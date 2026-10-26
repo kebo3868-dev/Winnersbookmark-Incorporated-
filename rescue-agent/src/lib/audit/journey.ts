@@ -1,6 +1,7 @@
 import type { EvidenceRecordLike, JourneyStageResult, JourneyStageName } from '@/types/audit';
 import { parseOrderingChannelFact } from '@/lib/audit/orderingChannel';
 import { isUnverifiedSignup } from '@/lib/audit/emailCaptureState';
+import { readMenuAvailability } from '@/lib/audit/menuAvailability';
 
 type EvidenceIndex = Map<string, EvidenceRecordLike[]>;
 
@@ -136,7 +137,43 @@ export function analyzeJourney(evidence: EvidenceRecordLike[]): JourneyStageResu
     // A menu page that loads with no menu on it. Friction, not a dead end.
     const placeholder = menu.filter((e) => /has no menu published on it yet/i.test(e.fact));
     const broken = has(index, 'BROKEN_LINK', (e) => /menu/i.test(e.fact));
-    if (menu.length === 0) {
+    // THE STAGE FOLLOWS THE DESTINATION-LEVEL CONCLUSION.
+    //
+    // Read record by record, an untested menu link — or one that refused the
+    // audit's request with HTTP 405 — fell through to HEALTHY, "linked and
+    // reachable", while MENU_AVAILABILITY in the same audit said not verified.
+    // And one broken spare link made the stage RISK beside a verified working
+    // menu. When MENU_AVAILABILITY exists it decides; hand-built or legacy
+    // evidence without it takes the record-by-record path below, unchanged.
+    const availabilityRecord = has(index, 'MENU_AVAILABILITY')[0];
+    const availability = availabilityRecord ? readMenuAvailability(availabilityRecord.fact) : null;
+    const pdfNote = pdfOnly.length > 0 ? ' The only detected menu links point to PDF downloads, which are slow and hard to read on phones.' : '';
+    if (availability && availability.state === 'UNVERIFIED') {
+      push(
+        stage(
+          'MENU',
+          'UNKNOWN',
+          'A menu link is published, but whether it opens a working menu was not verified — manual validation required.' +
+            (availability.spareFailed ? ' Another menu link failed when tested.' : '') +
+            pdfNote,
+          avgConfidence([availabilityRecord], 55),
+          true,
+          ids([...menu, availabilityRecord, ...broken]),
+        ),
+      );
+    } else if (availability && availability.state === 'VERIFIED' && availability.spareFailed) {
+      push(
+        stage(
+          'MENU',
+          'FRICTION',
+          'A working menu is reachable, but another menu link failed when tested or leads to a page with no menu yet — guests who follow that link hit a dead end.' +
+            pdfNote,
+          avgConfidence([availabilityRecord, ...broken], 85),
+          false,
+          ids([...menu, availabilityRecord, ...broken]),
+        ),
+      );
+    } else if (menu.length === 0) {
       push(stage('MENU', 'UNKNOWN', 'Menu accessibility could not be assessed.', 30, true, []));
     } else if (missing.length > 0) {
       push(stage('MENU', 'RISK', 'No public menu pathway was detected — the single most-requested piece of restaurant information is not obviously reachable.', avgConfidence(missing, 65), true, ids(menu)));

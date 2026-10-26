@@ -321,3 +321,121 @@ describe('3 — several menu links: each destination is judged on its own, in an
     expect(b.sourceUrl).toBe(a.sourceUrl);
   });
 });
+
+// ── 4. The journey map agrees with the menu evidence ───────────────────────
+
+describe('4 — the MENU journey stage follows MENU_AVAILABILITY', () => {
+  // An untested menu link, or one that refused the audit's GET with 405, was
+  // "not verified" in MENU_AVAILABILITY and "linked and reachable", HEALTHY,
+  // no validation needed, on the journey map of the same audit. A broken
+  // spare beside a verified working menu made the stage RISK.
+  const menuOf = (links: string[], probes: ProbeResult[], pdfLinks: string[] = [], extraPages: ReturnType<typeof page>[] = []) => {
+    const body = BODY_LINKS(links) + pdfLinks.map((l) => `<a href="${l}">Menu (PDF)</a>`).join('');
+    const { ev, journey } = analyse([page(body), ...extraPages], probes);
+    return {
+      availability: ev.find((e) => e.evidenceType === 'MENU_AVAILABILITY')!,
+      menu: journey.find((s) => s.stage === 'MENU')!,
+      ev,
+    };
+  };
+  const PDF = 'https://probe-grill.test/menu.pdf';
+
+  it.each([
+    ['never tested', [] as ProbeResult[]],
+    ['HTTP 405', [REFUSED(MENU)]],
+    ['timed out', [probe(MENU, { ok: false, httpStatus: undefined, failureKind: 'TIMEOUT', note: 'timed out' } as Partial<ProbeResult>)]],
+  ])('unverified (%s) → evidence not verified AND stage UNKNOWN with validation', (_label, probes) => {
+    const { availability, menu } = menuOf(['/menu'], probes);
+    expect(availability.fact).toMatch(/^Menu availability was not verified/);
+    expect(menu.status).toBe('UNKNOWN');
+    expect(menu.manualValidationRequired).toBe(true);
+    expect(menu.finding).toMatch(/whether it opens a working menu was not verified/i);
+    expect(menu.finding).not.toMatch(/reachable/i);
+    expect(menu.evidenceIds).toContain(availability.id);
+  });
+
+  it('verified working → evidence verified AND stage HEALTHY', () => {
+    const { availability, menu } = menuOf(['/menu'], [WORKING(MENU)]);
+    expect(availability.fact).toBe(`A working menu was verified at ${MENU}.`);
+    expect(menu.status).toBe('HEALTHY');
+    expect(menu.manualValidationRequired).toBe(false);
+  });
+
+  it('verified by fetching the page as a source → HEALTHY', () => {
+    const { menu } = menuOf(['/menu'], [], [], [page('<h1>Menu</h1><p>Grouper sandwich $18</p>', MENU)]);
+    expect(menu.status).toBe('HEALTHY');
+  });
+
+  it.each([
+    ['broken spare', BROKEN(OLD)],
+    ['placeholder spare', PLACEHOLDER(OLD)],
+  ])('working + %s → credit kept, spare disclosed, not RISK — in either link order', (_label, spare) => {
+    for (const links of [['/menu', '/old-menu'], ['/old-menu', '/menu']]) {
+      const { availability, menu } = menuOf(links, [WORKING(MENU), spare]);
+      expect(availability.fact).toMatch(/^A working menu was verified at https:\/\/probe-grill\.test\/menu;/);
+      expect(menu.status).toBe('FRICTION');
+      expect(menu.finding).toMatch(/^A working menu is reachable, but another menu link failed when tested or leads to a page with no menu yet/);
+      expect(menu.finding).not.toMatch(/^A linked menu destination failed when tested/);
+      expect(menu.manualValidationRequired).toBe(false);
+      expect(menu.evidenceIds).toContain(availability.id);
+    }
+  });
+
+  it('unverified + broken → stays UNKNOWN; the failure is disclosed, no readable-menu denial', () => {
+    const { availability, menu } = menuOf(['/menu', '/old-menu'], [BROKEN(OLD)]);
+    expect(availability.fact).toMatch(/^Menu availability was not verified: 1 menu link\(s\) could not be verified, and 1 failed/);
+    expect(menu.status).toBe('UNKNOWN');
+    expect(menu.finding).toMatch(/Another menu link failed when tested/);
+    expect(menu.finding).not.toMatch(/no public menu|cannot be read/i);
+  });
+
+  it.each([
+    ['broken', [BROKEN(MENU)], 'RISK', /^A linked menu destination failed when tested/],
+    ['placeholder', [PLACEHOLDER(MENU)], 'FRICTION', /no menu published on it yet/],
+    ['broken + placeholder', [BROKEN(MENU), PLACEHOLDER(OLD)], 'RISK', /^A linked menu destination failed when tested/],
+  ] as const)('genuine failure (%s) is preserved', (_label, probes, status, finding) => {
+    const links = probes.length > 1 ? ['/menu', '/old-menu'] : ['/menu'];
+    const { availability, menu } = menuOf(links, [...probes]);
+    expect(availability.fact).toMatch(/^No readable menu was found/);
+    expect(menu.status).toBe(status);
+    expect(menu.finding).toMatch(finding);
+  });
+
+  it('PDF-only menu that works → the PDF finding is preserved', () => {
+    const { menu } = menuOf([], [WORKING(PDF)], ['/menu.pdf']);
+    expect(menu.status).toBe('FRICTION');
+    expect(menu.finding).toMatch(/only available as PDF downloads/i);
+  });
+
+  it('PDF-only menu that was not tested → UNKNOWN, and the PDF observation is kept', () => {
+    const { menu } = menuOf([], [], ['/menu.pdf']);
+    expect(menu.status).toBe('UNKNOWN');
+    expect(menu.finding).toMatch(/not verified/i);
+    expect(menu.finding).toMatch(/only detected menu links point to PDF downloads/i);
+  });
+
+  it('no menu link at all → unchanged: RISK, no public menu pathway', () => {
+    const { availability, menu } = menuOf([], []);
+    expect(availability).toBeUndefined();
+    expect(menu.status).toBe('RISK');
+    expect(menu.finding).toMatch(/No public menu pathway was detected/);
+  });
+
+  it('the phone finding and the journey stage never disagree on the menu', () => {
+    const cases: [string[], ProbeResult[]][] = [
+      [['/menu'], []],
+      [['/menu'], [REFUSED(MENU)]],
+      [['/menu'], [WORKING(MENU)]],
+      [['/menu'], [BROKEN(MENU)]],
+      [['/menu', '/old-menu'], [WORKING(MENU), BROKEN(OLD)]],
+      [['/menu', '/old-menu'], [BROKEN(OLD)]],
+    ];
+    for (const [links, probes] of cases) {
+      const { menu } = menuOf(links, probes);
+      const { phone } = phoneFinding([page(BODY_LINKS(links))], probes);
+      const credited = /does publish[^.]*the menu/i.test(phone.problem);
+      expect(credited, `${links} ${probes.map((p) => p.httpStatus).join('/')}`).toBe(menu.status === 'HEALTHY' || /^A working menu is reachable/.test(menu.finding));
+      if (menu.status === 'UNKNOWN') expect(phone.problem).toMatch(/was not verified/i);
+    }
+  });
+});

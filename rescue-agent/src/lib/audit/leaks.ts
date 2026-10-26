@@ -1,4 +1,5 @@
 import { isUnverifiedSignup } from '@/lib/audit/emailCaptureState';
+import { readMenuAvailability } from '@/lib/audit/menuAvailability';
 import type { EvidenceRecordLike, JourneyStageResult, OpportunityInput } from '@/types/audit';
 
 const MAX_OPPORTUNITIES = 10;
@@ -67,12 +68,7 @@ function answeredVisitQuestions(ctx: RuleContext): {
   let menuState: 'VERIFIED' | 'FAILED' | 'UNVERIFIED' | 'MISSING';
   let spareMenuFailed: boolean;
   if (availability) {
-    menuState = /^A working menu was verified/i.test(availability)
-      ? 'VERIFIED'
-      : /^No readable menu was found/i.test(availability)
-        ? 'FAILED'
-        : 'UNVERIFIED';
-    spareMenuFailed = menuState !== 'FAILED' && /failed when tested/i.test(availability);
+    ({ state: menuState, spareFailed: spareMenuFailed } = readMenuAvailability(availability));
   } else {
     const succeeded = positive('MENU_ACCESS', /responded successfully when tested|fetched successfully during this audit/i);
     const failed =
