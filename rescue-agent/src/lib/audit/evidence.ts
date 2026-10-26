@@ -702,6 +702,7 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
 
     const channel = resolveOrderingChannel({
       phoneOrderCtas,
+      onlineLabelledPhoneCtas: pages.flatMap((p) => p.onlineLabelledPhoneCtas ?? []),
       destinations,
       probes: orderingProbes,
       widgetVendor: widgetVendorFor.ordering,

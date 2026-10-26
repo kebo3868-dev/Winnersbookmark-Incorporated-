@@ -181,7 +181,11 @@ describe('the marker round-trips', () => {
   it('formats and parses without prose matching', () => {
     const result = resolveOrderingChannel({ ...base, phoneOrderCtas: ['Order Now'] });
     const fact = formatOrderingChannelFact(result);
-    expect(parseOrderingChannelFact(fact)).toEqual({ state: 'PHONE_ORDERING_ONLY', destinationResolved: false });
+    expect(parseOrderingChannelFact(fact)).toEqual({
+      state: 'PHONE_ORDERING_ONLY',
+      destinationResolved: false,
+      onlineLabelOpensPhone: false,
+    });
   });
 
   it('returns null for a fact that carries no marker', () => {

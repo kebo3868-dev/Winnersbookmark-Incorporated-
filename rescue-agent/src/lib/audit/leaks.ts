@@ -1,5 +1,6 @@
 import { isUnverifiedSignup } from '@/lib/audit/emailCaptureState';
 import { readMenuAvailability } from '@/lib/audit/menuAvailability';
+import { ORDERING_CHANNEL_HEAD, parseOrderingChannelFact } from '@/lib/audit/orderingChannel';
 import type { EvidenceRecordLike, JourneyStageResult, OpportunityInput } from '@/types/audit';
 
 const MAX_OPPORTUNITIES = 10;
@@ -143,6 +144,55 @@ const RULES: Rule[] = [
       confidenceScore: conf(broken),
       aiFitScore: 20,
       recommendedSolution: 'Fix the broken link(s) immediately. This is a direct website repair, not an AI project.',
+      manualValidationRequired: false,
+    };
+  },
+  // An ordering button presented as online ordering that places a phone call.
+  //
+  // OBSERVED, AND ONLY OBSERVED. The tel: link is read from the markup, so the
+  // mismatch between the label and the action is a fact about the website.
+  // What it costs is not: the audit has no order or call records, and it
+  // cannot see whether the restaurant's online ordering system is set up. The
+  // finding therefore states the observation, names what was not observed, and
+  // claims no lost orders, conversion rate or revenue.
+  //
+  // Strong evidence rather than verified on purpose: the link was read, not
+  // tapped on a device, and no owner confirmation is recorded in the audit.
+  // That also keeps a website-experience observation from turning the report's
+  // headline into "revenue leaks".
+  (ctx) => {
+    const channel = byType(ctx, 'ORDERING_CHANNEL').find((e) => parseOrderingChannelFact(e.fact)?.onlineLabelOpensPhone);
+    if (!channel) return null;
+    const observed = channel.fact.replace(ORDERING_CHANNEL_HEAD, '').split(/(?<=\.)\s/)[0];
+    const declared = [channel, ...byType(ctx, 'ORDERING_PATH')]
+      .map((e) => e.supportingContext?.match(/declared in the page markup \(([^)\s]+)\)/)?.[1])
+      .find(Boolean);
+    return {
+      category: 'ORDER BUTTON LABEL MISMATCH',
+      title: 'The online ordering button opens a phone call instead of an online checkout',
+      problem:
+        `OBSERVED AUTOMATICALLY (from the page markup): ${observed} The button is a tel: link, so on a phone it opens ` +
+        'the dialler or a phone-app chooser rather than an ordering page.' +
+        (declared
+          ? ` The page markup also declares an online ordering destination (${declared}), but the button does not lead there.`
+          : '') +
+        ' NOT OBSERVED: whether this affects orders, conversion or revenue — that needs order and call records — and' +
+        ' whether the online ordering system itself is set up or working. MANUAL CONFIRMATION: not recorded in this' +
+        ' audit; tapping the button on a phone confirms it.',
+      businessImpact:
+        'A visitor who chooses to order online is handed a phone call instead of the checkout the label promises. ' +
+        'Whether that changes how many orders the restaurant receives is not measured by this audit.',
+      customerJourneyStage: 'ORDERING',
+      evidenceIds: [channel.id, ...byType(ctx, 'ORDERING_PATH').map((e) => e.id)],
+      impactScore: 60,
+      urgencyScore: 55,
+      confidenceScore: Math.min(78, channel.confidence),
+      aiFitScore: 15,
+      recommendedSolution:
+        'Decide which experience is intended. If online ordering should be offered, finish setting up the online ordering page' +
+        (declared ? ' (the markup already declares one, which needs checking)' : '') +
+        ' and point the button at it. If orders are taken by phone, relabel the section — for example "Order by Phone" — so' +
+        ' the button does what it says. Then tap the button on a phone to confirm. A direct website fix, not an AI project.',
       manualValidationRequired: false,
     };
   },

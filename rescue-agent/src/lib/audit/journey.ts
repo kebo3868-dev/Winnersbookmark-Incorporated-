@@ -1,5 +1,5 @@
 import type { EvidenceRecordLike, JourneyStageResult, JourneyStageName } from '@/types/audit';
-import { parseOrderingChannelFact } from '@/lib/audit/orderingChannel';
+import { ORDERING_CHANNEL_HEAD, parseOrderingChannelFact } from '@/lib/audit/orderingChannel';
 import { isUnverifiedSignup } from '@/lib/audit/emailCaptureState';
 import { readMenuAvailability } from '@/lib/audit/menuAvailability';
 
@@ -347,7 +347,7 @@ export function analyzeJourney(evidence: EvidenceRecordLike[]): JourneyStageResu
     if (channelRecord && channel) {
       const evidenceIds = ids([...has(index, 'ORDERING_PATH'), channelRecord]);
       const confidence = channelRecord.confidence;
-      const summary = channelRecord.fact.replace(/^ORDERING CHANNEL:\s*[A-Z_]+(\s*\[DESTINATION_RESOLVED\])?\s*—\s*/, '');
+      const summary = channelRecord.fact.replace(ORDERING_CHANNEL_HEAD, '');
       if (channel.state === 'ONLINE_ORDERING_BROKEN_CONFIRMED') {
         // The channel summary states the failure; this adds the consequence
         // once. Both used to carry a dead-end clause, so the card said it twice.

@@ -240,9 +240,17 @@ describe('F — phone ordering is distinguished from online ordering', () => {
     expect(channel().marker.state).toBe('PHONE_ORDERING_ONLY');
   });
 
-  it('says it is a legitimate pathway AND not online ordering', () => {
-    expect(channel().record.fact).toMatch(/legitimate ordering pathway/i);
-    expect(channel().record.fact).toMatch(/not online ordering/i);
+  // This read "a legitimate ordering pathway". On this page the phone button
+  // sits under "ORDER ONLINE", so the accurate description is the mismatch: a
+  // button presented as online ordering places a call. The plain phone-ordering
+  // wording is kept, and pinned, for buttons that do not promise online
+  // ordering (online-label-opens-phone.test.ts).
+  it('says the ORDER ONLINE button places a phone call instead of online ordering', () => {
+    expect(channel().marker.onlineLabelOpensPhone).toBe(true);
+    expect(channel().record.fact).toMatch(
+      /"ORDER" button in the section labelled "ORDER ONLINE" places a telephone call instead of opening an online ordering page/,
+    );
+    expect(channel().record.fact).not.toMatch(/legitimate ordering pathway/i);
   });
 
   it('never reports the widget-config order URL as working online ordering', () => {

@@ -86,6 +86,12 @@ export interface OrderingProbe {
 export interface OrderingChannelInput {
   /** Anchor text of `tel:` links whose wording offers to take an order. */
   phoneOrderCtas: string[];
+  /**
+   * Telephone ordering buttons presented as ONLINE ordering — the button or
+   * its section says "Order Online". Optional so callers built before the
+   * check existed behave exactly as they did.
+   */
+  onlineLabelledPhoneCtas?: { text: string; label: string }[];
   destinations: OrderingDestination[];
   probes: OrderingProbe[];
   /** A vendor widget was detected but resolved no destination. */
@@ -113,6 +119,12 @@ export interface OrderingChannelResult {
    * dine-in restaurant for a pathway it never claimed to have.
    */
   destinationResolved: boolean;
+  /**
+   * The ordering button is presented as online ordering but places a phone
+   * call. An observed website-experience mismatch; it says nothing about lost
+   * orders, which the audit cannot see.
+   */
+  onlineLabelOpensPhone: boolean;
   /** One sentence, already qualified to the evidence state. */
   summary: string;
   /** The reasoning, including the raw signals, for the evidence chain. */
@@ -128,7 +140,23 @@ export const ORDERING_CHANNEL_PREFIX = 'ORDERING CHANNEL:';
 export interface OrderingChannelMarker {
   state: OrderingChannelState;
   destinationResolved: boolean;
+  onlineLabelOpensPhone: boolean;
 }
+
+/** Flags that may follow the state token, each written as ` [FLAG]`. */
+const DESTINATION_RESOLVED_FLAG = 'DESTINATION_RESOLVED';
+const ONLINE_LABEL_OPENS_PHONE_FLAG = 'ONLINE_LABEL_OPENS_PHONE';
+
+/**
+ * The machine-readable head of a channel fact — prefix, state and any flags —
+ * up to and including the dash before the prose. Shared by every layer that
+ * strips the head for display, so a new flag cannot leak into client copy
+ * from one of them.
+ */
+export const ORDERING_CHANNEL_HEAD = /^ORDERING CHANNEL:\s*[A-Z_]+(?:\s*\[[A-Z_]+\])*\s*—\s*/;
+
+/** A channel flag anywhere in a text, for display layers that must remove it. */
+export const ORDERING_CHANNEL_FLAG = /\s*\[(?:DESTINATION_RESOLVED|ONLINE_LABEL_OPENS_PHONE)\]/g;
 
 /**
  * Render the machine-readable marker that leads the evidence fact.
@@ -137,17 +165,24 @@ export interface OrderingChannelMarker {
  * copy can be rewritten without silently changing what the journey concludes.
  */
 export function formatOrderingChannelFact(result: OrderingChannelResult): string {
-  const resolved = result.destinationResolved ? ' [DESTINATION_RESOLVED]' : '';
-  return `${ORDERING_CHANNEL_PREFIX} ${result.state}${resolved} — ${result.summary}`;
+  const resolved = result.destinationResolved ? ` [${DESTINATION_RESOLVED_FLAG}]` : '';
+  const mislabelled = result.onlineLabelOpensPhone ? ` [${ONLINE_LABEL_OPENS_PHONE_FLAG}]` : '';
+  return `${ORDERING_CHANNEL_PREFIX} ${result.state}${resolved}${mislabelled} — ${result.summary}`;
 }
 
 /** Read the channel marker back out of a stored evidence fact. Null when absent. */
 export function parseOrderingChannelFact(fact: string): OrderingChannelMarker | null {
-  const match = fact.match(/^ORDERING CHANNEL:\s*([A-Z_]+)(\s*\[DESTINATION_RESOLVED\])?/);
+  // Facts stored before a flag existed simply lack it, and parse as before.
+  const match = fact.match(/^ORDERING CHANNEL:\s*([A-Z_]+)((?:\s*\[[A-Z_]+\])*)/);
   if (!match) return null;
   const token = match[1] as OrderingChannelState;
   if (!ORDERING_CHANNEL_STATES.includes(token)) return null;
-  return { state: token, destinationResolved: Boolean(match[2]) };
+  const flags = new Set(Array.from(match[2].matchAll(/\[([A-Z_]+)\]/g), (m) => m[1]));
+  return {
+    state: token,
+    destinationResolved: flags.has(DESTINATION_RESOLVED_FLAG),
+    onlineLabelOpensPhone: flags.has(ONLINE_LABEL_OPENS_PHONE_FLAG),
+  };
 }
 
 const ORDERING_CHANNEL_STATES: OrderingChannelState[] = [
@@ -225,6 +260,7 @@ export function resolveOrderingChannel(input: OrderingChannelInput): OrderingCha
       state: 'ONLINE_ORDERING_BROKEN_CONFIRMED',
       evidenceState: 'VERIFIED',
       destinationResolved: true,
+      onlineLabelOpensPhone: false,
       // Ends without a dead-end clause on purpose: the journey layer adds the
       // customer consequence, and having both produced the same sentence twice
       // in one card.
@@ -243,6 +279,7 @@ export function resolveOrderingChannel(input: OrderingChannelInput): OrderingCha
       state: 'ONLINE_ORDERING_BROKEN_CONFIRMED',
       evidenceState: 'VERIFIED',
       destinationResolved: true,
+      onlineLabelOpensPhone: false,
       summary: 'The online ordering destination loads but states that ordering is not available.',
       detail:
         switchedOff.map((p) => `${p.url} — ${p.disabledSignal}`).join('; ') +
@@ -257,6 +294,7 @@ export function resolveOrderingChannel(input: OrderingChannelInput): OrderingCha
       state: 'ONLINE_ORDERING_WORKING',
       evidenceState: 'VERIFIED',
       destinationResolved: true,
+      onlineLabelOpensPhone: false,
       summary: 'A customer can place an order online; the ordering flow was completed end to end.',
       detail: 'Order placement was positively verified, not merely reached.',
       failingUrls: [],
@@ -268,29 +306,66 @@ export function resolveOrderingChannel(input: OrderingChannelInput): OrderingCha
   // 3 — telephone precedence. What the customer is offered outranks markup.
   if (phoneOrderCtas.length > 0) {
     const ctas = phoneOrderCtas.slice(0, 3).map((t) => `"${t}"`).join(', ');
+    const declared =
+      exposed.length > 0
+        ? `An ordering destination is also declared in the page markup (${exposed[0].url}), but the action a customer ` +
+          'is actually offered is the phone call, so the destination is recorded as context. Whether it is reachable ' +
+          'for customers requires manual validation.'
+        : destinations.length > 0
+          ? // Declared but not offered: saying "no destination was found" here
+            // contradicted the ordering record, which reports this same URL.
+            `An ordering destination is declared in the page markup (${destinations[0].url}) but is not linked for ` +
+            'customers; the action a customer is offered is the phone call. Whether it works requires manual validation.'
+          : 'No browser-based ordering destination was found alongside it.';
+    // "ONLY" IS AN EXCLUSIVITY CLAIM, AND THE SCOPE HAS TO EARN IT.
+    //
+    // This read "Ordering is by telephone only". The audit reads a bounded
+    // set of public pages; it cannot know that no online ordering exists on a
+    // page it did not fetch, behind a script it did not run, or in an app. It
+    // CAN say what the ordering button it found actually does. The claim is
+    // now scoped to the pages analyzed, which is the claim the evidence
+    // supports.
+    const scope = 'Whether online ordering exists somewhere this audit did not reach is not established either way.';
+    const mislabelled = input.onlineLabelledPhoneCtas?.[0];
+    if (mislabelled) {
+      // A BUTTON PRESENTED AS ONLINE ORDERING THAT OPENS THE DIALLER.
+      //
+      // Described as what was observed, nothing more. The page says "Order
+      // Online" and the button places a call: that is a website-experience
+      // mismatch, visible in the markup. It is not a measured loss of orders,
+      // and it is not proof the restaurant's ordering system is broken — the
+      // audit sees neither order records nor the vendor's account.
+      const presented =
+        mislabelled.label === mislabelled.text
+          ? `The ordering button labelled "${mislabelled.text}"`
+          : `The "${mislabelled.text}" button in the section labelled "${mislabelled.label}"`;
+      return {
+        state: 'PHONE_ORDERING_ONLY',
+        evidenceState: 'VERIFIED',
+        destinationResolved,
+        onlineLabelOpensPhone: true,
+        summary:
+          `${presented} places a telephone call instead of opening an online ordering page or checkout. ` +
+          'A visitor who chose to order online is offered a phone call instead. ' +
+          scope,
+        detail:
+          `Observed automatically from the page markup: call-to-action text ${ctas} is presented under ` +
+          `"${mislabelled.label}" and resolves to a telephone number (a tel: link), not to a web destination. ` +
+          'The audit read the link; it did not tap the button on a device, and no owner confirmation is recorded in ' +
+          `this audit. ${declared}`,
+        failingUrls: [],
+      };
+    }
     return {
       state: 'PHONE_ORDERING_ONLY',
       evidenceState: 'VERIFIED',
       destinationResolved,
-      // "ONLY" IS AN EXCLUSIVITY CLAIM, AND THE SCOPE HAS TO EARN IT.
-      //
-      // This read "Ordering is by telephone only". The audit reads a bounded
-      // set of public pages; it cannot know that no online ordering exists on a
-      // page it did not fetch, behind a script it did not run, or in an app. It
-      // CAN say what the ordering button it found actually does. The claim is
-      // now scoped to the pages analyzed, which is the claim the evidence
-      // supports.
+      onlineLabelOpensPhone: false,
       summary:
         'The ordering call-to-action found on the analyzed pages places a telephone call rather than opening an ' +
         'online ordering page. Telephone ordering is a legitimate ordering pathway, and it is not online ordering. ' +
-        'Whether online ordering exists somewhere this audit did not reach is not established either way.',
-      detail:
-        `Call-to-action text ${ctas} resolves to a telephone number (a tel: link), not to a web destination. ` +
-        (exposed.length > 0
-          ? `An ordering destination is also declared in the page markup (${exposed[0].url}), but the action a customer ` +
-            'is actually offered is the phone call, so the destination is recorded as context. Whether it is reachable ' +
-            'for customers requires manual validation.'
-          : 'No browser-based ordering destination was found alongside it.'),
+        scope,
+      detail: `Call-to-action text ${ctas} resolves to a telephone number (a tel: link), not to a web destination. ${declared}`,
       failingUrls: [],
     };
   }
@@ -307,6 +382,7 @@ export function resolveOrderingChannel(input: OrderingChannelInput): OrderingCha
       state: 'THIRD_PARTY_ORDERING',
       evidenceState: 'STRONG_EVIDENCE',
       destinationResolved: true,
+      onlineLabelOpensPhone: false,
       summary:
         distinctHosts.size >= 2
           ? `Online ordering runs through ${distinctHosts.size} third-party platforms, splitting order intent.`
@@ -325,6 +401,7 @@ export function resolveOrderingChannel(input: OrderingChannelInput): OrderingCha
       state: 'ORDERING_PATH_UNCLEAR',
       evidenceState: 'MANUAL_VALIDATION_REQUIRED',
       destinationResolved: true,
+      onlineLabelOpensPhone: false,
       summary: 'An online ordering destination is linked and reachable, but order placement was not verified.',
       detail:
         `Destination: ${exposed[0].url}. An ordering page with ordering switched off responds identically to a working ` +
@@ -343,6 +420,7 @@ export function resolveOrderingChannel(input: OrderingChannelInput): OrderingCha
       state: 'ORDERING_PATH_UNCLEAR',
       evidenceState: 'MANUAL_VALIDATION_REQUIRED',
       destinationResolved: false,
+      onlineLabelOpensPhone: false,
       summary:
         'An ordering destination is written into the page markup, but no visible link or button was found pointing ' +
         'customers to it, so whether anyone is offered it is unverified.',
@@ -359,6 +437,7 @@ export function resolveOrderingChannel(input: OrderingChannelInput): OrderingCha
       state: 'ORDERING_PATH_UNCLEAR',
       evidenceState: 'MANUAL_VALIDATION_REQUIRED',
       destinationResolved: false,
+      onlineLabelOpensPhone: false,
       summary: `A ${widgetVendor} ordering widget is present, but its destination is rendered in the browser and could not be resolved.`,
       detail:
         `${widgetVendor} assets are loaded by the site, so an ordering option may be presented to customers by a ` +
@@ -372,6 +451,7 @@ export function resolveOrderingChannel(input: OrderingChannelInput): OrderingCha
     state: 'ORDERING_PATH_UNCLEAR',
     evidenceState: unexposed.length > 0 ? 'MANUAL_VALIDATION_REQUIRED' : 'INSUFFICIENT_DATA',
     destinationResolved: false,
+    onlineLabelOpensPhone: false,
     summary:
       unexposed.length > 0
         ? 'An ordering destination was supplied but was not found anywhere in the website markup a customer receives.'
