@@ -9,6 +9,7 @@ import { presentFailure, shortRunId } from '@/lib/audit/failurePresentation';
 // showing "85%" beside a client page showing "Strong" for the same fact is how
 // two readings of the same evidence get into the same conversation.
 import { classifyFinding, confidenceLabel, journeyStatusLabel, reportHeadlines } from '@/lib/reports/executive';
+import { evidenceBasisFor, evidenceBasisRows } from '@/lib/audit/evidenceBasis';
 
 export const dynamic = 'force-dynamic';
 
@@ -137,11 +138,26 @@ export default async function AuditDetailPage({ params }: { params: Promise<{ au
                         <p className="label">Rescue Priority</p>
                       </div>
                     </div>
+                    {(() => {
+                      // The same three layers the client report and the PDF print
+                      // for this finding — see evidenceBasis.ts.
+                      const basis = evidenceBasisFor(opp.category);
+                      return basis ? (
+                        <dl className="border border-obsidian-line rounded px-4 py-3 mb-3 space-y-2 text-sm">
+                          {evidenceBasisRows(basis).map(([label, text]) => (
+                            <div key={label}>
+                              <dt className="label">{label}</dt>
+                              <dd className="text-ivory-dim">{text}</dd>
+                            </div>
+                          ))}
+                        </dl>
+                      ) : null;
+                    })()}
                     <p className="text-ivory-dim text-sm mb-3">{opp.problem}</p>
                     <div className="flex flex-wrap gap-4 text-xs text-ivory-faint">
                       <span>Impact {opp.impactScore}</span>
                       <span>Urgency {opp.urgencyScore}</span>
-                      <span>Confidence {confidenceLabel(opp.confidenceScore)}</span>
+                      <span>{classifyFinding(opp)} · Finding confidence {confidenceLabel(opp.confidenceScore)}</span>
                       <span>AI Fit {opp.aiFitScore}</span>
                       <span>Stage: {opp.customerJourneyStage}</span>
                       {opp.manualValidationRequired && <span className="text-amber-400 uppercase tracking-wide">Manual validation required</span>}

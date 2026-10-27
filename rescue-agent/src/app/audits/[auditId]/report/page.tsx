@@ -1,8 +1,9 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { loadExecutiveReport } from '@/lib/reports/executiveData';
-import type { ExecutiveFinding, JourneyMapStage } from '@/lib/reports/executive';
-import { CONFIDENCE_EXPLANATION } from '@/lib/scoring/methodology';
+import { classificationCounters, classificationIntro, type ExecutiveFinding, type JourneyMapStage } from '@/lib/reports/executive';
+import { evidenceBasisRows, type EvidenceBasis } from '@/lib/audit/evidenceBasis';
+import { CONFIDENCE_EXPLANATION, FINDING_CLASSIFICATION_NOTE } from '@/lib/scoring/methodology';
 import { SCENARIO_DISCLAIMER } from '@/lib/reports/scenarios';
 import ScenarioCalculator from '@/components/ScenarioCalculator';
 
@@ -151,14 +152,10 @@ export default async function ExecutiveReportPage({ params }: { params: Promise<
           ))}
         </div>
         <p className="text-ivory-faint text-xs mt-5 mb-2">
-          How the {dto.score.findingsCount} finding(s) in Section 04 are classified. These describe the findings, not the {dto.score.evidenceCount} evidence items above — every evidence item carries its own confidence label and is listed in the Appendix.
+          {classificationIntro(dto.score.findingsCount, dto.score.evidenceCount)}
         </p>
-        <div className="flex flex-wrap gap-3">
-          {[
-            [dto.score.verifiedCount, 'Verified from public evidence'],
-            [dto.score.inferredCount, 'Inferred opportunities'],
-            [dto.score.manualValidationCount, 'Need your data to confirm'],
-          ].map(([n, label]) => (
+        <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-3">
+          {classificationCounters(dto.score).map(([n, label]) => (
             <div key={String(label)} className="border border-obsidian-line rounded px-4 py-2 text-center">
               <p className="font-display text-lg text-ivory">{n}</p>
               <p className="label">{label}</p>
@@ -391,6 +388,7 @@ export default async function ExecutiveReportPage({ params }: { params: Promise<
             </div>
           ))}
         </dl>
+        <p className="text-ivory-faint text-[13px] leading-relaxed mb-5">{FINDING_CLASSIFICATION_NOTE}</p>
         <details className="card">
           <summary className="px-4 sm:px-6 py-4 cursor-pointer label hover:text-gold">Show all {dto.appendix.length} evidence items</summary>
           <div className="divide-y divide-obsidian-line max-h-[480px] overflow-y-auto">
@@ -459,6 +457,20 @@ function Section({ kicker, title, children }: { kicker: string; title: string; c
       <div className="gold-rule w-12 mb-6 border-t-2" />
       {children}
     </section>
+  );
+}
+
+/** The three layers a finding rests on — see evidenceBasis.ts. Same rows, same order, as the PDF. */
+function EvidenceBasisList({ basis }: { basis: EvidenceBasis }) {
+  return (
+    <dl className="border border-obsidian-line rounded px-4 py-3 space-y-2">
+      {evidenceBasisRows(basis).map(([label, text]) => (
+        <div key={label}>
+          <dt className="label">{label}</dt>
+          <dd className="text-ivory-dim">{text}</dd>
+        </div>
+      ))}
+    </dl>
   );
 }
 
@@ -537,6 +549,7 @@ function FindingCard({ finding }: { finding: ExecutiveFinding }) {
       </div>
       <p className="text-ivory-faint text-xs mb-4">Customer journey stage: {finding.journeyStage} · Priority: {finding.labels.priority}</p>
       <div className="space-y-4 text-sm">
+        {finding.evidenceBasis && <EvidenceBasisList basis={finding.evidenceBasis} />}
         <Field label="The business problem">{finding.problem}</Field>
         <Field label="Why it matters">{finding.whyItMatters}</Field>
         <Field label="Potential commercial effect">{finding.commercialEffect}</Field>
@@ -558,7 +571,7 @@ function FindingCard({ finding }: { finding: ExecutiveFinding }) {
         {[
           ['Business impact', finding.labels.businessImpact],
           ['Urgency', finding.labels.urgency],
-          ['Evidence confidence', finding.labels.evidenceConfidence],
+          ['Finding confidence', finding.labels.findingConfidence],
           ['Automation opportunity', finding.labels.automationOpportunity],
         ].map(([label, value]) => (
           <div key={label}>

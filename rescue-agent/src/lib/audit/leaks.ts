@@ -171,14 +171,18 @@ const RULES: Rule[] = [
       category: 'ORDER BUTTON LABEL MISMATCH',
       title: 'The online ordering button opens a phone call instead of an online checkout',
       problem:
-        `OBSERVED AUTOMATICALLY (from the page markup): ${observed} The button is a tel: link, so on a phone it opens ` +
-        'the dialler or a phone-app chooser rather than an ordering page.' +
+        // The same three layers, in the same order and words, as the report's
+        // evidence basis (evidenceBasis.ts): verified, not yet tested, not
+        // measured. "Observed automatically … not observed … manual
+        // confirmation" said the same thing in a fourth vocabulary.
+        `VERIFIED IN THE PAGE MARKUP: ${observed} The button is a tel: link, which opens a phone's dialler or ` +
+        'phone-app chooser rather than an ordering page.' +
         (declared
           ? ` The page markup also declares an online ordering destination (${declared}), but the button does not lead there.`
           : '') +
-        ' NOT OBSERVED: whether this affects orders, conversion or revenue — that needs order and call records — and' +
-        ' whether the online ordering system itself is set up or working. MANUAL CONFIRMATION: not recorded in this' +
-        ' audit; tapping the button on a phone confirms it.',
+        ' NOT YET TESTED: no one tapped the button on a phone during this audit, and whether the online ordering' +
+        ' system is set up was not checked. NOT MEASURED: any effect on orders, conversion or revenue — that needs' +
+        ' order and call records.',
       businessImpact:
         'A visitor who chooses to order online is handed a phone call instead of the checkout the label promises. ' +
         'Whether that changes how many orders the restaurant receives is not measured by this audit.',

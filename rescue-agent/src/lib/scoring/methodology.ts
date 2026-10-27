@@ -132,6 +132,19 @@ export const CONFIDENCE_EXPLANATION =
   'Confidence describes how directly a fact was observed, not how likely an outcome is. It is a label, not a ' +
   'percentage: the audit has no basis for distinguishing an 85% from a 90%, so it does not print one.';
 
+/**
+ * Finding labels are not evidence confidence, and the report used one word for
+ * both: evidence read straight off a page is "Strong", while a finding badged
+ * STRONG EVIDENCE is one that was not confirmed end to end. Printed side by
+ * side, "0 verified findings" over evidence marked "verified" read as a
+ * contradiction. This says which is which, once, next to the legend.
+ */
+export const FINDING_CLASSIFICATION_NOTE =
+  'Finding labels are separate from evidence confidence. A finding is a "Verified finding" only when the whole finding ' +
+  'was established from public evidence. "Strong evidence" means the evidence behind it was read directly — for example a ' +
+  'link in the page markup — but the finding has not been tested end to end, such as by tapping a button on a phone. ' +
+  'No finding in this report measures an effect on orders or revenue.';
+
 /** The whole methodology as ordered sections, for the report and the PDF to render. */
 export interface MethodologySection {
   heading: string;

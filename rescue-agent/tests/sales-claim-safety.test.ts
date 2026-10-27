@@ -159,8 +159,12 @@ describe('language inherits the evidence state', () => {
       leak({ title: 'Confirmed thing', manualValidationRequired: false, confidenceScore: 95 }),
       leak({ title: 'Unconfirmed thing' }),
     ]);
-    expect(content.talkTrack).toMatch(/"Confirmed thing" — VERIFIED, state it plainly/);
-    expect(content.talkTrack).toContain(`"Unconfirmed thing" — ${STATE_PLAIN.MANUAL_VALIDATION_REQUIRED}: ask about it, do not assert it`);
+    // One line per finding, each with its own strength; the instruction for the
+    // unconfirmed ones is said once, in the discipline line, not after each.
+    const lines = content.talkTrack.split('\n');
+    expect(lines).toContain('• "Confirmed thing" — VERIFIED, state it plainly');
+    expect(lines).toContain(`• "Unconfirmed thing" — ${STATE_PLAIN.MANUAL_VALIDATION_REQUIRED}`);
+    expect(content.talkTrack).toMatch(/EVIDENCE DISCIPLINE — 1 of these 2 findings are not confirmed end to end/);
     expect(content.talkTrack).not.toMatch(/MANUAL_VALIDATION_REQUIRED/);
   });
 });

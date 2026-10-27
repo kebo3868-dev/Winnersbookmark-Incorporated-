@@ -394,8 +394,8 @@ describe('S / T — methodology intact, nothing fabricated', () => {
   });
 
   it('T: the finding counters still add up to the findings printed', () => {
-    const { verifiedCount, inferredCount, manualValidationCount, findingsCount } = run.executive.score;
-    expect(verifiedCount + inferredCount + manualValidationCount).toBe(findingsCount);
+    const { verifiedCount, strongCount, inferredCount, manualValidationCount, findingsCount } = run.executive.score;
+    expect(verifiedCount + strongCount + inferredCount + manualValidationCount).toBe(findingsCount);
     expect(findingsCount).toBe(run.executive.findings.length);
   });
 });
