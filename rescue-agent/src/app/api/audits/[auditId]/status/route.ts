@@ -1,8 +1,11 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { failStaleAudits } from '@/lib/audit/stale';
+import { requireOperatorRequest } from '@/lib/operatorAuth';
 
-export async function GET(_request: Request, { params }: { params: Promise<{ auditId: string }> }) {
+export async function GET(request: Request, { params }: { params: Promise<{ auditId: string }> }) {
+  const guard = requireOperatorRequest(request);
+  if (!guard.ok) return guard.response;
   const { auditId } = await params;
   await failStaleAudits(auditId);
   const audit = await prisma.audit.findUnique({

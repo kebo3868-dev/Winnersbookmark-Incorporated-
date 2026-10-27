@@ -3,6 +3,7 @@ import React from 'react';
 import { loadExecutiveReport } from '@/lib/reports/executiveData';
 import { sanitizeFilename } from '@/lib/reports/executive';
 import { ExecutivePdf } from '@/lib/pdf/ExecutivePdf';
+import { requireOperatorRequest } from '@/lib/operatorAuth';
 
 // PDF generation is pure-JS (@react-pdf/renderer) — no browser binary — but
 // give large audits headroom on serverless.
@@ -15,9 +16,11 @@ export const dynamic = 'force-dynamic';
  * is generated from the stored audit only — the same DTO the web report
  * renders — and never embeds credentials, env values, or internal sales data.
  */
-export async function GET(_request: Request, { params }: { params: Promise<{ auditId: string }> }) {
+export async function GET(request: Request, { params }: { params: Promise<{ auditId: string }> }) {
+  const guard = requireOperatorRequest(request);
+  if (!guard.ok) return guard.response;
   const { auditId } = await params;
-  const result = await loadExecutiveReport(auditId);
+  const result = await loadExecutiveReport(guard.operator, auditId);
   if (result.status === 'not_found') {
     return NextResponse.json({ error: 'Audit not found' }, { status: 404 });
   }

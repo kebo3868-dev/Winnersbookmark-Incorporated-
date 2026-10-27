@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { loadExecutiveReport } from '@/lib/reports/executiveData';
+import { requireOperatorPage } from '@/lib/operatorAuth';
 import { classificationCounters, classificationIntro, type ExecutiveFinding, type JourneyMapStage } from '@/lib/reports/executive';
 import { evidenceBasisRows, type EvidenceBasis } from '@/lib/audit/evidenceBasis';
 import { CONFIDENCE_EXPLANATION, FINDING_CLASSIFICATION_NOTE } from '@/lib/scoring/methodology';
@@ -30,8 +31,9 @@ const STATUS_STYLES: Record<string, string> = {
 };
 
 export default async function ExecutiveReportPage({ params }: { params: Promise<{ auditId: string }> }) {
+  const operator = await requireOperatorPage();
   const { auditId } = await params;
-  const result = await loadExecutiveReport(auditId);
+  const result = await loadExecutiveReport(operator, auditId);
   if (result.status === 'not_found') notFound();
   if (result.status === 'not_ready') {
     return (

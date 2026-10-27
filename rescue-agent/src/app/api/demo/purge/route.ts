@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { purgeDemoData } from '@/lib/audit/demoPurge';
+import { requireOperatorRequest } from '@/lib/operatorAuth';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,7 +10,9 @@ export const dynamic = 'force-dynamic';
  * leads, and the fictional demo restaurant). Protected by the app-wide Basic
  * Auth middleware like every route except /api/health.
  */
-export async function POST() {
+export async function POST(request: Request) {
+  const guard = requireOperatorRequest(request);
+  if (!guard.ok) return guard.response;
   try {
     const result = await purgeDemoData(prisma);
     return NextResponse.json(result);

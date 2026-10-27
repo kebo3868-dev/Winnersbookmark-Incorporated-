@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/db';
+import { requireOperatorPage } from '@/lib/operatorAuth';
 import AuditProgress from '@/components/AuditProgress';
 import { scoreBand } from '@/lib/scoring/rescueScore';
 import { displayDomain } from '@/lib/validation/urlSanitize';
@@ -24,6 +25,7 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 export default async function AuditDetailPage({ params }: { params: Promise<{ auditId: string }> }) {
+  await requireOperatorPage();
   const { auditId } = await params;
   const audit = await prisma.audit.findUnique({
     where: { id: auditId },

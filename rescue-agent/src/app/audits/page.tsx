@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { prisma } from '@/lib/db';
+import { requireOperatorPage } from '@/lib/operatorAuth';
 import LocalTime from '@/components/LocalTime';
 import { displayDomain } from '@/lib/validation/urlSanitize';
 import { presentFailure, shortRunId } from '@/lib/audit/failurePresentation';
@@ -29,6 +30,7 @@ const STATUS_STYLES: Record<string, string> = {
 };
 
 export default async function AuditsPage() {
+  await requireOperatorPage();
   const audits = await prisma.audit.findMany({
     orderBy: { createdAt: 'desc' },
     take: 50,
