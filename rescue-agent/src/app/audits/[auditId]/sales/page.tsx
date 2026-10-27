@@ -1,17 +1,16 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { prisma } from '@/lib/db';
+import { loadSalesBrief } from '@/lib/reports/salesData';
+import { requireOperatorPage } from '@/lib/operatorAuth';
 import { COMPANY } from '@/lib/config';
 import { talkTrackBlocks } from '@/lib/reports/talkTrack';
 
 export const dynamic = 'force-dynamic';
 
 export default async function SalesBriefPage({ params }: { params: Promise<{ auditId: string }> }) {
+  const operator = await requireOperatorPage();
   const { auditId } = await params;
-  const brief = await prisma.salesIntelligence.findUnique({
-    where: { auditId },
-    include: { audit: { include: { restaurant: true } } },
-  });
+  const brief = await loadSalesBrief(operator, auditId);
   if (!brief) notFound();
 
   const rows: { label: string; value: string }[] = [

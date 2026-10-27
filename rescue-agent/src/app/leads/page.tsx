@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { prisma } from '@/lib/db';
+import { requireOperatorPage } from '@/lib/operatorAuth';
 import { LeadStatusSelect } from './LeadStatusSelect';
 import { PurgeDemoButton } from './PurgeDemoButton';
 import { DeleteLeadButton } from './DeleteLeadButton';
@@ -9,6 +10,7 @@ import { resolveLeadRetentionDays, sweepExpiredPii } from '@/lib/leads/retention
 export const dynamic = 'force-dynamic';
 
 export default async function LeadsPage() {
+  await requireOperatorPage();
   // Opportunistic sweep on this read path. It is a backstop, NOT the mechanism:
   // relying on it alone made expiry conditional on an operator opening this
   // page. /api/retention/sweep is the scheduled entry point. Covers marketing

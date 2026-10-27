@@ -2,11 +2,14 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { prisma } from '@/lib/db';
 import { parseLeadStatus } from '@/lib/leads/status';
 import { isRecordNotFound } from '@/lib/leads/prismaError';
+import { requireOperatorRequest } from '@/lib/operatorAuth';
 
 export const dynamic = 'force-dynamic';
 
 /** Move a captured lead through the sales pipeline. */
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ leadId: string }> }) {
+  const guard = requireOperatorRequest(request);
+  if (!guard.ok) return guard.response;
   const { leadId } = await params;
 
   let body: unknown;
@@ -44,7 +47,9 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
  * endpoint that would tell the operator personal data was deleted when it is
  * still there.
  */
-export async function DELETE(_request: NextRequest, { params }: { params: Promise<{ leadId: string }> }) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ leadId: string }> }) {
+  const guard = requireOperatorRequest(request);
+  if (!guard.ok) return guard.response;
   const { leadId } = await params;
   try {
     await prisma.auditLead.delete({ where: { id: leadId } });

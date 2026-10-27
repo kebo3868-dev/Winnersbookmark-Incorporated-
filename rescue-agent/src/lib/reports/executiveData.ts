@@ -3,6 +3,7 @@ import { buildExecutiveReport, type ExecutiveReportDTO, type ExecutiveReportInpu
 import type { OwnerReportContent } from './owner';
 import { getContact } from '@/lib/config';
 import { generateBookingQrDataUrl } from './qrcode';
+import { assertOperator, type OperatorAuthorization } from '@/lib/operatorAuth';
 
 export type ExecutiveReportResult =
   | { status: 'ok'; dto: ExecutiveReportDTO }
@@ -36,7 +37,10 @@ export function deriveEvidenceSourceUrl(supportingContext: string | null, source
  * explicit field picking throughout — nothing outside these fields (no env,
  * no internal sales intelligence, no infrastructure detail) can reach the DTO.
  */
-export async function loadExecutiveReport(auditId: string): Promise<ExecutiveReportResult> {
+export async function loadExecutiveReport(operator: OperatorAuthorization, auditId: string): Promise<ExecutiveReportResult> {
+  // Operator-only today. A client-facing path (issue #71, Phase 2) gets its own
+  // entry point with its own authorization, never this one with a cast.
+  assertOperator(operator);
   if (!AUDIT_ID_PATTERN.test(auditId)) return { status: 'not_found' };
 
   const audit = await prisma.audit.findUnique({

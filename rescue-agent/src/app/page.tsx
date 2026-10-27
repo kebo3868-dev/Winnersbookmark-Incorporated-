@@ -1,11 +1,13 @@
 import Link from 'next/link';
 import { prisma } from '@/lib/db';
+import { requireOperatorPage } from '@/lib/operatorAuth';
 import { ATTENTION_STATUSES, classifyAudit } from '@/lib/audit/attention';
 import { failStaleAudits } from '@/lib/audit/stale';
 
 export const dynamic = 'force-dynamic';
 
 export default async function CommandCenter() {
+  await requireOperatorPage();
   // Sweep globally BEFORE querying, or the panel misses its most important
   // case. A killed worker leaves an audit RUNNING, and failStaleAudits was only
   // ever called from one audit's own status route — so an audit nobody reopens

@@ -1,6 +1,7 @@
 import { NextResponse, after } from 'next/server';
 import { z } from 'zod';
 import { createAudit, runAudit } from '@/lib/audit/orchestrator';
+import { requireOperatorRequest } from '@/lib/operatorAuth';
 
 // The audit pipeline continues via after() once the response is sent; on
 // serverless hosting the function must be allowed to live long enough for the
@@ -35,6 +36,8 @@ const RATE_LIMIT = 10;
 const RATE_WINDOW_MS = 60_000;
 
 export async function POST(request: Request) {
+  const guard = requireOperatorRequest(request);
+  if (!guard.ok) return guard.response;
   const now = Date.now();
   while (recentRequests.length > 0 && recentRequests[0] < now - RATE_WINDOW_MS) recentRequests.shift();
   if (recentRequests.length >= RATE_LIMIT) {
