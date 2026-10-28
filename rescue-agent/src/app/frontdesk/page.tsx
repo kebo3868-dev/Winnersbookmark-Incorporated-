@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
+import { redirect } from 'next/navigation';
 import { resolveActor } from '@/lib/frontdesk/auth/actor';
 import { can, mayActOnTenant } from '@/lib/frontdesk/auth/roles';
 import { buildCompletenessReport } from '@/lib/frontdesk/config/completeness';
@@ -17,7 +17,7 @@ export const dynamic = 'force-dynamic';
  */
 export default async function FrontDeskIndexPage() {
   const actor = await resolveActor();
-  if (!actor) notFound();
+  if (!actor) redirect('/frontdesk/login');
 
   const all = await listTenants();
 

@@ -29,7 +29,8 @@ const bodySchema = z.object({
     .string()
     .min(2)
     .max(60)
-    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'slug must be lowercase words separated by hyphens'),
+    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'slug must be lowercase words separated by hyphens')
+    .refine((slug) => slug !== 'login', 'slug is reserved for Front Desk sign in'),
   name: z.string().min(1).max(200),
   /** The full tenant configuration. Validated against the schema below. */
   config: z.unknown(),
