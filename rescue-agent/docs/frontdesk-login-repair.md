@@ -44,10 +44,20 @@ The result must be false. Check all rows regardless of status/config validity.
 The tenant-creation API now rejects this reserved slug so normal onboarding
 cannot introduce a later collision. Direct database writes must respect it too.
 
-The two deployed app directories include `vercel.json` with automatic Git
-deployments disabled **only** for `fix/frontdesk-login-entry`. This allows PR
-review and CI without creating previews. Other branches retain their settings.
-Merging and deployment still require the user's explicit authorization.
+The repository root and both app directories include `vercel.json` with
+automatic Git deployments disabled **only** for `fix/frontdesk-login-entry`.
+Other branches retain their settings. Merging and deployment still require the
+user's explicit authorization.
+
+Publication incident: the first PR commit included suppression in both app
+directories, but an additional Vercel project with a repository-root build
+(`winnersbookmark-incorporated-53l2`, rootDirectory null in the Vercel bot's PR
+metadata) automatically created a preview anyway. GitHub reported deployment
+`GThkpwE1gUZgxGmAfrBmmxXboQrq` ready. The connected Vercel tools returned 404 for
+that project/deployment, including explicit team and project IDs, so removal
+could not be performed through this connection. Root-level branch suppression
+was added before the next push. The unintended preview requires cleanup by an
+account with access; do not treat the no-deploy requirement as satisfied.
 
 ## Isolated verification
 
@@ -105,5 +115,6 @@ Dynamic prefetch can return an empty RSC shell with HTTP 200; full RSC navigatio
 was also checked for the serialized denial and absence of unauthorized data.
 Operator surfaces rejected normal, HEAD, POST/Next-Action, RSC/prefetch, forged
 cookies, encoded traversal and middleware-bypass header variants. All test
-writes were confined to disposable local fixtures. No merge or deployment was
-performed.
+writes were confined to disposable local fixtures. No merge or explicit
+deployment command was performed; the automatic preview incident above remains
+a separate release/cleanup blocker.
