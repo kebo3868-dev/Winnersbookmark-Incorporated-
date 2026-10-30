@@ -8,8 +8,10 @@ name: CI
 # own Root Directory:
 #   rescue-agent/ -> the internal operator console (Basic Auth, holds the data)
 #   website/      -> the public marketing site (no credentials, no database)
-# The repo root holds a third, undeployed app (the Daily Blogs product), which
-# is preserved but not gated here.
+#   agentos/      -> AgentOS, the founder's multi-agent console (its own
+#                    Vercel project and Supabase database)
+# The repo root holds an undeployed app (the Daily Blogs product), which is
+# preserved but not gated here.
 on:
   push:
     branches: [main, 'claude/**']
@@ -139,3 +141,58 @@ jobs:
             --from-url "$DATABASE_URL" \
             --to-schema-datamodel prisma/schema.prisma \
             --exit-code
+
+  agentos:
+    name: AgentOS — typecheck, tests (with Postgres), build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: agentos
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: agentos_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      # Disposable: the store integration test drops and rebuilds its schema.
+      AGENTOS_TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/agentos_test
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: agentos/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Dependency audit
+        run: npm audit --audit-level=high
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      # Includes the structural checks: every route and page authorizes
+      # itself, and no client component can reach a server secret.
+      - name: Unit and Postgres integration tests
+        run: npm test
+
+      - name: Migration runner applies cleanly to an empty database
+        run: |
+          psql "postgresql://postgres:postgres@127.0.0.1:5432/postgres" -c "create database agentos_migrate"
+          DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/agentos_migrate npm run db:migrate
+          # Second run must be a no-op.
+          DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/agentos_migrate npm run db:migrate | grep -q '^skip'
+
+      - name: Production build
+        run: npm run build

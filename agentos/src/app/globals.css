@@ -1,0 +1,18 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root { color-scheme: dark; }
+html, body { background: #0b0d12; color: #e7e9ee; }
+body { -webkit-tap-highlight-color: transparent; }
+
+@layer components {
+  .card { @apply rounded-2xl border border-ink-line bg-ink-2 p-4; }
+  .btn { @apply inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl px-4 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50; }
+  .btn-primary { @apply btn bg-gold text-ink hover:bg-gold-soft; }
+  .btn-ghost { @apply btn border border-ink-line bg-ink-3 text-slate-100 hover:border-slate-500; }
+  .btn-danger { @apply btn border border-red-500/60 bg-red-500/10 text-red-200 hover:bg-red-500/20; }
+  .field { @apply block w-full rounded-xl border border-ink-line bg-ink-3 px-3 py-3 text-base text-slate-100 placeholder:text-slate-500 focus:border-gold focus:outline-none; }
+  .label { @apply mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-400; }
+  .output { @apply whitespace-pre-wrap break-words rounded-xl border border-ink-line bg-ink p-3 font-mono text-[13px] leading-relaxed text-slate-200; }
+}
