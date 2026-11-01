@@ -80,6 +80,7 @@ function expectDays8to14Safe(r: ReturnType<typeof report>) {
 const READINESS: Record<string, RegExp> = {
   'AI Front Desk & Missed-Call Text Back': /answers on hours, menu and ordering checked against the restaurant's own information; missed-call text-back and transfer to staff tested/,
   'Customer Reactivation & Follow-Up Automation': /consent and opt-out handling checked for every guest contact; message content and sending frequency approved by the owner/,
+  'Lead Capture & Inquiry Automation': /intake questions and acknowledgment wording approved by the owner; every inquiry verified to route to a named staff member; human escalation tested/,
 };
 
 function expectDays15to21Gated(r: ReturnType<typeof report>, candidates: string[]) {
@@ -98,8 +99,8 @@ function expectDays15to21Gated(r: ReturnType<typeof report>, candidates: string[
     // 1. demand shown by the records  2. own readiness and safety checks  3. only then a limited, monitored pilot
     expect(line).toMatch(/^If (the|a) .+: consider a limited, monitored pilot of /);
     expect(line).toContain(`pilot of ${candidates[i]} — only after the proposed system passes its own readiness and safety checks for this restaurant (`);
-    if (READINESS[candidates[i]]) expect(line).toMatch(READINESS[candidates[i]]);
-    expect(line).toMatch(/Set success metrics and human escalation before it starts\.$/);
+    expect(line).toMatch(READINESS[candidates[i]]);
+    expect(line).toMatch(/\) and the owner approves the pilot\. Set success metrics and human escalation before it starts\.$/);
   });
   // 4. otherwise, no automation change
   expect(actions[actions.length - 1]).toMatch(/^If the records do not show that demand, or the system has not passed those checks, make no automation change — /);
@@ -119,7 +120,8 @@ describe('Days 8–14 when every top finding is an automation candidate', () => 
   });
 
   it('Days 15–21 carries the automations, each behind demand, its own readiness checks, then a monitored pilot', () => {
-    expectDays15to21Gated(r, ['AI Front Desk & Missed-Call Text Back', 'Customer Reactivation & Follow-Up Automation']);
+    // All three, catering included at AI fit 60, and none dropped by a cap.
+    expectDays15to21Gated(r, ['AI Front Desk & Missed-Call Text Back', 'Customer Reactivation & Follow-Up Automation', 'Lead Capture & Inquiry Automation']);
     expect(r.decide.actions.at(-1)).toMatch(/continue with the validated findings\.$/);
   });
 });
@@ -139,8 +141,8 @@ describe('Days 8–14 with direct website fixes and automation opportunities tog
     expect(r.fix.actions.join(' ')).not.toContain('AI-assisted');
   });
 
-  it('Days 15–21 gates the AI Front Desk and points back to the website fixes otherwise', () => {
-    expectDays15to21Gated(r, ['AI Front Desk & Missed-Call Text Back']);
+  it('Days 15–21 gates the AI Front Desk and catering intake, and points back to the website fixes otherwise', () => {
+    expectDays15to21Gated(r, ['AI Front Desk & Missed-Call Text Back', 'Lead Capture & Inquiry Automation']);
     expect(r.decide.actions.at(-1)).toMatch(/put the time into the website fixes above\.$/);
   });
 });
@@ -187,9 +189,10 @@ describe("the Leverock's audit", () => {
     expectDays8to14Safe(r);
   });
 
-  it('Days 15–21 gates the AI Front Desk on call-record demand and its own readiness checks', () => {
-    expectDays15to21Gated(r, ['AI Front Desk & Missed-Call Text Back']);
+  it('Days 15–21 gates the AI Front Desk on call records and catering intake on inquiry records, each with its own checks', () => {
+    expectDays15to21Gated(r, ['AI Front Desk & Missed-Call Text Back', 'Lead Capture & Inquiry Automation']);
     expect(r.decide.actions[1]).toMatch(/^If the call records show calls going unanswered, or the same questions asked again and again: /);
+    expect(r.decide.actions[2]).toMatch(/^If the inquiry records show slow or missed responses to catering or private-event requests: /);
   });
 
   it('no later phase repeats a Days 1–7 step, and the plan says "deploy" nowhere', () => {
@@ -211,7 +214,9 @@ describe('every combination of eight representative findings', () => {
       if (expectedFixes.length > 0) expect(r.fix.actions, `mask ${mask}`).toEqual(expectedFixes);
       else expect(r.fix.heading, `mask ${mask}`).toBe('COMPLETE VALIDATION — NO AUTOMATION CHANGE');
       expectDays8to14Safe(r);
-      const candidates = top.filter((o) => o.aiFitScore >= 70).slice(0, 2).map((o) => (o === PHONE ? 'AI Front Desk & Missed-Call Text Back' : 'Customer Reactivation & Follow-Up Automation'));
+      const NAME = new Map<Opp, string>([[PHONE, 'AI Front Desk & Missed-Call Text Back'], [RETENTION, 'Customer Reactivation & Follow-Up Automation'], [CATERING, 'Lead Capture & Inquiry Automation']]);
+      // Every automation finding in the report, by priority — catering at fit 60 included, nothing capped.
+      const candidates = top.filter((o) => NAME.has(o)).map((o) => NAME.get(o)!);
       expectDays15to21Gated(r, candidates);
     }
   });

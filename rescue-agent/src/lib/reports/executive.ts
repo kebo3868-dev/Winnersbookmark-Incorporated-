@@ -8,6 +8,7 @@ import { ORDER_BUTTON_CATEGORY, ORDER_BUTTON_TITLE, orderButtonFindingCopy } fro
 import { presentReputationText } from '@/lib/audit/reputationWording';
 import { evidenceBasisFor, type EvidenceBasis } from '@/lib/audit/evidenceBasis';
 import { safeDisplayName } from '@/lib/audit/restaurantName';
+import { presentAutomationClaims, presentRecommendedSolution, presentTierRecommendation } from './automationWording';
 import {
   CONFIDENCE_BANDS,
   CONFIDENCE_EXPLANATION,
@@ -550,8 +551,13 @@ export function buildExecutiveReport(input: ExecutiveReportInput): ExecutiveRepo
   const evidenceById = new Map(input.evidence.map((e) => [e.id, e]));
   const attachedTo = (opp: OppInput) =>
     opp.evidenceIds.map((id) => evidenceById.get(id)).filter((e): e is NonNullable<typeof e> => Boolean(e));
+  // Stored recommended solutions are presented, never rewritten: an
+  // automation is conditional on demand, its own readiness and safety tests
+  // and owner approval (automationWording.ts). Cards, the AI section and the
+  // plan all read the presented text.
   const ranked = input.opportunities
     .map((opp) => withOrderButtonCopy(opp, attachedTo(opp)))
+    .map((opp) => ({ ...opp, recommendedSolution: presentRecommendedSolution(opp.category, opp.recommendedSolution) }))
     .sort((a, b) => b.rescuePriorityScore - a.rescuePriorityScore);
   const top = ranked.slice(0, MAX_REPORT_FINDINGS);
 
@@ -732,7 +738,10 @@ export function buildExecutiveReport(input: ExecutiveReportInput): ExecutiveRepo
     recommendation: {
       headline: 'OUR RECOMMENDATION',
       body: input.storedRecommendation
-        ? `Based on the public evidence reviewed, ${COMPANY.shortName} recommends: ${input.storedRecommendation.tier}. ${input.storedRecommendation.rationale}`
+        ? (() => {
+            const tier = presentTierRecommendation(input.storedRecommendation.tier, input.storedRecommendation.rationale);
+            return `Based on the public evidence reviewed, ${COMPANY.shortName} ${tier.lead}. ${tier.rationale}`;
+          })()
         : `Based on the public evidence reviewed, ${COMPANY.shortName} recommends validating the highest-priority findings against internal operating data before committing to any system.`,
       nextStep: COMPANY.nextStepCta,
       company: COMPANY.name,
@@ -894,7 +903,8 @@ function buildRankedAiOpportunities(top: OppInput[]): RankedAiOpportunity[] {
   return top
     .filter((opp) => opp.aiFitScore >= 70)
     .sort((a, b) => b.aiFitScore - a.aiFitScore || b.rescuePriorityScore - a.rescuePriorityScore)
-    .slice(0, 3)
+    // No cap: every high-fit finding in the report keeps its automation entry
+    // (the report holds at most MAX_REPORT_FINDINGS findings).
     .map((opp, i) => {
       const caps = AI_CAPABILITIES.find(([re]) => re.test(opp.category) || re.test(solutionCategoryFor(opp.category)))?.[1]
         ?? { capabilities: ['Configured automation matched to the finding'], measurement: ['Response volume', 'Conversion action after response'] };
@@ -973,8 +983,9 @@ function buildPrescription(input: ExecutiveReportInput, findings: ExecutiveFindi
     : [];
   const validation = primary?.whatWeDoNotKnow
     ?? 'Review 30 days of phone activity, missed-call counts, guest-question categories, and average ticket data.';
-  const prescription = input.storedRecommendation
-    ? `${COMPANY.shortName} recommends ${tier} as the next step${primary && primary.internalScores.aiFit >= 70 ? ', considering the highest-fit automation identified above only once your operating records confirm the open questions it depends on and the system passes its own readiness and safety checks' : ''}. ${input.storedRecommendation.rationale}`
+  const presentedTier = input.storedRecommendation ? presentTierRecommendation(tier, input.storedRecommendation.rationale) : null;
+  const prescription = presentedTier
+    ? `${COMPANY.shortName} ${presentedTier.lead}${primary && primary.internalScores.aiFit >= 70 && !/limited, monitored pilot/.test(presentedTier.lead) ? ', considering the highest-fit automation identified above only once your operating records confirm the open questions it depends on and the system passes its own readiness and safety checks' : ''}. ${presentedTier.rationale}`
     : `${COMPANY.shortName} recommends validating the highest-priority findings against internal operating data before committing to any system.`;
   return {
     diagnosis,
@@ -1077,6 +1088,16 @@ export function directFixesFor<T extends { category: string; aiFitScore: number;
 }
 
 /**
+ * Findings whose recommended solution is an automation, whatever their AI fit:
+ * the phone, retention and catering / private-event findings, plus any finding
+ * scored as a strong automation fit. Each is decided in Days 15–21.
+ */
+const AUTOMATION_CATEGORY = /PHONE-DEPENDENT|RETENTION|CATERING|PRIVATE/i;
+export function isAutomationCandidate(o: { category: string; aiFitScore: number }): boolean {
+  return o.aiFitScore >= 70 || AUTOMATION_CATEGORY.test(o.category);
+}
+
+/**
  * What "passes its own readiness and safety checks" means for each automation,
  * for this restaurant — so the condition names checks that fit the system.
  */
@@ -1085,7 +1106,7 @@ function readinessChecksFor(category: string): string {
     return "answers on hours, menu and ordering checked against the restaurant's own information; missed-call text-back and transfer to staff tested";
   }
   if (/CATERING|PRIVATE/i.test(category)) {
-    return 'acknowledgment wording and intake questions approved by the owner; every inquiry confirmed to reach a named staff member';
+    return 'intake questions and acknowledgment wording approved by the owner; every inquiry verified to route to a named staff member; human escalation tested';
   }
   if (/RETENTION/i.test(category)) {
     return 'consent and opt-out handling checked for every guest contact; message content and sending frequency approved by the owner';
@@ -1154,7 +1175,7 @@ function limitationSentence(text: string): string | null {
 function buildSummary(input: ExecutiveReportInput, findings: ExecutiveFinding[]): string {
   // Prefer the audit-time summary when it was AI-enhanced (it was schema-
   // validated against the same stored data); otherwise compose deterministically.
-  if (input.storedSummaryWasAiEnhanced && input.storedSummary) return input.storedSummary;
+  if (input.storedSummaryWasAiEnhanced && input.storedSummary) return presentAutomationClaims(input.storedSummary);
 
   const stageOrder = Object.keys(JOURNEY_LABELS);
   const ordered = [...input.journey].sort((a, b) => stageOrder.indexOf(a.stage) - stageOrder.indexOf(b.stage));
@@ -1239,13 +1260,19 @@ function buildThirtyDayPlan(
   // show the demand it answers; the proposed system passes its own readiness
   // and safety checks for this restaurant (checks specific to that automation);
   // only then a limited, monitored pilot. Otherwise no automation change.
-  const automation = top.filter((o) => o.aiFitScore >= 70).slice(0, 2);
+  //
+  // Candidates are chosen by category as well as AI fit: the catering finding
+  // scores 60 yet its card recommends AI-assisted inquiry intake, so it is
+  // decided here, under its own gates, rather than nowhere. AI fit and scores
+  // are not changed to make it eligible. No cap: every automation the report
+  // recommends on a finding card is decided in this phase.
+  const automation = top.filter(isAutomationCandidate);
   const otherwise = directFixes.length > 0 ? 'put the time into the website fixes above' : 'continue with the validated findings';
   const decide = automation.length > 0
     ? [
         'Review the operational evidence collected in Days 1–7 before choosing any automation.',
         ...automation.map((o) =>
-          `If ${demandConditionFor(o.category)}: consider a limited, monitored pilot of ${solutionCategoryFor(o.category)} — only after the proposed system passes its own readiness and safety checks for this restaurant (${readinessChecksFor(o.category)}). Set success metrics and human escalation before it starts.`),
+          `If ${demandConditionFor(o.category)}: consider a limited, monitored pilot of ${solutionCategoryFor(o.category)} — only after the proposed system passes its own readiness and safety checks for this restaurant (${readinessChecksFor(o.category)}) and the owner approves the pilot. Set success metrics and human escalation before it starts.`),
         `If the records do not show that demand, or the system has not passed those checks, make no automation change — ${otherwise}.`,
       ]
     : [`Review the validation results. If they show repetitive demand, consider a limited, monitored pilot of the best-fit automation — only after it passes its own readiness and safety checks; otherwise make no automation change and ${otherwise}.`];
