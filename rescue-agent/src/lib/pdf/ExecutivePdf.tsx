@@ -464,8 +464,9 @@ export function ExecutivePdf({ dto: report }: { dto: ExecutiveReportDTO }) {
               <Text style={{ fontFamily: 'Helvetica-Bold', fontSize: 8, color: C.ink, marginBottom: 2 }}>{section.heading}</Text>
               <Text style={[s.mutedText, { marginBottom: section.rows ? 3 : 0 }]}>{section.body}</Text>
             </View>
+            {/* Keyed by term AND definition: weight rows share terms ("15%" for three categories). */}
             {section.rows?.map(([term, definition]) => (
-              <Text key={term} style={[s.mutedText, { marginBottom: 1 }]}>
+              <Text key={`${term} ${definition}`} style={[s.mutedText, { marginBottom: 1 }]}>
                 <Text style={{ color: C.goldDim }}>{term}</Text>
                 {` — ${definition}`}
               </Text>

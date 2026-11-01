@@ -262,7 +262,16 @@ describe('buildExecutiveReport', () => {
 
   it('builds a 4-phase 30-day plan with evidence-driven KPIs', () => {
     const dto = buildExecutiveReport(baseInput());
-    expect(dto.thirtyDayPlan.map((p) => p.heading)).toEqual(['VALIDATE', 'FIX THE HIGHEST-PRIORITY DIGITAL ISSUE', 'AUTOMATE', 'MEASURE']);
+    expect(dto.thirtyDayPlan.map((p) => p.heading)).toEqual(['VALIDATE', 'FIX THE HIGHEST-PRIORITY DIGITAL ISSUE', 'DECIDE & PILOT IF READY', 'MEASURE']);
+    // Days 15–21 is a conditional decision, not a deployment: any AI Front Desk
+    // pilot follows validation AND the system's own readiness testing, and the
+    // phase does not repeat the Days 1–7 data collection.
+    const decide = dto.thirtyDayPlan[2].actions.join(' ');
+    expect(decide).toMatch(/AI Front Desk/);
+    expect(decide).toMatch(/only after the proposed system passes its own readiness and safety checks/i);
+    expect(decide).toMatch(/otherwise make no automation change/i);
+    expect(decide).not.toMatch(/pull 30 days/i);
+    expect(decide).not.toMatch(/\bdeploy (the )?AI Front Desk\b/i);
     expect(dto.thirtyDayPlan[0].actions.join(' ')).toMatch(/phone records/i);
     expect(dto.thirtyDayPlan[3].actions.join(' ')).toMatch(/missed calls/i);
   });

@@ -366,8 +366,15 @@ describe('phone wording: observed facts, open questions and losses stay distinct
     const { dto } = build();
     expect(dto.prescription.diagnosis).not.toMatch(/FAQ/i);
     expect(frictionFaqSentences(dto.prescription.diagnosis)).toEqual([]);
-    // The top finding is named as what it is: an open question for the owner's records.
-    expect(dto.prescription.diagnosis).toMatch(/open question/i);
+    // The top finding is named as what it is: unverified, an opportunity that
+    // requires validation against the owner's records. The wording changed from
+    // "open question" to match the report's own section heading ("Priority
+    // Opportunities to Validate"); the substance this pins is unchanged — it is
+    // not presented as a verified finding, as friction, or as a loss.
+    expect(dto.prescription.diagnosis).toMatch(/opportunity requiring validation/i);
+    expect(dto.prescription.diagnosis).not.toMatch(/verified finding/i);
+    expect(dto.prescription.diagnosis).toMatch(/^No customer-facing friction was observed/);
+    expect(dto.prescription.diagnosis).not.toMatch(/\b(lost|losing|loss|revenue leak)\b/i);
     expect(dto.prescription.prescription).not.toMatch(/confirms the observed friction/i);
   });
 

@@ -190,8 +190,9 @@ export default async function ExecutiveReportPage({ params }: { params: Promise<
                 <p className="text-ivory-faint text-[13px] leading-relaxed mt-1">{section.body}</p>
                 {section.rows && (
                   <dl className="mt-2.5 space-y-1.5">
+                    {/* Keyed by term AND definition: weight rows share terms ("15%" for three categories). */}
                     {section.rows.map(([term, definition]) => (
-                      <div key={term} className="text-[13px] leading-relaxed">
+                      <div key={`${term} ${definition}`} className="text-[13px] leading-relaxed">
                         <dt className="text-gold-dim inline">{term}</dt>
                         <dd className="text-ivory-faint inline"> — {definition}</dd>
                       </div>
