@@ -37,25 +37,69 @@ export function pdfHyphenation(word: string, builtin?: (word: string) => string[
 }
 
 /**
- * The longest address kept on one line. Addresses are printed only in
- * full-width blocks — a finding card's "What we know", the evidence appendix
- * and the cover — and the narrowest of those, the card body at 9.5pt, is about
- * 480pt wide. 80 characters of a typical address measure about 425pt, which
- * leaves room for wide letters. A shorter limit split addresses that fit and
+ * The widest address kept on one line, in ems of Helvetica. Addresses are
+ * printed only in full-width blocks — a finding card's "What we know", the
+ * evidence appendix and the cover — and the narrowest of those, the card body
+ * at 9.5pt, is about 480pt wide. 44em is 418pt there: a typical address of
+ * about 80 characters fits, and a narrower limit split addresses that fit and
  * lengthened the appendix for nothing.
+ *
+ * Measured in width, not characters, because a run of "w" is three times as
+ * wide as a run of "i" and a character count lets the wide one overflow.
  */
-export const MAX_ADDRESS_LINE = 80;
+export const MAX_ADDRESS_EM = 44;
+
+/**
+ * Helvetica advance widths, rounded UP into four bands so the estimate never
+ * undershoots: narrow punctuation and thin letters, ordinary letters and
+ * digits, capitals, and the widest glyphs.
+ */
+function glyphEm(ch: string): number {
+  if (/[iljtfr.,/:;'!|-]/.test(ch)) return 0.34;
+  if (/[mwMW@%]/.test(ch)) return 1.02;
+  if (/[A-Z&]/.test(ch)) return 0.78;
+  return 0.56;
+}
+
+/** Estimated printed width of `text` in ems of Helvetica. */
+export function addressEm(text: string): number {
+  let em = 0;
+  for (const ch of text) em += glyphEm(ch);
+  return em;
+}
+
+/** A segment wider than a line, cut into pieces that each fit. */
+function cutToWidth(segment: string, max: number): string[] {
+  const pieces: string[] = [];
+  let piece = '';
+  for (const ch of segment) {
+    if (piece && addressEm(piece + ch) > max) {
+      pieces.push(piece);
+      piece = ch;
+    } else {
+      piece += ch;
+    }
+  }
+  if (piece) pieces.push(piece);
+  return pieces;
+}
 
 const LONG_ADDRESS = /(?:https?:\/\/|www\.)[^\s]+/gi;
 
-/** Break any address longer than `max` onto lines after its own separators. */
-export function wrapLongAddresses(text: string, max = MAX_ADDRESS_LINE): string {
+/**
+ * Break any address wider than `max` ems onto lines, after its own separators
+ * where it has them. A segment with no separator that is itself wider than a
+ * line is cut at the width limit — still with a line break and no inserted
+ * character — so no line of an address can run past the text area.
+ */
+export function wrapLongAddresses(text: string, max = MAX_ADDRESS_EM): string {
   return text.replace(LONG_ADDRESS, (address) => {
-    if (address.length <= max) return address;
+    if (addressEm(address) <= max) return address;
+    const parts = address.split(/(?<=[/?&=._-])/).flatMap((part) => (addressEm(part) > max ? cutToWidth(part, max) : [part]));
     const lines: string[] = [];
     let line = '';
-    for (const part of address.split(/(?<=[/?&=._-])/)) {
-      if (line && (line + part).length > max) {
+    for (const part of parts) {
+      if (line && addressEm(line + part) > max) {
         lines.push(line);
         line = part;
       } else {
@@ -68,7 +112,7 @@ export function wrapLongAddresses(text: string, max = MAX_ADDRESS_LINE): string 
 }
 
 /** `wrapLongAddresses` applied to every string in a value — the whole report DTO before layout. */
-export function wrapAddressesDeep<T>(value: T, max = MAX_ADDRESS_LINE): T {
+export function wrapAddressesDeep<T>(value: T, max = MAX_ADDRESS_EM): T {
   if (typeof value === 'string') return wrapLongAddresses(value, max) as T;
   if (Array.isArray(value)) return value.map((item) => wrapAddressesDeep(item, max)) as T;
   if (value !== null && typeof value === 'object') {

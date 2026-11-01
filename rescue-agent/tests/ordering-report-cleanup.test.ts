@@ -34,7 +34,7 @@ import { generateOwnerReport } from '@/lib/reports/owner';
 import { generateSalesBrief } from '@/lib/reports/sales';
 import { buildExecutiveReport, evidenceDiagnosticCodes, presentEvidenceText, type ExecutiveReportInput } from '@/lib/reports/executive';
 import { evidenceBasisFor, evidenceBasisRows } from '@/lib/audit/evidenceBasis';
-import { isAddressWord, MAX_ADDRESS_LINE, pdfHyphenation, wrapAddressesDeep, wrapLongAddresses } from '@/lib/pdf/hyphenation';
+import { addressEm, isAddressWord, MAX_ADDRESS_EM, pdfHyphenation, wrapAddressesDeep, wrapLongAddresses } from '@/lib/pdf/hyphenation';
 import { COMPANY } from '@/lib/config';
 
 const SITE = 'https://leverocks.example/';
@@ -379,8 +379,23 @@ describe('PDF line breaking for addresses', () => {
     expect(lines.length).toBeGreaterThan(2);
     expect(wrapped.replace(/\n/g, '')).toBe(`See ${long}. Then more.`);
     for (const line of lines.slice(0, -1)) expect(line).toMatch(/[/?&=._-]$/);
-    for (const line of lines.slice(1, -1)) expect(line.length).toBeLessThanOrEqual(MAX_ADDRESS_LINE);
+    for (const line of lines.slice(1, -1)) expect(addressEm(line)).toBeLessThanOrEqual(MAX_ADDRESS_EM);
     expect(wrapLongAddresses(`Short: ${MARKUP}.`)).toBe(`Short: ${MARKUP}.`);
+  });
+
+  it('cuts a segment wider than a line even when it has no separator (PR #76 review)', () => {
+    for (const ch of ['w', 'W', 'i', 'a']) {
+      const address = `https://example.com/${ch.repeat(150)}`;
+      const lines = wrapLongAddresses(address).split('\n');
+      expect(lines.join('')).toBe(address);
+      for (const line of lines) expect(addressEm(line), `${ch}: ${line.length} chars`).toBeLessThanOrEqual(MAX_ADDRESS_EM);
+    }
+  });
+
+  it('keeps a typical address of about 80 characters on one line', () => {
+    const typical = 'https://127.0.0.1:3443/-party?source=pop_up&spot_id=78550&destination=private';
+    expect(typical.length).toBeGreaterThanOrEqual(75);
+    expect(wrapLongAddresses(typical)).toBe(typical);
   });
 
   it('wraps every string in the report data and leaves non-strings alone', () => {
