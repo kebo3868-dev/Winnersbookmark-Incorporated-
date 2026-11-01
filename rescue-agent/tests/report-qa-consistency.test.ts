@@ -193,14 +193,14 @@ describe('2. ordering is consolidated without losing evidence', () => {
     expect(page).not.toMatch(/<summary[^>]*>Detailed journey findings<\/summary>/);
     // The map still carries each stage with its limitation.
     const ordering = dto.journeyMap.find((s) => s.stage === 'ORDERING')!;
-    expect(ordering.note).toMatch(/places a telephone call/);
+    expect(ordering.note).toMatch(/uses a telephone link/);
     expect(ordering.limitation).toMatch(/^Not assessed:/);
   });
 
   it('the finding card states the observation once', () => {
     const card = dto.findings.find((f) => f.category === CATEGORY)!;
     const text = [card.problem, card.whyItMatters, card.commercialEffect, ...card.whatWeKnow, card.recommendedAction].join(' ');
-    expect(text.split('places a telephone call').length - 1).toBe(1);
+    expect(text.split('uses a telephone link').length - 1).toBe(1);
   });
 });
 
@@ -358,7 +358,7 @@ describe('7. web report, executive summary, PDF and operator page agree', () => 
       // The extractor mis-decodes the em dash, so the fragments either side of it are matched.
       'entered at intake',
       'not checked against Google or any review platform.',
-      'places a telephone call instead of opening an online ordering page or checkout.',
+      "uses a telephone link that can open the phone's calling function rather than directing customers to an online checkout.",
       'Automated finding',
     ]) {
       expect(squash(text), fragment).toContain(squash(fragment));
@@ -369,7 +369,7 @@ describe('7. web report, executive summary, PDF and operator page agree', () => 
     const { dto } = pipeline();
     expect(dto.executiveSummary).toContain('No revenue loss was verified from public evidence.');
     expect(dto.executiveSummary).not.toMatch(/\blost\b|\bbroken\b|revenue loss (was|is) (confirmed|measured)/i);
-    expect(dto.executiveSummary).toMatch(/online ordering button opens a phone call instead of an online checkout/i);
+    expect(dto.executiveSummary).toMatch(/online ordering button uses a telephone link instead of an online checkout/i);
   });
 
   it('the operator page renders journey stages and evidence through the same presenters as the client report', () => {

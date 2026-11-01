@@ -254,7 +254,7 @@ describe('new audits store the same three labels', () => {
   const finding = leaks.find((l) => l.category === CATEGORY)!;
 
   it('the finding problem states the observation once; the layers are printed from the basis, not repeated in it', () => {
-    expect(finding.problem).toMatch(/^The "Order" button in the section labelled "ORDER ONLINE" places a telephone call/);
+    expect(finding.problem).toMatch(/^The "Order" button under "ORDER ONLINE" uses a telephone link that can open the phone's calling function rather than directing customers to an online checkout\./);
     expect(finding.problem).not.toMatch(/VERIFIED IN|NOT YET TESTED|NOT MEASURED|OBSERVED AUTOMATICALLY|MANUAL CONFIRMATION/);
   });
 

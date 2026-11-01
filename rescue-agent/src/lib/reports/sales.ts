@@ -296,7 +296,7 @@ function buildDiscoveryQuestions(topLeaks: RankedOpportunity[], journey: Journey
     questions.push('During your busiest service periods, what happens when your team cannot immediately answer the phone?');
   }
   if (orderButtonMismatch) {
-    questions.push('Your website\'s online ordering button places a phone call — is online ordering meant to be offered, or is ordering by phone the plan?');
+    questions.push('Your website\'s online ordering button uses a phone link — is online ordering meant to be offered, or is ordering by phone the plan?');
   }
   questions.push('What questions does your staff answer repeatedly every day — on the phone or at the door?');
   if (followUp && followUp.status !== 'HEALTHY') {

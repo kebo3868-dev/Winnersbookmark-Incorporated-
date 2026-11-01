@@ -425,13 +425,15 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
         sourceUrl: home.finalUrl,
         evidenceType: 'ORDERING_PATH',
         fact:
-          'Ordering is offered by telephone: the ordering call-to-action on the website places a phone call ' +
-          'rather than opening an online ordering page.',
+          // A tel: link can open the phone's calling function; it does not
+          // establish that a call is placed (see orderingChannel.ts).
+          "Ordering is offered by telephone: the ordering call-to-action on the website uses a telephone link that can " +
+          "open the phone's calling function rather than an online ordering page.",
         supportingContext:
           `Call-to-action text: ${phoneOrderCtas.slice(0, 3).map((t) => `"${t}"`).join(', ')} linked to a telephone number. ` +
           (resolved.length > 0
             ? `An ordering destination is also declared in the page markup (${resolved[0]}), but the action a customer is ` +
-              'actually offered is the phone call above, so it is recorded as context rather than as a working online ' +
+              'actually offered is the telephone link above, so it is recorded as context rather than as a working online ' +
               'ordering pathway. Whether that destination is reachable for customers requires manual validation.'
             : 'No browser-based ordering destination was found alongside it.'),
         confidence: 85,

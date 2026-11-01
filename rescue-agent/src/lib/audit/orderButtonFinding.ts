@@ -1,4 +1,4 @@
-import { ORDERING_CHANNEL_HEAD, parseOrderingChannelFact } from '@/lib/audit/orderingChannel';
+import { ORDERING_CHANNEL_HEAD, parseOrderingChannelFact, presentOrderingText } from '@/lib/audit/orderingChannel';
 
 /**
  * THE CLIENT COPY FOR THE "ORDER ONLINE" BUTTON THAT PLACES A PHONE CALL.
@@ -25,6 +25,12 @@ import { ORDERING_CHANNEL_HEAD, parseOrderingChannelFact } from '@/lib/audit/ord
  */
 
 export const ORDER_BUTTON_CATEGORY = 'ORDER BUTTON LABEL MISMATCH';
+
+/**
+ * The finding's title. "Opens a phone call" claimed more than a tel: link
+ * shows; the link is what was observed.
+ */
+export const ORDER_BUTTON_TITLE = 'The online ordering button uses a telephone link instead of an online checkout';
 
 type EvidenceText = { evidenceType: string; fact: string; supportingContext?: string | null };
 
@@ -102,7 +108,9 @@ export function readUnlinkedOrderingAddress(records: EvidenceText[]): UnlinkedOr
 
 /** The observation itself: the first sentence of the ordering-channel summary. */
 function observationOf(channel: EvidenceText): string {
-  return channel.fact.replace(ORDERING_CHANNEL_HEAD, '').split(/(?<=\.)\s/)[0];
+  // Stored facts from before the wording correction read "places a telephone
+  // call"; they are presented in the current wording, never rewritten.
+  return presentOrderingText(channel.fact.replace(ORDERING_CHANNEL_HEAD, '')).split(/(?<=\.)\s/)[0];
 }
 
 /** The one line the card adds about the unlinked address: not customer-facing, and no effect claimed. */
@@ -142,7 +150,11 @@ export function orderButtonFindingCopy(records: EvidenceText[]): OrderButtonFind
     : '';
   return {
     problem: observationOf(channel),
-    businessImpact: 'A visitor who chooses to order online is offered a phone call instead of the online checkout the label promises.',
+    // The mismatch is the issue, not phone ordering: it may well be intended.
+    businessImpact:
+      'A visitor who chooses to order online is sent to a phone number instead of the online checkout the label ' +
+      'promises. Ordering by phone may be intentional; the mismatch between the label and the destination is what ' +
+      'needs a decision.',
     facts: address ? [unlinkedAddressFact(address)] : [],
     recommendedSolution:
       // "Set up the online ordering page" presumed there is none. The audit

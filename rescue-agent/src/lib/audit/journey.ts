@@ -412,7 +412,7 @@ export function analyzeJourney(evidence: EvidenceRecordLike[]): JourneyStageResu
         stage(
           'ORDERING',
           'FRICTION',
-          `Ordering is by telephone only — the website's ordering call-to-action places a phone call rather than opening an online ordering page. ${PHONE_ORDERING_NOT_ASSESSED}`,
+          `Ordering is by telephone only — the website's ordering call-to-action uses a telephone link that can open the phone's calling function rather than an online ordering page. ${PHONE_ORDERING_NOT_ASSESSED}`,
           avgConfidence(telephone, 85),
           true,
           ids(ord),

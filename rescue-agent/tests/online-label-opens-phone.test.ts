@@ -399,7 +399,7 @@ describe('the channel marker', () => {
   it('describes the mismatch as observed, and separates automated evidence from manual confirmation', () => {
     const result = resolveOrderingChannel({ ...base, onlineLabelledPhoneCtas: [{ text: 'ORDER', label: 'ORDER ONLINE' }] });
     expect(result.state).toBe('PHONE_ORDERING_ONLY');
-    expect(result.summary).toMatch(/^The "ORDER" button in the section labelled "ORDER ONLINE" places a telephone call instead of opening an online ordering page or checkout\./);
+    expect(result.summary).toMatch(/^The "ORDER" button under "ORDER ONLINE" uses a telephone link that can open the phone's calling function rather than directing customers to an online checkout\./);
     expect(result.summary).not.toMatch(/legitimate/i);
     expect(result.summary).not.toMatch(LOSS_CLAIM);
     expect(result.detail).toMatch(/^Verified in the page markup/);
@@ -495,11 +495,11 @@ describe('the finding states the observation and claims nothing more', () => {
   });
 
   it('describes the button and labels where the evidence came from', () => {
-    expect(finding.title).toBe('The online ordering button opens a phone call instead of an online checkout');
+    expect(finding.title).toBe('The online ordering button uses a telephone link instead of an online checkout');
     // The problem is the observation, once. Where the evidence came from is
     // the evidence layers, printed beside the card from evidenceBasis.ts.
     expect(finding.problem).toBe(
-      'The "ORDER" button in the section labelled "ORDER ONLINE" places a telephone call instead of opening an online ordering page or checkout.',
+      'The "ORDER" button under "ORDER ONLINE" uses a telephone link that can open the phone\'s calling function rather than directing customers to an online checkout.',
     );
     expect(evidenceBasisRows(evidenceBasisFor(CATEGORY)!).map(([label]) => label)).toEqual(['Automated finding', 'Manual check', 'Not measured']);
     // The unlinked page-code address is a separate fact on the card.
@@ -639,11 +639,11 @@ describe('the executive report, the PDF and the sales brief communicate the same
   it('the report card carries the finding title, problem and readable evidence', () => {
     expect(card.title).toBe(finding.title);
     expect(card.problem).toBe(finding.problem);
-    expect(card.problem).toMatch(/^The "ORDER" button in the section labelled "ORDER ONLINE" places a telephone call/);
+    expect(card.problem).toMatch(/^The "ORDER" button under "ORDER ONLINE" uses a telephone link/);
     // "What we know" adds only the unlinked page-code address; the observation is not repeated.
     expect(card.whatWeKnow).toEqual([expect.stringMatching(/^The page code also contains an online ordering address that no button or link on the page points to/)]);
     const ordering = executive.journeyMap.find((s) => s.stage === 'ORDERING')!;
-    expect(ordering.note).toMatch(/section labelled "ORDER ONLINE" places a telephone call/);
+    expect(ordering.note).toMatch(/under "ORDER ONLINE" uses a telephone link/);
   });
 
   it('no client-facing text carries a machine flag', () => {
@@ -655,7 +655,7 @@ describe('the executive report, the PDF and the sales brief communicate the same
   it('the PDF prints the same title and evidence state', async () => {
     const text = (await pdfText(executive)).replace(/\s+/g, ' ');
     // Long titles wrap across text runs; the opening words are on one run.
-    expect(text).toContain('The online ordering button opens a phone call');
+    expect(text).toContain('The online ordering button uses a telephone link');
     expect(text).toMatch(/STRONG EVIDENCE/);
     expect(text).not.toMatch(/ONLINE_LABEL_OPENS_PHONE|legitimate ordering pathway/);
   }, 30000);
@@ -671,7 +671,7 @@ describe('the executive report, the PDF and the sales brief communicate the same
     expect(sales.followUpAngle).toContain(finding.title);
     expect(sales.bestSalesAngle).toContain(`Status: ${layers.summary}`);
     expect(sales.bestSalesAngle).not.toContain(STATE_PLAIN.STRONG_EVIDENCE);
-    expect(sales.discoveryQuestions[0]).toMatch(/online ordering button places a phone call — is online ordering meant to be offered/);
+    expect(sales.discoveryQuestions[0]).toMatch(/online ordering button uses a phone link — is online ordering meant to be offered/);
   });
 
   it('the sales brief makes no loss claim about it', () => {

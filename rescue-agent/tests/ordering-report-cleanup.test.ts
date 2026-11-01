@@ -42,7 +42,7 @@ const CATEGORY = 'ORDER BUTTON LABEL MISMATCH';
 const MARKUP = 'https://tmt.spotapps.co/ordering-menu/?spot_id=';
 const MENU = `${SITE}st-petersburg-leverock-s-great-seafood-food-menu`;
 const OBSERVATION =
-  'The "Order" button in the section labelled "ORDER ONLINE" places a telephone call instead of opening an online ordering page or checkout.';
+  'The "Order" button under "ORDER ONLINE" uses a telephone link that can open the phone\'s calling function rather than directing customers to an online checkout.';
 const FILLER = `<footer><p>${'Fresh Gulf seafood since 1948, served on Pasadena Avenue. '.repeat(12)}</p></footer>`;
 const page = (markupUrl: string | null) =>
   '<html><head><title>Leverock\'s Great Seafood | St. Petersburg, FL</title>' +
@@ -156,7 +156,7 @@ describe('the ordering friction finding and its detection are unchanged', () => 
   });
 
   it('raises the same finding with the same scores, title and evidence', () => {
-    expect(finding.title).toBe('The online ordering button opens a phone call instead of an online checkout');
+    expect(finding.title).toBe('The online ordering button uses a telephone link instead of an online checkout');
     expect([finding.impactScore, finding.urgencyScore, finding.confidenceScore, finding.aiFitScore, finding.manualValidationRequired]).toEqual([60, 55, 78, 15, false]);
     expect(finding.evidenceIds).toContain(channel.id);
     expect(journey.find((s) => s.stage === 'ORDERING')!.status).toBe('FRICTION');
@@ -193,7 +193,8 @@ describe('the client card states the finding once', () => {
   });
 
   it('the observation and the measurement caveat each appear exactly once on the card', () => {
-    expect(count(all, 'places a telephone call')).toBe(1);
+    // The title names the link; the observation sentence is stated once.
+    expect(count(all, "can open the phone's calling function")).toBe(1);
     expect(all.match(/not measured/gi) ?? []).toHaveLength(1);
     expect(all).not.toMatch(/Ordering is offered by telephone/);
   });
@@ -205,7 +206,10 @@ describe('the client card states the finding once', () => {
   it('carries evidence, business implication, uncertainty and a next action', () => {
     const rows = evidenceBasisRows(card.evidenceBasis!);
     expect(rows[0][1]).toMatch(/telephone \(tel:\) link/); // evidence
-    expect(card.whyItMatters).toBe('A visitor who chooses to order online is offered a phone call instead of the online checkout the label promises.');
+    expect(card.whyItMatters).toBe(
+      'A visitor who chooses to order online is sent to a phone number instead of the online checkout the label promises. ' +
+        'Ordering by phone may be intentional; the mismatch between the label and the destination is what needs a decision.',
+    );
     expect(rows[2][1]).toMatch(/orders or revenue/); // uncertainty
     expect(card.whatWeDoNotKnow).toMatch(/order and call records/);
     expect(card.recommendedAction).toMatch(/^Decide which experience is intended\./);

@@ -1,6 +1,6 @@
 import { isUnverifiedSignup } from '@/lib/audit/emailCaptureState';
 import { readMenuAvailability } from '@/lib/audit/menuAvailability';
-import { ORDER_BUTTON_CATEGORY, orderButtonFindingCopy } from '@/lib/audit/orderButtonFinding';
+import { ORDER_BUTTON_CATEGORY, ORDER_BUTTON_TITLE, orderButtonFindingCopy } from '@/lib/audit/orderButtonFinding';
 import { parseOrderingChannelFact } from '@/lib/audit/orderingChannel';
 import type { EvidenceRecordLike, JourneyStageResult, OpportunityInput } from '@/types/audit';
 
@@ -172,7 +172,7 @@ const RULES: Rule[] = [
     const copy = orderButtonFindingCopy(ctx.evidence.filter((e) => evidenceIds.includes(e.id)))!;
     return {
       category: ORDER_BUTTON_CATEGORY,
-      title: 'The online ordering button opens a phone call instead of an online checkout',
+      title: ORDER_BUTTON_TITLE,
       problem: copy.problem,
       businessImpact: copy.businessImpact,
       customerJourneyStage: 'ORDERING',

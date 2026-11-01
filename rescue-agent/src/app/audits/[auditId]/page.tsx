@@ -21,6 +21,7 @@ import {
 } from '@/lib/reports/executive';
 import { evidenceBasisFor, evidenceBasisRows } from '@/lib/audit/evidenceBasis';
 import { ORDER_BUTTON_CATEGORY, orderButtonFindingCopy } from '@/lib/audit/orderButtonFinding';
+import { presentOrderingText } from '@/lib/audit/orderingChannel';
 
 export const dynamic = 'force-dynamic';
 
@@ -143,7 +144,7 @@ export default async function AuditDetailPage({ params }: { params: Promise<{ au
                     <div className="flex flex-wrap justify-between gap-4 mb-3">
                       <p className="font-display text-lg text-ivory">
                         <span className="text-gold mr-3">#{i + 1}</span>
-                        {opp.title}
+                        {presentOrderingText(opp.title)}
                       </p>
                       <div className="text-right">
                         <p className="font-display text-2xl text-gold">{opp.rescuePriorityScore}</p>

@@ -213,7 +213,7 @@ describe('defect 4 — the Order button is described by its destination', () => 
     ).find((s) => s.stage === 'ORDERING');
 
   it('names the telephone destination of the observed button', () => {
-    expect(stage()?.finding).toMatch(/places a telephone call/i);
+    expect(stage()?.finding).toMatch(/uses a telephone link that can open the phone's calling function/i);
   });
 
   it('does not claim exclusivity the crawl never established', () => {

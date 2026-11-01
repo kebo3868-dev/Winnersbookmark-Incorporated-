@@ -245,10 +245,10 @@ describe('F — phone ordering is distinguished from online ordering', () => {
   // button presented as online ordering places a call. The plain phone-ordering
   // wording is kept, and pinned, for buttons that do not promise online
   // ordering (online-label-opens-phone.test.ts).
-  it('says the ORDER ONLINE button places a phone call instead of online ordering', () => {
+  it('says the ORDER ONLINE button uses a telephone link instead of online ordering', () => {
     expect(channel().marker.onlineLabelOpensPhone).toBe(true);
     expect(channel().record.fact).toMatch(
-      /"ORDER" button in the section labelled "ORDER ONLINE" places a telephone call instead of opening an online ordering page/,
+      /"ORDER" button under "ORDER ONLINE" uses a telephone link that can open the phone's calling function rather than directing customers to an online checkout/,
     );
     expect(channel().record.fact).not.toMatch(/legitimate ordering pathway/i);
   });

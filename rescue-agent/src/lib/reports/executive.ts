@@ -3,8 +3,8 @@ import { CATEGORY_LABELS } from '@/lib/reports/owner';
 import { COMPANY, type Contact } from '@/lib/config';
 import { prefillFromAverageTicket, scenarioKindFor, SCENARIO_SPECS, type ScenarioKind } from '@/lib/reports/scenarios';
 import { STATE_LABEL, STATE_PLAIN, stateForOpportunity, type EvidenceState } from '@/lib/audit/evidenceState';
-import { ORDERING_CHANNEL_FLAG, ORDERING_CHANNEL_HEAD, parseOrderingChannelFact } from '@/lib/audit/orderingChannel';
-import { ORDER_BUTTON_CATEGORY, orderButtonFindingCopy } from '@/lib/audit/orderButtonFinding';
+import { ORDERING_CHANNEL_FLAG, ORDERING_CHANNEL_HEAD, parseOrderingChannelFact, presentOrderingText } from '@/lib/audit/orderingChannel';
+import { ORDER_BUTTON_CATEGORY, ORDER_BUTTON_TITLE, orderButtonFindingCopy } from '@/lib/audit/orderButtonFinding';
 import { presentReputationText } from '@/lib/audit/reputationWording';
 import { evidenceBasisFor, type EvidenceBasis } from '@/lib/audit/evidenceBasis';
 import { safeDisplayName } from '@/lib/audit/restaurantName';
@@ -772,7 +772,14 @@ function withOrderButtonCopy(opp: OppInput, attached: ExecutiveReportInput['evid
   if (opp.category !== ORDER_BUTTON_CATEGORY) return opp;
   const copy = orderButtonFindingCopy(attached);
   if (!copy) return opp;
-  return { ...opp, problem: copy.problem, businessImpact: copy.businessImpact, recommendedSolution: copy.recommendedSolution };
+  return {
+    ...opp,
+    // Stored titles read "opens a phone call"; the title states what was observed.
+    title: ORDER_BUTTON_TITLE,
+    problem: copy.problem,
+    businessImpact: copy.businessImpact,
+    recommendedSolution: copy.recommendedSolution,
+  };
 }
 
 function commercialEffectFor(category: string, businessImpact: string): string {
@@ -1157,7 +1164,7 @@ export function evidenceTypeLabel(type: string): string {
 
 /** Evidence text with machine codes replaced by the words they stand for. */
 export function presentEvidenceText(text: string): string {
-  return presentReputationText(text)
+  return presentOrderingText(presentReputationText(text))
     .replace(ORDERING_CHANNEL_HEAD, '')
     .replace(ORDERING_CHANNEL_FLAG, '')
     .replace(/Evidence confidence: ([A-Z_]+)\./g, (whole, code: string) =>
