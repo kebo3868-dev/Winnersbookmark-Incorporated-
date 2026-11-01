@@ -269,7 +269,8 @@ describe('buildExecutiveReport', () => {
     const decide = dto.thirtyDayPlan[2].actions.join(' ');
     expect(decide).toMatch(/AI Front Desk/);
     expect(decide).toMatch(/only after the proposed system passes its own readiness and safety checks/i);
-    expect(decide).toMatch(/otherwise make no automation change/i);
+    expect(decide).toMatch(/make no automation change/i);
+    expect(decide).toMatch(/Days 1–7/);
     expect(decide).not.toMatch(/pull 30 days/i);
     expect(decide).not.toMatch(/\bdeploy (the )?AI Front Desk\b/i);
     expect(dto.thirtyDayPlan[0].actions.join(' ')).toMatch(/phone records/i);
@@ -435,7 +436,7 @@ describe('Phase 2.5 — executive snapshot, scenarios, journey map, prescription
     const dto = buildExecutiveReport(baseInput());
     expect(dto.decisionBox.doNothing.heading).toBe('DO NOTHING');
     expect(dto.decisionBox.validate.heading).toBe('VALIDATE');
-    expect(dto.decisionBox.implement.heading).toBe('IMPLEMENT');
+    expect(dto.decisionBox.implement.heading).toBe('PILOT IF READY');
   });
 
   it('CTA falls back to phone text when no booking URL/QR is configured', () => {

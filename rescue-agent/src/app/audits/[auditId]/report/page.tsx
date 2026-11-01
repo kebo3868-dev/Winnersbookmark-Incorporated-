@@ -298,7 +298,12 @@ export default async function ExecutiveReportPage({ params }: { params: Promise<
       {/* WINNERS BOOKMARK PRESCRIPTION */}
       <Section kicker="Section 07" title="Winnersbookmark Prescription">
         <div className="space-y-4">
-          <PrescriptionBlock label="Diagnosis">{dto.prescription.diagnosis}</PrescriptionBlock>
+          <PrescriptionBlock label="Diagnosis">
+            {dto.prescription.diagnosis}
+            {dto.prescription.diagnosisBasis.map((row) => (
+              <span key={row.label} className="block mt-2"><span className="label">{row.label}:</span> {row.text}</span>
+            ))}
+          </PrescriptionBlock>
           <PrescriptionBlock label="Validation">{dto.prescription.validation}</PrescriptionBlock>
           <PrescriptionBlock label="Prescription" highlight>{dto.prescription.prescription}</PrescriptionBlock>
           <div className="card p-6">
@@ -360,7 +365,10 @@ export default async function ExecutiveReportPage({ params }: { params: Promise<
         )}
         <div className="border-t border-obsidian-line pt-5 mt-2">
           <p className="text-ivory">{dto.cta.consultantName} · {dto.cta.company}</p>
-          <p className="text-ivory-dim text-sm">{dto.cta.phone}{dto.cta.email ? ` · ${dto.cta.email}` : ''}</p>
+          <p className="text-ivory-dim text-sm">
+            {dto.cta.phoneHref ? <a href={dto.cta.phoneHref} className="underline decoration-dotted underline-offset-2">{dto.cta.phone}</a> : dto.cta.phone}
+            {dto.cta.email ? ` · ${dto.cta.email}` : ''}
+          </p>
         </div>
       </section>
 

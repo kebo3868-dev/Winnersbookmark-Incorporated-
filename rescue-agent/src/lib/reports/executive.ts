@@ -339,6 +339,13 @@ export interface DecisionBox {
 
 export interface Prescription {
   diagnosis: string;
+  /**
+   * For a top finding whose evidence layers are known (see evidenceBasis.ts):
+   * what was observed, with its evidence strength, and — separately — the
+   * business outcome only the owner can confirm. Printed as labelled lines
+   * under the diagnosis. Empty otherwise.
+   */
+  diagnosisBasis: { label: string; text: string }[];
   validation: string;
   prescription: string;
   expectedOperationalRole: string[];
@@ -350,6 +357,8 @@ export interface ReportCta {
   company: string;
   consultantName: string;
   phone: string;
+  /** The phone as a `tel:` link, so it can be tapped in the PDF and web report; null when it is not a dialable number. */
+  phoneHref: string | null;
   email: string | null;
   bookingUrl: string | null;
   qrDataUrl: string | null;
@@ -684,6 +693,7 @@ export function buildExecutiveReport(input: ExecutiveReportInput): ExecutiveRepo
       company: input.contact.company,
       consultantName: input.contact.consultantName,
       phone: input.contact.phone,
+      phoneHref: telHref(input.contact.phone),
       email: input.contact.email,
       bookingUrl: input.contact.bookingUrl,
       qrDataUrl: input.bookingQrDataUrl,
@@ -931,21 +941,44 @@ function buildPrescription(input: ExecutiveReportInput, findings: ExecutiveFindi
   const observed = frictionStages.length > 0
     ? `Observed friction in the public journey: ${frictionStages.join(', ')}.`
     : 'No customer-facing friction was observed in the public journey.';
+  // AN OBSERVED LINK IS NOT AN OPEN QUESTION; ITS EFFECT IS.
+  //
+  // For the order-button finding the diagnosis read "Highest-priority open
+  // question, to check against your own records: The online ordering button
+  // uses a telephone link…" — calling a link read directly from the page
+  // markup (Strong evidence) a question, in the same breath as the business
+  // outcome nobody has measured. Where the finding's evidence layers are known,
+  // the diagnosis names the finding and then states the two apart: what was
+  // observed, at its evidence strength, and what requires owner confirmation.
+  // The finding's classification and evidence are unchanged.
+  const basis = primary?.evidenceBasis ?? null;
+  const title = primary?.title.replace(/\.$/, '');
   const lead = primary
     ? primary.classification === 'VERIFIED FINDING'
-      ? ` Highest-priority verified finding: ${primary.title.replace(/\.$/, '')}.`
-      : primary.category === ORDER_BUTTON_CATEGORY
-        ? ' Observed directly in page markup: the button labelled for online ordering targets a telephone link. Not verified: whether this is the intended ordering method, what customers do after selecting it, or any effect on orders.'
-        : ` Highest-priority opportunity requiring validation: ${primary.title.replace(/\.$/, '')}.`
+      ? ` Highest-priority verified finding: ${title}.`
+      : basis
+        ? ` Highest-priority finding: ${title}.`
+        : ` Highest-priority opportunity requiring validation: ${title}.`
     : ' The open questions sit in areas a public audit cannot observe.';
   const diagnosis = `${observed}${lead}`;
+  const strength = primary?.labels.observedEvidence;
+  const diagnosisBasis = basis && primary
+    ? [
+        {
+          label: strength && strength !== 'Not recorded' ? `Directly observed in the page markup (${strength} evidence)` : 'Directly observed in the page markup',
+          text: `${capitalize(basis.diagnosisObserved)}.`,
+        },
+        { label: 'Not verified — requires owner confirmation', text: `${capitalize(basis.ownerConfirmation)}.` },
+      ]
+    : [];
   const validation = primary?.whatWeDoNotKnow
     ?? 'Review 30 days of phone activity, missed-call counts, guest-question categories, and average ticket data.';
   const prescription = input.storedRecommendation
-    ? `${COMPANY.shortName} recommends ${tier} as the next step${primary && primary.internalScores.aiFit >= 70 ? ', considering the highest-fit automation identified above only once your operating records confirm the open questions it depends on' : ''}. ${input.storedRecommendation.rationale}`
+    ? `${COMPANY.shortName} recommends ${tier} as the next step${primary && primary.internalScores.aiFit >= 70 ? ', considering the highest-fit automation identified above only once your operating records confirm the open questions it depends on and the system passes its own readiness and safety checks' : ''}. ${input.storedRecommendation.rationale}`
     : `${COMPANY.shortName} recommends validating the highest-priority findings against internal operating data before committing to any system.`;
   return {
     diagnosis,
+    diagnosisBasis,
     validation,
     prescription,
     expectedOperationalRole: [
@@ -975,10 +1008,17 @@ function buildDecisionBox(findings: ExecutiveFinding[], ranked: RankedAiOpportun
       cost: 'Low operational effort.',
       benefit: 'Turns public audit findings into measurable business evidence you own.',
     },
+    // NO DEPLOYMENT IS PROMISED AHEAD OF READINESS TESTING.
+    //
+    // "Deploy AI Front Desk & Missed-Call Text Back after validation confirms
+    // the demand" committed to a deployment on one condition, when there are
+    // two: the restaurant's records must show the demand, and the product must
+    // pass its own readiness testing for this restaurant. Either failing means
+    // no deployment.
     implement: {
-      heading: 'IMPLEMENT',
-      detail: `Deploy ${topAutomation} after validation confirms the demand.`,
-      benefit: 'Creates a measurable customer-response workflow with defined KPIs.',
+      heading: 'PILOT IF READY',
+      detail: `Pilot ${topAutomation} only if validation confirms the demand AND it passes its own independent readiness and safety tests. If either is not established, make no automation change.`,
+      benefit: 'If piloted: a measurable workflow with defined KPIs and human escalation.',
     },
   };
 }
@@ -996,6 +1036,37 @@ function interpretScore(score: number | null): string {
   if (score >= 70) return 'A workable public foundation with identified gaps in specific parts of the guest journey. Whether those gaps cost money is not measured here.';
   if (score >= 60) return 'Several parts of the public guest journey show friction or could not be verified; these are the places to look first.';
   return 'Multiple core pathways are missing, broken, or unverifiable from public pages. This is where a review should start.';
+}
+
+/**
+ * The demand an automation answers, as the condition the Days 1–7 records must
+ * meet before it is considered — completing "If …, consider …".
+ */
+function demandConditionFor(category: string): string {
+  if (/CATERING|PRIVATE/i.test(category)) return 'the inquiry records show slow or missed responses to catering or private-event requests';
+  if (/PHONE|CONTACT/i.test(category)) return 'the call records show calls going unanswered, or the same questions asked again and again';
+  if (/RETENTION/i.test(category)) return 'a guest contact database exists and is not being used for follow-up';
+  if (/RESERVATION|BOOKING/i.test(category)) return 'the booking records show requests going unanswered';
+  if (/REVIEW|REPUTATION/i.test(category)) return 'reviews are going unanswered';
+  return 'the Days 1–7 records confirm the demand it answers';
+}
+
+/**
+ * A displayed phone number as a `tel:` href. A ten-digit North American number
+ * gets its +1 country code; a number already written with a leading + keeps
+ * it. Anything without 7–15 digits is not dialable and gets no link.
+ */
+export function telHref(phone: string): string | null {
+  const digits = phone.replace(/\D/g, '');
+  if (digits.length < 7 || digits.length > 15) return null;
+  if (phone.trim().startsWith('+')) return `tel:+${digits}`;
+  if (digits.length === 10) return `tel:+1${digits}`;
+  if (digits.length === 11 && digits.startsWith('1')) return `tel:+${digits}`;
+  return `tel:${digits}`;
+}
+
+function capitalize(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
 function firstSentence(text: string): string {
@@ -1055,7 +1126,7 @@ function buildSummary(input: ExecutiveReportInput, findings: ExecutiveFinding[])
     parts.push(`${lead}: ${findings.map((f) => f.title.toLowerCase()).join('; ')}.`);
     const manual = findings.filter((f) => f.classification === 'MANUAL VALIDATION REQUIRED').length;
     if (manual > 0) parts.push(`${manual} of these should be validated against internal call, booking, or sales data before being treated as confirmed.`);
-    parts.push(`Ownership should prioritize the first finding in this report; the 30-day plan sequences validation, fixes, and automation in order.`);
+    parts.push(`Ownership should prioritize the first finding in this report; the 30-day plan sequences validation, fixes, and then a decision on automation.`);
   } else {
     parts.push('No high-priority revenue leaks were confirmed from public evidence; the recommended next step is validating the areas public analysis cannot see — calls, follow-up, and repeat business.');
   }
@@ -1081,11 +1152,24 @@ function buildThirtyDayPlan(
   const fix = (highestDirect.length > 0 ? highestDirect : top).slice(0, 3).map((o) => o.recommendedSolution);
   if (fix.length === 0) fix.push('No urgent digital repairs surfaced from public evidence; use this window to complete validation.');
 
+  // DAYS 15–21 IS A DECISION, NOT A SECOND ROUND OF DATA COLLECTION.
+  //
+  // This phase printed each automation with the first sentence of its
+  // recommended solution — for the AI Front Desk, "Before any system: pull 30
+  // days of call records…", which is the Days 1–7 step again — and headed the
+  // phase AUTOMATE, as if deployment followed automatically. The records are
+  // collected in Days 1–7; here they are read, and the outcome decides. An
+  // automation is considered only where they show the demand it answers, and
+  // is introduced only after it passes its own readiness testing.
   const automation = top.filter((o) => o.aiFitScore >= 70).slice(0, 2);
-  const automate = automation.length > 0
-    ? automation.map((o) =>
-        `${solutionCategoryFor(o.category)} — Review the operational evidence collected in Days 1–7. If demand and a suitable use case are confirmed, define a limited pilot, success metrics, human escalation, and acceptance tests. Implement only after the proposed system passes its own readiness and safety checks; otherwise make no automation change.`)
-    : ['Review validation results. If no material automatable demand is confirmed, do not deploy AI; prioritize the verified website fixes instead.'];
+  const decide = automation.length > 0
+    ? [
+        'Review the operational evidence collected in Days 1–7 before choosing any automation.',
+        ...automation.map((o) =>
+          `If ${demandConditionFor(o.category)}, define a limited pilot of ${solutionCategoryFor(o.category)} — success metrics, human escalation and acceptance tests. Implement it only after the proposed system passes its own readiness and safety checks for this restaurant (answers on hours, menu and ordering checked; handoff to staff tested).`),
+        'If the records do not show that demand, or the system has not passed those checks, make no automation change — put the time into the fixes above.',
+      ]
+    : ['Review the validation results. If they show repetitive demand, consider a limited pilot of the best-fit automation, implemented only after it passes its own readiness and safety checks; otherwise make no automation change and prioritize the verified website fixes.'];
 
   const kpis: string[] = [];
   if (has(/PHONE|CONTACT/i)) kpis.push('Missed calls per week and answered-inquiry rate');
@@ -1099,7 +1183,7 @@ function buildThirtyDayPlan(
   return [
     { phase: 'DAYS 1–7', heading: 'VALIDATE', actions: validate },
     { phase: 'DAYS 8–14', heading: 'FIX THE HIGHEST-PRIORITY DIGITAL ISSUE', actions: fix },
-    { phase: 'DAYS 15–21', heading: 'DECIDE & PILOT IF READY', actions: automate },
+    { phase: 'DAYS 15–21', heading: 'DECIDE & PILOT IF READY', actions: decide },
     { phase: 'DAYS 22–30', heading: 'MEASURE', actions: kpis.map((k) => `Track: ${k}.`) },
   ];
 }
