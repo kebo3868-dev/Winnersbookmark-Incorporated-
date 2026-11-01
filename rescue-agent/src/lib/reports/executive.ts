@@ -934,7 +934,9 @@ function buildPrescription(input: ExecutiveReportInput, findings: ExecutiveFindi
   const lead = primary
     ? primary.classification === 'VERIFIED FINDING'
       ? ` Highest-priority verified finding: ${primary.title.replace(/\.$/, '')}.`
-      : ` Highest-priority open question, to check against your own records: ${primary.title.replace(/\.$/, '')}.`
+      : primary.category === 'ORDER BUTTON ONLINE LABEL PHONE LINK'
+        ? ' Observed directly in page markup: the button labelled for online ordering targets a telephone link. Not verified: whether this is the intended ordering method, what customers do after selecting it, or any effect on orders.'
+        : ` Highest-priority opportunity requiring validation: ${primary.title.replace(/\.$/, '')}.`
     : ' The open questions sit in areas a public audit cannot observe.';
   const diagnosis = `${observed}${lead}`;
   const validation = primary?.whatWeDoNotKnow
@@ -1081,8 +1083,9 @@ function buildThirtyDayPlan(
 
   const automation = top.filter((o) => o.aiFitScore >= 70).slice(0, 2);
   const automate = automation.length > 0
-    ? automation.map((o) => `${solutionCategoryFor(o.category)} — ${firstSentence(o.recommendedSolution)}`)
-    : ['If validation confirms repetitive demand, select the automation with the strongest fit; otherwise reinvest in the fixes above.'];
+    ? automation.map((o) =>
+        `${solutionCategoryFor(o.category)} — Review the operational evidence collected in Days 1–7. If demand and a suitable use case are confirmed, define a limited pilot, success metrics, human escalation, and acceptance tests. Implement only after the proposed system passes its own readiness and safety checks; otherwise make no automation change.`)
+    : ['Review validation results. If no material automatable demand is confirmed, do not deploy AI; prioritize the verified website fixes instead.'];
 
   const kpis: string[] = [];
   if (has(/PHONE|CONTACT/i)) kpis.push('Missed calls per week and answered-inquiry rate');
@@ -1096,7 +1099,7 @@ function buildThirtyDayPlan(
   return [
     { phase: 'DAYS 1–7', heading: 'VALIDATE', actions: validate },
     { phase: 'DAYS 8–14', heading: 'FIX THE HIGHEST-PRIORITY DIGITAL ISSUE', actions: fix },
-    { phase: 'DAYS 15–21', heading: 'AUTOMATE', actions: automate },
+    { phase: 'DAYS 15–21', heading: 'DECIDE & PILOT IF READY', actions: automate },
     { phase: 'DAYS 22–30', heading: 'MEASURE', actions: kpis.map((k) => `Track: ${k}.`) },
   ];
 }
