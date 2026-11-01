@@ -934,7 +934,7 @@ function buildPrescription(input: ExecutiveReportInput, findings: ExecutiveFindi
   const lead = primary
     ? primary.classification === 'VERIFIED FINDING'
       ? ` Highest-priority verified finding: ${primary.title.replace(/\.$/, '')}.`
-      : primary.category === 'ORDER BUTTON ONLINE LABEL PHONE LINK'
+      : primary.category === ORDER_BUTTON_CATEGORY
         ? ' Observed directly in page markup: the button labelled for online ordering targets a telephone link. Not verified: whether this is the intended ordering method, what customers do after selecting it, or any effect on orders.'
         : ` Highest-priority opportunity requiring validation: ${primary.title.replace(/\.$/, '')}.`
     : ' The open questions sit in areas a public audit cannot observe.';
