@@ -85,13 +85,21 @@ const READINESS: Record<string, RegExp> = {
 
 function expectDays15to21Gated(r: ReturnType<typeof report>, candidates: string[]) {
   const actions = r.decide.actions;
-  expect(r.decide.heading).toBe('DECIDE & PILOT IF READY');
   expect(actions.join(' ')).not.toMatch(/\bdeploy/i);
   if (candidates.length === 0) {
+    // Review finding M3: with no automation candidate the phase proposes no
+    // pilot — it used to offer one of "the best-fit automation", which the
+    // report never identified — and the Decision box says the same.
+    expect(r.decide.heading).toBe('NO AUTOMATION PROPOSED');
     expect(actions).toHaveLength(1);
-    expect(actions[0]).toMatch(/If they show repetitive demand, consider a limited, monitored pilot .* only after it passes its own readiness and safety checks; otherwise make no automation change/);
+    expect(actions[0]).toMatch(/^No automation is proposed: no finding in this audit is one an automation would address\. Make no automation change — /);
+    expect(actions[0]).not.toMatch(/pilot|best-fit|highest-fit/i);
+    expect(r.dto.decisionBox.implement.heading).toBe('NO AUTOMATION PROPOSED');
+    expect(r.dto.decisionBox.implement.detail).toBe('No automation change is currently proposed: no finding in this audit is one an automation would address.');
+    expect(r.dto.rankedAiOpportunities).toEqual([]);
     return;
   }
+  expect(r.decide.heading).toBe('DECIDE & PILOT IF READY');
   expect(actions[0]).toBe('Review the operational evidence collected in Days 1–7 before choosing any automation.');
   const pilots = actions.slice(1, -1);
   expect(pilots).toHaveLength(candidates.length);
@@ -218,6 +226,9 @@ describe('every combination of eight representative findings', () => {
       // Every automation finding in the report, by priority — catering at fit 60 included, nothing capped.
       const candidates = top.filter((o) => NAME.has(o)).map((o) => NAME.get(o)!);
       expectDays15to21Gated(r, candidates);
+      // One rule (review finding M2): Section 06 and the Decision box name the same automations as Days 15–21.
+      expect([...r.dto.rankedAiOpportunities.map((o) => o.solutionCategory)].sort(), `mask ${mask}`).toEqual([...candidates].sort());
+      for (const c of candidates) expect(r.dto.decisionBox.implement.detail, `mask ${mask}`).toContain(c);
     }
   });
 

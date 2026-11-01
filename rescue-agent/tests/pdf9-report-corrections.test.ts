@@ -85,10 +85,10 @@ describe('Decision box: a pilot is conditional on demand AND readiness', () => {
     expect(`${implement.heading} ${implement.detail} ${implement.benefit}`).not.toMatch(/\bdeploy/i);
   });
 
-  it('names both conditions, joined by AND, and the no-change outcome', () => {
-    expect(implement.detail).toMatch(/only if validation confirms the demand AND it passes its own independent readiness and safety tests/);
-    expect(implement.detail).toMatch(/If either is not established, make no automation change\./);
-    expect(implement.benefit).toMatch(/^If piloted:/);
+  it('names every condition — demand, readiness and safety, owner approval — joined by AND, and the no-change outcome', () => {
+    expect(implement.detail).toMatch(/only if validation confirms the demand AND it passes its own independent readiness and safety tests AND you approve it\./);
+    expect(implement.detail).toMatch(/Otherwise, make no automation change\.$/);
+    expect(implement.benefit).toMatch(/^If piloted: a limited, monitored workflow/);
   });
 
   it('the 30-day plan and the prescription say the same thing', () => {

@@ -8,7 +8,13 @@ import { ORDER_BUTTON_CATEGORY, ORDER_BUTTON_TITLE, orderButtonFindingCopy } fro
 import { presentReputationText } from '@/lib/audit/reputationWording';
 import { evidenceBasisFor, type EvidenceBasis } from '@/lib/audit/evidenceBasis';
 import { safeDisplayName } from '@/lib/audit/restaurantName';
-import { presentAutomationClaims, presentRecommendedSolution, presentTierRecommendation } from './automationWording';
+import {
+  AUTOMATION_CARD_REQUIREMENTS,
+  AUTOMATION_PROPOSAL_GATE,
+  presentRecommendedSolution,
+  presentTierRecommendation,
+  screenAiSummary,
+} from './automationWording';
 import {
   CONFIDENCE_BANDS,
   CONFIDENCE_EXPLANATION,
@@ -631,8 +637,10 @@ export function buildExecutiveReport(input: ExecutiveReportInput): ExecutiveRepo
       explanation: firstSentence(presentEvidenceText(s.finding)),
     }));
 
+  // One rule decides what is an automation proposal, here, in Section 06, in
+  // the Decision box and in Days 15–21: isAutomationCandidate.
   const aiOpportunities = top
-    .filter((opp) => opp.aiFitScore >= 70)
+    .filter(isAutomationCandidate)
     .map((opp) => ({
       opportunity: opp.title,
       solutionCategory: solutionCategoryFor(opp.category),
@@ -716,7 +724,7 @@ export function buildExecutiveReport(input: ExecutiveReportInput): ExecutiveRepo
       confidentialityNote: 'Confidential — prepared for management review.',
     },
     executiveSummary: buildSummary(input, findings),
-    summaryWasAiEnhanced: Boolean(input.storedSummaryWasAiEnhanced && input.storedSummary),
+    summaryWasAiEnhanced: usesAiSummary(input),
     score: {
       rescueScore: input.overallScore,
       band: input.overallScore === null ? null : scoreBand(input.overallScore),
@@ -897,11 +905,15 @@ const AI_CAPABILITIES: [RegExp, { capabilities: string[]; measurement: string[] 
 
 export const AI_OPPORTUNITIES_INTRO =
   'Potential improvements matched to the findings above. "Fit" describes how well an automation suits the kind of problem, not evidence that the problem exists here; ' +
-  'none of these rests on measured missed calls or lost revenue, and each should follow validation against your own records.';
+  'none of these rests on measured missed calls or lost revenue. ' + AUTOMATION_PROPOSAL_GATE;
 
 function buildRankedAiOpportunities(top: OppInput[]): RankedAiOpportunity[] {
+  // The same rule as Days 15–21 and the Decision box (isAutomationCandidate):
+  // an automation the plan decides is always listed here, so the catering
+  // inquiry-intake proposal (AI fit 60, "Moderate") appears in all three. Its
+  // AI fit is shown as scored; nothing is re-scored to make it eligible.
   return top
-    .filter((opp) => opp.aiFitScore >= 70)
+    .filter(isAutomationCandidate)
     .sort((a, b) => b.aiFitScore - a.aiFitScore || b.rescuePriorityScore - a.rescuePriorityScore)
     // No cap: every high-fit finding in the report keeps its automation entry
     // (the report holds at most MAX_REPORT_FINDINGS findings).
@@ -915,9 +927,11 @@ function buildRankedAiOpportunities(top: OppInput[]): RankedAiOpportunity[] {
         solutionCategory: solutionCategoryFor(opp.category),
         fit,
         problemAddressed: problemAddressedBy(opp),
+        // Every card states the whole gate, the verified branch included: a
+        // verified observation is not evidence of demand, readiness or approval.
         basis: requiresValidation
-          ? 'Potential improvement — requires operational validation before any implementation. No missed calls or lost revenue have been measured; a public audit cannot see either.'
-          : 'Addresses a verified public finding. Its effect on revenue has not been measured.',
+          ? `Potential improvement — requires operational validation before any implementation: ${AUTOMATION_CARD_REQUIREMENTS}. No missed calls or lost revenue have been measured; a public audit cannot see either.`
+          : `Addresses a verified public finding; its effect on revenue has not been measured. Any implementation still requires ${AUTOMATION_CARD_REQUIREMENTS}.`,
         requiresValidation,
         whyItFits: opp.businessImpact,
         capabilities: caps.capabilities,
@@ -985,7 +999,7 @@ function buildPrescription(input: ExecutiveReportInput, findings: ExecutiveFindi
     ?? 'Review 30 days of phone activity, missed-call counts, guest-question categories, and average ticket data.';
   const presentedTier = input.storedRecommendation ? presentTierRecommendation(tier, input.storedRecommendation.rationale) : null;
   const prescription = presentedTier
-    ? `${COMPANY.shortName} ${presentedTier.lead}${primary && primary.internalScores.aiFit >= 70 && !/limited, monitored pilot/.test(presentedTier.lead) ? ', considering the highest-fit automation identified above only once your operating records confirm the open questions it depends on and the system passes its own readiness and safety checks' : ''}. ${presentedTier.rationale}`
+    ? `${COMPANY.shortName} ${presentedTier.lead}${primary && isAutomationCandidate({ category: primary.category, aiFitScore: primary.internalScores.aiFit }) && !/limited, monitored pilot/.test(presentedTier.lead) ? ', considering the highest-fit automation identified above only once your operating records confirm the open questions it depends on and the system passes its own readiness and safety checks' : ''}. ${presentedTier.rationale}`
     : `${COMPANY.shortName} recommends validating the highest-priority findings against internal operating data before committing to any system.`;
   return {
     diagnosis,
@@ -1003,7 +1017,8 @@ function buildPrescription(input: ExecutiveReportInput, findings: ExecutiveFindi
 }
 
 function buildDecisionBox(findings: ExecutiveFinding[], ranked: RankedAiOpportunity[]): DecisionBox {
-  const topAutomation = ranked[0]?.solutionCategory ?? 'the highest-fit automation';
+  // The Section 06 proposals, every one — the same list Days 15–21 decides.
+  const proposals = ranked.map((o) => o.solutionCategory);
   const frictionExists = findings.some((f) => f.classification !== 'INSUFFICIENT DATA');
   return {
     doNothing: {
@@ -1026,11 +1041,21 @@ function buildDecisionBox(findings: ExecutiveFinding[], ranked: RankedAiOpportun
     // two: the restaurant's records must show the demand, and the product must
     // pass its own readiness testing for this restaurant. Either failing means
     // no deployment.
-    implement: {
-      heading: 'PILOT IF READY',
-      detail: `Pilot ${topAutomation} only if validation confirms the demand AND it passes its own independent readiness and safety tests. If either is not established, make no automation change.`,
-      benefit: 'If piloted: a measurable workflow with defined KPIs and human escalation.',
-    },
+    //
+    // With no automation proposal there is nothing to pilot: the box says so
+    // rather than offering "the highest-fit automation", which the report
+    // never identified.
+    implement: proposals.length > 0
+      ? {
+          heading: 'PILOT IF READY',
+          detail: `Pilot ${joinOr(proposals)} only if validation confirms the demand AND it passes its own independent readiness and safety tests AND you approve it. Otherwise, make no automation change.`,
+          benefit: 'If piloted: a limited, monitored workflow with defined KPIs and human escalation.',
+        }
+      : {
+          heading: 'NO AUTOMATION PROPOSED',
+          detail: 'No automation change is currently proposed: no finding in this audit is one an automation would address.',
+          benefit: 'Effort stays on the website fixes and the validation steps.',
+        },
   };
 }
 
@@ -1144,6 +1169,11 @@ export function telHref(phone: string): string | null {
   return `tel:${digits}`;
 }
 
+/** "A", "A or B", "A, B or C". */
+function joinOr(items: string[]): string {
+  return items.length <= 1 ? (items[0] ?? '') : `${items.slice(0, -1).join(', ')} or ${items[items.length - 1]}`;
+}
+
 function capitalize(text: string): string {
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
@@ -1172,10 +1202,18 @@ function limitationSentence(text: string): string | null {
   return found ? found.trim().slice(0, 240) : null;
 }
 
+/** Whether the stored AI-written summary is shown: it exists and passes the automation screen. */
+function usesAiSummary(input: ExecutiveReportInput): boolean {
+  return Boolean(input.storedSummaryWasAiEnhanced && input.storedSummary && screenAiSummary(input.storedSummary).safe);
+}
+
 function buildSummary(input: ExecutiveReportInput, findings: ExecutiveFinding[]): string {
   // Prefer the audit-time summary when it was AI-enhanced (it was schema-
   // validated against the same stored data); otherwise compose deterministically.
-  if (input.storedSummaryWasAiEnhanced && input.storedSummary) return presentAutomationClaims(input.storedSummary);
+  // A stored AI-written summary is shown only if it passes the automation
+  // screen (automationWording.ts); otherwise the deterministic summary below is
+  // used. Audits stored before the screen existed are covered the same way.
+  if (usesAiSummary(input)) return input.storedSummary!;
 
   const stageOrder = Object.keys(JOURNEY_LABELS);
   const ordered = [...input.journey].sort((a, b) => stageOrder.indexOf(a.stage) - stageOrder.indexOf(b.stage));
@@ -1275,7 +1313,9 @@ function buildThirtyDayPlan(
           `If ${demandConditionFor(o.category)}: consider a limited, monitored pilot of ${solutionCategoryFor(o.category)} — only after the proposed system passes its own readiness and safety checks for this restaurant (${readinessChecksFor(o.category)}) and the owner approves the pilot. Set success metrics and human escalation before it starts.`),
         `If the records do not show that demand, or the system has not passed those checks, make no automation change — ${otherwise}.`,
       ]
-    : [`Review the validation results. If they show repetitive demand, consider a limited, monitored pilot of the best-fit automation — only after it passes its own readiness and safety checks; otherwise make no automation change and ${otherwise}.`];
+    // No candidate, no pilot: the report identified no automation, so this
+    // phase does not offer one ("the best-fit automation" named nothing).
+    : [`No automation is proposed: no finding in this audit is one an automation would address. Make no automation change — ${otherwise}.`];
 
   const kpis: string[] = [];
   if (has(/PHONE|CONTACT/i)) kpis.push('Missed calls per week and answered-inquiry rate');
@@ -1289,7 +1329,7 @@ function buildThirtyDayPlan(
   return [
     { phase: 'DAYS 1–7', heading: 'VALIDATE', actions: validate },
     { phase: 'DAYS 8–14', heading: directFixes.length > 0 ? 'FIX THE HIGHEST-PRIORITY DIGITAL ISSUE' : 'COMPLETE VALIDATION — NO AUTOMATION CHANGE', actions: fix },
-    { phase: 'DAYS 15–21', heading: 'DECIDE & PILOT IF READY', actions: decide },
+    { phase: 'DAYS 15–21', heading: automation.length > 0 ? 'DECIDE & PILOT IF READY' : 'NO AUTOMATION PROPOSED', actions: decide },
     { phase: 'DAYS 22–30', heading: 'MEASURE', actions: kpis.map((k) => `Track: ${k}.`) },
   ];
 }

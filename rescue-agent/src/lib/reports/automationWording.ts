@@ -102,6 +102,74 @@ export function presentAutomationClaims(text: string): string {
   return text.replace(MATCHED_FIX, MATCHED_FIX_CONDITIONAL);
 }
 
+// ── AI-written summaries: screened, not repaired ────────────────────────────
+//
+// An AI-written executive summary is free text. Rewriting one phrase in it
+// ("is the matched fix") left every other way of saying the same thing in
+// place: "we recommend deploying the AI Front Desk", "should be installed",
+// "will stop missed calls". So a summary is screened instead, a sentence at a
+// time, and an unsafe one is rejected whole: the report falls back to its
+// deterministic, approved summary. A false positive costs nothing worse than
+// that fallback; a false negative puts an unconditional product claim in front
+// of a client.
+
+/** Something an automation is: the product, the technique, or what it does. */
+const AUTOMATION_SUBJECT =
+  /\b(AI|automation|automations|automated|automate|automating|Front Desk|chatbot|bot|voice (answering|receptionist|agent)|text-back|intake|reactivation|virtual (receptionist|assistant))\b/i;
+/** Doing it, or naming it the answer. */
+const CATEGORICAL_ACTION =
+  /\b(deploy\w*|install\w*|implement(s|ed|ing|ation)?|adopt\w*|roll(s|ed|ing)? out|rollout|launch\w*|introduc\w*|put (it )?in place|switch(es|ed|ing)? on|turn(s|ed|ing)? on|sign(s|ed|ing)? up for|subscrib\w* to|purchas\w*|buy(s|ing)?|go(es|ing)? live)\b|\bis (the|a|an|your) (right|matched|best|ideal|perfect|obvious|clear|recommended|natural|proven) (fix|solution|answer|choice|tool|system|next step)\b|\b(should|must|needs? to|ought to) (use|get|add|have|be (deployed|installed|implemented|adopted|added|used))\b/i;
+/** A promised result — never acceptable, gated or not: no outcome has been measured. */
+const OUTCOME_CLAIM =
+  /\bwill (stop|eliminate|end|prevent|fix|solve|recover|capture|cut|reduce|increase|boost|double|bring back|win back|save|answer every)\b|\b(stops?|eliminates?|prevents?|recovers?|ends?) (missed|lost|unanswered|dropped)\b|\bguarantee\w*\b|\bnever miss\b/i;
+
+/** A sentence that carries the whole gate: demand, readiness and safety, approval, a limited monitored pilot. */
+function carriesGate(sentence: string): boolean {
+  return /only (after|if|once)/i.test(sentence) && /readiness and safety/i.test(sentence) && /approv/i.test(sentence) && /monitored pilot/i.test(sentence);
+}
+
+export interface SummaryScreen {
+  safe: boolean;
+  /** The sentences that failed, for the operator log. */
+  unsafe: string[];
+}
+
+/**
+ * Whether an AI-written summary may be shown to a client. Unsafe: any promised
+ * outcome, any "is the matched fix", and any sentence that both names an
+ * automation and installs, deploys, adopts or crowns it — unless that sentence
+ * carries the whole gate (only after demand, its own readiness and safety
+ * tests, approval, and a limited, monitored pilot).
+ */
+export function screenAiSummary(text: string): SummaryScreen {
+  const sentences = text.split(/(?<=[.!?])\s+/).map((s) => s.trim()).filter(Boolean);
+  const unsafe = sentences.filter((s) =>
+    OUTCOME_CLAIM.test(s) ||
+    /\bis the matched fix\b/i.test(s) ||
+    (AUTOMATION_SUBJECT.test(s) && CATEGORICAL_ACTION.test(s) && !carriesGate(s)));
+  return { safe: unsafe.length === 0, unsafe };
+}
+
+/** The instruction the summary model is given about automation. */
+export const AI_SUMMARY_AUTOMATION_RULE =
+  'Never recommend installing, deploying, adopting or launching any automation or AI product, never call one the fix or the ' +
+  'solution, and never promise a result (no "will stop missed calls"). An automation may only be mentioned as something to ' +
+  'consider as a limited, monitored pilot, only after the restaurant\'s own records show the demand, the product passes its own ' +
+  'readiness and safety tests, and the owner approves it.';
+
+// ── Section 06: the gate, stated with every automation proposal ─────────────
+
+/** For the Section 06 introduction. */
+export const AUTOMATION_PROPOSAL_GATE =
+  'Every automation here is a proposal only. Before any of them is used: your own records must show measurable demand for it; ' +
+  'the product must pass its own readiness and safety tests for this restaurant; you must approve it explicitly; and it starts ' +
+  'as a limited, monitored pilot, not a full roll-out.';
+
+/** For each Section 06 card: what any implementation requires, completing "… requires …". */
+export const AUTOMATION_CARD_REQUIREMENTS =
+  'measurable demand in your own records, the product passing its own readiness and safety tests, your explicit approval, ' +
+  'and a limited, monitored pilot first';
+
 /**
  * A finding's stored recommended solution, as a client reads it. Known stored
  * wording for the automation findings becomes conditional on demand, the

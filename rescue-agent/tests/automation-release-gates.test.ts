@@ -1,0 +1,255 @@
+/**
+ * PR #77 release review at f2bd456 (REQUEST CHANGES): H1, M1, M2, M3.
+ *
+ *  H1  An AI-written executive summary could recommend deploying or
+ *      installing an automation: only the phrase "is the matched fix" was
+ *      caught. Summaries are now screened — at audit time in the orchestrator
+ *      and again when any report renders — and an unsafe one is replaced by the
+ *      deterministic summary. The model is fed the conditional wording.
+ *  M1  Section 06 named no readiness or approval gate; it now states the whole
+ *      gate in its introduction and on every card, the verified branch included.
+ *  M2  Section 06 (AI fit >= 70) and Days 15–21 (by category) chose different
+ *      automations; one rule (isAutomationCandidate) now feeds Section 06, the
+ *      Decision box and Days 15–21.
+ *  M3  With no automation candidate, Days 15–21 and the Decision box offered a
+ *      pilot of "the best-fit automation"; they now say none is proposed.
+ */
+import { describe, expect, it, vi } from 'vitest';
+import React from 'react';
+import fs from 'node:fs';
+import path from 'node:path';
+import { renderToStaticMarkup } from 'react-dom/server';
+import levFixture from './fixtures/leverocks-local-audit-opportunities.json';
+import { buildExecutiveReport, isAutomationCandidate, type ExecutiveReportDTO, type ExecutiveReportInput } from '@/lib/reports/executive';
+import { AI_SUMMARY_AUTOMATION_RULE, presentRecommendedSolution, screenAiSummary } from '@/lib/reports/automationWording';
+import { ORDER_BUTTON_CATEGORY } from '@/lib/audit/orderButtonFinding';
+
+const loaded: { dto: ExecutiveReportDTO | null } = { dto: null };
+vi.mock('@/lib/operatorAuth', () => ({ requireOperatorPage: async () => ({ kind: 'operator' }) }));
+vi.mock('@/lib/reports/executiveData', () => ({ loadExecutiveReport: async () => ({ status: 'ok', dto: loaded.dto }) }));
+
+type Opp = ExecutiveReportInput['opportunities'][number];
+const lev = (levFixture as { opportunities: Opp[] }).opportunities;
+const levBy = (category: string) => lev.find((o) => o.category === category)!;
+const ORDER_BUTTON = levBy(ORDER_BUTTON_CATEGORY);
+const PHONE = levBy('PHONE-DEPENDENT CUSTOMER JOURNEY');
+const CATERING = levBy('CATERING LEAD CAPTURE OPPORTUNITY');
+const CTA = levBy('CONFUSING CTA HIERARCHY');
+const RETENTION: Opp = {
+  category: 'CUSTOMER RETENTION — NO PUBLIC OPT-IN ROUTE', title: 'No public opt-in route was found', problem: 'OBSERVED: no signup form.',
+  businessImpact: 'Repeat visits matter.', customerJourneyStage: 'RETURN', evidenceIds: [], impactScore: 45, urgencyScore: 35,
+  confidenceScore: 60, aiFitScore: 85, rescuePriorityScore: 52, manualValidationRequired: true,
+  recommendedSolution: 'First check whether a list already exists in your POS or reservation system — if it does, this is a publishing gap, not a data gap. If it does not, a visible email/SMS capture offer is the starting point, and an AI Reactivation Campaign only becomes worth discussing once there is a list to reactivate.',
+};
+const BROKEN: Opp = { ...CTA, category: 'BROKEN CUSTOMER PATHWAY', title: 'A customer link is broken', aiFitScore: 20, rescuePriorityScore: 45, manualValidationRequired: false, confidenceScore: 85, recommendedSolution: 'Fix the broken link(s) immediately. This is a direct website repair, not an AI project.' };
+
+function input(opportunities: Opp[], extra: Partial<ExecutiveReportInput> = {}): ExecutiveReportInput {
+  return {
+    auditId: 'cgates0001', restaurantName: "Leverock's Great Seafood", websiteUrl: 'https://leverocks.example/', location: 'St. Petersburg, FL',
+    auditDate: '2026-11-01', auditStatus: 'COMPLETED', demoMode: false,
+    contact: { company: 'Winnersbookmark', consultantName: 'Keith Warren', phone: '727-291-5965', email: null, bookingUrl: null, fallbackText: 'Call Keith.' },
+    bookingQrDataUrl: null, avgTicket: null, overallScore: 84, coverageScore: 80, sourcesCollected: 8, sourcesFailed: 0,
+    evidence: [], opportunities, journey: [], categoryScores: [], storedSummary: null, storedSummaryWasAiEnhanced: false, storedRecommendation: null,
+    ...extra,
+  };
+}
+
+function pdfStrings(node: unknown, out: string[] = []): string[] {
+  if (node === null || node === undefined || node === false) return out;
+  if (typeof node === 'string' || typeof node === 'number') { out.push(String(node)); return out; }
+  if (Array.isArray(node)) { for (const c of node) pdfStrings(c, out); return out; }
+  const el = node as { type?: unknown; props?: { children?: unknown } };
+  if (typeof el.type === 'function') return pdfStrings((el.type as (p: unknown) => unknown)(el.props ?? {}), out);
+  if (el.props && 'children' in el.props) pdfStrings(el.props.children, out);
+  return out;
+}
+async function pdfText(dto: ExecutiveReportDTO): Promise<string> {
+  const { ExecutivePdf } = await import('@/lib/pdf/ExecutivePdf');
+  return pdfStrings(React.createElement(ExecutivePdf, { dto })).join('\n').replace(/\s+/g, ' ');
+}
+async function webText(dto: ExecutiveReportDTO): Promise<string> {
+  loaded.dto = dto;
+  (globalThis as { React?: typeof React }).React = React;
+  const Page = (await import('@/app/audits/[auditId]/report/page')).default;
+  const element = await Page({ params: Promise.resolve({ auditId: dto.valueSignals.auditId }) });
+  return renderToStaticMarkup(element as React.ReactElement).replace(/<[^>]+>/g, ' ')
+    .replace(/&#x27;|&#39;/g, "'").replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/\s+/g, ' ');
+}
+
+// ── H1 ──────────────────────────────────────────────────────────────────────
+
+const UNSAFE_SUMMARIES = [
+  'We recommend deploying the Winnersbookmark AI Front Desk to capture missed calls immediately.',
+  'The AI Front Desk is the right fix for this restaurant and should be installed.',
+  'Installing AI-assisted intake will stop private-event inquiries from going unanswered.',
+  'The AI Front Desk will stop missed calls.',
+  "Leverock's should adopt an AI voice receptionist.",
+  'A chatbot is the best solution for the FAQ gap.',
+  'Implementing automation now will recover lost orders.',
+  'The Winnersbookmark AI Front Desk is the matched fix.',
+  'Rolling out an AI reactivation campaign is the natural next step.',
+  'The restaurant needs to use an AI system for phone calls and should launch it this month.',
+];
+const ACCEPTABLE_SUMMARIES = [
+  "Our audit analyzed 8 public pages of Leverock's Great Seafood and collected 29 evidence items.",
+  'The online ordering button uses a telephone link instead of an online checkout; whether this is intended needs the owner.',
+  'If call records confirm high, repetitive demand, the AI Front Desk could be considered as a limited, monitored pilot only after it passes its own readiness and safety tests and the owner approves it.',
+  "No automation change is proposed until the restaurant's records confirm the demand.",
+  'Phone demand is unmeasured; answering those calls automatically is worth measuring, but whether that is the case here is an open question.',
+  'Winnersbookmark recommends an AI Discovery Audit as the next step to validate these findings against internal records.',
+];
+const padded = (s: string) => `Our audit analyzed 8 public pages and collected 29 evidence items. ${s} The 30-day plan sequences validation first.`;
+
+describe('H1 — AI-written summaries are screened, and an unsafe one is replaced', () => {
+  it('flags deploy, install, adopt, launch, roll out, "is the right fix", "the matched fix" and promised outcomes', () => {
+    for (const s of UNSAFE_SUMMARIES) {
+      const screen = screenAiSummary(padded(s));
+      expect(screen.safe, s).toBe(false);
+      expect(screen.unsafe, s).toEqual([s]);
+    }
+  });
+
+  it('passes factual and properly gated conditional summaries', () => {
+    for (const s of ACCEPTABLE_SUMMARIES) expect(screenAiSummary(padded(s)), s).toEqual({ safe: true, unsafe: [] });
+  });
+
+  it('a stored unsafe AI summary is not shown: the deterministic summary is, and the report is not marked AI-enhanced', () => {
+    const deterministic = buildExecutiveReport(input(lev));
+    for (const s of UNSAFE_SUMMARIES) {
+      const dto = buildExecutiveReport(input(lev, { storedSummary: padded(s), storedSummaryWasAiEnhanced: true }));
+      expect(dto.executiveSummary, s).toBe(deterministic.executiveSummary);
+      expect(dto.summaryWasAiEnhanced, s).toBe(false);
+    }
+  });
+
+  it('a stored acceptable AI summary is shown as written', () => {
+    const s = padded(ACCEPTABLE_SUMMARIES[2]);
+    const dto = buildExecutiveReport(input(lev, { storedSummary: s, storedSummaryWasAiEnhanced: true }));
+    expect(dto.executiveSummary).toBe(s);
+    expect(dto.summaryWasAiEnhanced).toBe(true);
+  });
+
+  it('neither the PDF nor the web page prints a rejected summary', async () => {
+    const dto = buildExecutiveReport(input(lev, { storedSummary: padded(UNSAFE_SUMMARIES[0]), storedSummaryWasAiEnhanced: true }));
+    expect(await pdfText(dto)).not.toContain('We recommend deploying');
+    expect(await webText(dto)).not.toContain('We recommend deploying');
+  }, 60_000);
+
+  it('the audit pipeline screens the summary before storing it, and feeds the model the conditional wording', () => {
+    const src = fs.readFileSync(path.join(__dirname, '../src/lib/audit/orchestrator.ts'), 'utf8');
+    expect(src).toMatch(/AI_SUMMARY_AUTOMATION_RULE/);
+    expect(src).toMatch(/recommendation: presentRecommendedSolution\(l\.category, l\.recommendedSolution\)/);
+    expect(src).not.toMatch(/recommendation: l\.recommendedSolution/);
+    const screenAt = src.indexOf('screenAiSummary(aiNarrative.executiveSummary)');
+    expect(screenAt).toBeGreaterThan(-1);
+    expect(src.indexOf('aiNarrative = null;', screenAt)).toBeGreaterThan(screenAt);
+    expect(screenAt).toBeLessThan(src.indexOf('generateOwnerReport({'));
+    // What the model now sees for the Leverock's findings.
+    for (const o of lev) expect(presentRecommendedSolution(o.category, o.recommendedSolution)).not.toMatch(/matched fix/);
+    expect(AI_SUMMARY_AUTOMATION_RULE).toMatch(/never call one the fix or the solution/);
+  });
+});
+
+// ── M1 ──────────────────────────────────────────────────────────────────────
+
+const REQUIREMENTS = 'measurable demand in your own records, the product passing its own readiness and safety tests, your explicit approval, and a limited, monitored pilot first';
+const INTRO_GATE = /Every automation here is a proposal only\. Before any of them is used: your own records must show measurable demand for it; the product must pass its own readiness and safety tests for this restaurant; you must approve it explicitly; and it starts as a limited, monitored pilot, not a full roll-out\./;
+
+describe('M1 — Section 06 states the whole gate, in the introduction and on every card', () => {
+  it('report data: intro, validation-branch cards and verified-branch cards', () => {
+    const dto = buildExecutiveReport(input([...lev, RETENTION]));
+    expect(dto.aiOpportunitiesIntro).toMatch(INTRO_GATE);
+    expect(dto.rankedAiOpportunities.length).toBeGreaterThan(0);
+    for (const card of dto.rankedAiOpportunities) expect(card.basis, card.solutionCategory).toContain(REQUIREMENTS);
+
+    // A verified automation finding (no manual validation, confidence >= 80).
+    const verifiedPhone = { ...PHONE, manualValidationRequired: false, confidenceScore: 90 };
+    const v = buildExecutiveReport(input([verifiedPhone])).rankedAiOpportunities[0];
+    expect(v.requiresValidation).toBe(false);
+    expect(v.basis).toBe(`Addresses a verified public finding; its effect on revenue has not been measured. Any implementation still requires ${REQUIREMENTS}.`);
+  });
+
+  it('PDF and web page print the gate', async () => {
+    const dto = buildExecutiveReport(input([...lev, RETENTION]));
+    for (const text of [await pdfText(dto), await webText(dto)]) {
+      expect(text).toMatch(INTRO_GATE);
+      expect(text.split(REQUIREMENTS).length - 1).toBeGreaterThanOrEqual(dto.rankedAiOpportunities.length);
+    }
+  }, 60_000);
+});
+
+// ── M2 ──────────────────────────────────────────────────────────────────────
+
+const pilotNames = (dto: ExecutiveReportDTO) =>
+  dto.thirtyDayPlan.find((p) => p.phase === 'DAYS 15–21')!.actions.map((a) => a.match(/pilot of (.+?) —/)?.[1]).filter(Boolean) as string[];
+const sorted = (xs: string[]) => [...xs].sort();
+
+describe('M2 — Section 06, the Decision box and Days 15–21 name the same automations', () => {
+  it("Leverock's: the AI Front Desk and catering inquiry intake in all three", () => {
+    const dto = buildExecutiveReport(input(lev));
+    const section06 = dto.rankedAiOpportunities.map((o) => o.solutionCategory);
+    expect(sorted(section06)).toEqual(['AI Front Desk & Missed-Call Text Back', 'Lead Capture & Inquiry Automation']);
+    expect(sorted(pilotNames(dto))).toEqual(sorted(section06));
+    for (const name of section06) expect(dto.decisionBox.implement.detail).toContain(name);
+    expect(sorted(dto.aiOpportunities.map((o) => o.solutionCategory))).toEqual(sorted(section06));
+  });
+
+  it('phone, catering and retention together: all three everywhere; catering shown at its scored fit', () => {
+    const dto = buildExecutiveReport(input([ORDER_BUTTON, PHONE, CATERING, RETENTION]));
+    const section06 = dto.rankedAiOpportunities.map((o) => o.solutionCategory);
+    expect(sorted(section06)).toEqual(['AI Front Desk & Missed-Call Text Back', 'Customer Reactivation & Follow-Up Automation', 'Lead Capture & Inquiry Automation']);
+    expect(sorted(pilotNames(dto))).toEqual(sorted(section06));
+    for (const name of section06) expect(dto.decisionBox.implement.detail).toContain(name);
+    const intake = dto.rankedAiOpportunities.find((o) => o.solutionCategory === 'Lead Capture & Inquiry Automation')!;
+    expect(intake.fit).toBe('MODERATE');
+    expect(dto.findings.find((f) => f.category === CATERING.category)!.internalScores.aiFit).toBe(60);
+  });
+
+  it('a website fix is never an automation proposal', () => {
+    for (const o of [ORDER_BUTTON, BROKEN, CTA]) expect(isAutomationCandidate(o), o.category).toBe(false);
+    const dto = buildExecutiveReport(input([ORDER_BUTTON, BROKEN, CTA, PHONE]));
+    expect(dto.rankedAiOpportunities.map((o) => o.solutionCategory)).toEqual(['AI Front Desk & Missed-Call Text Back']);
+  });
+
+  it('scores, AI fit, classifications and the ranking are unchanged by the shared rule', () => {
+    const dto = buildExecutiveReport(input(lev));
+    expect(dto.findings.map((f) => [f.category, f.internalScores, f.classification, f.labels])).toEqual(
+      buildExecutiveReport(input(lev.map((o) => ({ ...o, recommendedSolution: 'x' })))).findings.map((f) => [f.category, f.internalScores, f.classification, f.labels]),
+    );
+    expect(dto.findings.map((f) => f.category)).toEqual(lev.map((o) => o.category));
+    expect(dto.score.rescueScore).toBe(84);
+  });
+});
+
+// ── M3 ──────────────────────────────────────────────────────────────────────
+
+describe('M3 — no automation candidate, no automation pilot anywhere', () => {
+  const dto = buildExecutiveReport(input([ORDER_BUTTON, BROKEN, CTA]));
+  const plan = (p: string) => dto.thirtyDayPlan.find((x) => x.phase === p)!;
+
+  it('Section 06 is empty, Days 15–21 and the Decision box say no automation is proposed', () => {
+    expect(dto.rankedAiOpportunities).toEqual([]);
+    expect(dto.aiOpportunities).toEqual([]);
+    expect(plan('DAYS 15–21').heading).toBe('NO AUTOMATION PROPOSED');
+    expect(plan('DAYS 15–21').actions).toEqual(['No automation is proposed: no finding in this audit is one an automation would address. Make no automation change — put the time into the website fixes above.']);
+    expect(dto.decisionBox.implement).toEqual({
+      heading: 'NO AUTOMATION PROPOSED',
+      detail: 'No automation change is currently proposed: no finding in this audit is one an automation would address.',
+      benefit: 'Effort stays on the website fixes and the validation steps.',
+    });
+    expect(JSON.stringify([dto.thirtyDayPlan, dto.decisionBox])).not.toMatch(/best-fit|highest-fit|pilot of/i);
+  });
+
+  it('the website fixes are kept', () => {
+    expect(plan('DAYS 8–14').actions).toEqual([ORDER_BUTTON.recommendedSolution, BROKEN.recommendedSolution]);
+  });
+
+  it('PDF and web page print the same', async () => {
+    for (const text of [await pdfText(dto), await webText(dto)]) {
+      expect(text).toContain('No automation is recommended from current public evidence');
+      expect(text).toContain('NO AUTOMATION PROPOSED');
+      expect(text).toContain('No automation change is currently proposed');
+      expect(text).not.toMatch(/best-fit automation|highest-fit automation/);
+    }
+  }, 60_000);
+});

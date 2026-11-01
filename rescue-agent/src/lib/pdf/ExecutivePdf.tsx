@@ -986,13 +986,13 @@ export function ExecutivePdf({ dto: report }: { dto: ExecutiveReportDTO }) {
           {chunk(dto.appendix, 2).map((group, gi) => (
             <View key={gi} wrap={false}>
               {group.map((e, i) => (
-                <View key={i} style={{ borderBottomWidth: 0.5, borderBottomColor: C.line, paddingVertical: 4 }}>
+                <View key={i} style={{ borderBottomWidth: 0.5, borderBottomColor: C.line, paddingVertical: 3 }}>
                   {/* Appendix type sizes: 9 / 8.5 / 7.5 (were 8.5 / 7.5 / 6.8, too small to read printed). */}
                   <Text style={{ fontSize: 9, color: C.ink, lineHeight: 1.35 }}>{e.fact}</Text>
                   {e.supportingContext ? (
-                    <Text style={{ fontSize: 8.5, color: C.muted, marginTop: 2, lineHeight: 1.35 }}>{e.supportingContext}</Text>
+                    <Text style={{ fontSize: 8.5, color: C.muted, marginTop: 1, lineHeight: 1.3 }}>{e.supportingContext}</Text>
                   ) : null}
-                  <Text style={{ fontSize: 7.5, color: C.muted, marginTop: 2 }}>
+                  <Text style={{ fontSize: 7.5, color: C.muted, marginTop: 1 }}>
                     {e.evidenceLabel}
                     {/* Shortened before wrapping (wrapping only adds line breaks), so the cut falls at the same character. */}
                     {e.sourceUrl ? ` · ${wrapLongAddresses(shortened(e.sourceUrl.replace(/\n/g, ''), 90))}` : ''}

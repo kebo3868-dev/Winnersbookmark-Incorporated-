@@ -10,6 +10,7 @@ import { detectRevenueLeaks } from '@/lib/audit/leaks';
 import { rankOpportunities } from '@/lib/scoring/priority';
 import { calculateCategoryScores, calculateOverallScore } from '@/lib/scoring/rescueScore';
 import { generateOwnerReport, type RankedOpportunity } from '@/lib/reports/owner';
+import { AI_SUMMARY_AUTOMATION_RULE, presentRecommendedSolution, screenAiSummary } from '@/lib/reports/automationWording';
 import { generateSalesBrief } from '@/lib/reports/sales';
 import { getAiProvider } from '@/lib/ai/provider';
 import { analyzeOwnerReviews, reviewEvidence, socialEvidence } from '@/lib/audit/reviews';
@@ -477,12 +478,16 @@ export async function runAudit(auditId: string): Promise<void> {
       try {
         aiNarrative = await provider.analyzeStructured({
           systemPrompt:
-            'You are writing the executive summary of a restaurant digital audit for the restaurant owner. You may ONLY use facts present in the supplied evidence and findings. Never introduce numbers, revenue estimates, or facts not present in the input. Professional, direct, respectful tone. Return JSON: {"executiveSummary": string}.',
+            'You are writing the executive summary of a restaurant digital audit for the restaurant owner. You may ONLY use facts present in the supplied evidence and findings. Never introduce numbers, revenue estimates, or facts not present in the input. ' +
+            AI_SUMMARY_AUTOMATION_RULE +
+            ' Professional, direct, respectful tone. Return JSON: {"executiveSummary": string}.',
           userPrompt: JSON.stringify({
             restaurant: restaurantName,
             overallScore: overall.overallScore,
             coverageScore: overall.coverageScore,
-            topLeaks: topLeaks.map((l) => ({ title: l.title, problem: l.problem, recommendation: l.recommendedSolution })),
+            // The client-approved, conditional wording — never the stored
+            // "… is the matched fix" text the model would otherwise repeat.
+            topLeaks: topLeaks.map((l) => ({ title: l.title, problem: l.problem, recommendation: presentRecommendedSolution(l.category, l.recommendedSolution) })),
             journey: journey.map((j) => ({ stage: j.stage, status: j.status })),
           }),
           schema: aiSummarySchema,
@@ -490,6 +495,16 @@ export async function runAudit(auditId: string): Promise<void> {
       } catch (error) {
         aiFailed = true;
         await log(auditId, 'WARN', 'AI narrative generation failed; deterministic summary used.', String(error));
+      }
+      // Screened before it is stored: a summary that installs, deploys or
+      // crowns an automation, or promises a result, is rejected whole and the
+      // deterministic summary is used. The report screens again when rendered.
+      if (aiNarrative) {
+        const screen = screenAiSummary(aiNarrative.executiveSummary);
+        if (!screen.safe) {
+          await log(auditId, 'WARN', 'AI narrative rejected: categorical automation or outcome claim; deterministic summary used.', screen.unsafe.join(' | ').slice(0, 1000));
+          aiNarrative = null;
+        }
       }
     }
 

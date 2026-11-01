@@ -158,10 +158,21 @@ describe('2. a private-party link does not establish how inquiries are handled',
     expect(leak!.recommendedSolution).toMatch(/if they do not, no automation is needed/i);
   });
 
+  // UPDATED IN PR #77 (review finding M2): Section 06, the Decision box and
+  // Days 15–21 now share one automation-candidate rule, so the catering
+  // inquiry-intake proposal is listed in Section 06 because the plan decides
+  // it. What this guard protects is unchanged: a link alone does not promote it
+  // to a recommendation. It stays a Moderate-fit proposal at its scored AI fit,
+  // marked as requiring validation, with the whole gate on its card.
   it('is not promoted to an AI recommendation on the strength of a link', () => {
     expect(leak!.aiFitScore).toBeLessThan(70);
     const dto = buildExecutiveReport(reportInput(leaks, analyzeJourney(records)));
-    expect(dto.rankedAiOpportunities.map((o) => o.solutionCategory)).not.toContain('Lead Capture & Inquiry Automation');
+    const intake = dto.rankedAiOpportunities.find((o) => o.solutionCategory === 'Lead Capture & Inquiry Automation');
+    expect(intake, 'listed as a gated proposal under the shared rule').toBeDefined();
+    expect(intake!.fit).toBe('MODERATE');
+    expect(intake!.requiresValidation).toBe(true);
+    expect(intake!.basis).toMatch(/^Potential improvement — requires operational validation before any implementation: measurable demand in your own records, the product passing its own readiness and safety tests, your explicit approval, and a limited, monitored pilot first\./);
+    expect(dto.findings.find((f) => /CATERING|PRIVATE/i.test(f.category))!.internalScores.aiFit).toBe(leak!.aiFitScore);
     const finding = dto.findings.find((f) => /Private-event/.test(f.title))!;
     expect(finding.commercialEffect).not.toMatch(/manual handling/i);
     expect(finding.whatWeDoNotKnow).toMatch(/acknowledgment records, response times and booking records/i);
