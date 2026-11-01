@@ -51,7 +51,7 @@ describe('the five states', () => {
     // that no other ordering route exists anywhere — from a crawl of a handful
     // of pages. The state describes what the observed CTA does; it must not
     // claim what the audit never looked for.
-    expect(record.fact).toMatch(/places a telephone call/i);
+    expect(record.fact).toMatch(/uses a telephone link that can open the phone's calling function/i);
     expect(record.fact).toMatch(/legitimate ordering pathway/i);
     expect(record.fact).toMatch(/not online ordering/i);
     expect(record.fact).not.toMatch(/telephone only|only by (tele)?phone/i);
@@ -154,7 +154,7 @@ describe('a discovered vendor 404 does not make ordering broken', () => {
       { url: 'https://www.spothopperapp.com/order-online/stale-slug', category: 'ordering', ok: false, httpStatus: 404, note: 'HTTP 404', failureKind: 'HTTP' },
     ]);
     expect(stage?.status).toBe('FRICTION');
-    expect(stage?.finding).toMatch(/places a telephone call/i);
+    expect(stage?.finding).toMatch(/uses a telephone link that can open the phone's calling function/i);
   });
 });
 
@@ -198,7 +198,7 @@ describe('journey mapping keeps the distinction visible', () => {
   it('phone ordering is FRICTION, never HEALTHY and never RISK', () => {
     const stage = orderingStage('<a href="tel:+17275551234">Order Now</a>');
     expect(stage?.status).toBe('FRICTION');
-    expect(stage?.finding).toMatch(/places a telephone call/i);
+    expect(stage?.finding).toMatch(/uses a telephone link that can open the phone's calling function/i);
   });
 
   it('a resolved-but-unverified destination keeps RESOLVED_UNVERIFIED, not UNKNOWN', () => {

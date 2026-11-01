@@ -133,6 +133,63 @@ export interface OrderingChannelResult {
   failingUrls: string[];
 }
 
+/**
+ * What a tel: link does, said no more strongly than the markup shows. A tel:
+ * link can open the phone's calling function; it does not establish that a
+ * call is placed, and the audit reads the link — it never taps it. "Places a
+ * telephone call" said more than that.
+ */
+export const TELEPHONE_LINK_INSTEAD_OF_CHECKOUT =
+  "uses a telephone link that can open the phone's calling function rather than directing customers to an online checkout";
+
+/** The point of the finding: the label and the destination disagree. Phone ordering itself may be intended. */
+export const LABEL_MISMATCH =
+  'The label offers online ordering while the link leads to a phone number; ordering by phone may be intentional, so ' +
+  'the mismatch is what needs checking.';
+
+/**
+ * Wording stored by audits run before this correction, and what it reads now.
+ * Applied when a report is rendered; the stored records are never rewritten.
+ * The specific sentences come first; the last entries catch any other phrasing
+ * that claimed a call was placed or offered.
+ */
+const STORED_CALL_WORDING: [RegExp, string | ((...groups: string[]) => string)][] = [
+  [
+    /The "([^"]*)" button in the section labelled "([^"]*)" places a telephone call instead of opening an online ordering page or checkout\./g,
+    (_m, text, label) => `The "${text}" button under "${label}" ${TELEPHONE_LINK_INSTEAD_OF_CHECKOUT}.`,
+  ],
+  [
+    /The ordering button labelled "([^"]*)" places a telephone call instead of opening an online ordering page or checkout\./g,
+    (_m, text) => `The ordering button labelled "${text}" ${TELEPHONE_LINK_INSTEAD_OF_CHECKOUT}.`,
+  ],
+  [/A visitor who chose to order online is offered a phone call instead\./g, LABEL_MISMATCH],
+  [
+    /The ordering call-to-action found on the analyzed pages places a telephone call rather than opening an online ordering page\./g,
+    "The ordering call-to-action found on the analyzed pages uses a telephone link that can open the phone's calling function rather than an online ordering page.",
+  ],
+  [
+    /Ordering is offered by telephone: the ordering call-to-action on the website places a phone call rather than opening an online ordering page\./g,
+    "Ordering is offered by telephone: the ordering call-to-action on the website uses a telephone link that can open the phone's calling function rather than an online ordering page.",
+  ],
+  [
+    /the website's ordering call-to-action places a phone call rather than opening an online ordering page\./g,
+    "the website's ordering call-to-action uses a telephone link that can open the phone's calling function rather than an online ordering page.",
+  ],
+  [/the action a customer is (actually )?offered is the phone call\b/g, (_m, actually) => `the action a customer is ${actually ?? ''}offered is the telephone link`],
+  [/\bThe online ordering button opens a phone call instead of an online checkout\b/g, 'The online ordering button uses a telephone link instead of an online checkout'],
+  [/\bonline ordering button places a phone call\b/g, 'online ordering button uses a phone link'],
+  [/\bplaces a (?:tele)?phone call\b/g, "uses a telephone link that can open the phone's calling function"],
+  [/\bopens a phone call\b/g, 'uses a telephone link'],
+];
+
+/** Ordering wording as it reads now, for text stored by any version of the audit. */
+export function presentOrderingText(text: string): string {
+  return STORED_CALL_WORDING.reduce(
+    (out, [pattern, replacement]) => out.replace(pattern, replacement as (...args: string[]) => string),
+    text,
+  );
+}
+
 /** Marker written into the evidence fact so downstream layers parse a token, not prose. */
 export const ORDERING_CHANNEL_PREFIX = 'ORDERING CHANNEL:';
 
@@ -323,13 +380,13 @@ export function resolveOrderingChannel(input: OrderingChannelInput): OrderingCha
     const onPage =
       exposed.length > 0
         ? `An ordering destination is also declared in the page markup (${exposed[0].url}), but the action a customer ` +
-          'is actually offered is the phone call, so the destination is recorded as context. Whether it is reachable ' +
+          'is actually offered is the telephone link, so the destination is recorded as context. Whether it is reachable ' +
           'for customers requires manual validation.'
         : fromMarkup.length > 0
           ? // Declared but not offered: saying "no destination was found" here
             // contradicted the ordering record, which reports this same URL.
             `An ordering destination is declared in the page markup (${fromMarkup[0].url}) but is not linked for ` +
-            'customers; the action a customer is offered is the phone call. Whether it works requires manual validation.'
+            'customers; the action a customer is offered is the telephone link. Whether it works requires manual validation.'
           : 'No browser-based ordering destination was found alongside it.';
     const declared =
       suppliedOnly.length > 0
@@ -350,28 +407,29 @@ export function resolveOrderingChannel(input: OrderingChannelInput): OrderingCha
       // A BUTTON PRESENTED AS ONLINE ORDERING THAT OPENS THE DIALLER.
       //
       // Described as what was observed, nothing more. The page says "Order
-      // Online" and the button places a call: that is a website-experience
+      // Online" and the button is a tel: link: that is a website-experience
       // mismatch, visible in the markup. It is not a measured loss of orders,
       // and it is not proof the restaurant's ordering system is broken — the
-      // audit sees neither order records nor the vendor's account.
+      // audit sees neither order records nor the vendor's account. Nor does a
+      // tel: link establish that a call is placed: it can open the phone's
+      // calling function, and what the visitor does next is not observed.
       const presented =
         mislabelled.label === mislabelled.text
           ? `The ordering button labelled "${mislabelled.text}"`
-          : `The "${mislabelled.text}" button in the section labelled "${mislabelled.label}"`;
+          : `The "${mislabelled.text}" button under "${mislabelled.label}"`;
       return {
         state: 'PHONE_ORDERING_ONLY',
         evidenceState: 'VERIFIED',
         destinationResolved,
         onlineLabelOpensPhone: true,
-        summary:
-          `${presented} places a telephone call instead of opening an online ordering page or checkout. ` +
-          'A visitor who chose to order online is offered a phone call instead. ' +
-          scope,
+        summary: `${presented} ${TELEPHONE_LINK_INSTEAD_OF_CHECKOUT}. ${LABEL_MISMATCH} ${scope}`,
         detail:
           `Verified in the page markup: call-to-action text ${ctas} is presented under ` +
           `"${mislabelled.label}" and resolves to a telephone number (a tel: link), not to a web destination. ` +
-          'Not yet tested: no one tapped the button on a phone during this audit, and no owner confirmation is ' +
-          `recorded. ${declared}`,
+          // What the automated check did, not a claim about whether anyone has
+          // tapped the button: a manual tap test is recorded outside the audit.
+          'The automated audit reads links and does not tap buttons; a tap test on a phone is a separate manual check, ' +
+          `and no owner confirmation is recorded in this audit. ${declared}`,
         failingUrls: [],
       };
     }
@@ -381,8 +439,9 @@ export function resolveOrderingChannel(input: OrderingChannelInput): OrderingCha
       destinationResolved,
       onlineLabelOpensPhone: false,
       summary:
-        'The ordering call-to-action found on the analyzed pages places a telephone call rather than opening an ' +
-        'online ordering page. Telephone ordering is a legitimate ordering pathway, and it is not online ordering. ' +
+        'The ordering call-to-action found on the analyzed pages uses a telephone link that can open the phone\'s ' +
+        'calling function rather than an online ordering page. Telephone ordering is a legitimate ordering pathway, ' +
+        'and it is not online ordering. ' +
         scope,
       detail: `Call-to-action text ${ctas} resolves to a telephone number (a tel: link), not to a web destination. ${declared}`,
       failingUrls: [],

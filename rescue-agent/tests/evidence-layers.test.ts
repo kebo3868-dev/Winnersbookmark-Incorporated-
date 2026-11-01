@@ -16,9 +16,13 @@
  * None of it was wrong, and all of it read as a contradiction, because one
  * label stood for three different things. For this finding they are:
  *
- *   VERIFIED IN THE PAGE MARKUP  the button is a tel: link — read directly;
- *   NOT YET TESTED               nobody tapped it on a phone;
- *   NOT MEASURED                 any effect on orders or revenue.
+ *   AUTOMATED FINDING  the button is a tel: link — read directly from the markup;
+ *   MANUAL CHECK       a tap test on a phone, separate from the automated audit;
+ *   NOT MEASURED       any effect on orders or revenue.
+ *
+ * (First printed as "Verified in the page markup / Not yet tested / Not
+ * measured"; renamed so no surface reads as if no tap test exists when one is
+ * documented separately — see ordering-report-cleanup.test.ts.)
  *
  * The finding's own state is unchanged (STRONG_EVIDENCE), so no score,
  * priority or headline moves. What changes is that every surface names the
@@ -121,7 +125,8 @@ describe('the evidence basis of the ordering-button finding', () => {
 
   it('names what was verified, what was not tested and what was not measured', () => {
     expect(basis.verified).toMatch(/telephone \(tel:\) link/);
-    expect(basis.notTested).toMatch(/tap/i);
+    expect(basis.manualCheck).toMatch(/tap/i);
+    expect(basis.manualCheck).toMatch(/separate from this automated audit/);
     expect(basis.notMeasured).toMatch(/orders or revenue/i);
   });
 
@@ -234,7 +239,7 @@ describe('the exported PDF', () => {
     expect(text).toContain('1 STRONG EVIDENCE, NOT TESTED END TO END');
     expect(text).toContain('0 INFERRED OPPORTUNITIES');
     expect(text).toContain('0 VERIFIED FINDINGS');
-    for (const fragment of ['Verified in the page markup', 'Not yet tested', 'Not measured', 'Finding labels are separate from evidence confidence']) {
+    for (const fragment of ['Automated finding', 'Manual check', 'Not measured', 'Finding labels are separate from evidence confidence']) {
       expect(text, fragment).toContain(fragment);
     }
     expect(text).toMatch(/FINDING CONFIDENCE (Strong|Moderate|Preliminary)/);
@@ -248,18 +253,15 @@ describe('new audits store the same three labels', () => {
   const { leaks, evidence } = pipeline();
   const finding = leaks.find((l) => l.category === CATEGORY)!;
 
-  it('the finding problem reads VERIFIED IN THE PAGE MARKUP, NOT YET TESTED, NOT MEASURED, in that order', () => {
-    const at = (label: string) => finding.problem.indexOf(label);
-    expect(at('VERIFIED IN THE PAGE MARKUP:')).toBe(0);
-    expect(at('NOT YET TESTED:')).toBeGreaterThan(0);
-    expect(at('NOT MEASURED:')).toBeGreaterThan(at('NOT YET TESTED:'));
-    expect(finding.problem).not.toMatch(/OBSERVED AUTOMATICALLY|MANUAL CONFIRMATION/);
+  it('the finding problem states the observation once; the layers are printed from the basis, not repeated in it', () => {
+    expect(finding.problem).toMatch(/^The "Order" button under "ORDER ONLINE" uses a telephone link that can open the phone's calling function rather than directing customers to an online checkout\./);
+    expect(finding.problem).not.toMatch(/VERIFIED IN|NOT YET TESTED|NOT MEASURED|OBSERVED AUTOMATICALLY|MANUAL CONFIRMATION/);
   });
 
   it('the ordering-channel evidence uses the same words', () => {
     const channel = evidence.find((e) => e.evidenceType === 'ORDERING_CHANNEL')!;
     expect(channel.supportingContext).toMatch(/^Verified in the page markup: /);
-    expect(channel.supportingContext).toMatch(/Not yet tested: no one tapped the button on a phone during this audit/);
+    expect(channel.supportingContext).toMatch(/The automated audit reads links and does not tap buttons; a tap test on a phone is a separate manual check/);
     const direct = resolveOrderingChannel({ phoneOrderCtas: ['ORDER'], onlineLabelledPhoneCtas: [{ text: 'ORDER', label: 'ORDER ONLINE' }], destinations: [], probes: [], widgetVendor: null });
     expect(direct.detail).toMatch(/^Verified in the page markup: /);
   });
@@ -282,7 +284,7 @@ describe('Sales Brief: the three layers, stated once', () => {
 
   it('the email describes what the website shows and what was not done, once', () => {
     expect(sales.emailOpener).toContain(basis.ownerObservation);
-    expect(sales.emailOpener).toMatch(/have not tested it on a phone/);
+    expect(sales.emailOpener).toMatch(/read that from the page itself rather than tapping it/);
     expect(sales.emailOpener).not.toMatch(/could not check from the outside/);
     expect(sales.emailOpener).not.toMatch(/\blost\b|\blose\b|revenue/i);
   });

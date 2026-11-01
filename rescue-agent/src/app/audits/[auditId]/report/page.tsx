@@ -68,7 +68,11 @@ export default async function ExecutiveReportPage({ params }: { params: Promise<
         <div className="pt-6 space-y-1">
           {/* A restaurant's own name can be one long word; it must wrap, not spill. */}
           <p className="font-display text-2xl text-ivory break-words">{dto.cover.restaurantName}</p>
-          <p className="text-ivory-dim text-sm break-all">{dto.cover.websiteUrl}{dto.cover.location ? ` · ${dto.cover.location}` : ''}</p>
+          {/* Only the URL may break anywhere; "break-all" on the whole line split "FL" into "F" / "L" at 360px. */}
+          <p className="text-ivory-dim text-sm break-words">
+            <span className="break-all">{dto.cover.websiteUrl}</span>
+            {dto.cover.location ? <span> · {dto.cover.location}</span> : null}
+          </p>
           <p className="text-ivory-faint text-xs">Audit date: {dto.cover.auditDate}</p>
           {dto.cover.auditStatus === 'PARTIALLY_COMPLETED' && (
             <p className="text-amber-300 text-xs uppercase tracking-widest pt-2">Audit partially completed — see Methodology &amp; Limitations</p>
@@ -250,20 +254,13 @@ export default async function ExecutiveReportPage({ params }: { params: Promise<
         <div className="flex flex-col gap-2">
           {dto.journeyMap.map((stage, i) => <JourneyMapRow key={stage.stage} stage={stage} isLast={i === dto.journeyMap.length - 1} />)}
         </div>
-        <details className="card mt-6">
-          <summary className="px-6 py-4 cursor-pointer label hover:text-gold">Detailed journey findings</summary>
-          <div className="divide-y divide-obsidian-line">
-            {dto.journeyScorecard.map((row) => (
-              <div key={row.stage} className="px-6 py-3 flex items-start gap-5">
-                <span className={`w-32 shrink-0 text-xs uppercase tracking-wide pt-0.5 ${STATUS_STYLES[row.status]?.split(' ')[0] ?? 'text-ivory-faint'}`}>{row.status}</span>
-                <div>
-                  <p className="text-sm text-ivory">{row.label}</p>
-                  <p className="text-ivory-faint text-xs mt-0.5">{row.explanation}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </details>
+        {/*
+          * A collapsed "Detailed journey findings" list used to follow, printing
+          * each stage's first sentence a second time beneath the map that had
+          * just shown it with its limitation. It carried nothing the map does
+          * not, so the ordering explanation (and every other stage's) is now
+          * stated once here. The PDF never printed it.
+          */}
       </Section>
 
       {/* RANKED AI OPPORTUNITIES */}
@@ -424,8 +421,9 @@ export default async function ExecutiveReportPage({ params }: { params: Promise<
                     * reader to treat it as a probability the audit never
                     * calculated. The band is defined in the legend above.
                     */}
+                  {/* "Evidence" confidence: how directly this was observed, never a customer outcome. */}
                   <span className="text-ivory-faint">
-                    Confidence: <span className="text-ivory-dim">{e.confidenceLabel}</span>
+                    Evidence confidence: <span className="text-ivory-dim">{e.confidenceLabel}</span>
                   </span>
                 </div>
                 {e.sourceUrl && (
@@ -469,7 +467,7 @@ function EvidenceBasisList({ basis }: { basis: EvidenceBasis }) {
       {evidenceBasisRows(basis).map(([label, text]) => (
         <div key={label}>
           <dt className="label">{label}</dt>
-          <dd className="text-ivory-dim">{text}</dd>
+          <dd className="text-ivory-dim break-words">{text}</dd>
         </div>
       ))}
     </dl>
@@ -480,7 +478,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   return (
     <div className="mt-3 first:mt-0">
       <p className="label mb-1">{label}</p>
-      <p className="text-ivory-dim">{children}</p>
+      <p className="text-ivory-dim break-words">{children}</p>
     </div>
   );
 }
@@ -497,9 +495,14 @@ function SnapshotRow({ label, children }: { label: string; children: React.React
 function JourneyMapRow({ stage, isLast }: { stage: JourneyMapStage; isLast: boolean }) {
   return (
     <div>
-      <div className="flex items-center gap-4">
-        <span className={`shrink-0 w-40 text-xs uppercase tracking-widest border rounded px-3 py-2 text-center ${STATUS_STYLES[stage.status] ?? STATUS_STYLES.UNKNOWN}`}>{stage.status}</span>
-        <div className="flex-1">
+      {/*
+        * Stacked on a phone: a fixed 160px badge beside the text left the
+        * stage's explanation a column about 150px wide at 360px. Side by side
+        * from the small breakpoint up, as before.
+        */}
+      <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-4">
+        <span className={`shrink-0 sm:w-40 text-xs uppercase tracking-widest border rounded px-3 py-2 text-center ${STATUS_STYLES[stage.status] ?? STATUS_STYLES.UNKNOWN}`}>{stage.status}</span>
+        <div className="flex-1 min-w-0">
           <p className="text-ivory text-sm font-semibold">{stage.label}</p>
           <p className="text-ivory-faint text-xs break-words">{stage.note}</p>
           {/*
@@ -554,13 +557,16 @@ function FindingCard({ finding }: { finding: ExecutiveFinding }) {
         {finding.evidenceBasis && <EvidenceBasisList basis={finding.evidenceBasis} />}
         <Field label="The business problem">{finding.problem}</Field>
         <Field label="Why it matters">{finding.whyItMatters}</Field>
-        <Field label="Potential commercial effect">{finding.commercialEffect}</Field>
-        <div>
-          <p className="label mb-1">What we know</p>
-          <ul className="list-disc list-inside text-ivory-dim space-y-1">
-            {finding.whatWeKnow.map((k, i) => <li key={i}>{k}</li>)}
-          </ul>
-        </div>
+        {/* Empty when the evidence layers already say it — see commercialEffectFor. */}
+        {finding.commercialEffect && <Field label="Potential commercial effect">{finding.commercialEffect}</Field>}
+        {finding.whatWeKnow.length > 0 && (
+          <div>
+            <p className="label mb-1">What we know</p>
+            <ul className="list-disc list-inside text-ivory-dim space-y-1">
+              {finding.whatWeKnow.map((k, i) => <li key={i} className="break-words">{k}</li>)}
+            </ul>
+          </div>
+        )}
         <Field label="What we do not yet know">{finding.whatWeDoNotKnow}</Field>
         <Field label="Recommended next action">{finding.recommendedAction}</Field>
       </div>
@@ -574,6 +580,9 @@ function FindingCard({ finding }: { finding: ExecutiveFinding }) {
           ['Business impact', finding.labels.businessImpact],
           ['Urgency', finding.labels.urgency],
           ['Finding confidence', finding.labels.findingConfidence],
+          // What was observed, and what customers did, rated separately.
+          ['Observed evidence', finding.labels.observedEvidence],
+          ['Customer outcome', finding.labels.customerOutcome],
           ['Automation opportunity', finding.labels.automationOpportunity],
         ].map(([label, value]) => (
           <div key={label}>

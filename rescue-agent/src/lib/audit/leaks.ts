@@ -1,6 +1,7 @@
 import { isUnverifiedSignup } from '@/lib/audit/emailCaptureState';
 import { readMenuAvailability } from '@/lib/audit/menuAvailability';
-import { ORDERING_CHANNEL_HEAD, parseOrderingChannelFact } from '@/lib/audit/orderingChannel';
+import { ORDER_BUTTON_CATEGORY, ORDER_BUTTON_TITLE, orderButtonFindingCopy } from '@/lib/audit/orderButtonFinding';
+import { parseOrderingChannelFact } from '@/lib/audit/orderingChannel';
 import type { EvidenceRecordLike, JourneyStageResult, OpportunityInput } from '@/types/audit';
 
 const MAX_OPPORTUNITIES = 10;
@@ -163,40 +164,24 @@ const RULES: Rule[] = [
   (ctx) => {
     const channel = byType(ctx, 'ORDERING_CHANNEL').find((e) => parseOrderingChannelFact(e.fact)?.onlineLabelOpensPhone);
     if (!channel) return null;
-    const observed = channel.fact.replace(ORDERING_CHANNEL_HEAD, '').split(/(?<=\.)\s/)[0];
-    const declared = [channel, ...byType(ctx, 'ORDERING_PATH')]
-      .map((e) => e.supportingContext?.match(/declared in the page markup \(([^)\s]+)\)/)?.[1])
-      .find(Boolean);
+    const evidenceIds = [channel.id, ...byType(ctx, 'ORDERING_PATH').map((e) => e.id)];
+    // The client wording is shared with the report builder, which rebuilds it
+    // from the same records for audits stored before it existed. What was
+    // read, what is a manual check and what is not measured are the evidence
+    // layers (evidenceBasis.ts); the problem states the observation once.
+    const copy = orderButtonFindingCopy(ctx.evidence.filter((e) => evidenceIds.includes(e.id)))!;
     return {
-      category: 'ORDER BUTTON LABEL MISMATCH',
-      title: 'The online ordering button opens a phone call instead of an online checkout',
-      problem:
-        // The same three layers, in the same order and words, as the report's
-        // evidence basis (evidenceBasis.ts): verified, not yet tested, not
-        // measured. "Observed automatically … not observed … manual
-        // confirmation" said the same thing in a fourth vocabulary.
-        `VERIFIED IN THE PAGE MARKUP: ${observed} The button is a tel: link, which opens a phone's dialler or ` +
-        'phone-app chooser rather than an ordering page.' +
-        (declared
-          ? ` The page markup also declares an online ordering destination (${declared}), but the button does not lead there.`
-          : '') +
-        ' NOT YET TESTED: no one tapped the button on a phone during this audit, and whether the online ordering' +
-        ' system is set up was not checked. NOT MEASURED: any effect on orders, conversion or revenue — that needs' +
-        ' order and call records.',
-      businessImpact:
-        'A visitor who chooses to order online is handed a phone call instead of the checkout the label promises. ' +
-        'Whether that changes how many orders the restaurant receives is not measured by this audit.',
+      category: ORDER_BUTTON_CATEGORY,
+      title: ORDER_BUTTON_TITLE,
+      problem: copy.problem,
+      businessImpact: copy.businessImpact,
       customerJourneyStage: 'ORDERING',
-      evidenceIds: [channel.id, ...byType(ctx, 'ORDERING_PATH').map((e) => e.id)],
+      evidenceIds,
       impactScore: 60,
       urgencyScore: 55,
       confidenceScore: Math.min(78, channel.confidence),
       aiFitScore: 15,
-      recommendedSolution:
-        'Decide which experience is intended. If online ordering should be offered, finish setting up the online ordering page' +
-        (declared ? ' (the markup already declares one, which needs checking)' : '') +
-        ' and point the button at it. If orders are taken by phone, relabel the section — for example "Order by Phone" — so' +
-        ' the button does what it says. Then tap the button on a phone to confirm. A direct website fix, not an AI project.',
+      recommendedSolution: copy.recommendedSolution,
       manualValidationRequired: false,
     };
   },

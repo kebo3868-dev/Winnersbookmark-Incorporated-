@@ -1,5 +1,6 @@
 import type { CategoryScoreInput, EvidenceRecordLike, JourneyStageResult, ScoreCategory } from '@/types/audit';
 import { SCORE_WEIGHTS } from '@/types/audit';
+import { ratingScoreExplanation } from '@/lib/audit/reputationWording';
 
 export interface OverallScoreResult {
   overallScore: number | null;
@@ -120,7 +121,7 @@ export function calculateCategoryScores(
       score: Math.round(Math.max(0, Math.min(100, (rating / 5) * 100))),
       confidence: 55,
       insufficientData: false,
-      explanation: `Derived from an owner-reported ${rating.toFixed(1)}★ rating (not independently verified). Response-pattern analysis requires direct platform access.`,
+      explanation: ratingScoreExplanation(rating),
     });
   } else {
     scores.push({
@@ -129,7 +130,9 @@ export function calculateCategoryScores(
       score: null,
       confidence: 0,
       insufficientData: true,
-      explanation: 'No owner-reported rating provided and review platforms are not scraped; a dedicated reputation analysis is recommended.',
+      explanation:
+        'No owner-reported rating was entered at intake, review platforms are not scraped, and review excerpts on the ' +
+        "restaurant's website are not scored; a dedicated reputation analysis is recommended.",
     });
   }
 

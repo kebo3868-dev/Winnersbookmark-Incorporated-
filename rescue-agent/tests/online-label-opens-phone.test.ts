@@ -38,7 +38,8 @@ import { generateOwnerReport } from '@/lib/reports/owner';
 import { generateSalesBrief, type SalesBriefContent } from '@/lib/reports/sales';
 import { buildExecutiveReport, presentEvidenceText } from '@/lib/reports/executive';
 import { STATE_PLAIN, stateForOpportunity } from '@/lib/audit/evidenceState';
-import { evidenceBasisFor } from '@/lib/audit/evidenceBasis';
+import { evidenceBasisFor, evidenceBasisRows } from '@/lib/audit/evidenceBasis';
+import { orderButtonFindingCopy } from '@/lib/audit/orderButtonFinding';
 import { COMPANY } from '@/lib/config';
 import type { EvidenceRecordLike } from '@/types/audit';
 
@@ -398,11 +399,16 @@ describe('the channel marker', () => {
   it('describes the mismatch as observed, and separates automated evidence from manual confirmation', () => {
     const result = resolveOrderingChannel({ ...base, onlineLabelledPhoneCtas: [{ text: 'ORDER', label: 'ORDER ONLINE' }] });
     expect(result.state).toBe('PHONE_ORDERING_ONLY');
-    expect(result.summary).toMatch(/^The "ORDER" button in the section labelled "ORDER ONLINE" places a telephone call instead of opening an online ordering page or checkout\./);
+    expect(result.summary).toMatch(/^The "ORDER" button under "ORDER ONLINE" uses a telephone link that can open the phone's calling function rather than directing customers to an online checkout\./);
     expect(result.summary).not.toMatch(/legitimate/i);
     expect(result.summary).not.toMatch(LOSS_CLAIM);
     expect(result.detail).toMatch(/^Verified in the page markup/);
-    expect(result.detail).toMatch(/Not yet tested: no one tapped the button on a phone during this audit, and no owner confirmation is recorded/);
+    // What the automated check did — not a claim that no one has ever tapped
+    // the button, which a separately documented manual test would contradict.
+    expect(result.detail).toMatch(
+      /The automated audit reads links and does not tap buttons; a tap test on a phone is a separate manual check, and no owner confirmation is recorded in this audit/,
+    );
+    expect(result.detail).not.toMatch(/no one tapped/i);
   });
 
   it('reports a destination declared in markup but not offered, instead of saying none was found', () => {
@@ -489,13 +495,16 @@ describe('the finding states the observation and claims nothing more', () => {
   });
 
   it('describes the button and labels where the evidence came from', () => {
-    expect(finding.title).toBe('The online ordering button opens a phone call instead of an online checkout');
-    expect(finding.problem).toMatch(
-      /^VERIFIED IN THE PAGE MARKUP: The "ORDER" button in the section labelled "ORDER ONLINE" places a telephone call/,
+    expect(finding.title).toBe('The online ordering button uses a telephone link instead of an online checkout');
+    // The problem is the observation, once. Where the evidence came from is
+    // the evidence layers, printed beside the card from evidenceBasis.ts.
+    expect(finding.problem).toBe(
+      'The "ORDER" button under "ORDER ONLINE" uses a telephone link that can open the phone\'s calling function rather than directing customers to an online checkout.',
     );
-    expect(finding.problem).toMatch(/NOT YET TESTED: no one tapped the button on a phone during this audit/);
-    expect(finding.problem).toMatch(/NOT MEASURED: any effect on orders, conversion or revenue/);
-    expect(finding.problem).toContain('https://tmt.spotapps.co/ordering-menu/?spot_id=');
+    expect(evidenceBasisRows(evidenceBasisFor(CATEGORY)!).map(([label]) => label)).toEqual(['Automated finding', 'Manual check', 'Not measured']);
+    // The unlinked page-code address is a separate fact on the card.
+    const card = executive.findings.find((f) => f.category === CATEGORY)!;
+    expect(card.whatWeKnow.join(' ')).toContain('https://tmt.spotapps.co/ordering-menu/?spot_id=');
     expect(finding.evidenceIds).toContain(channelOf(evidence).id);
   });
 
@@ -503,13 +512,14 @@ describe('the finding states the observation and claims nothing more', () => {
     for (const text of [finding.title, finding.businessImpact, finding.recommendedSolution]) {
       expect(text).not.toMatch(LOSS_CLAIM);
     }
-    // The problem names those things only to say they were NOT observed.
-    expect(finding.problem.replace(/NOT MEASURED:[^.]*records\./, '')).not.toMatch(LOSS_CLAIM);
+    expect(finding.problem).not.toMatch(LOSS_CLAIM);
     const card = executive.findings.find((f) => f.category === CATEGORY)!;
     for (const text of [card.commercialEffect, card.whyItMatters, card.potentialEffect, ...card.whatWeKnow]) {
       expect(text).not.toMatch(LOSS_CLAIM);
     }
-    expect(card.commercialEffect).toMatch(/^No effect on orders, conversion or revenue is claimed/);
+    // No effect section at all: the evidence layers already say "Not measured".
+    expect(card.commercialEffect).toBe('');
+    expect(evidenceBasisFor(CATEGORY)!.notMeasured).toMatch(/orders or revenue/);
     expect(card.scenarioKind).toBeNull();
     expect(card.whatWeDoNotKnow).toMatch(/order and call records/);
   });
@@ -544,7 +554,7 @@ describe('an ordering URL is described by where it actually came from', () => {
     );
     const journey = analyzeJourney(evidence);
     const finding = detectRevenueLeaks({ evidence, journey }).find((o) => o.category === CATEGORY);
-    return { channel: channelOf(evidence), finding, journey };
+    return { channel: channelOf(evidence), finding, journey, evidence };
   };
   const findingText = (f: { problem: string; businessImpact: string; recommendedSolution: string }) =>
     [f.problem, f.businessImpact, f.recommendedSolution].join(' ');
@@ -556,24 +566,26 @@ describe('an ordering URL is described by where it actually came from', () => {
     expect(finding).toBeDefined();
     // The finding and its fix claim no markup destination at all.
     expect(findingText(finding!)).not.toContain(SUPPLIED);
-    expect(findingText(finding!)).not.toMatch(/markup (also|already) declares/);
+    expect(findingText(finding!)).not.toMatch(/markup (also|already) declares|page code/);
   });
 
   it('2: a markup URL alongside a supplied URL — each described by its own source', () => {
-    const { channel, finding } = run(`${ORDER_SECTION}<div data-ordering-url="${MARKUP}"></div>`, [supplied()]);
+    const { channel, finding, evidence } = run(`${ORDER_SECTION}<div data-ordering-url="${MARKUP}"></div>`, [supplied()]);
     const declared = [...(channel.supportingContext ?? '').matchAll(/declared in the page markup \(([^)\s]+)\)/g)].map((m) => m[1]);
     expect(declared).toEqual([MARKUP]);
     expect(channel.supportingContext).toContain(`An ordering URL provided for this audit (${SUPPLIED}) was not found on the analyzed pages`);
-    expect(finding!.problem).toContain(`The page markup also declares an online ordering destination (${MARKUP})`);
+    const facts = orderButtonFindingCopy(evidence)!.facts;
+    expect(facts).toEqual([expect.stringContaining(`The page code also contains an online ordering address that no button or link on the page points to: ${MARKUP}.`)]);
+    expect(facts.join(' ')).not.toContain(SUPPLIED);
     expect(findingText(finding!)).not.toContain(SUPPLIED);
   });
 
   it('3: a markup URL with nothing supplied is still reported as declared in the markup', () => {
-    const { channel, finding } = run(`${ORDER_SECTION}<div data-ordering-url="${MARKUP}"></div>`, []);
+    const { channel, finding, evidence } = run(`${ORDER_SECTION}<div data-ordering-url="${MARKUP}"></div>`, []);
     expect(channel.supportingContext).toContain(`An ordering destination is declared in the page markup (${MARKUP}) but is not linked for customers`);
     expect(channel.supportingContext).not.toMatch(/provided for this audit/);
-    expect(finding!.problem).toContain(`(${MARKUP})`);
-    expect(finding!.recommendedSolution).toMatch(/the markup already declares one/);
+    expect(orderButtonFindingCopy(evidence)!.facts[0]).toContain(`points to: ${MARKUP}.`);
+    expect(finding!.recommendedSolution).toMatch(/complete or remove the unfinished ordering address in the page code/);
   });
 
   it('a page-found API endpoint that was probed is neither "supplied" nor an ordering destination in the markup', () => {
@@ -627,9 +639,11 @@ describe('the executive report, the PDF and the sales brief communicate the same
   it('the report card carries the finding title, problem and readable evidence', () => {
     expect(card.title).toBe(finding.title);
     expect(card.problem).toBe(finding.problem);
-    expect(card.whatWeKnow[0]).toMatch(/^The "ORDER" button in the section labelled "ORDER ONLINE" places a telephone call/);
+    expect(card.problem).toMatch(/^The "ORDER" button under "ORDER ONLINE" uses a telephone link/);
+    // "What we know" adds only the unlinked page-code address; the observation is not repeated.
+    expect(card.whatWeKnow).toEqual([expect.stringMatching(/^The page code also contains an online ordering address that no button or link on the page points to/)]);
     const ordering = executive.journeyMap.find((s) => s.stage === 'ORDERING')!;
-    expect(ordering.note).toMatch(/section labelled "ORDER ONLINE" places a telephone call/);
+    expect(ordering.note).toMatch(/under "ORDER ONLINE" uses a telephone link/);
   });
 
   it('no client-facing text carries a machine flag', () => {
@@ -641,7 +655,7 @@ describe('the executive report, the PDF and the sales brief communicate the same
   it('the PDF prints the same title and evidence state', async () => {
     const text = (await pdfText(executive)).replace(/\s+/g, ' ');
     // Long titles wrap across text runs; the opening words are on one run.
-    expect(text).toContain('The online ordering button opens a phone call');
+    expect(text).toContain('The online ordering button uses a telephone link');
     expect(text).toMatch(/STRONG EVIDENCE/);
     expect(text).not.toMatch(/ONLINE_LABEL_OPENS_PHONE|legitimate ordering pathway/);
   }, 30000);
@@ -651,13 +665,13 @@ describe('the executive report, the PDF and the sales brief communicate the same
     // once in the sales angle; the email and call describe the observation.
     const layers = evidenceBasisFor(CATEGORY)!;
     expect(sales.emailOpener).toContain(`one thing on the website stood out: ${layers.ownerObservation}`);
-    expect(sales.emailOpener).toMatch(/have not tested it on a phone, and I am not assuming what it costs you/);
+    expect(sales.emailOpener).toMatch(/My audit read that from the page itself rather than tapping it, and I am not assuming what it costs you/);
     expect(sales.emailOpener).not.toMatch(/could not check from the outside/);
     expect(sales.callOpener).toContain(layers.ownerObservation);
     expect(sales.followUpAngle).toContain(finding.title);
     expect(sales.bestSalesAngle).toContain(`Status: ${layers.summary}`);
     expect(sales.bestSalesAngle).not.toContain(STATE_PLAIN.STRONG_EVIDENCE);
-    expect(sales.discoveryQuestions[0]).toMatch(/online ordering button places a phone call — is online ordering meant to be offered/);
+    expect(sales.discoveryQuestions[0]).toMatch(/online ordering button uses a phone link — is online ordering meant to be offered/);
   });
 
   it('the sales brief makes no loss claim about it', () => {

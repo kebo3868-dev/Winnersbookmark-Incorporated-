@@ -119,7 +119,7 @@ describe('P2: phone-only ordering states what was observed, not a loss', () => {
   it('the ORDERING stage makes no unsupported loss claim', () => {
     const { journey } = pipeline();
     const ordering = journey.find((s) => s.stage === 'ORDERING')!;
-    expect(ordering.finding).toMatch(/places a telephone call/i);
+    expect(ordering.finding).toMatch(/uses a telephone link that can open the phone's calling function/i);
     expect(ordering.finding).not.toMatch(/\bare lost\b|\blose\b|\blosing\b|lost revenue|lost orders/i);
     expect(ordering.finding).toMatch(/Not assessed:/);
     expect(ordering.finding).toMatch(/order and call records/i);
@@ -253,7 +253,10 @@ describe('P3: no raw status codes in sales outreach or client-facing material', 
   it('ordering-channel evidence reads as words, and the stored text is not altered', async () => {
     const { presentEvidenceText, evidenceTypeLabel } = await import('@/lib/reports/executive');
     const stored = 'ORDERING CHANNEL: PHONE_ORDERING_ONLY [DESTINATION_RESOLVED] — The ordering call-to-action places a telephone call.';
-    expect(presentEvidenceText(stored)).toBe('The ordering call-to-action places a telephone call.');
+    // Codes are stripped, and the old "places a telephone call" wording is presented
+    // as what a tel: link shows; the stored string itself is untouched.
+    expect(presentEvidenceText(stored)).toBe("The ordering call-to-action uses a telephone link that can open the phone's calling function.");
+    expect(stored).toContain('places a telephone call');
     expect(presentEvidenceText('A tel: link, not a web destination. Evidence confidence: VERIFIED.')).toBe(
       'A tel: link, not a web destination. Evidence: verified from public evidence.',
     );

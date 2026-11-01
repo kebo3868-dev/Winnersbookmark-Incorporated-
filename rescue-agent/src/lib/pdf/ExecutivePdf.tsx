@@ -1,7 +1,11 @@
 import React from 'react';
-import { Document, Page, Text, View, Image, StyleSheet } from '@react-pdf/renderer';
+import { Document, Font, Page, Text, View, Image, StyleSheet } from '@react-pdf/renderer';
 import { classificationCounters, classificationIntro, type ExecutiveReportDTO } from '@/lib/reports/executive';
 import { evidenceBasisRows } from '@/lib/audit/evidenceBasis';
+import { pdfHyphenation, wrapAddressesDeep, wrapLongAddresses } from '@/lib/pdf/hyphenation';
+
+/** `text` cut to `max` characters with an ellipsis. */
+const shortened = (text: string, max: number) => (text.length > max ? `${text.slice(0, max)}…` : text);
 import { CONFIDENCE_EXPLANATION, FINDING_CLASSIFICATION_NOTE } from '@/lib/scoring/methodology';
 import { SCENARIO_DISCLAIMER, SCENARIO_SPECS } from '@/lib/reports/scenarios';
 
@@ -272,7 +276,14 @@ const MetaStat = ({ value, label, onDark }: { value: string | number; label: str
   </View>
 );
 
-export function ExecutivePdf({ dto }: { dto: ExecutiveReportDTO }) {
+// Web and email addresses are never hyphenated: a printed hyphen changes the
+// address a reader copies. See hyphenation.ts.
+Font.registerHyphenationCallback(pdfHyphenation);
+
+export function ExecutivePdf({ dto: report }: { dto: ExecutiveReportDTO }) {
+  // An address longer than a line is broken after its own separators before
+  // layout, so it neither runs off the page nor gains a hyphen.
+  const dto = wrapAddressesDeep(report);
   // Per-render bookkeeping for the continuation labels: one ledger per
   // document, so two reports rendering at once cannot disturb each other.
   const continuationLedger: ContinuationLedger = new Map();
@@ -548,26 +559,38 @@ export function ExecutivePdf({ dto }: { dto: ExecutiveReportDTO }) {
                   </>
                 ),
               },
-              {
-                key: 'effect',
-                node: (
-                  <>
-                    <Text style={[s.label]}>Potential commercial effect</Text>
-                    <Text style={[s.body, { marginBottom: 6 }]}>{f.commercialEffect}</Text>
-                  </>
-                ),
-              },
-              {
-                key: 'known',
-                node: (
-                  <>
-                    <Text style={[s.label]}>What we know</Text>
-                    {f.whatWeKnow.map((k, i) => (
-                      <Text key={i} style={[s.body, { marginBottom: 2 }]}>•  {k}</Text>
-                    ))}
-                  </>
-                ),
-              },
+              // Omitted when empty, as on the web report: a finding whose
+              // evidence layers already say "Not measured" carries no separate
+              // effect section, and one with nothing further to add carries
+              // no "What we know".
+              ...(f.commercialEffect
+                ? [
+                    {
+                      key: 'effect',
+                      node: (
+                        <>
+                          <Text style={[s.label]}>Potential commercial effect</Text>
+                          <Text style={[s.body, { marginBottom: 6 }]}>{f.commercialEffect}</Text>
+                        </>
+                      ),
+                    },
+                  ]
+                : []),
+              ...(f.whatWeKnow.length > 0
+                ? [
+                    {
+                      key: 'known',
+                      node: (
+                        <>
+                          <Text style={[s.label]}>What we know</Text>
+                          {f.whatWeKnow.map((k, i) => (
+                            <Text key={i} style={[s.body, { marginBottom: 2 }]}>•  {k}</Text>
+                          ))}
+                        </>
+                      ),
+                    },
+                  ]
+                : []),
               {
                 key: 'unknown',
                 node: (
@@ -590,11 +613,15 @@ export function ExecutivePdf({ dto }: { dto: ExecutiveReportDTO }) {
                         not a measured loss, a forecast or a guaranteed recovery.
                       </Text>
                     )}
-                    <View style={[s.row, { gap: 14, borderTopWidth: 0.5, borderTopColor: C.line, paddingTop: 6, marginTop: 8 }]}>
+                    {/* Wraps: six labels do not fit one line of a card. */}
+                    <View style={[s.row, { flexWrap: 'wrap', columnGap: 14, rowGap: 4, borderTopWidth: 0.5, borderTopColor: C.line, paddingTop: 6, marginTop: 8 }]}>
                     {[
                       ['Business impact', f.labels.businessImpact],
                       ['Urgency', f.labels.urgency],
                       ['Finding confidence', f.labels.findingConfidence],
+                      // What was observed, and what customers did, rated separately.
+                      ['Observed evidence', f.labels.observedEvidence],
+                      ['Customer outcome', f.labels.customerOutcome],
                       ['Automation opportunity', f.labels.automationOpportunity],
                     ].map(([label, value]) => (
                       <View key={label}>
@@ -900,9 +927,10 @@ export function ExecutivePdf({ dto }: { dto: ExecutiveReportDTO }) {
                   ) : null}
                   <Text style={{ fontSize: 6.8, color: C.muted, marginTop: 1 }}>
                     {e.evidenceLabel}
-                    {e.sourceUrl ? ` · ${e.sourceUrl.length > 90 ? `${e.sourceUrl.slice(0, 90)}…` : e.sourceUrl}` : ''}
+                    {/* Shortened before wrapping (wrapping only adds line breaks), so the cut falls at the same character. */}
+                    {e.sourceUrl ? ` · ${wrapLongAddresses(shortened(e.sourceUrl.replace(/\n/g, ''), 90))}` : ''}
                     {/* Label only — see the note on the web report's appendix. */}
-                    {` · confidence: ${e.confidenceLabel}`}
+                    {` · evidence confidence: ${e.confidenceLabel}`}
                   </Text>
                 </View>
               ))}

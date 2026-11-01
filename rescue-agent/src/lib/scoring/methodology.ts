@@ -41,7 +41,12 @@ export const CATEGORY_WEIGHTS: [ScoreCategory, number, string][] = [
   ['PHONE_RESPONSE_READINESS', SCORE_WEIGHTS.PHONE_RESPONSE_READINESS, 'What the public pages show about reaching you by phone'],
   ['RESERVATION_EXPERIENCE', SCORE_WEIGHTS.RESERVATION_EXPERIENCE, 'The public booking pathway, where one exists'],
   ['ONLINE_ORDERING_EXPERIENCE', SCORE_WEIGHTS.ONLINE_ORDERING_EXPERIENCE, 'The public ordering pathway, where one exists'],
-  ['REVIEW_REPUTATION_SYSTEM', SCORE_WEIGHTS.REVIEW_REPUTATION_SYSTEM, 'Owner-reported rating only — review platforms are never scraped'],
+  [
+    'REVIEW_REPUTATION_SYSTEM',
+    SCORE_WEIGHTS.REVIEW_REPUTATION_SYSTEM,
+    // See reputationWording.ts: a rating typed at intake is not a verified Google rating.
+    'Owner-reported rating entered at intake only, not checked against Google — review platforms are never scraped and review excerpts on the restaurant\'s website are not scored',
+  ],
   ['LOCAL_DIGITAL_PRESENCE', SCORE_WEIGHTS.LOCAL_DIGITAL_PRESENCE, 'Name, address, phone and hours visible on your own pages'],
   ['CUSTOMER_RETENTION', SCORE_WEIGHTS.CUSTOMER_RETENTION, 'Public routes by which a guest can opt in or be invited back'],
   ['AI_AUTOMATION_READINESS', SCORE_WEIGHTS.AI_AUTOMATION_READINESS, 'Whether your public information is structured enough to automate against'],
@@ -129,8 +134,10 @@ export const CONFIDENCE_BANDS: [string, string][] = [
 ];
 
 export const CONFIDENCE_EXPLANATION =
-  'Confidence describes how directly a fact was observed, not how likely an outcome is. It is a label, not a ' +
-  'percentage: the audit has no basis for distinguishing an 85% from a 90%, so it does not print one.';
+  'Evidence confidence describes how directly a fact was observed in the page HTML or a link response, not how likely ' +
+  'an outcome is. It says nothing about customer outcomes — what visitors did, or any effect on orders or revenue — ' +
+  'which this audit does not observe. It is a label, not a percentage: the audit has no basis for distinguishing an ' +
+  '85% from a 90%, so it does not print one.';
 
 /**
  * Finding labels are not evidence confidence, and the report used one word for

@@ -2,6 +2,7 @@ import type { EvidenceRecordLike, JourneyStageResult, JourneyStageName } from '@
 import { ORDERING_CHANNEL_HEAD, parseOrderingChannelFact } from '@/lib/audit/orderingChannel';
 import { isUnverifiedSignup } from '@/lib/audit/emailCaptureState';
 import { readMenuAvailability } from '@/lib/audit/menuAvailability';
+import { ratedStageFinding, UNRATED_STAGE_FINDING } from '@/lib/audit/reputationWording';
 
 type EvidenceIndex = Map<string, EvidenceRecordLike[]>;
 
@@ -411,7 +412,7 @@ export function analyzeJourney(evidence: EvidenceRecordLike[]): JourneyStageResu
         stage(
           'ORDERING',
           'FRICTION',
-          `Ordering is by telephone only — the website's ordering call-to-action places a phone call rather than opening an online ordering page. ${PHONE_ORDERING_NOT_ASSESSED}`,
+          `Ordering is by telephone only — the website's ordering call-to-action uses a telephone link that can open the phone's calling function rather than an online ordering page. ${PHONE_ORDERING_NOT_ASSESSED}`,
           avgConfidence(telephone, 85),
           true,
           ids(ord),
@@ -580,7 +581,7 @@ export function analyzeJourney(evidence: EvidenceRecordLike[]): JourneyStageResu
     const ratingEv = reviews.find((e) => /rating:/i.test(e.fact));
     const ratingMatch = ratingEv?.fact.match(/(\d(?:\.\d)?)\s*★/);
     if (reviews.length === 0) {
-      push(stage('REVIEW', 'UNKNOWN', 'No review data was provided and public review platforms are not scraped. Share your Google/Yelp rating to include reputation in the audit.', 20, true, []));
+      push(stage('REVIEW', 'UNKNOWN', UNRATED_STAGE_FINDING, 20, true, []));
     } else if (ratingMatch) {
       const rating = parseFloat(ratingMatch[1]);
       const status = rating >= 4.3 ? 'HEALTHY' : rating >= 3.8 ? 'FRICTION' : 'RISK';
@@ -588,7 +589,9 @@ export function analyzeJourney(evidence: EvidenceRecordLike[]): JourneyStageResu
         stage(
           'REVIEW',
           status,
-          `Owner-reported rating of ${rating.toFixed(1)}★. Reputation is included from provided data; response-pattern and recency analysis still require direct platform access.`,
+          // Says the rating was entered at intake and not checked against
+          // Google, and that on-site review excerpts are not a rating.
+          ratedStageFinding(rating),
           avgConfidence(reviews, 55),
           true,
           ids(reviews),

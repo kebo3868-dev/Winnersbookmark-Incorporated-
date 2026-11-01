@@ -9,8 +9,19 @@ import { presentFailure, shortRunId } from '@/lib/audit/failurePresentation';
 // The same band function the client report and the PDF use. An internal page
 // showing "85%" beside a client page showing "Strong" for the same fact is how
 // two readings of the same evidence get into the same conversation.
-import { classifyFinding, confidenceLabel, journeyStatusLabel, reportHeadlines } from '@/lib/reports/executive';
+import {
+  classifyFinding,
+  confidenceLabel,
+  CUSTOMER_OUTCOME_LABEL,
+  evidenceDiagnosticCodes,
+  presentEvidenceRecord,
+  journeyStatusLabel,
+  presentEvidenceText,
+  reportHeadlines,
+} from '@/lib/reports/executive';
 import { evidenceBasisFor, evidenceBasisRows } from '@/lib/audit/evidenceBasis';
+import { ORDER_BUTTON_CATEGORY, orderButtonFindingCopy } from '@/lib/audit/orderButtonFinding';
+import { presentOrderingText } from '@/lib/audit/orderingChannel';
 
 export const dynamic = 'force-dynamic';
 
@@ -133,7 +144,7 @@ export default async function AuditDetailPage({ params }: { params: Promise<{ au
                     <div className="flex flex-wrap justify-between gap-4 mb-3">
                       <p className="font-display text-lg text-ivory">
                         <span className="text-gold mr-3">#{i + 1}</span>
-                        {opp.title}
+                        {presentOrderingText(opp.title)}
                       </p>
                       <div className="text-right">
                         <p className="font-display text-2xl text-gold">{opp.rescuePriorityScore}</p>
@@ -149,17 +160,28 @@ export default async function AuditDetailPage({ params }: { params: Promise<{ au
                           {evidenceBasisRows(basis).map(([label, text]) => (
                             <div key={label}>
                               <dt className="label">{label}</dt>
-                              <dd className="text-ivory-dim">{text}</dd>
+                              <dd className="text-ivory-dim break-words">{text}</dd>
                             </div>
                           ))}
                         </dl>
                       ) : null;
                     })()}
-                    <p className="text-ivory-dim text-sm mb-3">{opp.problem}</p>
+                    {/* The order-button problem is rebuilt from its evidence, as on the client report. */}
+                    <p className="text-ivory-dim text-sm mb-3 break-words">
+                      {(opp.category === ORDER_BUTTON_CATEGORY &&
+                        orderButtonFindingCopy(audit.evidence.filter((e) => opp.evidenceIds.includes(e.id)))?.problem) ||
+                        opp.problem}
+                    </p>
                     <div className="flex flex-wrap gap-4 text-xs text-ivory-faint">
                       <span>Impact {opp.impactScore}</span>
                       <span>Urgency {opp.urgencyScore}</span>
                       <span>{classifyFinding(opp)} · Finding confidence {confidenceLabel(opp.confidenceScore)}</span>
+                      {/* As on the client report: the observation and the customer outcome are rated separately. */}
+                      {(() => {
+                        const primary = audit.evidence.find((e) => e.id === opp.evidenceIds[0]);
+                        return primary ? <span>Observed evidence {confidenceLabel(primary.confidence)}</span> : null;
+                      })()}
+                      <span>Customer outcome {CUSTOMER_OUTCOME_LABEL.toLowerCase()}</span>
                       <span>AI Fit {opp.aiFitScore}</span>
                       <span>Stage: {opp.customerJourneyStage}</span>
                       {opp.manualValidationRequired && <span className="text-amber-400 uppercase tracking-wide">Manual validation required</span>}
@@ -179,7 +201,7 @@ export default async function AuditDetailPage({ params }: { params: Promise<{ au
                     <p className="text-sm text-ivory tracking-wide">{s.stage.replace(/_/g, ' ')}</p>
                     <span className={`text-[10px] uppercase tracking-wider border rounded px-2 py-0.5 ${STATUS_COLORS[journeyStatusLabel(s.status)]}`}>{journeyStatusLabel(s.status)}</span>
                   </div>
-                  <p className="text-ivory-dim text-xs">{s.finding}</p>
+                  <p className="text-ivory-dim text-xs break-words">{presentEvidenceText(s.finding)}</p>
                 </div>
               ))}
             </div>
@@ -197,14 +219,20 @@ export default async function AuditDetailPage({ params }: { params: Promise<{ au
                  * — it wraps, and long URLs inside it break on any character.
                  */
                 <div key={e.id} className="px-5 py-3">
-                  <p className="text-sm text-ivory leading-relaxed break-words">{e.fact}</p>
+                  {/* Readable text first; machine codes only on the diagnostics line below. */}
+                  <p className="text-sm text-ivory leading-relaxed break-words">{presentEvidenceRecord(e).fact}</p>
                   {e.supportingContext && (
-                    <p className="text-ivory-dim text-xs mt-1 leading-relaxed break-words">{e.supportingContext}</p>
+                    <p className="text-ivory-dim text-xs mt-1 leading-relaxed break-words">{presentEvidenceText(e.supportingContext)}</p>
                   )}
                   <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ivory-faint">
                     <span className="uppercase tracking-wider">{e.evidenceType.replace(/_/g, ' ')}</span>
-                    <span>Confidence: {confidenceLabel(e.confidence)}</span>
+                    <span>Evidence confidence: {confidenceLabel(e.confidence)}</span>
                   </div>
+                  {evidenceDiagnosticCodes(e.fact) && (
+                    <p className="mt-1 font-mono text-[11px] text-ivory-faint/80 break-words">
+                      Technical diagnostics: {evidenceDiagnosticCodes(e.fact)}
+                    </p>
+                  )}
                 </div>
               ))}
             </div>

@@ -184,10 +184,11 @@ export default function NewAuditForm() {
         {/* Reviews */}
         <fieldset className="space-y-5 border-t border-obsidian-line pt-6">
           <legend className="label text-gold mb-1">Reputation (optional, owner-reported)</legend>
-          <p className="text-ivory-faint text-xs">We never scrape review sites. Share your public numbers and we&apos;ll include reputation in the score — clearly labeled as owner-reported.</p>
+          <p className="text-ivory-faint text-xs">We never scrape review sites. Share your public numbers and we&apos;ll include reputation in the score — clearly labeled as owner-reported and not checked against Google.</p>
+          <p className="text-ivory-faint text-xs">Copy the rating and count from the Google Business Profile itself, not from review excerpts or stars shown on the restaurant&apos;s website.</p>
           <div className="grid sm:grid-cols-3 gap-4">
             <div>
-              <label className="label block mb-2">Google Rating (0–5)</label>
+              <label className="label block mb-2">Google Rating (0–5), from the profile</label>
               <input value={form.ownerRating} onChange={set('ownerRating')} inputMode="decimal" placeholder="e.g. 4.4" />
             </div>
             <div>

@@ -3,7 +3,9 @@ import { CATEGORY_LABELS } from '@/lib/reports/owner';
 import { COMPANY, type Contact } from '@/lib/config';
 import { prefillFromAverageTicket, scenarioKindFor, SCENARIO_SPECS, type ScenarioKind } from '@/lib/reports/scenarios';
 import { STATE_LABEL, STATE_PLAIN, stateForOpportunity, type EvidenceState } from '@/lib/audit/evidenceState';
-import { ORDERING_CHANNEL_FLAG, ORDERING_CHANNEL_HEAD } from '@/lib/audit/orderingChannel';
+import { ORDERING_CHANNEL_FLAG, ORDERING_CHANNEL_HEAD, parseOrderingChannelFact, presentOrderingText } from '@/lib/audit/orderingChannel';
+import { ORDER_BUTTON_CATEGORY, ORDER_BUTTON_TITLE, orderButtonFindingCopy } from '@/lib/audit/orderButtonFinding';
+import { presentReputationText } from '@/lib/audit/reputationWording';
 import { evidenceBasisFor, type EvidenceBasis } from '@/lib/audit/evidenceBasis';
 import { safeDisplayName } from '@/lib/audit/restaurantName';
 import {
@@ -126,7 +128,7 @@ export function evidenceStateForFinding(opp: { manualValidationRequired: boolean
 // sentences state exactly which internal data the public audit cannot see.
 const UNKNOWNS_BY_CATEGORY: [RegExp, string][] = [
   [/PHONE-DEPENDENT/i, 'Actual call volume, missed-call counts, and the share of calls that are repetitive questions require phone records.'],
-  [/ORDER BUTTON/i, 'Whether visitors who tap the button go on to call and order, how many orders arrive by phone or online, and whether the online ordering system is set up require order and call records, the ordering provider\'s account, and a tap test on a phone.'],
+  [/ORDER BUTTON/i, 'Whether visitors who tap the button go on to call and order, how many orders arrive by phone or online, and whether an online ordering system is set up. Answering these needs order and call records and the ordering provider\'s account.'],
   [/RETENTION/i, 'Whether an internal guest database already exists in the POS or reservation system — and how large it is — requires owner data.'],
   [/CATERING|PRIVATE/i, 'How these inquiries are actually handled requires your records: acknowledgment records, response times and booking records for recent catering and private-event inquiries.'],
   [/MENU/i, 'How many visitors give up after failing to view the menu comfortably requires website analytics.'],
@@ -230,7 +232,23 @@ export interface ExecutiveFinding {
    * confidence", and sat beside evidence items labelled Strong while itself
    * reading Moderate — two ratings of different things under one name.
    */
-  labels: { businessImpact: string; urgency: string; findingConfidence: string; automationOpportunity: string; priority: string };
+  labels: {
+    businessImpact: string;
+    urgency: string;
+    findingConfidence: string;
+    /**
+     * Confidence in what was observed — the finding's primary HTML or link
+     * record — kept apart from any claim about what customers did. A finding
+     * can rest on Strong markup evidence while its effect on customers is
+     * entirely unmeasured; one rating for both read as if the outcome were
+     * established too.
+     */
+    observedEvidence: string;
+    /** Always "Not measured": a public audit observes pages and links, never customer behaviour. */
+    customerOutcome: string;
+    automationOpportunity: string;
+    priority: string;
+  };
   internalScores: { impact: number; urgency: number; confidence: number; aiFit: number; rescuePriority: number };
   evidenceSnapshot: { fact: string; sourceUrl: string | null }[];
   /**
@@ -516,15 +534,25 @@ const JOURNEY_LABELS: Record<string, string> = {
 
 const MAX_REPORT_FINDINGS = 5;
 
+/** No finding measures what customers did; every card says so in the same words. */
+export const CUSTOMER_OUTCOME_LABEL = 'Not measured';
+
 export function buildExecutiveReport(input: ExecutiveReportInput): ExecutiveReportDTO {
   const evidenceById = new Map(input.evidence.map((e) => [e.id, e]));
-  const ranked = [...input.opportunities].sort((a, b) => b.rescuePriorityScore - a.rescuePriorityScore);
+  const attachedTo = (opp: OppInput) =>
+    opp.evidenceIds.map((id) => evidenceById.get(id)).filter((e): e is NonNullable<typeof e> => Boolean(e));
+  const ranked = input.opportunities
+    .map((opp) => withOrderButtonCopy(opp, attachedTo(opp)))
+    .sort((a, b) => b.rescuePriorityScore - a.rescuePriorityScore);
   const top = ranked.slice(0, MAX_REPORT_FINDINGS);
 
   const findings: ExecutiveFinding[] = top.map((opp, i) => {
-    const attached = opp.evidenceIds.map((id) => evidenceById.get(id)).filter((e): e is NonNullable<typeof e> => Boolean(e));
+    const attached = attachedTo(opp);
     const classification = classifyFinding(opp);
     const scenarioKind = scenarioKindFor({ category: opp.category, classification });
+    // The order-button card adds only what it has not already said; the
+    // generic first-three-records list repeated its own observation twice.
+    const orderButtonFacts = opp.category === ORDER_BUTTON_CATEGORY ? orderButtonFindingCopy(attached)?.facts : undefined;
     return {
       number: i + 1,
       title: opp.title,
@@ -533,7 +561,7 @@ export function buildExecutiveReport(input: ExecutiveReportInput): ExecutiveRepo
       problem: opp.problem,
       whyItMatters: opp.businessImpact,
       commercialEffect: commercialEffectFor(opp.category, opp.businessImpact),
-      whatWeKnow: attached.slice(0, 3).map((e) => presentEvidenceText(e.fact)),
+      whatWeKnow: orderButtonFacts ?? attached.slice(0, 3).map((e) => presentEvidenceRecord(e).fact),
       whatWeDoNotKnow: unknownsFor(opp.category),
       potentialEffect: opp.businessImpact,
       recommendedAction: opp.recommendedSolution,
@@ -545,6 +573,8 @@ export function buildExecutiveReport(input: ExecutiveReportInput): ExecutiveRepo
         businessImpact: levelLabel(opp.impactScore),
         urgency: levelLabel(opp.urgencyScore),
         findingConfidence: confidenceLabel(opp.confidenceScore),
+        observedEvidence: attached.length > 0 ? confidenceLabel(attached[0].confidence) : 'Not recorded',
+        customerOutcome: CUSTOMER_OUTCOME_LABEL,
         automationOpportunity: automationLabel(opp.aiFitScore),
         priority: priorityLabel(opp.rescuePriorityScore),
       },
@@ -555,7 +585,7 @@ export function buildExecutiveReport(input: ExecutiveReportInput): ExecutiveRepo
         aiFit: opp.aiFitScore,
         rescuePriority: opp.rescuePriorityScore,
       },
-      evidenceSnapshot: attached.slice(0, 3).map((e) => ({ fact: presentEvidenceText(e.fact), sourceUrl: e.sourceUrl })),
+      evidenceSnapshot: attached.slice(0, 3).map((e) => ({ fact: presentEvidenceRecord(e).fact, sourceUrl: e.sourceUrl })),
       scenarioKind,
     };
   });
@@ -583,7 +613,7 @@ export function buildExecutiveReport(input: ExecutiveReportInput): ExecutiveRepo
       stage: s.stage,
       label: JOURNEY_LABELS[s.stage] ?? s.stage,
       status: journeyStatusLabel(s.status),
-      explanation: firstSentence(s.finding),
+      explanation: firstSentence(presentEvidenceText(s.finding)),
     }));
 
   const aiOpportunities = top
@@ -706,9 +736,7 @@ export function buildExecutiveReport(input: ExecutiveReportInput): ExecutiveRepo
     // Stored evidence keeps its machine codes; the client sees readable words.
     appendix: input.evidence.map((e) => ({
       evidenceType: e.evidenceType,
-      evidenceLabel: evidenceTypeLabel(e.evidenceType),
-      fact: presentEvidenceText(e.fact),
-      supportingContext: e.supportingContext === null ? null : presentEvidenceText(e.supportingContext),
+      ...presentEvidenceRecord(e),
       sourceUrl: e.sourceUrl,
       confidence: e.confidence,
       confidenceLabel: confidenceLabel(e.confidence),
@@ -733,15 +761,36 @@ export const CONFIDENCE_LEGEND =
 
 type OppInput = ExecutiveReportInput['opportunities'][number];
 
+/**
+ * The order-button finding's client copy, rebuilt from its evidence when the
+ * report is rendered. An audit stored before the copy was shortened still
+ * carries the long problem text, with the evidence layers written into it a
+ * second time; rebuilding it here gives every stored audit the same card a
+ * new one gets. Scores, state and evidence are untouched.
+ */
+function withOrderButtonCopy(opp: OppInput, attached: ExecutiveReportInput['evidence']): OppInput {
+  if (opp.category !== ORDER_BUTTON_CATEGORY) return opp;
+  const copy = orderButtonFindingCopy(attached);
+  if (!copy) return opp;
+  return {
+    ...opp,
+    // Stored titles read "opens a phone call"; the title states what was observed.
+    title: ORDER_BUTTON_TITLE,
+    problem: copy.problem,
+    businessImpact: copy.businessImpact,
+    recommendedSolution: copy.recommendedSolution,
+  };
+}
+
 function commercialEffectFor(category: string, businessImpact: string): string {
   // Conditional, because nothing about this restaurant's call volume is known:
   // the sentence describes what would follow IF demand is phone-heavy.
   if (/PHONE-DEPENDENT/i.test(category))
     return 'If a meaningful share of guest demand arrives by phone, it competes with staff attention during peak service, and calls that come at the wrong moment may go unanswered. Whether that happens here requires call records.';
   // Observed on the page; nothing about what visitors did next is known, so
-  // no effect is claimed — not even a conditional one.
-  if (/ORDER BUTTON/i.test(category))
-    return 'No effect on orders, conversion or revenue is claimed: the audit observed what the button does, not what visitors did after tapping it.';
+  // no effect is claimed. The evidence layers already say "Not measured", so
+  // the card prints no separate section to say it again (empty = omitted).
+  if (/ORDER BUTTON/i.test(category)) return '';
   if (/CATERING|PRIVATE|LEAD/i.test(category))
     return 'Event inquiries tend to be high-value, so how quickly they are acknowledged matters. A public link shows the pathway exists; it does not show whether inquiries are answered quickly or slowly, by hand or automatically.';
   if (/RETENTION|REACTIVATION/i.test(category))
@@ -798,8 +847,8 @@ function buildJourneyMap(journey: ExecutiveReportInput['journey']): JourneyMapSt
       stage,
       label: JOURNEY_LABELS[stage] ?? stage,
       status: journeyStatusLabel(s.status),
-      note: firstSentence(s.finding),
-      limitation: limitationSentence(s.finding),
+      note: firstSentence(presentEvidenceText(s.finding)),
+      limitation: limitationSentence(presentEvidenceText(s.finding)),
     };
   });
 }
@@ -1060,7 +1109,7 @@ const METHODOLOGY: string[] = [
   'No financial losses are stated as confirmed facts anywhere in this report; where impact is discussed, it describes potential exposure.',
   'The report contains no estimated dollar or volume figures. The optional scenario calculator in the online report uses only figures you enter, and its result is not a measured loss, a forecast or a guaranteed recovery.',
   'Findings marked "manual validation required" need owner data, staff input, or records unavailable to a public audit.',
-  'Review and reputation platforms are not analyzed in this audit scope; a dedicated reputation analysis is recommended.',
+  'Review and reputation platforms are not analyzed in this audit scope. An owner-reported rating entered at intake is used as provided and is not checked against Google; review excerpts or star ratings shown on the restaurant\'s own website are not treated as a verified Google rating. A dedicated reputation analysis is recommended.',
   'Public websites can change after the audit date; evidence reflects what was publicly accessible when collected.',
 ];
 
@@ -1115,13 +1164,58 @@ export function evidenceTypeLabel(type: string): string {
 
 /** Evidence text with machine codes replaced by the words they stand for. */
 export function presentEvidenceText(text: string): string {
-  return text
+  return presentOrderingText(presentReputationText(text))
     .replace(ORDERING_CHANNEL_HEAD, '')
     .replace(ORDERING_CHANNEL_FLAG, '')
     .replace(/Evidence confidence: ([A-Z_]+)\./g, (whole, code: string) =>
       code in STATE_PLAIN ? `Evidence: ${STATE_PLAIN[code as EvidenceState]}.` : whole,
     )
     .replace(/\b[A-Z]{3,}(?:_[A-Z]+)+\b/g, plainWords);
+}
+
+/**
+ * One evidence record as a reader sees it: label, fact and context.
+ *
+ * A destination that appears only in the page code — no button or link points
+ * to it — and did not load is recorded as "could not be verified … manual
+ * validation required", which on its own reads like a customer-facing failure
+ * waiting to be confirmed. It is technical context: no customer is offered the
+ * address, and the record already says why it is not reported as a failure.
+ * The label and fact say so up front; the URL, the test result, the reason and
+ * the confidence are all kept.
+ */
+export function presentEvidenceRecord(e: { evidenceType: string; fact: string; supportingContext: string | null }): {
+  evidenceLabel: string;
+  fact: string;
+  supportingContext: string | null;
+} {
+  const supportingContext = e.supportingContext === null ? null : presentEvidenceText(e.supportingContext);
+  const unlinked = e.fact.match(/^The (ordering|reservation|menu) destination could not be verified when tested \((.*)\) — manual validation required\.$/);
+  if (unlinked && /Not reported as a failure because the destination appears only in the page markup/.test(e.supportingContext ?? '')) {
+    const [, category, note] = unlinked;
+    return {
+      evidenceLabel: `${evidenceTypeLabel(e.evidenceType)} · technical context`,
+      fact:
+        `Technical context, not a customer-facing failure: ${category === 'ordering' ? 'an' : 'a'} ${category} address that ` +
+        `appears only in the page code, with no button or link pointing to it, did not load when the audit requested it (${note}).`,
+      supportingContext,
+    };
+  }
+  return { evidenceLabel: evidenceTypeLabel(e.evidenceType), fact: presentEvidenceText(e.fact), supportingContext };
+}
+
+/**
+ * The machine codes a stored fact carries, for a technical diagnostics line
+ * on the operator page — never for client copy. Null when the fact has none.
+ */
+export function evidenceDiagnosticCodes(fact: string): string | null {
+  const marker = parseOrderingChannelFact(fact);
+  if (!marker) return null;
+  return [
+    marker.state,
+    ...(marker.destinationResolved ? ['DESTINATION_RESOLVED'] : []),
+    ...(marker.onlineLabelOpensPhone ? ['ONLINE_LABEL_OPENS_PHONE'] : []),
+  ].join(' · ');
 }
 
 function plainWords(code: string): string {
