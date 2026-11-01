@@ -12,7 +12,9 @@ import { presentFailure, shortRunId } from '@/lib/audit/failurePresentation';
 import {
   classifyFinding,
   confidenceLabel,
+  CUSTOMER_OUTCOME_LABEL,
   evidenceDiagnosticCodes,
+  presentEvidenceRecord,
   journeyStatusLabel,
   presentEvidenceText,
   reportHeadlines,
@@ -173,6 +175,12 @@ export default async function AuditDetailPage({ params }: { params: Promise<{ au
                       <span>Impact {opp.impactScore}</span>
                       <span>Urgency {opp.urgencyScore}</span>
                       <span>{classifyFinding(opp)} · Finding confidence {confidenceLabel(opp.confidenceScore)}</span>
+                      {/* As on the client report: the observation and the customer outcome are rated separately. */}
+                      {(() => {
+                        const primary = audit.evidence.find((e) => e.id === opp.evidenceIds[0]);
+                        return primary ? <span>Observed evidence {confidenceLabel(primary.confidence)}</span> : null;
+                      })()}
+                      <span>Customer outcome {CUSTOMER_OUTCOME_LABEL.toLowerCase()}</span>
                       <span>AI Fit {opp.aiFitScore}</span>
                       <span>Stage: {opp.customerJourneyStage}</span>
                       {opp.manualValidationRequired && <span className="text-amber-400 uppercase tracking-wide">Manual validation required</span>}
@@ -192,7 +200,7 @@ export default async function AuditDetailPage({ params }: { params: Promise<{ au
                     <p className="text-sm text-ivory tracking-wide">{s.stage.replace(/_/g, ' ')}</p>
                     <span className={`text-[10px] uppercase tracking-wider border rounded px-2 py-0.5 ${STATUS_COLORS[journeyStatusLabel(s.status)]}`}>{journeyStatusLabel(s.status)}</span>
                   </div>
-                  <p className="text-ivory-dim text-xs">{s.finding}</p>
+                  <p className="text-ivory-dim text-xs break-words">{presentEvidenceText(s.finding)}</p>
                 </div>
               ))}
             </div>
@@ -211,13 +219,13 @@ export default async function AuditDetailPage({ params }: { params: Promise<{ au
                  */
                 <div key={e.id} className="px-5 py-3">
                   {/* Readable text first; machine codes only on the diagnostics line below. */}
-                  <p className="text-sm text-ivory leading-relaxed break-words">{presentEvidenceText(e.fact)}</p>
+                  <p className="text-sm text-ivory leading-relaxed break-words">{presentEvidenceRecord(e).fact}</p>
                   {e.supportingContext && (
                     <p className="text-ivory-dim text-xs mt-1 leading-relaxed break-words">{presentEvidenceText(e.supportingContext)}</p>
                   )}
                   <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ivory-faint">
                     <span className="uppercase tracking-wider">{e.evidenceType.replace(/_/g, ' ')}</span>
-                    <span>Confidence: {confidenceLabel(e.confidence)}</span>
+                    <span>Evidence confidence: {confidenceLabel(e.confidence)}</span>
                   </div>
                   {evidenceDiagnosticCodes(e.fact) && (
                     <p className="mt-1 font-mono text-[11px] text-ivory-faint/80 break-words">

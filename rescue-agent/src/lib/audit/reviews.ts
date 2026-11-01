@@ -1,4 +1,12 @@
 import type { EvidenceInput } from '@/types/audit';
+import {
+  PROFILE_URL_CONTEXT,
+  PROFILE_URL_FACT,
+  RATING_CONTEXT,
+  REVIEW_COUNT_CONTEXT,
+  ratingFact,
+  reviewCountFact,
+} from '@/lib/audit/reputationWording';
 
 /**
  * REVIEW & REPUTATION — owner-supplied only (Phase 3).
@@ -65,7 +73,7 @@ export function analyzeOwnerReviews(input: OwnerReviewInput): ReviewSignal {
   if (rating !== null) parts.push(`owner-reported rating of ${rating.toFixed(1)}★`);
   if (reviewCount !== null) parts.push(`${reviewCount} review(s)`);
   const summary = parts.length > 0
-    ? `Based on ${parts.join(' and ')} (owner-reported, not independently verified).`
+    ? `Based on ${parts.join(' and ')} (owner-reported at intake, not checked against Google or any review platform).`
     : 'A Google Business Profile URL was provided (owner-reported).';
 
   return {
@@ -89,16 +97,17 @@ export function reviewEvidence(input: OwnerReviewInput, signal: ReviewSignal): E
     out.push({
       sourceUrl: src,
       evidenceType: 'REVIEW_SIGNAL',
-      fact: `Owner-reported public rating: ${signal.rating.toFixed(1)}★${signal.reviewCount !== null ? ` across ${signal.reviewCount} review(s)` : ''}.`,
-      supportingContext: 'Provided by the restaurant at intake; not independently verified against the review platform.',
+      // Wording shared with every surface; see reputationWording.ts.
+      fact: ratingFact(signal.rating, signal.reviewCount),
+      supportingContext: RATING_CONTEXT,
       confidence: OWNER_REPORTED_CONFIDENCE,
     });
   } else if (signal.reviewCount !== null) {
     out.push({
       sourceUrl: src,
       evidenceType: 'REVIEW_SIGNAL',
-      fact: `Owner-reported review volume: ${signal.reviewCount} review(s).`,
-      supportingContext: 'Provided by the restaurant at intake; rating not provided.',
+      fact: reviewCountFact(signal.reviewCount),
+      supportingContext: REVIEW_COUNT_CONTEXT,
       confidence: OWNER_REPORTED_CONFIDENCE,
     });
   }
@@ -106,8 +115,8 @@ export function reviewEvidence(input: OwnerReviewInput, signal: ReviewSignal): E
     out.push({
       sourceUrl: input.googleBusinessUrl,
       evidenceType: 'REVIEW_SIGNAL',
-      fact: 'A Google Business Profile URL was provided by the restaurant.',
-      supportingContext: 'Owner-reported. Response-pattern and recency analysis require direct platform access and are out of audit scope.',
+      fact: PROFILE_URL_FACT,
+      supportingContext: PROFILE_URL_CONTEXT,
       confidence: 60,
     });
   }

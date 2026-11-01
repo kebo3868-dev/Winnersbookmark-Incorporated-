@@ -613,11 +613,15 @@ export function ExecutivePdf({ dto: report }: { dto: ExecutiveReportDTO }) {
                         not a measured loss, a forecast or a guaranteed recovery.
                       </Text>
                     )}
-                    <View style={[s.row, { gap: 14, borderTopWidth: 0.5, borderTopColor: C.line, paddingTop: 6, marginTop: 8 }]}>
+                    {/* Wraps: six labels do not fit one line of a card. */}
+                    <View style={[s.row, { flexWrap: 'wrap', columnGap: 14, rowGap: 4, borderTopWidth: 0.5, borderTopColor: C.line, paddingTop: 6, marginTop: 8 }]}>
                     {[
                       ['Business impact', f.labels.businessImpact],
                       ['Urgency', f.labels.urgency],
                       ['Finding confidence', f.labels.findingConfidence],
+                      // What was observed, and what customers did, rated separately.
+                      ['Observed evidence', f.labels.observedEvidence],
+                      ['Customer outcome', f.labels.customerOutcome],
                       ['Automation opportunity', f.labels.automationOpportunity],
                     ].map(([label, value]) => (
                       <View key={label}>
@@ -926,7 +930,7 @@ export function ExecutivePdf({ dto: report }: { dto: ExecutiveReportDTO }) {
                     {/* Shortened before wrapping (wrapping only adds line breaks), so the cut falls at the same character. */}
                     {e.sourceUrl ? ` · ${wrapLongAddresses(shortened(e.sourceUrl.replace(/\n/g, ''), 90))}` : ''}
                     {/* Label only — see the note on the web report's appendix. */}
-                    {` · confidence: ${e.confidenceLabel}`}
+                    {` · evidence confidence: ${e.confidenceLabel}`}
                   </Text>
                 </View>
               ))}

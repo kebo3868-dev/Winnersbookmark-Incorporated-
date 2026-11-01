@@ -145,7 +145,9 @@ export function orderButtonFindingCopy(records: EvidenceText[]): OrderButtonFind
     businessImpact: 'A visitor who chooses to order online is offered a phone call instead of the online checkout the label promises.',
     facts: address ? [unlinkedAddressFact(address)] : [],
     recommendedSolution:
-      `Decide which experience is intended. If online ordering should be offered, set up the online ordering page and point the button at it${addressStep}. ` +
+      // "Set up the online ordering page" presumed there is none. The audit
+      // does not know: it saw the button, not the restaurant's ordering account.
+      `Decide which experience is intended. If online ordering should be offered, point the button at the restaurant's online ordering page — setting one up first if none exists${addressStep}. ` +
       'If orders are taken by phone, relabel the section — for example "Order by Phone" — so the button does what it says. ' +
       'After the change, tap the button on a phone to confirm it behaves as intended. A direct website fix, not an AI project.',
   };

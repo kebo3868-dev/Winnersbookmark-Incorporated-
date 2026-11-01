@@ -5,6 +5,7 @@ import { prefillFromAverageTicket, scenarioKindFor, SCENARIO_SPECS, type Scenari
 import { STATE_LABEL, STATE_PLAIN, stateForOpportunity, type EvidenceState } from '@/lib/audit/evidenceState';
 import { ORDERING_CHANNEL_FLAG, ORDERING_CHANNEL_HEAD, parseOrderingChannelFact } from '@/lib/audit/orderingChannel';
 import { ORDER_BUTTON_CATEGORY, orderButtonFindingCopy } from '@/lib/audit/orderButtonFinding';
+import { presentReputationText } from '@/lib/audit/reputationWording';
 import { evidenceBasisFor, type EvidenceBasis } from '@/lib/audit/evidenceBasis';
 import { safeDisplayName } from '@/lib/audit/restaurantName';
 import {
@@ -231,7 +232,23 @@ export interface ExecutiveFinding {
    * confidence", and sat beside evidence items labelled Strong while itself
    * reading Moderate — two ratings of different things under one name.
    */
-  labels: { businessImpact: string; urgency: string; findingConfidence: string; automationOpportunity: string; priority: string };
+  labels: {
+    businessImpact: string;
+    urgency: string;
+    findingConfidence: string;
+    /**
+     * Confidence in what was observed — the finding's primary HTML or link
+     * record — kept apart from any claim about what customers did. A finding
+     * can rest on Strong markup evidence while its effect on customers is
+     * entirely unmeasured; one rating for both read as if the outcome were
+     * established too.
+     */
+    observedEvidence: string;
+    /** Always "Not measured": a public audit observes pages and links, never customer behaviour. */
+    customerOutcome: string;
+    automationOpportunity: string;
+    priority: string;
+  };
   internalScores: { impact: number; urgency: number; confidence: number; aiFit: number; rescuePriority: number };
   evidenceSnapshot: { fact: string; sourceUrl: string | null }[];
   /**
@@ -517,6 +534,9 @@ const JOURNEY_LABELS: Record<string, string> = {
 
 const MAX_REPORT_FINDINGS = 5;
 
+/** No finding measures what customers did; every card says so in the same words. */
+export const CUSTOMER_OUTCOME_LABEL = 'Not measured';
+
 export function buildExecutiveReport(input: ExecutiveReportInput): ExecutiveReportDTO {
   const evidenceById = new Map(input.evidence.map((e) => [e.id, e]));
   const attachedTo = (opp: OppInput) =>
@@ -541,7 +561,7 @@ export function buildExecutiveReport(input: ExecutiveReportInput): ExecutiveRepo
       problem: opp.problem,
       whyItMatters: opp.businessImpact,
       commercialEffect: commercialEffectFor(opp.category, opp.businessImpact),
-      whatWeKnow: orderButtonFacts ?? attached.slice(0, 3).map((e) => presentEvidenceText(e.fact)),
+      whatWeKnow: orderButtonFacts ?? attached.slice(0, 3).map((e) => presentEvidenceRecord(e).fact),
       whatWeDoNotKnow: unknownsFor(opp.category),
       potentialEffect: opp.businessImpact,
       recommendedAction: opp.recommendedSolution,
@@ -553,6 +573,8 @@ export function buildExecutiveReport(input: ExecutiveReportInput): ExecutiveRepo
         businessImpact: levelLabel(opp.impactScore),
         urgency: levelLabel(opp.urgencyScore),
         findingConfidence: confidenceLabel(opp.confidenceScore),
+        observedEvidence: attached.length > 0 ? confidenceLabel(attached[0].confidence) : 'Not recorded',
+        customerOutcome: CUSTOMER_OUTCOME_LABEL,
         automationOpportunity: automationLabel(opp.aiFitScore),
         priority: priorityLabel(opp.rescuePriorityScore),
       },
@@ -563,7 +585,7 @@ export function buildExecutiveReport(input: ExecutiveReportInput): ExecutiveRepo
         aiFit: opp.aiFitScore,
         rescuePriority: opp.rescuePriorityScore,
       },
-      evidenceSnapshot: attached.slice(0, 3).map((e) => ({ fact: presentEvidenceText(e.fact), sourceUrl: e.sourceUrl })),
+      evidenceSnapshot: attached.slice(0, 3).map((e) => ({ fact: presentEvidenceRecord(e).fact, sourceUrl: e.sourceUrl })),
       scenarioKind,
     };
   });
@@ -591,7 +613,7 @@ export function buildExecutiveReport(input: ExecutiveReportInput): ExecutiveRepo
       stage: s.stage,
       label: JOURNEY_LABELS[s.stage] ?? s.stage,
       status: journeyStatusLabel(s.status),
-      explanation: firstSentence(s.finding),
+      explanation: firstSentence(presentEvidenceText(s.finding)),
     }));
 
   const aiOpportunities = top
@@ -714,9 +736,7 @@ export function buildExecutiveReport(input: ExecutiveReportInput): ExecutiveRepo
     // Stored evidence keeps its machine codes; the client sees readable words.
     appendix: input.evidence.map((e) => ({
       evidenceType: e.evidenceType,
-      evidenceLabel: evidenceTypeLabel(e.evidenceType),
-      fact: presentEvidenceText(e.fact),
-      supportingContext: e.supportingContext === null ? null : presentEvidenceText(e.supportingContext),
+      ...presentEvidenceRecord(e),
       sourceUrl: e.sourceUrl,
       confidence: e.confidence,
       confidenceLabel: confidenceLabel(e.confidence),
@@ -820,8 +840,8 @@ function buildJourneyMap(journey: ExecutiveReportInput['journey']): JourneyMapSt
       stage,
       label: JOURNEY_LABELS[stage] ?? stage,
       status: journeyStatusLabel(s.status),
-      note: firstSentence(s.finding),
-      limitation: limitationSentence(s.finding),
+      note: firstSentence(presentEvidenceText(s.finding)),
+      limitation: limitationSentence(presentEvidenceText(s.finding)),
     };
   });
 }
@@ -1082,7 +1102,7 @@ const METHODOLOGY: string[] = [
   'No financial losses are stated as confirmed facts anywhere in this report; where impact is discussed, it describes potential exposure.',
   'The report contains no estimated dollar or volume figures. The optional scenario calculator in the online report uses only figures you enter, and its result is not a measured loss, a forecast or a guaranteed recovery.',
   'Findings marked "manual validation required" need owner data, staff input, or records unavailable to a public audit.',
-  'Review and reputation platforms are not analyzed in this audit scope; a dedicated reputation analysis is recommended.',
+  'Review and reputation platforms are not analyzed in this audit scope. An owner-reported rating entered at intake is used as provided and is not checked against Google; review excerpts or star ratings shown on the restaurant\'s own website are not treated as a verified Google rating. A dedicated reputation analysis is recommended.',
   'Public websites can change after the audit date; evidence reflects what was publicly accessible when collected.',
 ];
 
@@ -1137,13 +1157,44 @@ export function evidenceTypeLabel(type: string): string {
 
 /** Evidence text with machine codes replaced by the words they stand for. */
 export function presentEvidenceText(text: string): string {
-  return text
+  return presentReputationText(text)
     .replace(ORDERING_CHANNEL_HEAD, '')
     .replace(ORDERING_CHANNEL_FLAG, '')
     .replace(/Evidence confidence: ([A-Z_]+)\./g, (whole, code: string) =>
       code in STATE_PLAIN ? `Evidence: ${STATE_PLAIN[code as EvidenceState]}.` : whole,
     )
     .replace(/\b[A-Z]{3,}(?:_[A-Z]+)+\b/g, plainWords);
+}
+
+/**
+ * One evidence record as a reader sees it: label, fact and context.
+ *
+ * A destination that appears only in the page code — no button or link points
+ * to it — and did not load is recorded as "could not be verified … manual
+ * validation required", which on its own reads like a customer-facing failure
+ * waiting to be confirmed. It is technical context: no customer is offered the
+ * address, and the record already says why it is not reported as a failure.
+ * The label and fact say so up front; the URL, the test result, the reason and
+ * the confidence are all kept.
+ */
+export function presentEvidenceRecord(e: { evidenceType: string; fact: string; supportingContext: string | null }): {
+  evidenceLabel: string;
+  fact: string;
+  supportingContext: string | null;
+} {
+  const supportingContext = e.supportingContext === null ? null : presentEvidenceText(e.supportingContext);
+  const unlinked = e.fact.match(/^The (ordering|reservation|menu) destination could not be verified when tested \((.*)\) — manual validation required\.$/);
+  if (unlinked && /Not reported as a failure because the destination appears only in the page markup/.test(e.supportingContext ?? '')) {
+    const [, category, note] = unlinked;
+    return {
+      evidenceLabel: `${evidenceTypeLabel(e.evidenceType)} · technical context`,
+      fact:
+        `Technical context, not a customer-facing failure: ${category === 'ordering' ? 'an' : 'a'} ${category} address that ` +
+        `appears only in the page code, with no button or link pointing to it, did not load when the audit requested it (${note}).`,
+      supportingContext,
+    };
+  }
+  return { evidenceLabel: evidenceTypeLabel(e.evidenceType), fact: presentEvidenceText(e.fact), supportingContext };
 }
 
 /**
