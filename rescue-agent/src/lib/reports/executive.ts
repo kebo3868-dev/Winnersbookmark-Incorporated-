@@ -1039,6 +1039,64 @@ function interpretScore(score: number | null): string {
 }
 
 /**
+ * Findings whose fix is a direct website repair, established from public
+ * evidence: the only findings the Days 8–14 phase may list.
+ *
+ * Listed by category, not inferred from the AI-fit score: the catering finding
+ * scores 60, under the automation threshold, yet its solution is an automation
+ * ("AI-assisted intake … is the matched fix"). A category not listed here —
+ * including any a future engine adds — is left out, so the phase fails toward
+ * saying less rather than toward recommending an automation. A listed finding
+ * still needing owner data is left to the Days 1–7 manual-validation walk, and
+ * any solution text that recommends an automation is excluded as well.
+ */
+const DIRECT_FIX_CATEGORIES = new Set([
+  'BROKEN CUSTOMER PATHWAY',
+  'ONLINE ORDERING FAILURE RISK',
+  ORDER_BUTTON_CATEGORY,
+  'MENU ACCESS FRICTION',
+  'CONFUSING CTA HIERARCHY',
+  'WEBSITE TECHNICAL FOUNDATION',
+  'CONTACT PATH FRICTION',
+  'THIRD-PARTY ORDERING DEPENDENCY',
+]);
+/** Wording that recommends an automation, or restates the Days 1–7 record pull. */
+const AUTOMATION_OR_VALIDATION_STEP =
+  /\bis the matched fix\b|\bAI Front Desk\b|\bAI-assisted\b|\bAI Reactivation\b|\bvoice answering\b|\bmissed-call text-back\b|\bchatbot\b|\bbefore any system\b|\bpull 30 days\b|\bcollect acknowledgment records\b/i;
+
+export function directFixesFor<T extends { category: string; aiFitScore: number; manualValidationRequired: boolean; recommendedSolution: string }>(
+  top: T[],
+): T[] {
+  return top
+    .filter((o) =>
+      DIRECT_FIX_CATEGORIES.has(o.category) &&
+      o.aiFitScore < 70 &&
+      !o.manualValidationRequired &&
+      !AUTOMATION_OR_VALIDATION_STEP.test(o.recommendedSolution))
+    .slice(0, 3);
+}
+
+/**
+ * What "passes its own readiness and safety checks" means for each automation,
+ * for this restaurant — so the condition names checks that fit the system.
+ */
+function readinessChecksFor(category: string): string {
+  if (/PHONE-DEPENDENT/i.test(category)) {
+    return "answers on hours, menu and ordering checked against the restaurant's own information; missed-call text-back and transfer to staff tested";
+  }
+  if (/CATERING|PRIVATE/i.test(category)) {
+    return 'acknowledgment wording and intake questions approved by the owner; every inquiry confirmed to reach a named staff member';
+  }
+  if (/RETENTION/i.test(category)) {
+    return 'consent and opt-out handling checked for every guest contact; message content and sending frequency approved by the owner';
+  }
+  if (/CONTACT/i.test(category)) {
+    return "answers checked against the restaurant's published hours, menu and policies; handoff to staff tested";
+  }
+  return "outputs checked against the restaurant's own information; handoff to staff tested";
+}
+
+/**
  * The demand an automation answers, as the condition the Days 1–7 records must
  * meet before it is considered — completing "If …, consider …".
  */
@@ -1148,9 +1206,24 @@ function buildThirtyDayPlan(
   if (input.journey.some((s) => s.stage === 'RESERVATION' && s.status !== 'HEALTHY')) validate.push('Review reservation patterns: how bookings arrive, and whether any requests go unanswered.');
   validate.push('Walk each finding marked "manual validation required" against your own operating data.');
 
-  const highestDirect = top.filter((o) => o.aiFitScore < 70);
-  const fix = (highestDirect.length > 0 ? highestDirect : top).slice(0, 3).map((o) => o.recommendedSolution);
-  if (fix.length === 0) fix.push('No urgent digital repairs surfaced from public evidence; use this window to complete validation.');
+  // DAYS 8–14 IS FOR VERIFIED WEBSITE FIXES ONLY.
+  //
+  // This phase took every finding with an AI fit under 70 and, when there were
+  // none, fell back to the top findings whatever they were. Both routes printed
+  // an automation's recommended solution here, a week before the Days 15–21
+  // decision: "…the Winnersbookmark AI Front Desk … is the matched fix" (fit
+  // 95, via the fallback) and "…AI-assisted intake … is the matched fix" (the
+  // catering finding, fit 60) — each opening with the Days 1–7 record pull
+  // again, and neither gated on readiness testing. Now a finding is a fix here
+  // only if it is a direct website repair (directFixesFor), and with none the
+  // phase says so; there is no fallback.
+  const directFixes = directFixesFor(top);
+  const fix = directFixes.length > 0
+    ? directFixes.map((o) => o.recommendedSolution)
+    : [
+        'No website fix is confirmed by the public evidence. Use this week to finish the Days 1–7 validation and to correct anything it confirms.',
+        'No automation change is authorized in this phase; any automation is decided in Days 15–21, under the conditions set out there.',
+      ];
 
   // DAYS 15–21 IS A DECISION, NOT A SECOND ROUND OF DATA COLLECTION.
   //
@@ -1161,15 +1234,21 @@ function buildThirtyDayPlan(
   // collected in Days 1–7; here they are read, and the outcome decides. An
   // automation is considered only where they show the demand it answers, and
   // is introduced only after it passes its own readiness testing.
+  //
+  // Three conditions, in order, for each candidate: the restaurant's records
+  // show the demand it answers; the proposed system passes its own readiness
+  // and safety checks for this restaurant (checks specific to that automation);
+  // only then a limited, monitored pilot. Otherwise no automation change.
   const automation = top.filter((o) => o.aiFitScore >= 70).slice(0, 2);
+  const otherwise = directFixes.length > 0 ? 'put the time into the website fixes above' : 'continue with the validated findings';
   const decide = automation.length > 0
     ? [
         'Review the operational evidence collected in Days 1–7 before choosing any automation.',
         ...automation.map((o) =>
-          `If ${demandConditionFor(o.category)}, define a limited pilot of ${solutionCategoryFor(o.category)} — success metrics, human escalation and acceptance tests. Implement it only after the proposed system passes its own readiness and safety checks for this restaurant (answers on hours, menu and ordering checked; handoff to staff tested).`),
-        'If the records do not show that demand, or the system has not passed those checks, make no automation change — put the time into the fixes above.',
+          `If ${demandConditionFor(o.category)}: consider a limited, monitored pilot of ${solutionCategoryFor(o.category)} — only after the proposed system passes its own readiness and safety checks for this restaurant (${readinessChecksFor(o.category)}). Set success metrics and human escalation before it starts.`),
+        `If the records do not show that demand, or the system has not passed those checks, make no automation change — ${otherwise}.`,
       ]
-    : ['Review the validation results. If they show repetitive demand, consider a limited pilot of the best-fit automation, implemented only after it passes its own readiness and safety checks; otherwise make no automation change and prioritize the verified website fixes.'];
+    : [`Review the validation results. If they show repetitive demand, consider a limited, monitored pilot of the best-fit automation — only after it passes its own readiness and safety checks; otherwise make no automation change and ${otherwise}.`];
 
   const kpis: string[] = [];
   if (has(/PHONE|CONTACT/i)) kpis.push('Missed calls per week and answered-inquiry rate');
@@ -1182,7 +1261,7 @@ function buildThirtyDayPlan(
 
   return [
     { phase: 'DAYS 1–7', heading: 'VALIDATE', actions: validate },
-    { phase: 'DAYS 8–14', heading: 'FIX THE HIGHEST-PRIORITY DIGITAL ISSUE', actions: fix },
+    { phase: 'DAYS 8–14', heading: directFixes.length > 0 ? 'FIX THE HIGHEST-PRIORITY DIGITAL ISSUE' : 'COMPLETE VALIDATION — NO AUTOMATION CHANGE', actions: fix },
     { phase: 'DAYS 15–21', heading: 'DECIDE & PILOT IF READY', actions: decide },
     { phase: 'DAYS 22–30', heading: 'MEASURE', actions: kpis.map((k) => `Track: ${k}.`) },
   ];
