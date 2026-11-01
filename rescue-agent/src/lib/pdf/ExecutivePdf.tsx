@@ -1,5 +1,5 @@
 import React from 'react';
-import { Document, Font, Page, Text, View, Image, StyleSheet } from '@react-pdf/renderer';
+import { Document, Font, Page, Text, View, Image, Link, StyleSheet } from '@react-pdf/renderer';
 import { classificationCounters, classificationIntro, type ExecutiveReportDTO } from '@/lib/reports/executive';
 import { evidenceBasisRows } from '@/lib/audit/evidenceBasis';
 import { pdfHyphenation, wrapAddressesDeep, wrapLongAddresses } from '@/lib/pdf/hyphenation';
@@ -840,7 +840,7 @@ export function ExecutivePdf({ dto: report }: { dto: ExecutiveReportDTO }) {
                 <Text style={{ fontSize: 9, color: C.ivory, lineHeight: 1.4, marginBottom: 10 }}>{dto.cta.subtext}</Text>
                 <Text style={{ fontSize: 9.5, color: C.ivory, fontFamily: 'Helvetica-Bold' }}>{dto.cta.consultantName} · {dto.cta.company}</Text>
                 <Text style={{ fontSize: 9, color: '#b8b0a2', marginTop: 2 }}>
-                  {dto.cta.phone}{dto.cta.email ? ` · ${dto.cta.email}` : ''}
+                  <Link src={`tel:${dto.cta.phone.replace(/[^+\\d]/g, '')}`} style={{ color: '#b8b0a2', textDecoration: 'none' }}>{dto.cta.phone}</Link>{dto.cta.email ? ` · ${dto.cta.email}` : ''}
                 </Text>
                 {!dto.cta.qrDataUrl && dto.cta.bookingUrl && (
                   <Text style={{ fontSize: 8.5, color: C.gold, marginTop: 4 }}>{dto.cta.bookingUrl}</Text>
