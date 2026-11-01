@@ -469,7 +469,7 @@ function EvidenceBasisList({ basis }: { basis: EvidenceBasis }) {
       {evidenceBasisRows(basis).map(([label, text]) => (
         <div key={label}>
           <dt className="label">{label}</dt>
-          <dd className="text-ivory-dim">{text}</dd>
+          <dd className="text-ivory-dim break-words">{text}</dd>
         </div>
       ))}
     </dl>
@@ -480,7 +480,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   return (
     <div className="mt-3 first:mt-0">
       <p className="label mb-1">{label}</p>
-      <p className="text-ivory-dim">{children}</p>
+      <p className="text-ivory-dim break-words">{children}</p>
     </div>
   );
 }
@@ -554,13 +554,16 @@ function FindingCard({ finding }: { finding: ExecutiveFinding }) {
         {finding.evidenceBasis && <EvidenceBasisList basis={finding.evidenceBasis} />}
         <Field label="The business problem">{finding.problem}</Field>
         <Field label="Why it matters">{finding.whyItMatters}</Field>
-        <Field label="Potential commercial effect">{finding.commercialEffect}</Field>
-        <div>
-          <p className="label mb-1">What we know</p>
-          <ul className="list-disc list-inside text-ivory-dim space-y-1">
-            {finding.whatWeKnow.map((k, i) => <li key={i}>{k}</li>)}
-          </ul>
-        </div>
+        {/* Empty when the evidence layers already say it — see commercialEffectFor. */}
+        {finding.commercialEffect && <Field label="Potential commercial effect">{finding.commercialEffect}</Field>}
+        {finding.whatWeKnow.length > 0 && (
+          <div>
+            <p className="label mb-1">What we know</p>
+            <ul className="list-disc list-inside text-ivory-dim space-y-1">
+              {finding.whatWeKnow.map((k, i) => <li key={i} className="break-words">{k}</li>)}
+            </ul>
+          </div>
+        )}
         <Field label="What we do not yet know">{finding.whatWeDoNotKnow}</Field>
         <Field label="Recommended next action">{finding.recommendedAction}</Field>
       </div>

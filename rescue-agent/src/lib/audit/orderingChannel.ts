@@ -370,8 +370,10 @@ export function resolveOrderingChannel(input: OrderingChannelInput): OrderingCha
         detail:
           `Verified in the page markup: call-to-action text ${ctas} is presented under ` +
           `"${mislabelled.label}" and resolves to a telephone number (a tel: link), not to a web destination. ` +
-          'Not yet tested: no one tapped the button on a phone during this audit, and no owner confirmation is ' +
-          `recorded. ${declared}`,
+          // What the automated check did, not a claim about whether anyone has
+          // tapped the button: a manual tap test is recorded outside the audit.
+          'The automated audit reads links and does not tap buttons; a tap test on a phone is a separate manual check, ' +
+          `and no owner confirmation is recorded in this audit. ${declared}`,
         failingUrls: [],
       };
     }

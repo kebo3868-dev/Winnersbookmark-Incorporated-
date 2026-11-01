@@ -3,7 +3,8 @@ import { CATEGORY_LABELS } from '@/lib/reports/owner';
 import { COMPANY, type Contact } from '@/lib/config';
 import { prefillFromAverageTicket, scenarioKindFor, SCENARIO_SPECS, type ScenarioKind } from '@/lib/reports/scenarios';
 import { STATE_LABEL, STATE_PLAIN, stateForOpportunity, type EvidenceState } from '@/lib/audit/evidenceState';
-import { ORDERING_CHANNEL_FLAG, ORDERING_CHANNEL_HEAD } from '@/lib/audit/orderingChannel';
+import { ORDERING_CHANNEL_FLAG, ORDERING_CHANNEL_HEAD, parseOrderingChannelFact } from '@/lib/audit/orderingChannel';
+import { ORDER_BUTTON_CATEGORY, orderButtonFindingCopy } from '@/lib/audit/orderButtonFinding';
 import { evidenceBasisFor, type EvidenceBasis } from '@/lib/audit/evidenceBasis';
 import { safeDisplayName } from '@/lib/audit/restaurantName';
 import {
@@ -126,7 +127,7 @@ export function evidenceStateForFinding(opp: { manualValidationRequired: boolean
 // sentences state exactly which internal data the public audit cannot see.
 const UNKNOWNS_BY_CATEGORY: [RegExp, string][] = [
   [/PHONE-DEPENDENT/i, 'Actual call volume, missed-call counts, and the share of calls that are repetitive questions require phone records.'],
-  [/ORDER BUTTON/i, 'Whether visitors who tap the button go on to call and order, how many orders arrive by phone or online, and whether the online ordering system is set up require order and call records, the ordering provider\'s account, and a tap test on a phone.'],
+  [/ORDER BUTTON/i, 'Whether visitors who tap the button go on to call and order, how many orders arrive by phone or online, and whether an online ordering system is set up. Answering these needs order and call records and the ordering provider\'s account.'],
   [/RETENTION/i, 'Whether an internal guest database already exists in the POS or reservation system — and how large it is — requires owner data.'],
   [/CATERING|PRIVATE/i, 'How these inquiries are actually handled requires your records: acknowledgment records, response times and booking records for recent catering and private-event inquiries.'],
   [/MENU/i, 'How many visitors give up after failing to view the menu comfortably requires website analytics.'],
@@ -518,13 +519,20 @@ const MAX_REPORT_FINDINGS = 5;
 
 export function buildExecutiveReport(input: ExecutiveReportInput): ExecutiveReportDTO {
   const evidenceById = new Map(input.evidence.map((e) => [e.id, e]));
-  const ranked = [...input.opportunities].sort((a, b) => b.rescuePriorityScore - a.rescuePriorityScore);
+  const attachedTo = (opp: OppInput) =>
+    opp.evidenceIds.map((id) => evidenceById.get(id)).filter((e): e is NonNullable<typeof e> => Boolean(e));
+  const ranked = input.opportunities
+    .map((opp) => withOrderButtonCopy(opp, attachedTo(opp)))
+    .sort((a, b) => b.rescuePriorityScore - a.rescuePriorityScore);
   const top = ranked.slice(0, MAX_REPORT_FINDINGS);
 
   const findings: ExecutiveFinding[] = top.map((opp, i) => {
-    const attached = opp.evidenceIds.map((id) => evidenceById.get(id)).filter((e): e is NonNullable<typeof e> => Boolean(e));
+    const attached = attachedTo(opp);
     const classification = classifyFinding(opp);
     const scenarioKind = scenarioKindFor({ category: opp.category, classification });
+    // The order-button card adds only what it has not already said; the
+    // generic first-three-records list repeated its own observation twice.
+    const orderButtonFacts = opp.category === ORDER_BUTTON_CATEGORY ? orderButtonFindingCopy(attached)?.facts : undefined;
     return {
       number: i + 1,
       title: opp.title,
@@ -533,7 +541,7 @@ export function buildExecutiveReport(input: ExecutiveReportInput): ExecutiveRepo
       problem: opp.problem,
       whyItMatters: opp.businessImpact,
       commercialEffect: commercialEffectFor(opp.category, opp.businessImpact),
-      whatWeKnow: attached.slice(0, 3).map((e) => presentEvidenceText(e.fact)),
+      whatWeKnow: orderButtonFacts ?? attached.slice(0, 3).map((e) => presentEvidenceText(e.fact)),
       whatWeDoNotKnow: unknownsFor(opp.category),
       potentialEffect: opp.businessImpact,
       recommendedAction: opp.recommendedSolution,
@@ -733,15 +741,29 @@ export const CONFIDENCE_LEGEND =
 
 type OppInput = ExecutiveReportInput['opportunities'][number];
 
+/**
+ * The order-button finding's client copy, rebuilt from its evidence when the
+ * report is rendered. An audit stored before the copy was shortened still
+ * carries the long problem text, with the evidence layers written into it a
+ * second time; rebuilding it here gives every stored audit the same card a
+ * new one gets. Scores, state and evidence are untouched.
+ */
+function withOrderButtonCopy(opp: OppInput, attached: ExecutiveReportInput['evidence']): OppInput {
+  if (opp.category !== ORDER_BUTTON_CATEGORY) return opp;
+  const copy = orderButtonFindingCopy(attached);
+  if (!copy) return opp;
+  return { ...opp, problem: copy.problem, businessImpact: copy.businessImpact, recommendedSolution: copy.recommendedSolution };
+}
+
 function commercialEffectFor(category: string, businessImpact: string): string {
   // Conditional, because nothing about this restaurant's call volume is known:
   // the sentence describes what would follow IF demand is phone-heavy.
   if (/PHONE-DEPENDENT/i.test(category))
     return 'If a meaningful share of guest demand arrives by phone, it competes with staff attention during peak service, and calls that come at the wrong moment may go unanswered. Whether that happens here requires call records.';
   // Observed on the page; nothing about what visitors did next is known, so
-  // no effect is claimed — not even a conditional one.
-  if (/ORDER BUTTON/i.test(category))
-    return 'No effect on orders, conversion or revenue is claimed: the audit observed what the button does, not what visitors did after tapping it.';
+  // no effect is claimed. The evidence layers already say "Not measured", so
+  // the card prints no separate section to say it again (empty = omitted).
+  if (/ORDER BUTTON/i.test(category)) return '';
   if (/CATERING|PRIVATE|LEAD/i.test(category))
     return 'Event inquiries tend to be high-value, so how quickly they are acknowledged matters. A public link shows the pathway exists; it does not show whether inquiries are answered quickly or slowly, by hand or automatically.';
   if (/RETENTION|REACTIVATION/i.test(category))
@@ -1122,6 +1144,20 @@ export function presentEvidenceText(text: string): string {
       code in STATE_PLAIN ? `Evidence: ${STATE_PLAIN[code as EvidenceState]}.` : whole,
     )
     .replace(/\b[A-Z]{3,}(?:_[A-Z]+)+\b/g, plainWords);
+}
+
+/**
+ * The machine codes a stored fact carries, for a technical diagnostics line
+ * on the operator page — never for client copy. Null when the fact has none.
+ */
+export function evidenceDiagnosticCodes(fact: string): string | null {
+  const marker = parseOrderingChannelFact(fact);
+  if (!marker) return null;
+  return [
+    marker.state,
+    ...(marker.destinationResolved ? ['DESTINATION_RESOLVED'] : []),
+    ...(marker.onlineLabelOpensPhone ? ['ONLINE_LABEL_OPENS_PHONE'] : []),
+  ].join(' · ');
 }
 
 function plainWords(code: string): string {

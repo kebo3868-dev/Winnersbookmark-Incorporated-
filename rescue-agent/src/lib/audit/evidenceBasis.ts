@@ -20,12 +20,14 @@
  * this exists to prevent.
  */
 export interface EvidenceBasis {
-  /** Where the verified part was read, completing "Verified in …". */
-  verifiedSource: string;
-  /** What the audit read directly from the website. Verified. */
+  /** What the automated audit read directly from the website. Verified. */
   verified: string;
-  /** What a person still has to try. Not performed by the audit. */
-  notTested: string;
+  /**
+   * What a person has to try by hand. The automated audit never does it, and
+   * a manual check is documented separately — so this says neither that it
+   * was done nor that no one has done it.
+   */
+  manualCheck: string;
   /** What a public audit cannot measure. */
   notMeasured: string;
   /** The three layers in one line, for a status a rep reads aloud. */
@@ -40,16 +42,24 @@ export interface EvidenceBasis {
 
 const BASIS_BY_CATEGORY: Record<string, EvidenceBasis> = {
   'ORDER BUTTON LABEL MISMATCH': {
-    verifiedSource: 'the page markup',
-    verified: 'The ordering button in the section labelled as online ordering is a telephone (tel:) link, read directly from the page markup.',
-    notTested: 'No one tapped the button on a phone during this audit, and whether the online ordering system is set up was not checked.',
+    verified:
+      'Read from the page markup: the ordering button in the section labelled as online ordering is a telephone (tel:) link. ' +
+      'The automated audit reads links; it does not tap buttons.',
+    // A tap test on a phone may well have been done — by hand, and recorded
+    // outside the audit. "No one tapped the button" would contradict it.
+    manualCheck:
+      'Tapping the button on a phone is a manual check, separate from this automated audit. Any result is documented ' +
+      'separately and is not part of these automated findings.',
     notMeasured: 'Any effect on orders or revenue — that needs order and call records.',
-    summary: 'the page markup is verified; a tap test on a phone has not been done; any effect on orders is not measured',
+    summary:
+      'the page markup was read automatically; a tap test on a phone is a separate manual check, not part of the ' +
+      'automated audit; any effect on orders is not measured',
     // Generic on purpose: the button and section wording differ by site, and
     // a quote the owner cannot find on their own page undoes the point.
     ownerObservation: 'the ordering button in your online-ordering section is set up as a phone link rather than an online checkout',
-    ownerCaveat: 'I read that from the page itself but have not tested it on a phone, and I am not assuming what it costs you',
-    nextCheck: 'Tap the button on a phone, or ask the owner, before describing what customers experience.',
+    ownerCaveat: 'My audit read that from the page itself rather than tapping it, and I am not assuming what it costs you',
+    nextCheck:
+      'Tap the button on a phone (or use the separately documented tap test), or ask the owner, before describing what customers experience.',
   },
 };
 
@@ -58,11 +68,15 @@ export function evidenceBasisFor(category: string): EvidenceBasis | null {
   return BASIS_BY_CATEGORY[category] ?? null;
 }
 
-/** The layers as labelled rows, in the order every surface prints them. */
+/**
+ * The layers as labelled rows, in the order every surface prints them. The
+ * labels separate what the automated audit established from a manual check
+ * it cannot perform, so no surface implies the audit tapped anything.
+ */
 export function evidenceBasisRows(basis: EvidenceBasis): [string, string][] {
   return [
-    [`Verified in ${basis.verifiedSource}`, basis.verified],
-    ['Not yet tested', basis.notTested],
+    ['Automated finding', basis.verified],
+    ['Manual check', basis.manualCheck],
     ['Not measured', basis.notMeasured],
   ];
 }
