@@ -275,7 +275,7 @@ export default async function ExecutiveReportPage({ params }: { params: Promise<
               <div key={opp.rank} className="card p-6 text-sm">
                 <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
                   <p className="font-display text-lg text-gold">#{opp.rank} · {opp.solutionCategory}</p>
-                  <span className="text-[10px] uppercase tracking-widest border border-gold/40 text-gold rounded px-2.5 py-1">Automation fit: {opp.fit}</span>
+                  <span className="text-[10px] uppercase tracking-widest border border-gold/40 text-gold rounded px-2.5 py-1">{opp.exploratory ? `Exploratory · ${opp.fit.toLowerCase()} fit` : `Automation fit: ${opp.fit}`}</span>
                 </div>
                 <p className={`text-xs mb-3 ${opp.requiresValidation ? 'text-amber-400' : 'text-ivory-faint'}`}>{opp.basis}</p>
                 <Field label="Problem addressed">{opp.problemAddressed}</Field>

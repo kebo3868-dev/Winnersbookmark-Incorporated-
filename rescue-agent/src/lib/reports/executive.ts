@@ -331,6 +331,12 @@ export interface RankedAiOpportunity {
    */
   basis: string;
   requiresValidation: boolean;
+  /**
+   * Shown so the opportunity is visible, never as a recommendation: below the
+   * strong-automation fit, public evidence alone (for catering, a private-party
+   * link) does not establish demand, so no pilot is proposed for it.
+   */
+  exploratory: boolean;
   whyItFits: string;
   capabilities: string[];
   validationBeforeImplementation: string;
@@ -637,10 +643,11 @@ export function buildExecutiveReport(input: ExecutiveReportInput): ExecutiveRepo
       explanation: firstSentence(presentEvidenceText(s.finding)),
     }));
 
-  // One rule decides what is an automation proposal, here, in Section 06, in
-  // the Decision box and in Days 15–21: isAutomationCandidate.
+  // The same rules everywhere: isAutomationCandidate (pilot decision) and
+  // isExploratoryOpportunity (visible, no pilot) — here, in Section 06, in the
+  // Decision box and in Days 15–21.
   const aiOpportunities = top
-    .filter(isAutomationCandidate)
+    .filter(inSection06)
     .map((opp) => ({
       opportunity: opp.title,
       solutionCategory: solutionCategoryFor(opp.category),
@@ -857,8 +864,8 @@ function buildSnapshot(
     rescueScore: input.overallScore,
     band: input.overallScore === null ? null : scoreBand(input.overallScore),
     coverage: input.coverageScore,
-    topRecommendedAutomation: ranked[0]?.solutionCategory ?? null,
-    topAutomationRequiresValidation: ranked[0]?.requiresValidation ?? false,
+    topRecommendedAutomation: ranked.find((o) => !o.exploratory)?.solutionCategory ?? null,
+    topAutomationRequiresValidation: ranked.find((o) => !o.exploratory)?.requiresValidation ?? false,
     primaryValidationRequirement: primaryValidation,
     recommendedNextStep: COMPANY.nextStepCta,
   };
@@ -908,12 +915,11 @@ export const AI_OPPORTUNITIES_INTRO =
   'none of these rests on measured missed calls or lost revenue. ' + AUTOMATION_PROPOSAL_GATE;
 
 function buildRankedAiOpportunities(top: OppInput[]): RankedAiOpportunity[] {
-  // The same rule as Days 15–21 and the Decision box (isAutomationCandidate):
-  // an automation the plan decides is always listed here, so the catering
-  // inquiry-intake proposal (AI fit 60, "Moderate") appears in all three. Its
-  // AI fit is shown as scored; nothing is re-scored to make it eligible.
+  // Pilot candidates and exploratory opportunities, by the same rules as the
+  // Decision box and Days 15–21. Catering (AI fit 60, private-party link) is
+  // listed as exploratory, never as a recommendation; nothing is re-scored.
   return top
-    .filter(isAutomationCandidate)
+    .filter(inSection06)
     .sort((a, b) => b.aiFitScore - a.aiFitScore || b.rescuePriorityScore - a.rescuePriorityScore)
     // No cap: every high-fit finding in the report keeps its automation entry
     // (the report holds at most MAX_REPORT_FINDINGS findings).
@@ -929,9 +935,12 @@ function buildRankedAiOpportunities(top: OppInput[]): RankedAiOpportunity[] {
         problemAddressed: problemAddressedBy(opp),
         // Every card states the whole gate, the verified branch included: a
         // verified observation is not evidence of demand, readiness or approval.
-        basis: `${exploratoryNote(opp.aiFitScore)}${requiresValidation
-          ? `Potential improvement — requires operational validation before any implementation: ${AUTOMATION_CARD_REQUIREMENTS}. No missed calls or lost revenue have been measured; a public audit cannot see either.`
-          : `Addresses a verified public finding; its effect on revenue has not been measured. Any implementation still requires ${AUTOMATION_CARD_REQUIREMENTS}.`}`,
+        exploratory: isExploratoryOpportunity(opp),
+        basis: isExploratoryOpportunity(opp)
+          ? `Exploratory only — not a recommendation, and no pilot is proposed. Public evidence alone does not establish demand for it; it could be considered only once your own records show that demand, and then only with ${AUTOMATION_CARD_REQUIREMENTS}.`
+          : requiresValidation
+            ? `Potential improvement — requires operational validation before any implementation: ${AUTOMATION_CARD_REQUIREMENTS}. No missed calls or lost revenue have been measured; a public audit cannot see either.`
+            : `Addresses a verified public finding; its effect on revenue has not been measured. Any implementation still requires ${AUTOMATION_CARD_REQUIREMENTS}.`,
         requiresValidation,
         whyItFits: opp.businessImpact,
         capabilities: caps.capabilities,
@@ -1018,7 +1027,9 @@ function buildPrescription(input: ExecutiveReportInput, findings: ExecutiveFindi
 
 function buildDecisionBox(findings: ExecutiveFinding[], ranked: RankedAiOpportunity[]): DecisionBox {
   // The Section 06 proposals, every one — the same list Days 15–21 decides.
-  const proposals = ranked.map((o) => (o.fit === 'STRONG' ? o.solutionCategory : `${o.solutionCategory} (exploratory, ${o.fit.toLowerCase()} fit)`));
+  const proposals = ranked.filter((o) => !o.exploratory).map((o) => o.solutionCategory);
+  const exploratory = ranked.filter((o) => o.exploratory).map((o) => o.solutionCategory);
+  const exploratoryNote = exploratory.length > 0 ? ` ${joinAnd(exploratory)} stays exploratory: no pilot proposed.` : '';
   const frictionExists = findings.some((f) => f.classification !== 'INSUFFICIENT DATA');
   return {
     doNothing: {
@@ -1048,12 +1059,14 @@ function buildDecisionBox(findings: ExecutiveFinding[], ranked: RankedAiOpportun
     implement: proposals.length > 0
       ? {
           heading: 'PILOT IF READY',
-          detail: `Pilot ${joinOr(proposals)} only if validation confirms the demand AND it passes its own independent readiness and safety tests AND you approve it. Otherwise, make no automation change.`,
+          detail: `Pilot ${joinOr(proposals)} only if validation confirms the demand AND it passes its own independent readiness and safety tests AND you approve it. Otherwise, make no automation change.${exploratoryNote}`,
           benefit: 'If piloted: a limited, monitored workflow with defined KPIs and human escalation.',
         }
       : {
           heading: 'NO AUTOMATION PROPOSED',
-          detail: 'No automation change is currently proposed: no finding in this audit is one an automation would address.',
+          detail: exploratory.length > 0
+            ? `No automation change is currently proposed. ${joinAnd(exploratory)} stays exploratory until your own records show demand.`
+            : 'No automation change is currently proposed: no finding in this audit is one an automation would address.',
           benefit: 'Effort stays on the website fixes and the validation steps.',
         },
   };
@@ -1118,8 +1131,28 @@ export function directFixesFor<T extends { category: string; aiFitScore: number;
  * scored as a strong automation fit. Each is decided in Days 15–21.
  */
 const AUTOMATION_CATEGORY = /PHONE-DEPENDENT|RETENTION|CATERING|PRIVATE/i;
+/**
+ * A pilot candidate: a strong automation fit (AI fit >= 70). Only these reach a
+ * pilot decision — in Section 06, the Decision box and Days 15–21 alike.
+ *
+ * PR #63's safeguard holds: a link alone does not establish demand. The
+ * catering finding (AI fit 60) rests on a private-party link, so it is not a
+ * pilot candidate; it is an exploratory opportunity (isExploratoryOpportunity).
+ */
 export function isAutomationCandidate(o: { category: string; aiFitScore: number }): boolean {
-  return o.aiFitScore >= 70 || AUTOMATION_CATEGORY.test(o.category);
+  return o.aiFitScore >= 70;
+}
+/**
+ * An automation opportunity shown for visibility only, below the strong fit:
+ * exploratory, no pilot proposed, owner-record validation first. Shown the
+ * same way in Section 06, the Decision box and Days 15–21.
+ */
+export function isExploratoryOpportunity(o: { category: string; aiFitScore: number }): boolean {
+  return !isAutomationCandidate(o) && AUTOMATION_CATEGORY.test(o.category);
+}
+/** Listed in Section 06: a pilot candidate or an exploratory opportunity. */
+function inSection06(o: { category: string; aiFitScore: number }): boolean {
+  return isAutomationCandidate(o) || isExploratoryOpportunity(o);
 }
 
 /**
@@ -1169,14 +1202,9 @@ export function telHref(phone: string): string | null {
   return `tel:${digits}`;
 }
 
-/**
- * A proposal below the strong-automation fit (AI fit under 70) is exploratory:
- * the catering inquiry-intake proposal (fit 60) is listed so it is decided, not
- * because the evidence justifies buying it. Strong-fit proposals carry no note.
- */
-function exploratoryNote(aiFitScore: number): string {
-  const fit = automationLabel(aiFitScore);
-  return fit === 'Strong' ? '' : `Exploratory — a ${fit.toLowerCase()} automation fit, not a purchase recommendation. `;
+/** "A", "A and B", "A, B and C". */
+function joinAnd(items: string[]): string {
+  return items.length <= 1 ? (items[0] ?? '') : `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`;
 }
 
 /** "A", "A or B", "A, B or C". */
@@ -1315,17 +1343,25 @@ function buildThirtyDayPlan(
   // are not changed to make it eligible. No cap: every automation the report
   // recommends on a finding card is decided in this phase.
   const automation = top.filter(isAutomationCandidate);
+  // Exploratory opportunities are named here too — as no pilot, with what would
+  // have to be true before they could even be proposed.
+  const exploratoryLines = top.filter(isExploratoryOpportunity).map((o) =>
+    `${solutionCategoryFor(o.category)} stays exploratory — no pilot is proposed: public evidence alone does not show demand for it. Only if ${demandConditionFor(o.category)} could it be assessed as a proposal, under the same conditions as any automation.`);
   const otherwise = directFixes.length > 0 ? 'put the time into the website fixes above' : 'continue with the validated findings';
   const decide = automation.length > 0
     ? [
         'Review the operational evidence collected in Days 1–7 before choosing any automation.',
         ...automation.map((o) =>
-          `${exploratoryNote(o.aiFitScore)}If ${demandConditionFor(o.category)}: consider a limited, monitored pilot of ${solutionCategoryFor(o.category)} — only after the proposed system passes its own readiness and safety checks for this restaurant (${readinessChecksFor(o.category)}) and the owner approves the pilot. Set success metrics and human escalation before it starts.`),
+          `If ${demandConditionFor(o.category)}: consider a limited, monitored pilot of ${solutionCategoryFor(o.category)} — only after the proposed system passes its own readiness and safety checks for this restaurant (${readinessChecksFor(o.category)}) and the owner approves the pilot. Set success metrics and human escalation before it starts.`),
         `If the records do not show that demand, or the system has not passed those checks, make no automation change — ${otherwise}.`,
+        ...exploratoryLines,
       ]
-    // No candidate, no pilot: the report identified no automation, so this
-    // phase does not offer one ("the best-fit automation" named nothing).
-    : [`No automation is proposed: no finding in this audit is one an automation would address. Make no automation change — ${otherwise}.`];
+    // No candidate, no pilot: the report identified no automation to pilot, so
+    // this phase does not offer one. An exploratory opportunity is still named,
+    // as no pilot.
+    : exploratoryLines.length > 0
+      ? [...exploratoryLines, `No automation change is proposed in this plan — ${otherwise}.`]
+      : [`No automation is proposed: no finding in this audit is one an automation would address. Make no automation change — ${otherwise}.`];
 
   const kpis: string[] = [];
   if (has(/PHONE|CONTACT/i)) kpis.push('Missed calls per week and answered-inquiry rate');

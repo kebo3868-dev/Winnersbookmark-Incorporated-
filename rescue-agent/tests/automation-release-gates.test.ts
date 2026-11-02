@@ -182,6 +182,26 @@ const ADVERSARIAL: Record<string, string[]> = {
     'An AI Front Desk would be a smart investment for the restaurant.',
     'Start a pilot of the AI Front Desk next week.',
   ],
+  'synonyms a verb list misses (review of 6b0b068 and probing of a257232)': [
+    'We recommend the AI Front Desk.',
+    "Leverock's should switch to the AI Front Desk.",
+    'We suggest the AI Front Desk for phone coverage.',
+    'Our advice is to go with the AI Front Desk.',
+    "Leverock's could opt for an AI receptionist.",
+    'The best move is to choose the AI Front Desk.',
+    'The team should rely on an AI receptionist after hours.',
+    'An AI receptionist is what this restaurant needs.',
+    'The AI Front Desk is recommended.',
+    'The AI Front Desk is the answer to the phone gap.',
+    'AI-assisted intake makes sense here.',
+    'Onboard the AI Front Desk this month.',
+  ],
+  'softened and absolute outcome claims': [
+    'The AI Front Desk would likely solve missed calls.',
+    'With the AI Front Desk, no call would go unanswered.',
+    'Getting the AI Front Desk would help with missed calls.',
+    'AI-assisted intake is likely to reduce missed inquiries.',
+  ],
   'a gated recommendation followed by an unconditional one': [
     `${GATED} Either way, they should install it this quarter.`,
     `${GATED} The AI Front Desk will stop missed calls.`,
@@ -218,6 +238,8 @@ describe('H1 (re-review) — adversarial AI-summary wording is rejected whole', 
       ['readiness and safety', GATED.replace(' it passes its own readiness and safety tests and', '')],
       ['approval', GATED.replace(' and the owner approves it', '')],
       ['limited, monitored pilot', GATED.replace('a limited, monitored pilot', 'a rollout')],
+      ['"limited" (a monitored pilot of any size)', GATED.replace('a limited, monitored pilot', 'a monitored pilot')],
+      ['measurable demand (records without demand)', GATED.replace('call records confirm the demand', 'call records are reviewed')],
       ['"only after"', GATED.replace('only after', 'once')],
     ];
     for (const [part, sentence] of withoutPart) {
@@ -227,7 +249,9 @@ describe('H1 (re-review) — adversarial AI-summary wording is rejected whole', 
   });
 
   it('acceptable: a correctly gated conditional recommendation, alone and inside a realistic summary, is shown as written', () => {
-    for (const text of [GATED, padded(GATED), ACCEPTABLE_FULL_SUMMARY]) {
+    const NON_RECOMMENDATION = "No automation change is proposed until the restaurant's own records confirm the demand.";
+    const SELF_DESCRIPTION = 'This AI-enhanced summary was generated at audit time from the validated findings.';
+    for (const text of [GATED, padded(GATED), ACCEPTABLE_FULL_SUMMARY, padded(NON_RECOMMENDATION), padded(SELF_DESCRIPTION)]) {
       expect(screenAiSummary(text), text).toEqual({ safe: true, unsafe: [] });
       const dto = buildExecutiveReport(input(lev, { storedSummary: text, storedSummaryWasAiEnhanced: true }));
       expect(dto.executiveSummary).toBe(text);
@@ -278,36 +302,67 @@ const pilotNames = (dto: ExecutiveReportDTO) =>
   dto.thirtyDayPlan.find((p) => p.phase === 'DAYS 15–21')!.actions.map((a) => a.match(/pilot of (.+?) —/)?.[1]).filter(Boolean) as string[];
 const sorted = (xs: string[]) => [...xs].sort();
 
-describe('M2 — Section 06, the Decision box and Days 15–21 name the same automations', () => {
-  it("Leverock's: the AI Front Desk and catering inquiry intake in all three", () => {
+const exploratoryNames = (dto: ExecutiveReportDTO) =>
+  dto.thirtyDayPlan.find((p) => p.phase === 'DAYS 15–21')!.actions.map((a) => a.match(/^(.+?) stays exploratory — no pilot is proposed/)?.[1]).filter(Boolean) as string[];
+
+describe('M2 — Section 06, the Decision box and Days 15–21 agree; catering stays exploratory (PR #63)', () => {
+  it("Leverock's: the AI Front Desk is the pilot candidate everywhere; catering is exploratory everywhere, with no pilot", () => {
     const dto = buildExecutiveReport(input(lev));
-    const section06 = dto.rankedAiOpportunities.map((o) => o.solutionCategory);
-    expect(sorted(section06)).toEqual(['AI Front Desk & Missed-Call Text Back', 'Lead Capture & Inquiry Automation']);
-    expect(sorted(pilotNames(dto))).toEqual(sorted(section06));
-    for (const name of section06) expect(dto.decisionBox.implement.detail).toContain(name);
-    expect(sorted(dto.aiOpportunities.map((o) => o.solutionCategory))).toEqual(sorted(section06));
-    // Catering (AI fit 60) is an exploratory moderate-fit proposal, never presented as a justified purchase.
-    const intake = dto.rankedAiOpportunities.find((o) => o.solutionCategory === 'Lead Capture & Inquiry Automation')!;
+    const pilotCards = dto.rankedAiOpportunities.filter((o) => !o.exploratory).map((o) => o.solutionCategory);
+    const exploratoryCards = dto.rankedAiOpportunities.filter((o) => o.exploratory).map((o) => o.solutionCategory);
+    expect(pilotCards).toEqual(['AI Front Desk & Missed-Call Text Back']);
+    expect(exploratoryCards).toEqual(['Lead Capture & Inquiry Automation']);
+    // Days 15–21: a pilot decision only for the pilot candidate; catering named as no pilot.
+    expect(pilotNames(dto)).toEqual(pilotCards);
+    expect(exploratoryNames(dto)).toEqual(exploratoryCards);
+    // Decision box: pilots the candidate, names catering as exploratory with no pilot.
+    expect(dto.decisionBox.implement.detail).toMatch(/^Pilot AI Front Desk & Missed-Call Text Back only if /);
+    expect(dto.decisionBox.implement.detail).toContain('Lead Capture & Inquiry Automation stays exploratory: no pilot proposed.');
+    expect(dto.decisionBox.implement.detail).not.toMatch(/Pilot [^.]*Lead Capture/);
+    // Section 06: visible, flagged, never a recommendation; owner-record validation first.
+    const intake = dto.rankedAiOpportunities.find((o) => o.exploratory)!;
     expect(intake.fit).toBe('MODERATE');
-    expect(intake.basis.startsWith('Exploratory — a moderate automation fit, not a purchase recommendation. ')).toBe(true);
-    expect(dto.rankedAiOpportunities.find((o) => o.fit === 'STRONG')!.basis).not.toMatch(/Exploratory/);
-    expect(dto.decisionBox.implement.detail).toContain('Lead Capture & Inquiry Automation (exploratory, moderate fit)');
-    expect(dto.decisionBox.implement.detail).not.toContain('AI Front Desk & Missed-Call Text Back (exploratory');
+    expect(intake.basis).toBe(`Exploratory only — not a recommendation, and no pilot is proposed. Public evidence alone does not establish demand for it; it could be considered only once your own records show that demand, and then only with ${REQUIREMENTS}.`);
+    expect(dto.snapshot.topRecommendedAutomation).toBe('AI Front Desk & Missed-Call Text Back');
   });
 
-  it('phone, catering and retention together: all three everywhere; catering shown at its scored fit', () => {
+  it('phone, catering and retention together: phone and retention are pilot candidates, catering exploratory — consistently, nothing capped', () => {
     const dto = buildExecutiveReport(input([ORDER_BUTTON, PHONE, CATERING, RETENTION]));
-    const section06 = dto.rankedAiOpportunities.map((o) => o.solutionCategory);
-    expect(sorted(section06)).toEqual(['AI Front Desk & Missed-Call Text Back', 'Customer Reactivation & Follow-Up Automation', 'Lead Capture & Inquiry Automation']);
-    expect(sorted(pilotNames(dto))).toEqual(sorted(section06));
-    for (const name of section06) expect(dto.decisionBox.implement.detail).toContain(name);
-    const intake = dto.rankedAiOpportunities.find((o) => o.solutionCategory === 'Lead Capture & Inquiry Automation')!;
-    expect(intake.fit).toBe('MODERATE');
+    const pilotCards = dto.rankedAiOpportunities.filter((o) => !o.exploratory).map((o) => o.solutionCategory);
+    expect(sorted(pilotCards)).toEqual(['AI Front Desk & Missed-Call Text Back', 'Customer Reactivation & Follow-Up Automation']);
+    expect(sorted(pilotNames(dto))).toEqual(sorted(pilotCards));
+    expect(exploratoryNames(dto)).toEqual(['Lead Capture & Inquiry Automation']);
+    for (const name of pilotCards) expect(dto.decisionBox.implement.detail).toContain(name);
+    expect(dto.decisionBox.implement.detail).toContain('Lead Capture & Inquiry Automation stays exploratory: no pilot proposed.');
     expect(dto.findings.find((f) => f.category === CATERING.category)!.internalScores.aiFit).toBe(60);
   });
 
-  it('a website fix is never an automation proposal', () => {
-    for (const o of [ORDER_BUTTON, BROKEN, CTA]) expect(isAutomationCandidate(o), o.category).toBe(false);
+  it('catering alone: visible as exploratory in all three sections, and no automation change is proposed', () => {
+    const dto = buildExecutiveReport(input([ORDER_BUTTON, CATERING]));
+    expect(dto.rankedAiOpportunities.map((o) => [o.solutionCategory, o.exploratory])).toEqual([['Lead Capture & Inquiry Automation', true]]);
+    const plan = dto.thirtyDayPlan.find((p) => p.phase === 'DAYS 15–21')!;
+    expect(plan.heading).toBe('NO AUTOMATION PROPOSED');
+    expect(pilotNames(dto)).toEqual([]);
+    expect(exploratoryNames(dto)).toEqual(['Lead Capture & Inquiry Automation']);
+    expect(dto.decisionBox.implement).toMatchObject({ heading: 'NO AUTOMATION PROPOSED', detail: 'No automation change is currently proposed. Lead Capture & Inquiry Automation stays exploratory until your own records show demand.' });
+    expect(dto.snapshot.topRecommendedAutomation).toBeNull();
+  });
+
+  it('PDF and web page flag catering as exploratory and never as a pilot', async () => {
+    const dto = buildExecutiveReport(input(lev));
+    const pdf = await pdfText(dto);
+    expect(pdf).toContain('EXPLORATORY · MODERATE FIT');
+    const web = await webText(dto);
+    expect(web).toContain('Exploratory · moderate fit');
+    for (const text of [pdf, web]) {
+      expect(text).toContain('Lead Capture & Inquiry Automation stays exploratory');
+      expect(text).not.toMatch(/pilot of Lead Capture/);
+    }
+  }, 60_000);
+
+  it('a website fix is never an automation proposal, and catering is never a pilot candidate', () => {
+    for (const o of [ORDER_BUTTON, BROKEN, CTA, CATERING]) expect(isAutomationCandidate(o), o.category).toBe(false);
+    expect(isAutomationCandidate(PHONE)).toBe(true);
     const dto = buildExecutiveReport(input([ORDER_BUTTON, BROKEN, CTA, PHONE]));
     expect(dto.rankedAiOpportunities.map((o) => o.solutionCategory)).toEqual(['AI Front Desk & Missed-Call Text Back']);
   });

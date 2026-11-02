@@ -101,12 +101,15 @@ describe('Decision box: a pilot is conditional on demand AND readiness', () => {
     expect(text).not.toMatch(/\bdeploy/i);
   });
 
-  it('with no automation candidate the plan still requires readiness and offers no change', () => {
+  it('with no pilot candidate the plan proposes no pilot: automation findings stay exploratory, and no change is made', () => {
     const { input } = pipeline();
     const none = buildExecutiveReport({ ...input, opportunities: input.opportunities.map((o) => ({ ...o, aiFitScore: 10 })) });
     const plan = none.thirtyDayPlan.find((p) => p.phase === 'DAYS 15–21')!;
-    expect(plan.actions.join(' ')).toMatch(/readiness and safety checks/);
-    expect(plan.actions.join(' ')).toMatch(/make no automation change/);
+    expect(plan.heading).toBe('NO AUTOMATION PROPOSED');
+    expect(plan.actions.join(' ')).not.toMatch(/consider a limited, monitored pilot/);
+    expect(plan.actions.join(' ')).toMatch(/stays exploratory — no pilot is proposed/);
+    expect(plan.actions.at(-1)).toMatch(/^No automation change is proposed in this plan/);
+    expect(none.decisionBox.implement.heading).toBe('NO AUTOMATION PROPOSED');
   });
 });
 

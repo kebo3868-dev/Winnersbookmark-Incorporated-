@@ -83,38 +83,52 @@ const READINESS: Record<string, RegExp> = {
   'Lead Capture & Inquiry Automation': /intake questions and acknowledgment wording approved by the owner; every inquiry verified to route to a named staff member; human escalation tested/,
 };
 
-function expectDays15to21Gated(r: ReturnType<typeof report>, candidates: string[]) {
+/**
+ * Days 15–21, the Decision box and Section 06 for a report whose pilot
+ * candidates (strong fit) and exploratory opportunities (catering at fit 60 —
+ * PR #63: a private-party link alone does not establish demand) are given.
+ */
+function expectDays15to21Gated(r: ReturnType<typeof report>, candidates: string[], exploratory: string[] = []) {
   const actions = r.decide.actions;
   expect(actions.join(' ')).not.toMatch(/\bdeploy/i);
+  // Section 06 lists both kinds; exploratory ones are flagged and never recommended.
+  expect([...r.dto.rankedAiOpportunities.map((o) => o.solutionCategory)].sort()).toEqual([...candidates, ...exploratory].sort());
+  for (const o of r.dto.rankedAiOpportunities) expect(o.exploratory, o.solutionCategory).toBe(exploratory.includes(o.solutionCategory));
+  // An exploratory opportunity is named, as no pilot, in Days 15–21 and the Decision box.
+  const exploratoryLines = actions.filter((a) => / stays exploratory — no pilot is proposed: /.test(a));
+  expect(exploratoryLines.map((a) => a.split(' stays exploratory')[0])).toEqual(exploratory);
+  for (const line of exploratoryLines) expect(line).not.toMatch(/consider a limited, monitored pilot/);
+  for (const name of exploratory) expect(r.dto.decisionBox.implement.detail).toContain(`${name} stays exploratory`);
+
   if (candidates.length === 0) {
-    // Review finding M3: with no automation candidate the phase proposes no
-    // pilot — it used to offer one of "the best-fit automation", which the
-    // report never identified — and the Decision box says the same.
+    // Review finding M3: with no pilot candidate the phase proposes no pilot,
+    // and the Decision box says the same.
     expect(r.decide.heading).toBe('NO AUTOMATION PROPOSED');
-    expect(actions).toHaveLength(1);
-    expect(actions[0]).toMatch(/^No automation is proposed: no finding in this audit is one an automation would address\. Make no automation change — /);
-    expect(actions[0]).not.toMatch(/pilot|best-fit|highest-fit/i);
+    expect(actions.join(' ')).not.toMatch(/consider a limited, monitored pilot|best-fit|highest-fit/i);
     expect(r.dto.decisionBox.implement.heading).toBe('NO AUTOMATION PROPOSED');
-    expect(r.dto.decisionBox.implement.detail).toBe('No automation change is currently proposed: no finding in this audit is one an automation would address.');
-    expect(r.dto.rankedAiOpportunities).toEqual([]);
+    if (exploratory.length === 0) {
+      expect(actions).toEqual([expect.stringMatching(/^No automation is proposed: no finding in this audit is one an automation would address\. Make no automation change — /)]);
+      expect(r.dto.decisionBox.implement.detail).toBe('No automation change is currently proposed: no finding in this audit is one an automation would address.');
+    } else {
+      expect(actions.at(-1)).toMatch(/^No automation change is proposed in this plan — /);
+      expect(r.dto.decisionBox.implement.detail).toMatch(/^No automation change is currently proposed\. /);
+    }
     return;
   }
   expect(r.decide.heading).toBe('DECIDE & PILOT IF READY');
   expect(actions[0]).toBe('Review the operational evidence collected in Days 1–7 before choosing any automation.');
-  const pilots = actions.slice(1, -1);
+  const pilots = actions.filter((a) => /consider a limited, monitored pilot of /.test(a));
   expect(pilots).toHaveLength(candidates.length);
   pilots.forEach((line, i) => {
-    // 1. demand shown by the records  2. own readiness and safety checks  3. only then a limited, monitored pilot
-    // A moderate-fit proposal (catering inquiry intake, AI fit 60) is marked exploratory, not a purchase recommendation; strong-fit proposals are not.
-    if (candidates[i] === 'Lead Capture & Inquiry Automation') expect(line.startsWith('Exploratory — a moderate automation fit, not a purchase recommendation. ')).toBe(true);
-    else expect(line).not.toMatch(/^Exploratory/);
-    expect(line).toMatch(/^(Exploratory — a moderate automation fit, not a purchase recommendation\. )?If (the|a) .+: consider a limited, monitored pilot of /);
+    // 1. demand shown by the records  2. own readiness and safety checks  3. owner approval  4. only then a limited, monitored pilot
+    expect(line).toMatch(/^If (the|a) .+: consider a limited, monitored pilot of /);
     expect(line).toContain(`pilot of ${candidates[i]} — only after the proposed system passes its own readiness and safety checks for this restaurant (`);
     expect(line).toMatch(READINESS[candidates[i]]);
     expect(line).toMatch(/\) and the owner approves the pilot\. Set success metrics and human escalation before it starts\.$/);
   });
-  // 4. otherwise, no automation change
-  expect(actions[actions.length - 1]).toMatch(/^If the records do not show that demand, or the system has not passed those checks, make no automation change — /);
+  for (const name of candidates) expect(r.dto.decisionBox.implement.detail).toMatch(new RegExp(`^Pilot .*${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`));
+  // otherwise, no automation change
+  expect(actions[1 + candidates.length]).toMatch(/^If the records do not show that demand, or the system has not passed those checks, make no automation change — /);
 }
 
 describe('Days 8–14 when every top finding is an automation candidate', () => {
@@ -130,10 +144,11 @@ describe('Days 8–14 when every top finding is an automation candidate', () => 
     expectDays8to14Safe(r);
   });
 
-  it('Days 15–21 carries the automations, each behind demand, its own readiness checks, then a monitored pilot', () => {
-    // All three, catering included at AI fit 60, and none dropped by a cap.
-    expectDays15to21Gated(r, ['AI Front Desk & Missed-Call Text Back', 'Customer Reactivation & Follow-Up Automation', 'Lead Capture & Inquiry Automation']);
-    expect(r.decide.actions.at(-1)).toMatch(/continue with the validated findings\.$/);
+  it('Days 15–21 gates the pilot candidates behind demand, readiness checks and approval; catering stays exploratory', () => {
+    // Phone and retention are pilot candidates; catering (AI fit 60, a private-party
+    // link) is exploratory — visible, no pilot (PR #63). None dropped by a cap.
+    expectDays15to21Gated(r, ['AI Front Desk & Missed-Call Text Back', 'Customer Reactivation & Follow-Up Automation'], ['Lead Capture & Inquiry Automation']);
+    expect(r.decide.actions[3]).toMatch(/continue with the validated findings\.$/);
   });
 });
 
@@ -152,9 +167,9 @@ describe('Days 8–14 with direct website fixes and automation opportunities tog
     expect(r.fix.actions.join(' ')).not.toContain('AI-assisted');
   });
 
-  it('Days 15–21 gates the AI Front Desk and catering intake, and points back to the website fixes otherwise', () => {
-    expectDays15to21Gated(r, ['AI Front Desk & Missed-Call Text Back', 'Lead Capture & Inquiry Automation']);
-    expect(r.decide.actions.at(-1)).toMatch(/put the time into the website fixes above\.$/);
+  it('Days 15–21 gates the AI Front Desk, keeps catering intake exploratory (no pilot), and points back to the website fixes otherwise', () => {
+    expectDays15to21Gated(r, ['AI Front Desk & Missed-Call Text Back'], ['Lead Capture & Inquiry Automation']);
+    expect(r.decide.actions[2]).toMatch(/put the time into the website fixes above\.$/);
   });
 });
 
@@ -200,10 +215,10 @@ describe("the Leverock's audit", () => {
     expectDays8to14Safe(r);
   });
 
-  it('Days 15–21 gates the AI Front Desk on call records and catering intake on inquiry records, each with its own checks', () => {
-    expectDays15to21Gated(r, ['AI Front Desk & Missed-Call Text Back', 'Lead Capture & Inquiry Automation']);
+  it('Days 15–21 gates the AI Front Desk on call records; catering intake stays exploratory until inquiry records show demand', () => {
+    expectDays15to21Gated(r, ['AI Front Desk & Missed-Call Text Back'], ['Lead Capture & Inquiry Automation']);
     expect(r.decide.actions[1]).toMatch(/^If the call records show calls going unanswered, or the same questions asked again and again: /);
-    expect(r.decide.actions[2]).toMatch(/^Exploratory — a moderate automation fit, not a purchase recommendation\. If the inquiry records show slow or missed responses to catering or private-event requests: /);
+    expect(r.decide.actions[3]).toBe('Lead Capture & Inquiry Automation stays exploratory — no pilot is proposed: public evidence alone does not show demand for it. Only if the inquiry records show slow or missed responses to catering or private-event requests could it be assessed as a proposal, under the same conditions as any automation.');
   });
 
   it('no later phase repeats a Days 1–7 step, and the plan says "deploy" nowhere', () => {
@@ -226,12 +241,10 @@ describe('every combination of eight representative findings', () => {
       else expect(r.fix.heading, `mask ${mask}`).toBe('COMPLETE VALIDATION — NO AUTOMATION CHANGE');
       expectDays8to14Safe(r);
       const NAME = new Map<Opp, string>([[PHONE, 'AI Front Desk & Missed-Call Text Back'], [RETENTION, 'Customer Reactivation & Follow-Up Automation'], [CATERING, 'Lead Capture & Inquiry Automation']]);
-      // Every automation finding in the report, by priority — catering at fit 60 included, nothing capped.
-      const candidates = top.filter((o) => NAME.has(o)).map((o) => NAME.get(o)!);
-      expectDays15to21Gated(r, candidates);
-      // One rule (review finding M2): Section 06 and the Decision box name the same automations as Days 15–21.
-      expect([...r.dto.rankedAiOpportunities.map((o) => o.solutionCategory)].sort(), `mask ${mask}`).toEqual([...candidates].sort());
-      for (const c of candidates) expect(r.dto.decisionBox.implement.detail, `mask ${mask}`).toContain(c);
+      // Pilot candidates (strong fit) by priority; catering is exploratory (PR #63) — nothing capped.
+      const candidates = top.filter((o) => NAME.has(o) && o !== CATERING).map((o) => NAME.get(o)!);
+      const exploratory = top.includes(CATERING) ? [NAME.get(CATERING)!] : [];
+      expectDays15to21Gated(r, candidates, exploratory);
     }
   });
 

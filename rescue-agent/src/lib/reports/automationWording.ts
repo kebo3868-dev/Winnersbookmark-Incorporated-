@@ -120,7 +120,8 @@ export function presentAutomationClaims(text: string): string {
  */
 const AUTOMATION_SUBJECT =
   /\b(AI|A\.I\.|automation|automations|automated|automate|automating|Front Desk|chatbot|chat bot|bot|voice (answering|receptionist|agent|assistant)|receptionist|text-back|missed-call|intake|reactivation|virtual (receptionist|assistant|agent)|answering service)\b/i;
-const VALIDATION_SERVICE = /\bAI Discovery Audit\b/gi;
+/** Not an automation: the validation service, and descriptions of the summary or audit itself. */
+const VALIDATION_SERVICE = /\bAI Discovery Audit\b|\bAI[- ](enhanced|generated|written|assisted (audit|analysis|summary|review))\b/gi;
 /**
  * A sentence that refers back to something named earlier ("Put it in place",
  * "They should install one") — the second half of a recommendation split
@@ -133,14 +134,14 @@ const BACK_REFERENCE = /\b(it|its|this|that|these|those|they|them|one|the (syste
  * deterministic summary.
  */
 const RECOMMENDS =
-  /\b(deploy\w*|install\w*|implement\w*|adopt\w*|roll(s|ed|ing)? (it |them )?out|rollout|launch\w*|introduc\w*|put (it |them |one )?in place|set (it |them |one )?up|bring(s|ing)? (it |them |one )?(on|in)|brought (on|in)|switch(es|ed|ing)? (to|on|over)|mov(e|es|ed|ing) to|upgrad\w* to|turn(s|ed|ing)? on|sign(s|ed|ing)? up|subscrib\w*|purchas\w*|buy(s|ing)?|go(es|ing)? live|get(s|ting)? (an?|the) |add(s|ed|ing)? (an?|the) |us(e|es|ing) (an?|the) |benefit\w* from|invest\w* in|recommend\w* (an?|the|that|installing|adding|using|adopting|deploying|piloting|trying|getting|moving|switching)|pilot\w*|trial\w*|try(ing)? (out )?(an?|the|it))\b|\bis (the|a|an|your) (right|matched|best|ideal|perfect|obvious|clear|recommended|natural|proven|smart|sensible|logical) (fix|solution|answer|choice|tool|system|next step|move|option|investment)\b|\b(would|will|could) be (a|an) (good|great|ideal|smart|strong|valuable|worthwhile|sensible) (fit|addition|investment|choice|solution|step|option)\b|\b(should|must|need(s)? to|ought to|has to|have to) be \w+(ed|en|t)\b|\b(should|must|need(s)? to|ought to|has to|have to) (use|get|add|have|consider|start|run)\b/i;
+  /\b(deploy\w*|install\w*|implement\w*|adopt\w*|roll(s|ed|ing)? (it |them )?out|rollout|launch\w*|introduc\w*|put (it |them |one )?in place|set (it |them |one )?up|bring(s|ing)? (it |them |one )?(on|in)|brought (on|in)|switch(es|ed|ing)? (to|on|over)|mov(e|es|ed|ing) to|upgrad\w* to|turn(s|ed|ing)? on|sign(s|ed|ing)? up|subscrib\w*|purchas\w*|buy(s|ing)?|go(es|ing)? live|get(s|ting)? (an?|the) |add(s|ed|ing)? (an?|the) |us(e|es|ing) (an?|the) |benefit\w* from|invest\w* in|recommend\w*|(suggest|advis|propos|urg)\w* (an?|the|that|it|them|adding|using|installing|getting|switching|moving|piloting|trying)|go(es|ing)? with|went with|opt(s|ed|ing)? for|choos\w*|chose\w*|select\w*|pick(s|ed|ing)?|rel(y|ies|ied|ying) on|lean(s|ed|ing)? on|onboard\w*|pilot\w*|trial\w*|try(ing)? (out )?(an?|the|it)|makes? sense|is what|is (worth|needed)|needs? (it|one|an?|the))\b|\bis (the|a|an|your) (right|matched|best|ideal|perfect|obvious|clear|recommended|natural|proven|smart|sensible|logical) (fix|solution|answer|choice|tool|system|next step|move|option|investment)\b|\b(would|will|could) be (a|an) (good|great|ideal|smart|strong|valuable|worthwhile|sensible) (fit|addition|investment|choice|solution|step|option)\b|\b(should|must|need(s)? to|ought to|has to|have to) be \w+(ed|en|t)\b|\b(should|must|need(s)? to|ought to|has to|have to) (use|get|add|have|consider|start|run)\b/i;
 /**
  * A promised or implied result — never acceptable, gated or not: no outcome
  * has been measured. Includes softened forms ("would likely solve", "could
  * help reduce missed inquiries").
  */
 const OUTCOME_CLAIM =
-  /\b(will|would|could|can|might|may|should|is likely to|are likely to|is expected to|are expected to)\s+(likely\s+|probably\s+|certainly\s+|help\s+(to\s+)?)?(stop|solve|eliminate|end|prevent|recover|capture|win back|bring back|answer every|resolve)\b|\b(will|would|could|can|might|may|should|is likely to|is expected to)\s+(likely\s+|probably\s+|help\s+(to\s+)?)?(reduce|cut|increase|boost|improve|raise|lift|double|grow|save)\b[^.]{0,40}\b(missed|lost|unanswered|dropped|calls|inquir\w*|orders|revenue|bookings|sales|conversions?|guests?)\b|\b(stops?|eliminates?|prevents?|recovers?|ends?|solves?) (the )?(missed|lost|unanswered|dropped|phone)\b|\bguarantee\w*\b|\bnever miss\b/i;
+  /\b(will|would|could|can|might|may|should|is likely to|are likely to|is expected to|are expected to)\s+(likely\s+|probably\s+|certainly\s+|help\s+(to\s+)?)?(stop|solve|eliminate|end|prevent|recover|capture|win back|bring back|answer every|resolve)\b|\b(will|would|could|can|might|may|should|is likely to|is expected to)\s+(likely\s+|probably\s+|help\s+(to\s+)?)?(reduce|cut|increase|boost|improve|raise|lift|double|grow|save)\b[^.]{0,40}\b(missed|lost|unanswered|dropped|calls|inquir\w*|orders|revenue|bookings|sales|conversions?|guests?)\b|\b(stops?|eliminates?|prevents?|recovers?|ends?|solves?) (the )?(missed|lost|unanswered|dropped|phone)\b|\bguarantee\w*\b|\bnever miss\b|\bno (single )?(call|calls|inquir\w*|guest|guests|order|orders|booking|bookings)\b[^.]{0,30}\b(would|will|could)\b[^.]{0,20}\b(go|be|get)\b[^.]{0,10}\b(unanswered|missed|lost|dropped)\b|\bhelp(s|ed|ing)? (with|against|reduce|cut|stop|fix|solve|prevent)\b[^.]{0,30}\b(missed|lost|unanswered|dropped)\b/i;
 
 /** Evidence of measurable demand in the restaurant's own operating records. */
 function namesRecordedDemand(sentence: string): boolean {
@@ -170,15 +171,26 @@ export interface SummaryScreen {
   unsafe: string[];
 }
 
+/** An explicit non-recommendation: "No automation change is proposed …", "… is not recommended until …". */
+const NEGATION = /\b(no|not|never|none|without)\b/i;
+
 /**
- * Whether an AI-written summary may be shown to a client. Unsafe, sentence by
- * sentence:
- *  - any promised or implied result, softened or not;
- *  - any "is the matched fix";
- *  - any sentence that recommends, adopts or crowns an automation — named in
- *    that sentence, or referred back to once the summary has named one
- *    ("…the AI Front Desk is ready. Install it.") — unless that same sentence
- *    carries the whole gate (carriesGate).
+ * Whether an AI-written summary may be shown to a client.
+ *
+ * FAIL CLOSED ON MENTION, NOT ON VERBS. A list of recommending verbs always
+ * leaks ("we suggest", "go with", "is what this restaurant needs", "makes
+ * sense"…), so a sentence that NAMES an automation is safe only if it carries
+ * the whole gate (carriesGate: only after measurable demand in the restaurant's
+ * own records, the product's own readiness and safety tests, approval, and a
+ * limited, monitored pilot) or is an explicit non-recommendation ("No
+ * automation change is proposed until the records confirm the demand.").
+ * Whatever its verb, any other mention is unsafe.
+ *
+ * Also unsafe: any promised or implied result, softened or absolute ("would
+ * likely solve", "no call would go unanswered"); "is the matched fix"; and,
+ * once the summary has named an automation, a later sentence that refers back
+ * to it and recommends it ("Install it this month.").
+ *
  * One unsafe sentence rejects the whole summary; the caller falls back to the
  * deterministic summary.
  */
@@ -188,8 +200,9 @@ export function screenAiSummary(text: string): SummaryScreen {
   const sentences = scrubbed.split(/(?<=[.!?;])\s+/).map((s) => s.trim()).filter(Boolean);
   const unsafe = sentences.filter((s) => {
     if (OUTCOME_CLAIM.test(s) || /\bis the matched fix\b/i.test(s)) return true;
-    const aboutAutomation = AUTOMATION_SUBJECT.test(s) || (namesAutomation && BACK_REFERENCE.test(s));
-    return aboutAutomation && RECOMMENDS.test(s) && !carriesGate(s);
+    if (carriesGate(s)) return false;
+    if (AUTOMATION_SUBJECT.test(s)) return !(NEGATION.test(s) && !RECOMMENDS.test(s));
+    return namesAutomation && BACK_REFERENCE.test(s) && RECOMMENDS.test(s);
   });
   return { safe: unsafe.length === 0, unsafe };
 }

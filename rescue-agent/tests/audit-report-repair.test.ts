@@ -158,20 +158,26 @@ describe('2. a private-party link does not establish how inquiries are handled',
     expect(leak!.recommendedSolution).toMatch(/if they do not, no automation is needed/i);
   });
 
-  // UPDATED IN PR #77 (review finding M2): Section 06, the Decision box and
-  // Days 15–21 now share one automation-candidate rule, so the catering
-  // inquiry-intake proposal is listed in Section 06 because the plan decides
-  // it. What this guard protects is unchanged: a link alone does not promote it
-  // to a recommendation. It stays a Moderate-fit proposal at its scored AI fit,
-  // marked as requiring validation, with the whole gate on its card.
+  // PR #63's intent, restored in PR #77 after review: a link alone does not
+  // establish demand, so catering is never a recommendation or a pilot
+  // decision. It stays visible — in Section 06, the Decision box and Days
+  // 15–21 alike — as an exploratory Moderate-fit opportunity requiring
+  // owner-record validation, at its unchanged AI fit.
   it('is not promoted to an AI recommendation on the strength of a link', () => {
     expect(leak!.aiFitScore).toBeLessThan(70);
     const dto = buildExecutiveReport(reportInput(leaks, analyzeJourney(records)));
     const intake = dto.rankedAiOpportunities.find((o) => o.solutionCategory === 'Lead Capture & Inquiry Automation');
-    expect(intake, 'listed as a gated proposal under the shared rule').toBeDefined();
+    // Visible in Section 06 only as exploratory — not a recommendation, no pilot.
+    expect(intake, 'listed, flagged exploratory').toBeDefined();
+    expect(intake!.exploratory).toBe(true);
     expect(intake!.fit).toBe('MODERATE');
     expect(intake!.requiresValidation).toBe(true);
-    expect(intake!.basis).toMatch(/^Exploratory — a moderate automation fit, not a purchase recommendation\. Potential improvement — requires operational validation before any implementation: measurable demand in your own records, the product passing its own readiness and safety tests, your explicit approval, and a limited, monitored pilot first\./);
+    expect(intake!.basis).toMatch(/^Exploratory only — not a recommendation, and no pilot is proposed\. Public evidence alone does not establish demand for it/);
+    // Never a pilot decision: not piloted in Days 15–21, not piloted in the Decision box.
+    const decide = dto.thirtyDayPlan.find((p) => p.phase === 'DAYS 15–21')!.actions.join(' ');
+    expect(decide).not.toMatch(/pilot of Lead Capture/);
+    expect(decide).toContain('Lead Capture & Inquiry Automation stays exploratory — no pilot is proposed');
+    expect(dto.decisionBox.implement.detail).not.toMatch(/Pilot [^.]*Lead Capture/);
     expect(dto.findings.find((f) => /CATERING|PRIVATE/i.test(f.category))!.internalScores.aiFit).toBe(leak!.aiFitScore);
     const finding = dto.findings.find((f) => /Private-event/.test(f.title))!;
     expect(finding.commercialEffect).not.toMatch(/manual handling/i);

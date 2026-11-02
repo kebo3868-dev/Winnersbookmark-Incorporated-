@@ -236,23 +236,22 @@ describe('phone, catering and retention together: cards and plan agree', () => {
     expect(plan('DAYS 8–14').actions).toEqual([ORDER_BUTTON.recommendedSolution]);
   });
 
-  it('every automation recommended on a card is decided in Days 15–21 — catering at AI fit 60 included, nothing capped', () => {
+  it('every automation a card mentions is addressed in Days 15–21: phone and retention as gated pilots, catering (AI fit 60) as exploratory with no pilot — nothing capped', () => {
     expect(CATERING.aiFitScore).toBe(60);
     const decide = plan('DAYS 15–21').actions;
     const pilots = decide.filter((a) => /consider a limited, monitored pilot of/.test(a));
-    // In report priority order: retention 52, phone 50, catering 49.
+    // In report priority order: retention 52, phone 50.
     expect(pilots.map((a) => a.match(/pilot of (.+?) —/)![1])).toEqual([
-      'Customer Reactivation & Follow-Up Automation', 'AI Front Desk & Missed-Call Text Back', 'Lead Capture & Inquiry Automation',
+      'Customer Reactivation & Follow-Up Automation', 'AI Front Desk & Missed-Call Text Back',
     ]);
-    const catering = pilots[2];
-    expect(catering).toMatch(/^Exploratory — a moderate automation fit, not a purchase recommendation\. If the inquiry records show slow or missed responses to catering or private-event requests: /);
-    expect(catering).toMatch(/intake questions and acknowledgment wording approved by the owner; every inquiry verified to route to a named staff member; human escalation tested\) and the owner approves the pilot\./);
-    expect(decide.at(-1)).toMatch(/make no automation change/);
-    // Each card that recommends an automation has its decision here.
-    const DECIDED_AS: [RegExp, string][] = [[/AI Front Desk/, 'AI Front Desk & Missed-Call Text Back'], [/AI-assisted inquiry intake/, 'Lead Capture & Inquiry Automation'], [/Reactivation/, 'Customer Reactivation & Follow-Up Automation']];
+    // PR #63: a private-party link does not establish demand — catering is named, never piloted.
+    expect(decide.join(' ')).not.toMatch(/pilot of Lead Capture/);
+    expect(decide).toContain('Lead Capture & Inquiry Automation stays exploratory — no pilot is proposed: public evidence alone does not show demand for it. Only if the inquiry records show slow or missed responses to catering or private-event requests could it be assessed as a proposal, under the same conditions as any automation.');
+    // Each card that mentions an automation has it addressed here.
+    const ADDRESSED_AS: [RegExp, string][] = [[/AI Front Desk/, 'pilot of AI Front Desk & Missed-Call Text Back —'], [/AI-assisted inquiry intake/, 'Lead Capture & Inquiry Automation stays exploratory'], [/Reactivation/, 'pilot of Customer Reactivation & Follow-Up Automation —']];
     for (const f of dto.findings) {
-      for (const [mentions, decided] of DECIDED_AS) {
-        if (mentions.test(f.recommendedAction)) expect(pilots.some((a) => a.includes(`pilot of ${decided} —`)), `${f.title} → ${decided}`).toBe(true);
+      for (const [mentions, addressed] of ADDRESSED_AS) {
+        if (mentions.test(f.recommendedAction)) expect(decide.some((a) => a.includes(addressed)), `${f.title} → ${addressed}`).toBe(true);
       }
     }
   });

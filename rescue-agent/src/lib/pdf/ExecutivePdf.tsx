@@ -775,7 +775,7 @@ export function ExecutivePdf({ dto: report }: { dto: ExecutiveReportDTO }) {
               <View style={s.card}>
                 <View style={[s.row, { justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }]}>
                   <Text style={{ fontFamily: 'Times-Bold', fontSize: 11.5, color: C.ink }}>#{opp.rank} · {opp.solutionCategory}</Text>
-                  <Text style={[s.badge, { color: C.goldDim, borderColor: C.goldDim }]}>AUTOMATION FIT: {opp.fit}</Text>
+                  <Text style={[s.badge, { color: C.goldDim, borderColor: C.goldDim }]}>{opp.exploratory ? `EXPLORATORY · ${opp.fit} FIT` : `AUTOMATION FIT: ${opp.fit}`}</Text>
                 </View>
                 <Text style={[s.mutedText, { marginBottom: 5, color: opp.requiresValidation ? C.amber : C.muted }]}>{opp.basis}</Text>
                 <Text style={s.label}>Problem addressed</Text>
