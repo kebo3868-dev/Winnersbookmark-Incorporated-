@@ -239,8 +239,7 @@ const RULES: Rule[] = [
         ' cannot be observed from a public website. This audit does not claim the phone is overloaded or that calls are' +
         ' being missed — it cannot see either.',
       businessImpact: coreQuestionsAnswered
-        ? 'If call volume turns out to be high and largely repetitive, answering those calls automatically is worth measuring. ' +
-          'Whether that is the case here is an open question, not a finding.'
+        ? "Call volume, unanswered calls, and repetitive questions require the restaurant's own records."
         : knownGap
           ? 'Questions a visitor cannot answer online tend to arrive by phone instead. How much demand that creates here is unmeasured.'
           : 'Whether visitors can answer these questions online was not fully verified, so whether the website reduces phone ' +

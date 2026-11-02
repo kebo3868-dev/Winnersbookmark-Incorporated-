@@ -19,7 +19,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import levFixture from './fixtures/leverocks-local-audit-opportunities.json';
-import { ADVERSARIAL_NARRATIVE, SAFE_NARRATIVE } from './fixtures/narrative-policy-cases';
+import storedFixture from './fixtures/leverocks-stored-audit.json';
+import { ADVERSARIAL_NARRATIVE, LEGITIMATE_9B4329E, MIXED_CLAUSE, REPORTED_9B4329E, SAFE_NARRATIVE } from './fixtures/narrative-policy-cases';
+import { publishAuditObservations } from '@/lib/reports/observationPublication';
+import { isClaimFree } from '@/lib/reports/narrativePolicy';
 import { generateSalesBrief } from '@/lib/reports/sales';
 import type { RankedOpportunity } from '@/lib/reports/owner';
 import {
@@ -68,9 +71,31 @@ const NARRATIVE = ['buyerPersona', 'bestSalesAngle', 'topDiscoveryQuestion', 'di
 const textOf = (value: unknown) => (Array.isArray(value) ? value.join('\n') : String(value));
 const AUDIT_ID = 'cmvhistsales000000000001';
 
-/** A stored brief and its audit, as the database would return them. */
-function storedRecord(tier: string, poison: string | null, opportunities = lev) {
+type Stored = typeof storedFixture;
+const ORDER_FACT_ID = storedFixture.evidence.find((e) => e.evidenceType === 'ORDERING_CHANNEL')!.id;
+
+/** What may be written into the stored audit the brief is regenerated from. */
+interface AuditPoison {
+  /** Written as is into every observation field (facts, journey findings, finding text). */
+  observation?: string;
+  /** Quoted as the button label in the real ordering-channel template, which the brief quotes as its verified hook. */
+  labelSlot?: string;
+  opportunities?: (o: Stored['opportunities'][number], i: number) => Stored['opportunities'][number];
+}
+
+/** A stored brief and its audit (the Leverock's stored-audit fixture), as the database would return them. */
+function storedRecord(tier: string, poison: string | null, audit: AuditPoison = {}) {
   const text = (fallback: string) => poison ?? fallback;
+  const s: Stored = structuredClone(storedFixture);
+  if (audit.observation) {
+    for (const e of s.evidence) e.fact = audit.observation;
+    for (const j of s.journeyStages) j.finding = audit.observation;
+    for (const o of s.opportunities) Object.assign(o, { title: audit.observation, problem: audit.observation, businessImpact: audit.observation });
+  }
+  if (audit.labelSlot !== undefined) {
+    for (const e of s.evidence) if (e.id === ORDER_FACT_ID) e.fact = e.fact.replace('The "Order" button', `The "${audit.labelSlot}" button`);
+  }
+  if (audit.opportunities) s.opportunities = s.opportunities.map(audit.opportunities);
   return {
     id: 'si1', auditId: AUDIT_ID, leadQualityScore: 70, salesOpportunityScore: 80, painLevel: 'HIGH', priority: 'HOT',
     createdAt: new Date('2026-06-01T00:00:00Z'),
@@ -87,10 +112,11 @@ function storedRecord(tier: string, poison: string | null, opportunities = lev) 
     talkTrack: text(`MINUTE 16–20 — Next step: recommend ${tier} and explain exactly why the evidence points there.`),
     followUpAngle: text('Follow up.'),
     audit: {
-      demoMode: false, overallScore: 84, coverageScore: 80,
+      demoMode: false, overallScore: s.overallScore, coverageScore: s.coverageScore,
       restaurant: { name: "Leverock's Great Seafood", websiteUrl: 'https://leverocks.example/' },
-      opportunities: opportunities.map((o, i) => ({ id: `o${i}`, ...o })),
-      journeyStages: [], evidence: [],
+      opportunities: s.opportunities,
+      journeyStages: s.journeyStages,
+      evidence: s.evidence,
       reports: [{ content: { recommendation: { tier, rationale: 'x' } } }],
     },
   };
@@ -183,14 +209,19 @@ describe('stored brief text is never shown: the loader regenerates every narrati
     expect(squash(await page())).not.toContain(squash(ADVERSARIAL_NARRATIVE[0]));
   });
 
-  it('a stored opportunity title that recommends automation is not quoted to the rep; a factual one is', async () => {
+  it('a stored opportunity title is never quoted as stored: the title the rep sees is regenerated from the evidence', async () => {
     const poisonedTitle = 'Calls are to be answered by a prerecorded greeter.';
-    storedBrief = storedRecord('AI FRONT DESK SYSTEM', null, lev.map((o, i) => (i === 0 ? { ...o, title: poisonedTitle } : o)));
+    storedBrief = storedRecord('AI FRONT DESK SYSTEM', null, { opportunities: (o, i) => (i === 0 ? { ...o, title: poisonedTitle } : o) });
     const poisoned = await load();
     for (const field of NARRATIVE) expect(textOf(poisoned[field]), field).not.toContain(poisonedTitle);
     storedBrief = storedRecord('AI FRONT DESK SYSTEM', null);
     const clean = await load();
-    expect(textOf(clean.bestSalesAngle) + textOf(clean.callOpener)).toMatch(new RegExp(lev[0].title.slice(0, 20).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'));
+    const published = publishAuditObservations({
+      evidence: storedFixture.evidence.map((e) => ({ ...e, sourceUrl: null })),
+      journey: storedFixture.journeyStages, opportunities: storedFixture.opportunities, scores: [],
+    });
+    expect(published.report.opportunities.fallbacks).toBe(0);
+    expect(textOf(clean.bestSalesAngle)).toContain(published.opportunities[0].title);
   });
 
   it('the regenerated brief shows the conditional next step and offer; the stored record is unchanged; stored numbers are kept', async () => {
@@ -216,6 +247,57 @@ describe('stored brief text is never shown: the loader regenerates every narrati
 
   it('the withheld notice exists for a field the policy rejects', () => {
     expect(presentSalesField('Pitch the AI Front Desk on this call.')).toBe(SALES_WITHHELD_NOTICE);
+  });
+});
+
+describe('review of 9b4329e: observations reach the brief only with provenance', () => {
+  it('the reported endorsements, stored in every observation field and every brief field, never reach the loader or the page', async () => {
+    for (const phrase of [...REPORTED_9B4329E, ...MIXED_CLAUSE]) {
+      storedBrief = storedRecord('AI FRONT DESK SYSTEM', phrase, { observation: phrase });
+      const shown = await load();
+      for (const field of NARRATIVE) expect(squash(textOf(shown[field])), `${phrase} / ${field}`).not.toContain(squash(phrase));
+      expect(squash(await page()), phrase).not.toContain(squash(phrase));
+    }
+  });
+
+  it('quoted in the label slot of the real ordering-channel template, an endorsement does not reach the brief', async () => {
+    for (const phrase of [...REPORTED_9B4329E, ...MIXED_CLAUSE]) {
+      storedBrief = storedRecord('AI FRONT DESK SYSTEM', null, { labelSlot: phrase });
+      expect(squash(JSON.stringify(await load())), phrase).not.toContain(squash(phrase));
+      expect(squash(await page()), phrase).not.toContain(squash(phrase));
+    }
+  });
+
+  it('the loader hands on the audit only as published: the unaltered audit keeps its ordering evidence and regenerated finding wording', async () => {
+    storedBrief = storedRecord('AI FRONT DESK SYSTEM', null);
+    const shown = await load();
+    const audit = shown.audit as { evidence: { id: string; fact: string }[]; opportunities: { title: string }[]; reports: unknown[] };
+    const fact = storedFixture.evidence.find((e) => e.id === ORDER_FACT_ID)!.fact;
+    expect(audit.evidence.find((e) => e.id === ORDER_FACT_ID)!.fact).toBe(fact);
+    expect(audit.evidence.map((e) => e.fact)).toEqual(storedFixture.evidence.map((e) => e.fact));
+    expect(audit.opportunities[0].title).toBe('The online ordering button uses a telephone link instead of an online checkout');
+    expect(audit.reports).toEqual([]);
+    expect(textOf(shown.callOpener)).toContain('set up as a phone link rather than an online checkout');
+  });
+
+  it('legitimate negative assessments and repairs, quoted in that slot, keep their provenance and are handed on as written', async () => {
+    for (const phrase of LEGITIMATE_9B4329E) {
+      storedBrief = storedRecord('AI FRONT DESK SYSTEM', null, { labelSlot: phrase });
+      const shown = await load();
+      const audit = shown.audit as { evidence: { id: string; fact: string }[] };
+      expect(audit.evidence.find((e) => e.id === ORDER_FACT_ID)!.fact, phrase).toContain(`The "${phrase}" button`);
+      // The brief's own wording about the finding is unchanged by the quoted label.
+      expect(textOf(shown.callOpener), phrase).toContain('set up as a phone link rather than an online checkout');
+    }
+  });
+
+  it('as rep instructions, legitimate statements pass the shared policy unchanged; the reported ones are withheld', async () => {
+    for (const phrase of LEGITIMATE_9B4329E) expect(presentSalesField(phrase), phrase).toBe(phrase);
+    for (const phrase of [...REPORTED_9B4329E.slice(0, 2), ...MIXED_CLAUSE]) expect(presentSalesField(phrase), phrase).toBe(SALES_WITHHELD_NOTICE);
+    // Names no recognisable automation, so the rep-instruction policy alone does
+    // not reject it; it is never shown because stored brief text is never read
+    // (above), and it is not claim-free, so it cannot enter through evidence.
+    expect(isClaimFree(REPORTED_9B4329E[2])).toBe(false);
   });
 });
 

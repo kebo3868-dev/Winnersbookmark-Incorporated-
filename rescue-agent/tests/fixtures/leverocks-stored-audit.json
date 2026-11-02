@@ -1,0 +1,517 @@
+{
+ "_about": "Leverock's Great Seafood local verification audit (a locally hosted copy of the public site, not production data): the stored evidence, journey stages, findings and category scores, exported for the evidence-provenance and release-safety tests.",
+ "overallScore": 84,
+ "coverageScore": 80,
+ "sources": [
+  {
+   "id": "cmvy93k0600057d46jaxp3xvj",
+   "url": "https://127.0.0.1:3443/",
+   "status": "COLLECTED"
+  },
+  {
+   "id": "cmvy93k0r00077d466764owne",
+   "url": "https://127.0.0.1:3443/st-petersburg-leverock-s-great-seafood-food-menu",
+   "status": "COLLECTED"
+  },
+  {
+   "id": "cmvy93k1500097d46v9uzt7x2",
+   "url": "https://127.0.0.1:3443/st-petersburg-leverock-s-great-seafood-drink-menu",
+   "status": "COLLECTED"
+  },
+  {
+   "id": "cmvy93k1h000b7d46iwe3zv52",
+   "url": "https://127.0.0.1:3443/st-petersburg-leverock-s-great-seafood-happy-hours-specials",
+   "status": "COLLECTED"
+  },
+  {
+   "id": "cmvy93k1u000d7d46kzc1on9l",
+   "url": "https://127.0.0.1:3443/-party?source=pop_up&spot_id=78550&destination=private_parties&promotion=holiday_party",
+   "status": "COLLECTED"
+  },
+  {
+   "id": "cmvy93k2b000f7d46m95jllml",
+   "url": "https://127.0.0.1:3443/st-petersburg-leverock-s-great-seafood-events",
+   "status": "COLLECTED"
+  },
+  {
+   "id": "cmvy93k2s000h7d46xg2gbgxa",
+   "url": "https://127.0.0.1:3443/st-petersburg-leverock-s-great-seafood-gift-cards",
+   "status": "COLLECTED"
+  },
+  {
+   "id": "cmvy93k34000j7d4623uo7ob0",
+   "url": "https://127.0.0.1:3443/st-petersburg-leverock-s-great-seafood-about",
+   "status": "COLLECTED"
+  }
+ ],
+ "evidence": [
+  {
+   "id": "cmvy93k3v000l7d468okla8vy",
+   "evidenceType": "BUSINESS_IDENTITY",
+   "fact": "Homepage title: \"Leverock's Great Seafood | St. Petersburg, FL\".",
+   "supportingContext": "Meta description: Since 1948, Leverock's has been providing quality, value, and service. Our dining room is casual, so come as you are. We are located just off of St. Pete Beach in the South Pasadena area of St. Pete",
+   "confidence": 95,
+   "auditSourceId": "cmvy93k0600057d46jaxp3xvj"
+  },
+  {
+   "id": "cmvy93k3y000n7d46t4900kag",
+   "evidenceType": "MOBILE_SIGNAL",
+   "fact": "Homepage declares a mobile viewport meta tag (basic mobile configuration present).",
+   "supportingContext": null,
+   "confidence": 85,
+   "auditSourceId": "cmvy93k0600057d46jaxp3xvj"
+  },
+  {
+   "id": "cmvy93k40000p7d469lvj1ns2",
+   "evidenceType": "PHONE_VISIBILITY",
+   "fact": "A phone number is publicly displayed: (727) 367-4588.",
+   "supportingContext": "Displayed on the homepage.",
+   "confidence": 95,
+   "auditSourceId": "cmvy93k0600057d46jaxp3xvj"
+  },
+  {
+   "id": "cmvy93k41000r7d4690yby2ny",
+   "evidenceType": "CLICK_TO_CALL",
+   "fact": "Click-to-call (tel:) links are present, enabling one-tap mobile calls.",
+   "supportingContext": "Based on 8 analyzed page(s).",
+   "confidence": 95,
+   "auditSourceId": "cmvy93k0600057d46jaxp3xvj"
+  },
+  {
+   "id": "cmvy93k42000t7d46f83niwff",
+   "evidenceType": "CONTACT_EMAIL",
+   "fact": "A public contact email address is published: leverocksgreatseafood@gmail.com.",
+   "supportingContext": "Found on https://127.0.0.1:3443/. This is an address the restaurant publishes for customers to write to — it is not a newsletter signup, which is recorded separately.",
+   "confidence": 90,
+   "auditSourceId": "cmvy93k0600057d46jaxp3xvj"
+  },
+  {
+   "id": "cmvy93k44000v7d46wjxxp5ze",
+   "evidenceType": "FORM_PURPOSE_UNVERIFIED",
+   "fact": "A form a customer can write into is published on the website, but whether it accepts general enquiries could not be established from the form itself.",
+   "supportingContext": "Found on https://127.0.0.1:3443/st-petersburg-leverock-s-great-seafood-gift-cards. Nothing in the form's own heading, attributes or submit button says what it is for, and a message box alone does not show that it takes general enquiries. It is not counted as a verified contact route, and it is not evidence that no route exists. The form was not submitted during this audit. Owner confirmation required.",
+   "confidence": 50,
+   "auditSourceId": "cmvy93k2s000h7d46xg2gbgxa"
+  },
+  {
+   "id": "cmvy93k45000x7d46zn3zcnob",
+   "evidenceType": "HOURS_VISIBILITY",
+   "fact": "Business hours are published on the website.",
+   "supportingContext": "Detected hours text: \"Mon - Thu 11:30 AM - 9:00 PM\"",
+   "confidence": 90,
+   "auditSourceId": "cmvy93k0600057d46jaxp3xvj"
+  },
+  {
+   "id": "cmvy93k46000z7d46k9olz5ls",
+   "evidenceType": "ADDRESS_VISIBILITY",
+   "fact": "A street address is published on the website.",
+   "supportingContext": "Detected address text: \"840 Pasadena Avenue South, St. Petersburg, FL 33707\"",
+   "confidence": 90,
+   "auditSourceId": "cmvy93k0600057d46jaxp3xvj"
+  },
+  {
+   "id": "cmvy93k4700117d46r79r6isc",
+   "evidenceType": "MENU_ACCESS",
+   "fact": "A menu pathway is publicly linked (3 link(s) found).",
+   "supportingContext": "Example link text: \"Menu\" → https://127.0.0.1:3443/st-petersburg-leverock-s-great-seafood-food-menu",
+   "confidence": 90,
+   "auditSourceId": "cmvy93k0r00077d466764owne"
+  },
+  {
+   "id": "cmvy93k4800137d462arfnwqz",
+   "evidenceType": "MENU_ACCESS",
+   "fact": "The linked menu page was fetched successfully during this audit (HTTP 200).",
+   "supportingContext": "https://127.0.0.1:3443/st-petersburg-leverock-s-great-seafood-food-menu. Collected as one of the audit's source pages, so it was not probed separately. This confirms the page loads; whether it shows a complete, current menu is not assessed.",
+   "confidence": 85,
+   "auditSourceId": "cmvy93k0r00077d466764owne"
+  },
+  {
+   "id": "cmvy93k4a00157d46c8aierb4",
+   "evidenceType": "RESERVATION_PATH",
+   "fact": "No public reservation pathway could be resolved, but a SpotHopper widget was detected on the page.",
+   "supportingContext": "SpotHopper assets are loaded by the site, so a reservation option may be presented to customers by a script. Its destination is rendered in the browser and cannot be verified from the public HTML — manual validation required. This is not evidence that a working pathway exists.",
+   "confidence": 55,
+   "auditSourceId": "cmvy93k0600057d46jaxp3xvj"
+  },
+  {
+   "id": "cmvy93k4b00177d4671ylf3yy",
+   "evidenceType": "ORDERING_PATH",
+   "fact": "Ordering is offered by telephone: the ordering call-to-action on the website uses a telephone link that can open the phone's calling function rather than an online ordering page.",
+   "supportingContext": "Call-to-action text: \"Order\" linked to a telephone number. An ordering destination is also declared in the page markup (https://127.0.0.1:3443/ordering-menu/?spot_id=), but the action a customer is actually offered is the telephone link above, so it is recorded as context rather than as a working online ordering pathway. Whether that destination is reachable for customers requires manual validation.",
+   "confidence": 85,
+   "auditSourceId": "cmvy93k0600057d46jaxp3xvj"
+  },
+  {
+   "id": "cmvy93k4c00197d460ulrzt44",
+   "evidenceType": "CONTACT_PATH",
+   "fact": "A contact pathway is publicly available by telephone and a published email address, but no contact page or verified enquiry form was detected, and a form was found whose purpose could not be established.",
+   "supportingContext": "Phone number published: (727) 367-4588. Click-to-call (tel:) links are present. Public email address published: leverocksgreatseafood@gmail.com. 1 form(s) whose purpose could not be established are recorded separately and are not counted as routes. Customers can reach the restaurant by phone or in writing; what happens to a written enquiry, and how fast, is not observable from the public site. Based on 8 analyzed page(s).",
+   "confidence": 85,
+   "auditSourceId": "cmvy93k0600057d46jaxp3xvj"
+  },
+  {
+   "id": "cmvy93k4d001b7d46wa49udp7",
+   "evidenceType": "CATERING_PATH",
+   "fact": "No public catering pathway was detected on the analyzed website pages.",
+   "supportingContext": "Based on 8 analyzed page(s).",
+   "confidence": 65,
+   "auditSourceId": "cmvy93k0600057d46jaxp3xvj"
+  },
+  {
+   "id": "cmvy93k4e001d7d463nog3p2m",
+   "evidenceType": "PRIVATE_DINING_PATH",
+   "fact": "A private dining pathway is publicly linked (1 link(s) found).",
+   "supportingContext": "Example link text: \"Book your party\" → https://127.0.0.1:3443/-party?source=pop_up&spot_id=78550&destination=private_parties&promotion=holiday_party",
+   "confidence": 90,
+   "auditSourceId": "cmvy93k1u000d7d46kzc1on9l"
+  },
+  {
+   "id": "cmvy93k4f001f7d46o2tn8lzg",
+   "evidenceType": "FAQ_SIGNAL",
+   "fact": "No public FAQ pathway was detected on the analyzed website pages.",
+   "supportingContext": "Based on 8 analyzed page(s).",
+   "confidence": 65,
+   "auditSourceId": "cmvy93k0600057d46jaxp3xvj"
+  },
+  {
+   "id": "cmvy93k4h001h7d46vacvla2m",
+   "evidenceType": "GIFT_CARD_SIGNAL",
+   "fact": "A gift card pathway is publicly linked (1 link(s) found).",
+   "supportingContext": "Example link text: \"Gift Cards\" → https://127.0.0.1:3443/st-petersburg-leverock-s-great-seafood-gift-cards",
+   "confidence": 90,
+   "auditSourceId": "cmvy93k2s000h7d46xg2gbgxa"
+  },
+  {
+   "id": "cmvy93k4i001j7d46y7g8egvr",
+   "evidenceType": "LOYALTY_SIGNAL",
+   "fact": "No public loyalty or rewards pathway was detected on the analyzed website pages.",
+   "supportingContext": "Based on 8 analyzed page(s).",
+   "confidence": 65,
+   "auditSourceId": "cmvy93k0600057d46jaxp3xvj"
+  },
+  {
+   "id": "cmvy93k4j001l7d46bhyrbvp7",
+   "evidenceType": "ORDERING_CHANNEL",
+   "fact": "ORDERING CHANNEL: PHONE_ORDERING_ONLY [ONLINE_LABEL_OPENS_PHONE] — The \"Order\" button under \"ORDER ONLINE\" uses a telephone link that can open the phone's calling function rather than directing customers to an online checkout. The label offers online ordering while the link leads to a phone number; ordering by phone may be intentional, so the mismatch is what needs checking. Whether online ordering exists somewhere this audit did not reach is not established either way.",
+   "supportingContext": "Verified in the page markup: call-to-action text \"Order\" is presented under \"ORDER ONLINE\" and resolves to a telephone number (a tel: link), not to a web destination. The automated audit reads links and does not tap buttons; a tap test on a phone is a separate manual check, and no owner confirmation is recorded in this audit. An ordering destination is declared in the page markup (https://127.0.0.1:3443/ordering-menu/?spot_id=) but is not linked for customers; the action a customer is offered is the telephone link. Whether it works requires manual validation. Evidence confidence: VERIFIED.",
+   "confidence": 90,
+   "auditSourceId": "cmvy93k0600057d46jaxp3xvj"
+  },
+  {
+   "id": "cmvy93k4k001n7d46cvepgpci",
+   "evidenceType": "EMAIL_CAPTURE",
+   "fact": "An email capture mechanism for collecting visitors' addresses (signup form or newsletter invitation) is publicly visible.",
+   "supportingContext": "Based on 8 analyzed page(s). This concerns list building, not the restaurant's own published contact address.",
+   "confidence": 85,
+   "auditSourceId": "cmvy93k0600057d46jaxp3xvj"
+  },
+  {
+   "id": "cmvy93k4l001p7d46ugdrmsat",
+   "evidenceType": "SOCIAL_LINK",
+   "fact": "2 social profile link(s) detected.",
+   "supportingContext": "https://www.facebook.com/199397746835544, https://www.instagram.com/leverocksseafoodrestaurant",
+   "confidence": 90,
+   "auditSourceId": "cmvy93k0600057d46jaxp3xvj"
+  },
+  {
+   "id": "cmvy93k4m001r7d468xcr7d8n",
+   "evidenceType": "CTA_SIGNAL",
+   "fact": "Homepage presents 10 action-oriented CTA(s).",
+   "supportingContext": "Examples: Menu | Gift Cards | Book your party | Call to Inquire | Facebook page | Order",
+   "confidence": 80,
+   "auditSourceId": "cmvy93k0600057d46jaxp3xvj"
+  },
+  {
+   "id": "cmvy93k4n001t7d46qcc05oey",
+   "evidenceType": "CTA_SIGNAL",
+   "fact": "Homepage presents 10 distinct action-oriented CTAs, more than the 8 this audit treats as a prompt to look at hierarchy.",
+   "supportingContext": "Menu | Gift Cards | Book your party | Call to Inquire | Facebook page | Order | Our Menu | Get Directions | Call us at (727) 367-4588 | Sign up. This is a COUNT, not a judgement about the design. Whether these actions compete visually depends on layout, size and placement, which this audit does not render or measure, and whether any conversion is lost depends on website analytics it cannot see.",
+   "confidence": 70,
+   "auditSourceId": "cmvy93k0600057d46jaxp3xvj"
+  },
+  {
+   "id": "cmvy93k4p001v7d46yve2ufs6",
+   "evidenceType": "ORDERING_PATH",
+   "fact": "The ordering destination could not be verified when tested (HTTP 404) — manual validation required.",
+   "supportingContext": "https://127.0.0.1:3443/ordering-menu/?spot_id=. Not reported as a failure because the destination appears only in the page markup — no visible link or button points customers to it, so nothing here shows a customer ever reaches it.",
+   "confidence": 55,
+   "auditSourceId": "cmvy93k0600057d46jaxp3xvj"
+  },
+  {
+   "id": "cmvy93k4t001x7d462ii1yplj",
+   "evidenceType": "MENU_ACCESS",
+   "fact": "The linked menu destination responded successfully when tested (HTTP 200).",
+   "supportingContext": "https://127.0.0.1:3443/spots-full-menu",
+   "confidence": 90,
+   "auditSourceId": "cmvy93k0600057d46jaxp3xvj"
+  },
+  {
+   "id": "cmvy93k4u001z7d460axa6jdv",
+   "evidenceType": "MENU_AVAILABILITY",
+   "fact": "A working menu was verified at https://127.0.0.1:3443/spots-full-menu.",
+   "supportingContext": "https://127.0.0.1:3443/spots-full-menu — works (HTTP 200). https://127.0.0.1:3443/st-petersburg-leverock-s-great-seafood-drink-menu — works (fetched during this audit, HTTP 200). https://127.0.0.1:3443/st-petersburg-leverock-s-great-seafood-food-menu — works (fetched during this audit, HTTP 200). Each menu link is judged on its own: a working link is not cancelled by a broken one, and a link that was not verified is neither counted as working nor as broken.",
+   "confidence": 90,
+   "auditSourceId": "cmvy93k0600057d46jaxp3xvj"
+  }
+ ],
+ "journeyStages": [
+  {
+   "stage": "DISCOVERY",
+   "status": "HEALTHY",
+   "finding": "Core identity and metadata signals are present. Full local search ranking analysis requires manual validation.",
+   "confidence": 95,
+   "manualValidationRequired": true,
+   "evidenceIds": [
+    "cmvy93k3v000l7d468okla8vy"
+   ]
+  },
+  {
+   "stage": "WEBSITE",
+   "status": "HEALTHY",
+   "finding": "The website loaded successfully with basic mobile configuration in place.",
+   "confidence": 85,
+   "manualValidationRequired": false,
+   "evidenceIds": [
+    "cmvy93k3y000n7d46t4900kag"
+   ]
+  },
+  {
+   "stage": "PHONE",
+   "status": "HEALTHY",
+   "finding": "Observed: a phone number is visible and mobile visitors can tap to call. Not assessed: whether calls are answered, and how quickly — that requires call records.",
+   "confidence": 85,
+   "manualValidationRequired": true,
+   "evidenceIds": [
+    "cmvy93k40000p7d469lvj1ns2",
+    "cmvy93k41000r7d4690yby2ny",
+    "cmvy93k4f001f7d46o2tn8lzg"
+   ]
+  },
+  {
+   "stage": "MENU",
+   "status": "HEALTHY",
+   "finding": "A menu pathway is publicly linked and reachable.",
+   "confidence": 88,
+   "manualValidationRequired": false,
+   "evidenceIds": [
+    "cmvy93k4700117d46r79r6isc",
+    "cmvy93k4800137d462arfnwqz",
+    "cmvy93k4t001x7d462ii1yplj"
+   ]
+  },
+  {
+   "stage": "RESERVATION",
+   "status": "UNKNOWN",
+   "finding": "A third-party booking widget was detected, but its destination is rendered in the browser and could not be verified from the public page. Whether customers can actually complete a booking requires manual validation.",
+   "confidence": 55,
+   "manualValidationRequired": true,
+   "evidenceIds": [
+    "cmvy93k4a00157d46c8aierb4"
+   ]
+  },
+  {
+   "stage": "ORDERING",
+   "status": "FRICTION",
+   "finding": "The \"Order\" button under \"ORDER ONLINE\" uses a telephone link that can open the phone's calling function rather than directing customers to an online checkout. The label offers online ordering while the link leads to a phone number; ordering by phone may be intentional, so the mismatch is what needs checking. Whether online ordering exists somewhere this audit did not reach is not established either way. Not assessed: whether visitors who would rather order online go elsewhere, and how many orders arrive by phone — that requires order and call records.",
+   "confidence": 90,
+   "manualValidationRequired": true,
+   "evidenceIds": [
+    "cmvy93k4b00177d4671ylf3yy",
+    "cmvy93k4p001v7d46yve2ufs6",
+    "cmvy93k4j001l7d46bhyrbvp7"
+   ]
+  },
+  {
+   "stage": "CONTACT",
+   "status": "HEALTHY",
+   "finding": "Contact path, hours, and address are publicly visible.",
+   "confidence": 88,
+   "manualValidationRequired": false,
+   "evidenceIds": [
+    "cmvy93k4c00197d460ulrzt44",
+    "cmvy93k45000x7d46zn3zcnob",
+    "cmvy93k46000z7d46k9olz5ls"
+   ]
+  },
+  {
+   "stage": "FOLLOW_UP",
+   "status": "RESOLVED_UNVERIFIED",
+   "finding": "Observed: one public retention signal was detected, so there is a single route by which a guest can opt in. Not assessed: whether anyone is contacted, how often, or to what effect — the quality of follow-up is not visible from a public page and requires your own data.",
+   "confidence": 75,
+   "manualValidationRequired": true,
+   "evidenceIds": [
+    "cmvy93k4k001n7d46cvepgpci",
+    "cmvy93k4i001j7d46y7g8egvr"
+   ]
+  },
+  {
+   "stage": "REVIEW",
+   "status": "UNKNOWN",
+   "finding": "No rating was entered at intake, and review platforms are not scraped. Not assessed: review excerpts shown on the restaurant's website, which are not a verified rating. Enter the current rating from the Google Business Profile to include reputation in the audit.",
+   "confidence": 20,
+   "manualValidationRequired": true,
+   "evidenceIds": []
+  },
+  {
+   "stage": "RETURN",
+   "status": "RESOLVED_UNVERIFIED",
+   "finding": "Observed: at least one repeat-visit mechanism is publicly present. Not assessed: how much it is used, or whether it brings anyone back — that requires your own data.",
+   "confidence": 88,
+   "manualValidationRequired": true,
+   "evidenceIds": [
+    "cmvy93k4k001n7d46cvepgpci",
+    "cmvy93k4i001j7d46y7g8egvr",
+    "cmvy93k4h001h7d46vacvla2m"
+   ]
+  }
+ ],
+ "opportunities": [
+  {
+   "category": "ORDER BUTTON LABEL MISMATCH",
+   "title": "The online ordering button uses a telephone link instead of an online checkout",
+   "problem": "The \"Order\" button under \"ORDER ONLINE\" uses a telephone link that can open the phone's calling function rather than directing customers to an online checkout.",
+   "businessImpact": "A visitor who chooses to order online is sent to a phone number instead of the online checkout the label promises. Ordering by phone may be intentional; the mismatch between the label and the destination is what needs a decision.",
+   "customerJourneyStage": "ORDERING",
+   "evidenceIds": [
+    "cmvy93k4j001l7d46bhyrbvp7",
+    "cmvy93k4b00177d4671ylf3yy",
+    "cmvy93k4p001v7d46yve2ufs6"
+   ],
+   "impactScore": 60,
+   "urgencyScore": 55,
+   "confidenceScore": 78,
+   "aiFitScore": 15,
+   "rescuePriorityScore": 57,
+   "recommendedSolution": "Decide which experience is intended. If online ordering should be offered, point the button at the restaurant's online ordering page — setting one up first if none exists, and complete or remove the unfinished ordering address in the page code. If orders are taken by phone, relabel the section — for example \"Order by Phone\" — so the button does what it says. After the change, tap the button on a phone to confirm it behaves as intended. A direct website fix, not an AI project.",
+   "manualValidationRequired": false
+  },
+  {
+   "category": "PHONE-DEPENDENT CUSTOMER JOURNEY",
+   "title": "Phone demand is unmeasured, and the website cannot show whether it is avoidable",
+   "problem": "OBSERVED: no dedicated FAQ page was found. The website does publish opening hours, the menu, the address and how to get in touch, so those questions are answerable online without calling. REQUIRES YOUR DATA: how many calls arrive, how many go unanswered, and what share are repeat questions cannot be observed from a public website. This audit does not claim the phone is overloaded or that calls are being missed — it cannot see either.",
+   "businessImpact": "If call volume turns out to be high and largely repetitive, answering those calls automatically is worth measuring. Whether that is the case here is an open question, not a finding.",
+   "customerJourneyStage": "PHONE",
+   "evidenceIds": [
+    "cmvy93k40000p7d469lvj1ns2",
+    "cmvy93k41000r7d4690yby2ny",
+    "cmvy93k4f001f7d46o2tn8lzg"
+   ],
+   "impactScore": 40,
+   "urgencyScore": 30,
+   "confidenceScore": 55,
+   "aiFitScore": 95,
+   "rescuePriorityScore": 50,
+   "recommendedSolution": "Before any system: pull 30 days of call records — total calls, unanswered calls, and the most common reasons. If that shows high repetitive volume, the Winnersbookmark AI Front Desk (voice answering, missed-call text-back, FAQ automation, after-hours capture) is the matched fix. If it does not, this is not a problem worth solving.",
+   "manualValidationRequired": true
+  },
+  {
+   "category": "CATERING LEAD CAPTURE OPPORTUNITY",
+   "title": "Private-event inquiry handling requires validation",
+   "problem": "Private-event inquiry handling requires validation. OBSERVED: a private-event pathway is publicly linked. NOT OBSERVED: how those inquiries are received, acknowledged or answered — a link shows that a pathway exists, not whether handling is manual, automated, fast or slow. REQUIRES YOUR DATA: acknowledgment records, response times and booking records for recent private-event inquiries.",
+   "businessImpact": "Private-event bookings are high-value, so how their inquiries are handled matters. Whether any are slowed or lost is unmeasured here.",
+   "customerJourneyStage": "CONTACT",
+   "evidenceIds": [
+    "cmvy93k4e001d7d463nog3p2m",
+    "cmvy93k4f001f7d46o2tn8lzg"
+   ],
+   "impactScore": 50,
+   "urgencyScore": 35,
+   "confidenceScore": 55,
+   "aiFitScore": 60,
+   "rescuePriorityScore": 49,
+   "recommendedSolution": "Before recommending any automation, collect acknowledgment records, response times and booking records for recent private-event inquiries. If they show slow or missed responses, AI-assisted intake (instant acknowledgment, structured intake, human handoff) is the matched fix; if they do not, no automation is needed here.",
+   "manualValidationRequired": true
+  },
+  {
+   "category": "CONFUSING CTA HIERARCHY",
+   "title": "The homepage offers many actions — worth checking which one leads",
+   "problem": "OBSERVED: the homepage presents more distinct action-oriented CTAs than the threshold this audit flags for review. NOT OBSERVED: whether they compete visually. This audit reads markup, not layout — it cannot see size, position or contrast, so a long list of actions in a clear hierarchy looks identical to a cluttered one. REQUIRES YOUR DATA: whether any conversion is actually lost needs website analytics.",
+   "businessImpact": "If the actions do compete, the cost is visitors who arrive ready to act and hesitate. Whether that is happening here is unmeasured.",
+   "customerJourneyStage": "WEBSITE",
+   "evidenceIds": [
+    "cmvy93k4n001t7d46qcc05oey"
+   ],
+   "impactScore": 35,
+   "urgencyScore": 25,
+   "confidenceScore": 50,
+   "aiFitScore": 25,
+   "rescuePriorityScore": 35,
+   "recommendedSolution": "Open the homepage on a phone and name the single action you want a first-time visitor to take. If it is not obvious within a second, demote the rest. Confirm against analytics before treating this as a conversion problem.",
+   "manualValidationRequired": true
+  }
+ ],
+ "scores": [
+  {
+   "category": "DIGITAL_CUSTOMER_JOURNEY",
+   "weight": 15,
+   "score": 90,
+   "confidence": 89,
+   "insufficientData": false,
+   "explanation": "Digital customer journey: derived from 4 analyzed journey stage(s): DISCOVERY=HEALTHY, WEBSITE=HEALTHY, MENU=HEALTHY, CONTACT=HEALTHY."
+  },
+  {
+   "category": "WEBSITE_CONVERSION",
+   "weight": 15,
+   "score": 90,
+   "confidence": 87,
+   "insufficientData": false,
+   "explanation": "Website conversion: derived from 2 analyzed journey stage(s): WEBSITE=HEALTHY, MENU=HEALTHY."
+  },
+  {
+   "category": "PHONE_RESPONSE_READINESS",
+   "weight": 15,
+   "score": 90,
+   "confidence": 85,
+   "insufficientData": false,
+   "explanation": "Phone and response readiness: derived from 1 analyzed journey stage(s): PHONE=HEALTHY."
+  },
+  {
+   "category": "RESERVATION_EXPERIENCE",
+   "weight": 10,
+   "score": null,
+   "confidence": 0,
+   "insufficientData": true,
+   "explanation": "Reservation experience: insufficient public evidence to score."
+  },
+  {
+   "category": "ONLINE_ORDERING_EXPERIENCE",
+   "weight": 10,
+   "score": 60,
+   "confidence": 90,
+   "insufficientData": false,
+   "explanation": "Online ordering experience: derived from 1 analyzed journey stage(s): ORDERING=FRICTION."
+  },
+  {
+   "category": "CUSTOMER_RETENTION",
+   "weight": 10,
+   "score": 70,
+   "confidence": 82,
+   "insufficientData": false,
+   "explanation": "Customer retention: derived from 2 analyzed journey stage(s): FOLLOW_UP=RESOLVED_UNVERIFIED, RETURN=RESOLVED_UNVERIFIED."
+  },
+  {
+   "category": "REVIEW_REPUTATION_SYSTEM",
+   "weight": 10,
+   "score": null,
+   "confidence": 0,
+   "insufficientData": true,
+   "explanation": "No owner-reported rating was entered at intake, review platforms are not scraped, and review excerpts on the restaurant's website are not scored; a dedicated reputation analysis is recommended."
+  },
+  {
+   "category": "LOCAL_DIGITAL_PRESENCE",
+   "weight": 10,
+   "score": 100,
+   "confidence": 55,
+   "insufficientData": false,
+   "explanation": "On-site name/address/phone/hours visibility only (3/3 signals present). Off-site listing consistency requires manual validation."
+  },
+  {
+   "category": "AI_AUTOMATION_READINESS",
+   "weight": 5,
+   "score": 75,
+   "confidence": 60,
+   "insufficientData": false,
+   "explanation": "Based on availability of structured public information (6/8 signals) that automation systems can be grounded on."
+  }
+ ]
+}

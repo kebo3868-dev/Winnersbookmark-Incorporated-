@@ -52,6 +52,8 @@ export const ACQUISITION = [
   'Buy the AI Front Desk.',
   'The restaurant needs an automated reservations system.',
   'Get a new reservations system.',
+  'The restaurant requires an AI Front Desk.',
+  'The restaurant requires a new automated booking system.',
 ];
 
 /** The gate's wording, naming the wrong restaurant, product or approver. */
@@ -81,8 +83,33 @@ export const ENDORSEMENTS = [
   'Automatic call answering offers strong return on investment.',
 ];
 
+/** Reported in the review of 9b4329e: endorsement after an observation, and of an unnamed-category product. */
+export const REPORTED_9B4329E = [
+  'The AI Front Desk is detected. It is a boon for the restaurant.',
+  'The AI Front Desk is detected and represents a quantum leap for the restaurant.',
+  'The SIP dialog orchestrator is a sound investment.',
+];
+
+/** Reported in the review of 9b4329e as wrongly rejected: negative assessments and repairs. */
+export const LEGITIMATE_9B4329E = [
+  'The AI Front Desk is not a good fit for this restaurant.',
+  'Repair the chatbot for better accessibility.',
+  'The existing chatbot was detected, but its answers are not useful.',
+];
+
+/** A legitimate negative statement or repair carrying a purchase or deployment in another clause. */
+export const MIXED_CLAUSE = [
+  'The AI Front Desk is not a good fit for this restaurant, but a voice agent should be installed instead.',
+  'Repair the chatbot for better accessibility and add an AI phone answering system.',
+  'The existing chatbot was detected, but its answers are not useful; replace it with the AI Front Desk.',
+  'Repair the chatbot. Then deploy a voice agent for the late calls.',
+  'The chatbot is not useful, so the restaurant should buy an AI receptionist.',
+];
+
 export const ADVERSARIAL_NARRATIVE = [
   ...ENDORSEMENTS,
+  ...REPORTED_9B4329E,
+  ...MIXED_CLAUSE,
   ...REPORTED_1E2C271,
   ...GUEST_HANDLING,
   ...MULTI_SENTENCE,
@@ -114,4 +141,4 @@ export const OPERATIONAL = [
   'A third-party booking widget was detected, but its destination is rendered in the browser and could not be verified from the public page.',
 ];
 
-export const SAFE_NARRATIVE = [...OPERATIONAL, ...SAFE_NON_AUTOMATION];
+export const SAFE_NARRATIVE = [...OPERATIONAL, ...LEGITIMATE_9B4329E, ...SAFE_NON_AUTOMATION];

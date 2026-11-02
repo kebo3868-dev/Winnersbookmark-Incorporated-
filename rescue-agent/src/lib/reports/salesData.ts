@@ -6,8 +6,8 @@ import type { JourneyStageResult } from '@/types/audit';
 import { generateSalesBrief, type SalesBriefContent } from './sales';
 import type { OwnerReportContent, RankedOpportunity } from './owner';
 import { presentSalesField } from './salesWording';
-import { AUDITED_ENGINE_OBSERVATION_SENTENCES, auditedTier } from './recommendationTemplates';
-import { safeNarrative } from './narrativePolicy';
+import { auditedTier } from './recommendationTemplates';
+import { publishAuditObservations } from './observationPublication';
 
 /** The brief's narrative fields: every one is regenerated, never read from storage. */
 const NARRATIVE_FIELDS = [
@@ -28,12 +28,12 @@ const NARRATIVE_FIELDS = [
  * STORED BRIEF TEXT IS NEVER SHOWN. A stored brief was written by whichever
  * engine version ran the audit, and its free text cannot be proven safe — it
  * may tell a rep to recommend an automation outright. So every narrative field
- * is regenerated here from the stored audit data (the findings, journey,
- * evidence, scores and package tier) by the current, audited generator
- * (sales.ts), then checked against the shared narrative policy; a field that
- * fails is withheld with the rule. The stored record is not changed. Stored
- * numbers (lead quality, sales opportunity, pain level, priority) are shown
- * as stored.
+ * is regenerated here by the current, audited generator (sales.ts) from the
+ * audit's PUBLISHED observations — the same evidence-backed publication the
+ * client report uses (observationPublication.ts) — and the package tier, then
+ * checked against the shared narrative policy; a field that fails is withheld
+ * with the rule. The stored record is not changed. Stored numbers (lead
+ * quality, sales opportunity, pain level, priority) are shown as stored.
  */
 export async function loadSalesBrief(operator: OperatorAuthorization, auditId: string) {
   assertOperator(operator);
@@ -55,13 +55,22 @@ export async function loadSalesBrief(operator: OperatorAuthorization, auditId: s
   if (!brief) return brief;
 
   const audit = brief.audit;
-  const observation = (text: string, fallback: string) =>
-    safeNarrative(presentOrderingText(text), fallback, { approved: AUDITED_ENGINE_OBSERVATION_SENTENCES });
-  const topLeaks: RankedOpportunity[] = (audit.opportunities ?? []).slice(0, 3).map((o) => ({
+  // The same publication as the client report: evidence traced to audited
+  // engine templates, findings and journey regenerated from this audit's own
+  // evidence (observationPublication.ts). Stored text is not read as written.
+  const published = publishAuditObservations({
+    evidence: (audit.evidence ?? []).map((e) => ({
+      id: e.id, evidenceType: e.evidenceType, fact: e.fact, supportingContext: e.supportingContext, confidence: e.confidence, sourceUrl: null,
+    })),
+    journey: audit.journeyStages ?? [],
+    opportunities: audit.opportunities ?? [],
+    scores: [],
+  });
+  const topLeaks: RankedOpportunity[] = published.opportunities.slice(0, 3).map((o) => ({
     category: o.category,
-    title: observation(o.title, o.category.charAt(0) + o.category.slice(1).toLowerCase()),
-    problem: observation(o.problem, 'See the audit evidence for this finding.'),
-    businessImpact: observation(o.businessImpact, 'Not measured.'),
+    title: presentOrderingText(o.title),
+    problem: presentOrderingText(o.problem),
+    businessImpact: o.businessImpact,
     customerJourneyStage: o.customerJourneyStage,
     evidenceIds: o.evidenceIds,
     impactScore: o.impactScore,
@@ -72,21 +81,15 @@ export async function loadSalesBrief(operator: OperatorAuthorization, auditId: s
     recommendedSolution: '',
     manualValidationRequired: o.manualValidationRequired,
   }));
-  const journey: JourneyStageResult[] = (audit.journeyStages ?? []).map((j) => ({
+  const journey: JourneyStageResult[] = published.journey.map((j) => ({
     stage: j.stage as JourneyStageResult['stage'],
     status: j.status as JourneyStageResult['status'],
-    finding: observation(j.finding, 'See the audit evidence for this stage.'),
+    finding: j.finding,
     confidence: j.confidence,
     manualValidationRequired: j.manualValidationRequired,
     evidenceIds: j.evidenceIds,
   }));
-  const evidence = (audit.evidence ?? []).map((e) => ({
-    id: e.id,
-    evidenceType: e.evidenceType,
-    fact: observation(e.fact, 'Evidence text withheld; it remains in the audit record.'),
-    supportingContext: e.supportingContext,
-    confidence: e.confidence,
-  }));
+  const evidence = published.evidence.map(({ provenance: _p, sourceUrl: _u, ...e }) => e);
   const owner = (audit.reports?.[0]?.content ?? null) as unknown as OwnerReportContent | null;
 
   const regenerated = generateSalesBrief({
@@ -99,7 +102,18 @@ export async function loadSalesBrief(operator: OperatorAuthorization, auditId: s
     recommendedTier: auditedTier(owner?.recommendation?.tier),
   });
 
-  const shown: Record<string, unknown> = { ...brief };
+  // The audit travels with the brief only as published: the stored evidence,
+  // journey and finding text it was regenerated from is not handed on.
+  const shown: Record<string, unknown> = {
+    ...brief,
+    audit: {
+      ...audit,
+      evidence: evidence.map((e) => ({ ...audit.evidence.find((x) => x.id === e.id)!, fact: e.fact, supportingContext: e.supportingContext })),
+      journeyStages: published.journey,
+      opportunities: published.opportunities.map((o) => ({ ...o, recommendedSolution: '' })),
+      reports: [],
+    },
+  };
   for (const field of NARRATIVE_FIELDS) {
     const value = regenerated[field];
     shown[field] = Array.isArray(value) ? value.map((v) => presentSalesField(v)) : presentSalesField(value);

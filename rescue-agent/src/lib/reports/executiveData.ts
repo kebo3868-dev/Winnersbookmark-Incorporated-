@@ -4,6 +4,7 @@ import type { OwnerReportContent } from './owner';
 import { getContact } from '@/lib/config';
 import { generateBookingQrDataUrl } from './qrcode';
 import { assertOperator, type OperatorAuthorization } from '@/lib/operatorAuth';
+import { publishAuditObservations } from './observationPublication';
 
 export type ExecutiveReportResult =
   | { status: 'ok'; dto: ExecutiveReportDTO }
@@ -71,6 +72,19 @@ export async function loadExecutiveReport(operator: OperatorAuthorization, audit
   }
 
   const sourceUrlById = new Map(audit.sources.map((s) => [s.id, s.url]));
+  const published = publishAuditObservations({
+    evidence: audit.evidence.map((e) => ({
+      id: e.id,
+      evidenceType: e.evidenceType,
+      fact: e.fact,
+      supportingContext: e.supportingContext,
+      confidence: e.confidence,
+      sourceUrl: deriveEvidenceSourceUrl(e.supportingContext, e.auditSourceId ? sourceUrlById.get(e.auditSourceId) ?? null : null),
+    })),
+    journey: audit.journeyStages,
+    opportunities: audit.opportunities,
+    scores: audit.scores,
+  });
   const owner = (audit.reports[0]?.content ?? null) as unknown as OwnerReportContent | null;
   const contact = getContact();
   const bookingQrDataUrl = await generateBookingQrDataUrl(contact.bookingUrl);
@@ -92,17 +106,13 @@ export async function loadExecutiveReport(operator: OperatorAuthorization, audit
     coverageScore: audit.coverageScore,
     sourcesCollected: audit.sources.filter((s) => s.status === 'COLLECTED').length,
     sourcesFailed: audit.sources.filter((s) => s.status !== 'COLLECTED').length,
-    evidence: audit.evidence.map((e) => ({
-      id: e.id,
-      evidenceType: e.evidenceType,
-      fact: e.fact,
-      supportingContext: e.supportingContext,
-      confidence: e.confidence,
-      sourceUrl: deriveEvidenceSourceUrl(e.supportingContext, e.auditSourceId ? sourceUrlById.get(e.auditSourceId) ?? null : null),
-    })),
-    opportunities: audit.opportunities,
-    journey: audit.journeyStages,
-    categoryScores: audit.scores,
+    // Observations are PUBLISHED, not read: every fact and context traced to
+    // an audited engine template, every finding, journey and score text
+    // regenerated from this audit's own evidence (observationPublication.ts).
+    evidence: published.evidence.map(({ provenance: _p, ...e }) => e),
+    opportunities: published.opportunities,
+    journey: published.journey,
+    categoryScores: published.scores,
     storedSummary: owner?.executiveSummary ?? null,
     storedSummaryWasAiEnhanced: Boolean(owner?.aiNarrativeUsed),
     storedRecommendation: owner?.recommendation ?? null,

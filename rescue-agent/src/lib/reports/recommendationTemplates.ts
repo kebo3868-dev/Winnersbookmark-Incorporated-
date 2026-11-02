@@ -192,17 +192,3 @@ export function auditedTierRecommendation(stored: { tier: string; rationale: str
 export function auditedTier(tier: string | null | undefined): string {
   return tier && TIERS[tier.trim()] ? tier.trim() : 'AI DISCOVERY AUDIT';
 }
-
-// ── Audited engine observation sentences ────────────────────────────────────
-
-/**
- * Sentences the current engine writes into stored observation fields that the
- * shared narrative policy would otherwise hold back, audited and approved by
- * exact wording. Approval is per sentence: any other sentence in the same
- * field is still checked. tests/recommendation-template-drift.test.ts fails if
- * the engine stops writing one of these, so the list cannot go stale silently.
- */
-export const AUDITED_ENGINE_OBSERVATION_SENTENCES: ReadonlySet<string> = new Set([
-  // leaks.ts, phone finding businessImpact (core questions answered online).
-  'If call volume turns out to be high and largely repetitive, answering those calls automatically is worth measuring.',
-]);

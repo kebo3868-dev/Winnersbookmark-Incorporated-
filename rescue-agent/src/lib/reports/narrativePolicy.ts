@@ -69,7 +69,7 @@ const REPAIRS_EXISTING =
   /^(?:please\s+)?(fix|repair|restyle|style|recolou?r|update|correct|relabel|reconnect|resize|retest|test|check|verify|restore|tidy|rewrite|reword|shorten|enlarge|align|publish|clarify)\s+(the|its|their|your|each|every|all)\b/i;
 /** Proposing a change: an instruction, an obligation, a recommendation or an endorsement. Not a description. */
 const PROPOSES_CHANGE =
-  /\b(should|must|need(s)? to|ought to|has to|have to|had better|would do well|is best|are best|it('s| is) time|(is|are|was|were) to be)\b|\b(recommend\w*|suggest\w*|advis\w*|propos\w*|urg(e|es|ed|ing)|encourag\w*|consider\w*|benefit\w* from|worth (a look|considering|exploring|trying|it|adding|getting)|makes? sense|is what\b[^.]*\bneeds?|needs? (an?|some|a new)\b)|\b(needs|need)\b(?! to be (measured|confirmed|checked|verified|validated|assessed|answered by (staff|the team)))/i;
+  /\b(should|must|need(s)? to|ought to|has to|have to|had better|would do well|is best|are best|it('s| is) time|(is|are|was|were) to be)\b|\b(recommend\w*|suggest\w*|advis\w*|propos\w*|urg(e|es|ed|ing)|encourag\w*|consider\w*|benefit\w* from|worth (a look|considering|exploring|trying|it|adding|getting)|makes? sense|is what\b[^.]*\bneeds?|needs? (an?|some|a new)\b|requires? (an?|some|a new)\b)|\b(needs|need)\b(?! to be (measured|confirmed|checked|verified|validated|assessed|answered by (staff|the team)))/i;
 /** An obligation, by modal ("should", "must", "is to be …"). Verbs in any tense are not: "chooses", "installed". */
 const MODAL_DIRECTIVE = /\b(should|must|need(s)? to|ought to|has to|have to)\b|\b(is|are) to be \w+(ed|en|t)\b/i;
 /** What the audit could or could not observe is a description, not a suggestion. */
@@ -82,21 +82,58 @@ const DESCRIPTIVE_PASSIVE = /\b(is|are|was|were|been|being|be) (set up|put in pl
 const LABEL_LIST = /\s\|\s/g;
 
 /**
- * FAIL CLOSED ON SENTENCES ABOUT AN AUTOMATION. Such a sentence is allowed
- * only when it reports what was observed — something detected, found, linked,
- * used, shown or not verified — or asks a question. Anything else said about
- * an automation ("The AI Front Desk is a worthwhile purchase.", "… is
- * available.") is an assertion the audit did not observe, and is not shown.
+ * What an observation clause does: report something detected, found, linked,
+ * shown or not verified; state an audit limitation; or give the basis of a
+ * measurement. Only these may be said about an automation affirmatively.
  */
 const OBSERVES =
-  /\b(was|were|is|are|been|being|be) (not )?(detected|found|observed|seen|shown|listed|linked|displayed|rendered|loaded|resolved|verified|tested|embedded|present|visible|referenced|mentioned|configured|checked|named|used|offered|provided|operated|hosted|connected)\b|\b(detected|found|observed|lists|linked|links to|embeds|shows|displays|uses|offers|mentions|references|appears|contains|includes|runs|hosts|loads|opens|points to|did not|does not|do not|no longer|(was|were|is|are|has|have) (not|never))\b|^(no|none|neither)\b|^(based on|measured by|scored (on|from)|derived from|not assessed|not observed|not measured|not verified|requires your data|unknown)\b|\b(invisible to|leaves no (public )?trace|not visible|is not something a public page can show)\b|\brequires? (direct |your |internal |owner |the owner's |the restaurant's own )?(access|data|records|validation|confirmation|platform access)\b/i;
+  /\b(was|were|is|are|been|being|be) (not )?(detected|found|observed|seen|shown|listed|linked|displayed|rendered|loaded|resolved|verified|tested|embedded|present|visible|referenced|mentioned|configured|checked|named|used|offered|provided|operated|hosted|connected|published|reachable|collected|recorded)\b|\b(detected|found|observed|linked|links to|embeds|loads|opens|points to|resolves to|no longer)\b|^(based on|measured by|scored (on|from)|derived from|not assessed|not observed|not measured|not verified|requires your data|unknown)\b|\b(invisible to|leaves no (public )?trace|not visible|is not something a public page can show)\b|\brequires? (direct |your |internal |owner |the owner's |the restaurant's own )?(access|data|records|validation|confirmation|platform access)\b/i;
 /**
- * A value judgement — merit, worth, cost-benefit — in any phrasing. About an
- * automation it is an endorsement, whatever verb carries it, so it is never
- * allowed, observation verb or not.
+ * Active descriptive verbs ("the page lists", "the restaurant uses", "the
+ * site offers"). They report an observation only when what they describe is
+ * the restaurant, a person, or one of its pages — something the audit looked
+ * at. Said of a product ("automatic call answering offers strong return on
+ * investment", "the AI Front Desk provides …") they are a claim about it.
  */
-const VALUE_JUDGEMENT =
-  /\b(worth\w*|sound|smart|wise|good|great|excellent|valuable|profitable|cost[- ]effective|affordable|economical|essential|indispensable|must[- ]have|no[- ]brainer|ideal|perfect|best|better|strong|solid|compelling|attractive|sensible|prudent|justified|beneficial|helpful|useful|effective|powerful|game[- ]chang\w*|win|winner|bargain|deal|asset|investment|purchase|buy|spend|upgrade|addition|recommended|endorsed)\b|\bpays? (for )?itself\b|\bearns? its keep\b|\bmoney well spent\b|\bvalue for money\b|\breturn on investment\b|\bROI\b/i;
+const DESCRIBES = /\b(uses|offers|provides|shows|displays|lists|mentions|references|appears|contains|includes|runs|hosts|features)\b/i;
+const OBSERVED_SUBJECT = /\b(page|pages|site|website|homepage|restaurant|business|menu|listing|profile|footer|header|form|link|button|markup|source|greeting|voicemail)\b/i;
+
+/** Whether a clause reports an observation (see OBSERVES and DESCRIBES). */
+function observes(s: string): boolean {
+  if (OBSERVES.test(s)) return true;
+  const m = DESCRIBES.exec(s);
+  if (!m) return false;
+  const subject = s.slice(0, m.index);
+  return HUMAN_PERFORMER.test(subject) || OBSERVED_SUBJECT.test(subject);
+}
+/** A negated predicate: "is not", "isn't", "does not", "did not". */
+const NEGATED_PREDICATE = /\b(is|are|was|were|seems?|remains?) not\b|\b(isn['’]t|aren['’]t|wasn['’]t|weren['’]t)\b|\b(does|do|did) not\b|\b(doesn['’]t|don['’]t|didn['’]t)\b/i;
+/** A negated clause: what something is not, does not do, or was not found to do. */
+const NEGATED = /\b(not|never|no|none|nothing|neither|nor|n't|without|did not|does not|do not|cannot|fails? to|failed)\b/i;
+/**
+ * A finite predicate that asserts something — a copula, or a verb of
+ * delivering, providing or improving. A grammatical class, not a list of
+ * endorsement words: "is a boon", "represents a quantum leap", "is a sound
+ * investment" and "delivers results" are all claims because of their
+ * predicate, whatever the praise.
+ */
+const CLAIM_PREDICATE =
+  /\b(is|are|was|were|be|been|being|becomes?|remains?|seems?|represents?|constitutes?|offers?|provides?|delivers?|brings?|means|makes?|gives?|helps?|saves?|boosts?|improves?|increases?|raises?|grows?|transforms?|revolutioni[sz]es?|pays?|earns?|wins?|beats?|outperforms?|guarantees?|ensures?|enables?|unlocks?|drives?|generates?|captures?|converts?|solves?|fixes|eliminates?|prevents?|stops?)\b/i;
+
+/**
+ * Clause boundaries inside a sentence: ";", "—", ", but/yet/so/while …", " but
+ * ", and " and " where a new predicate or instruction starts. A mixed sentence
+ * is judged clause by clause, so an acceptable negative statement or repair
+ * cannot carry a second, unacceptable clause.
+ */
+const CLAUSE_BOUNDARY = new RegExp(
+  String.raw`\s*;\s*|\s+—\s+|,\s*(?:but|yet|so|while|whereas|although|though|and then|then)\s+|\s+(?:but|yet)\s+|` +
+    String.raw`,?\s+and\s+(?=(?:also\s+|then\s+|it\s+|its\s+|they\s+|them\s+|this\s+|that\s+)?(?:is|are|was|were|represents?|offers?|provides?|delivers?|brings?|means|makes?|gives?|helps?|saves?|boosts?|should|must|could|would|will|can|buy|install|deploy|get|add|adopt|purchase|set|switch|replace|use|let|have|put|start|launch|implement|subscribe|sign|move|go|choose|pick|hire|route|hand|send|forward)\b)`,
+  'i',
+);
+
+/** A clause that tells someone to repair, restyle or check an existing component. */
+const REPAIR_CLAUSE = REPAIRS_EXISTING;
 
 /** A suggestion: "a speech engine could field the late calls". */
 const SUGGESTION = /\b(could|would|might|may)\b/i;
@@ -133,10 +170,52 @@ export interface NarrativeOptions {
 
 const normalise = (s: string) => s.replace(/\s+/g, ' ').trim();
 
+/** A sentence's clauses; a clause without its own subject belongs to the one before it. */
+export function clausesOf(sentence: string): string[] {
+  return sentence.split(CLAUSE_BOUNDARY).map((c) => c.trim().replace(/^(and|or)\s+/i, '')).filter(Boolean);
+}
+
+interface ClauseReading {
+  s: string;
+  handles: boolean;
+  namesAutomation: boolean;
+  proposes: boolean;
+  repairOnly: boolean;
+  humanOnly: boolean;
+}
+
+/** One clause, read with the descriptions set aside. */
+function readClause(raw: string): ClauseReading {
+  const s = withoutSelfDescription(raw)
+    .replace(OBSERVATIONAL_MODAL, 'was checked')
+    .replace(NEGATED_MODAL, 'did not')
+    .replace(DESCRIPTIVE_PASSIVE, 'is configured');
+  // Channel noun compounds ("inquiry handling", "call volume", "call
+  // records") name a subject, not an action, and are set aside first.
+  const verbal = s.replace(CHANNEL_COMPOUND, 'the subject');
+  const handles = handlesGuestCommunication(verbal) || (HANDLING_VERB.test(verbal) && GUEST_CHANNEL_WORD.test(verbal));
+  const namesAutomation = mentionsAutomation(s) || /\bAI (FRONT DESK|REACTIVATION)\b/i.test(s) ||
+    (TECHNOLOGY_WORD.test(s) && GUEST_CHANNEL_WORD.test(s)) || (TECH_OBJECT.test(s) && handles && !HUMAN_PERFORMER.test(s));
+  const instructs = opensWithInstruction(s) && !REPAIR_CLAUSE.test(s);
+  const repairOnly = REPAIR_CLAUSE.test(s) && !ACQUIRES.test(s.replace(REPAIR_CLAUSE, ''));
+  // Proposing a change, as opposed to describing what exists.
+  // A negated predicate negates the praise it carries: "is not a good fit"
+  // is a negative assessment, not an endorsement. A negated determiner does
+  // not ("No alternative beats …" still endorses).
+  const negatedPredicate = NEGATED_PREDICATE.test(s);
+  const proposes = !repairOnly &&
+    (instructs || MODAL_DIRECTIVE.test(s) || PROPOSES_CHANGE.test(s) || SUGGESTION.test(s) ||
+      ((OFFERS_AS_OPTION.test(s) || ENDORSEMENT.test(s)) && !negatedPredicate) || OUTCOME_CLAIM.test(s));
+  const humanOnly = HUMAN_PERFORMER.test(s) && !NON_HUMAN.test(s) && !namesAutomation;
+  return { s, handles, namesAutomation, proposes, repairOnly, humanOnly };
+}
+
 /**
- * Whether a text — one field, read as a whole — recommends, suggests or
- * endorses automation, changes who handles guests without naming a person, or
- * acquires a product.
+ * Whether a text — one field, read as a whole, sentence by sentence and
+ * clause by clause — recommends, suggests or endorses automation, changes who
+ * handles guests without naming a person, acquires a product, or asserts
+ * something about an automation that is not an observation, a negation, a
+ * repair or a question.
  */
 export function assessNarrative(text: string, options: NarrativeOptions = {}): NarrativeVerdict {
   const violations: NarrativeVerdict['violations'] = [];
@@ -144,55 +223,59 @@ export function assessNarrative(text: string, options: NarrativeOptions = {}): N
   for (const raw of sentencesOf(text)) {
     const sentence = normalise(raw);
     const labelFree = sentence.replace(/^•\s*/, '').replace(/^[^—\n]{1,30}\s—\s(?=[A-Z])/, '');
-    // Descriptions are read as descriptions: what the audit could or could
-    // not observe, negated modals and descriptive passives are set aside.
-    const s = withoutSelfDescription(labelFree)
-      .replace(OBSERVATIONAL_MODAL, 'was checked')
-      .replace(NEGATED_MODAL, 'did not')
-      .replace(DESCRIPTIVE_PASSIVE, 'is configured');
+    if (options.approved?.has(labelFree) || options.approved?.has(sentence)) continue;
     // Labels quoted from the page are checked one by one, for an automation by name only.
-    if ((s.match(LABEL_LIST) ?? []).length >= 2 && s.split(LABEL_LIST).every((seg) => seg.trim().split(/\s+/).length <= 7)) {
-      if (s.split(LABEL_LIST).some((seg) => mentionsAutomation(seg))) violations.push({ sentence, reason: 'quotes a label naming an automation' });
+    if ((labelFree.match(LABEL_LIST) ?? []).length >= 2 && labelFree.split(LABEL_LIST).every((seg) => seg.trim().split(/\s+/).length <= 7)) {
+      if (labelFree.split(LABEL_LIST).some((seg) => mentionsAutomation(seg))) violations.push({ sentence, reason: 'quotes a label naming an automation' });
       continue;
     }
-    // Judged on the whole sentence, with no word window: a handling verb and a
-    // guest channel anywhere in it, or a technology word and a guest channel.
-    // Channel noun compounds ("inquiry handling", "call volume", "call
-    // records") name a subject, not an action, and are set aside first.
-    const verbal = s.replace(CHANNEL_COMPOUND, 'the subject');
-    const handles = handlesGuestCommunication(verbal) || (HANDLING_VERB.test(verbal) && GUEST_CHANNEL_WORD.test(verbal));
-    const namesAutomation = mentionsAutomation(s) || /\bAI (FRONT DESK|REACTIVATION)\b/i.test(s) ||
-      (TECHNOLOGY_WORD.test(s) && GUEST_CHANNEL_WORD.test(s)) || (TECH_OBJECT.test(s) && handles && !HUMAN_PERFORMER.test(s));
-    const about = namesAutomation || (automationInContext && REFERS_BACK.test(s));
-    const instructs = opensWithInstruction(s) && !REPAIRS_EXISTING.test(s);
-    const repairOnly = REPAIRS_EXISTING.test(s) && !ACQUIRES.test(s.replace(REPAIRS_EXISTING, ''));
-    // Proposing a change, as opposed to describing what exists.
-    const proposes = !repairOnly &&
-      (instructs || MODAL_DIRECTIVE.test(s) || PROPOSES_CHANGE.test(s) || SUGGESTION.test(s) || OFFERS_AS_OPTION.test(s) ||
-        ENDORSEMENT.test(s) || OUTCOME_CLAIM.test(s));
-    const humanOnly = HUMAN_PERFORMER.test(s) && !NON_HUMAN.test(s) && !namesAutomation;
-
-    if (!(options.approved?.has(labelFree) || options.approved?.has(sentence))) {
-      if (about && proposes) {
+    const question = /\?\s*$/.test(labelFree);
+    for (const clause of clausesOf(labelFree)) {
+      const c = readClause(clause);
+      // About an automation: named here, or carried from an earlier clause or
+      // sentence by a clause that refers back or has no subject of its own.
+      const carried = automationInContext && (REFERS_BACK.test(c.s) || !OWN_SUBJECT.test(c.s));
+      const about = c.namesAutomation || carried;
+      const observed = observes(c.s);
+      const negated = NEGATED.test(c.s);
+      if (about && c.proposes) {
         violations.push({ sentence, reason: 'recommends, suggests or endorses an automation' });
-      } else if ((proposes || (CAPABILITY.test(s) && (namesAutomation || NON_HUMAN.test(s)))) && !repairOnly && handles && !humanOnly) {
+      } else if ((c.proposes || (CAPABILITY.test(c.s) && (c.namesAutomation || NON_HUMAN.test(c.s)))) && !c.repairOnly && c.handles && !c.humanOnly) {
         violations.push({ sentence, reason: 'changes who handles guest calls, inquiries or reservations without naming a person' });
-      } else if (proposes && ACQUIRES.test(s) && TECH_OBJECT.test(s)) {
+      } else if (c.proposes && ACQUIRES.test(c.s) && TECH_OBJECT.test(c.s)) {
         violations.push({ sentence, reason: 'acquires a system or product' });
-      } else if (about && VALUE_JUDGEMENT.test(s)) {
-        violations.push({ sentence, reason: 'judges the value of an automation' });
-      } else if (namesAutomation && !repairOnly && !OBSERVES.test(s) && !/\?$/.test(s)) {
-        violations.push({ sentence, reason: 'asserts something about an automation that is not an observation' });
+      } else if (about && !c.repairOnly && !observed && !negated && !question && CLAIM_PREDICATE.test(c.s)) {
+        // An affirmative predicate about an automation that reports nothing
+        // observed: "is a boon", "represents a quantum leap", "is available".
+        violations.push({ sentence, reason: 'asserts something about an automation that is not an observation, a negation or a repair' });
       }
+      if (c.namesAutomation) automationInContext = true;
+      else if (OWN_SUBJECT.test(c.s) && !REFERS_BACK.test(c.s)) automationInContext = false;
     }
-
-    if (namesAutomation) automationInContext = true;
-    else if (OWN_SUBJECT.test(s) && !REFERS_BACK.test(s)) automationInContext = false;
   }
   return { safe: violations.length === 0, violations };
 }
 
-/** A stored narrative field as it may be shown: unchanged when the policy allows it, otherwise the fallback. */
-export function safeNarrative(text: string, fallback: string, options: NarrativeOptions = {}): string {
-  return assessNarrative(text, options).safe ? text : fallback;
+/**
+ * FREE TEXT QUOTED INSIDE EVIDENCE MAKES NO CLAIMS.
+ *
+ * Text an evidence template interpolated (a page title, a call-to-action
+ * label, a test note) is published only when it passes the narrative policy
+ * AND asserts nothing: every clause is a fragment without an asserting
+ * predicate, an observation, a negation, a repair or a question. This does
+ * not depend on recognising the subject: "The SIP dialog orchestrator is a
+ * sound investment" fails on its predicate, whatever an orchestrator is.
+ */
+export function isClaimFree(text: string): boolean {
+  if (!assessNarrative(text).safe) return false;
+  for (const raw of sentencesOf(text)) {
+    const sentence = normalise(raw);
+    if (/\?\s*$/.test(sentence)) continue;
+    for (const clause of clausesOf(sentence)) {
+      const c = readClause(clause);
+      if (c.repairOnly || observes(c.s) || NEGATED.test(c.s)) continue;
+      if (CLAIM_PREDICATE.test(c.s)) return false;
+    }
+  }
+  return true;
 }

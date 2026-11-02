@@ -16,8 +16,7 @@ import {
   isExploratoryOpportunity,
   presentTierRecommendation,
 } from './automationWording';
-import { AUDITED_ENGINE_OBSERVATION_SENTENCES, auditedTierRecommendation, presentFindingRecommendation } from './recommendationTemplates';
-import { safeNarrative } from './narrativePolicy';
+import { auditedTierRecommendation, presentFindingRecommendation } from './recommendationTemplates';
 import { NO_PILOT_RECORDS, authorisePilotImplementation, type PilotAuthorisation, type PilotRecords } from './pilotAuthorization';
 
 export { isAutomationCandidate, isExploratoryOpportunity };
@@ -582,38 +581,23 @@ export const CUSTOMER_OUTCOME_LABEL = 'Not measured';
 /**
  * THE RELEASE POLICY, applied once before anything is derived, so the web
  * report and the PDF (which render the same DTO) cannot disagree:
- * - no AI-written summary is shown: the deterministic summary always is
- *   (free-text screening is not relied on for safety in this release);
+ * - no AI-written summary is shown: the deterministic summary always is;
  * - the package recommendation is reduced to a known tier and an audited
  *   rationale (recommendationTemplates.ts);
- * - stored observations (finding titles, descriptions and impacts, journey
- *   findings, evidence facts, score explanations) are shown unless the shared
- *   narrative policy finds a recommendation of automation in them, in which
- *   case a neutral fallback is shown (narrativePolicy.ts);
  * - recommended solutions are chosen later, per finding, from the audited
  *   templates (presentFindingRecommendation).
- * Stored records are never changed.
+ * Observation text (findings, journey, evidence, score explanations) reaches
+ * this builder already PUBLISHED by the loader (observationPublication.ts):
+ * traced to an audited engine template or regenerated from the audit's own
+ * evidence, never read from storage as written. Stored records are never
+ * changed.
  */
 function applyReleasePolicy(input: ExecutiveReportInput): ExecutiveReportInput {
-  const sentenceCase = (category: string) => category.charAt(0) + category.slice(1).toLowerCase();
   return {
     ...input,
     storedSummary: null,
     storedSummaryWasAiEnhanced: false,
     storedRecommendation: auditedTierRecommendation(input.storedRecommendation),
-    opportunities: input.opportunities.map((o) => ({
-      ...o,
-      title: safeNarrative(o.title, sentenceCase(o.category)),
-      problem: safeNarrative(o.problem, 'The stored description of this finding is not shown; its evidence is listed in the appendix.'),
-      businessImpact: safeNarrative(o.businessImpact, 'Not measured — see the evidence for this finding.', { approved: AUDITED_ENGINE_OBSERVATION_SENTENCES }),
-    })),
-    journey: input.journey.map((j) => ({ ...j, finding: safeNarrative(j.finding, 'See the evidence for this stage in the appendix.') })),
-    evidence: input.evidence.map((e) => ({
-      ...e,
-      fact: safeNarrative(e.fact, 'Evidence text withheld from this report; it remains in the audit record.'),
-      supportingContext: e.supportingContext === null ? null : safeNarrative(e.supportingContext, ''),
-    })),
-    categoryScores: input.categoryScores.map((c) => ({ ...c, explanation: safeNarrative(c.explanation, 'See the findings for this category.') })),
   };
 }
 
