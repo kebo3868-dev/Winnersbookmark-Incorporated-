@@ -75,7 +75,7 @@ async function webText(dto: ExecutiveReportDTO): Promise<string> {
     .replace(/&#x27;|&#39;/g, "'").replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/\s+/g, ' ');
 }
 
-import { ACCEPTED, GATED, REJECTED, pilot } from './fixtures/ai-summary-adversarial';
+import { ACCEPTED, GATED, REJECTED, SAFE_NON_AUTOMATION, pilot } from './fixtures/ai-summary-adversarial';
 
 describe('the gate is parsed, not keyword-matched', () => {
   it('the authorised form yields exactly demand, readiness and approval', () => {
@@ -118,6 +118,24 @@ describe('adversarial AI summaries are rejected whole — new and historical', (
       expect(dto.summaryWasAiEnhanced, c).toBe(true);
     }
   });
+
+  it('safe non-automation statements are shown as written', () => {
+    for (const c of SAFE_NON_AUTOMATION) {
+      expect(screenAiSummary(padded(c)), c).toEqual({ safe: true, unsafe: [] });
+      expect(stored(c).executiveSummary, c).toBe(padded(c));
+    }
+  });
+
+  it('9. alternative automation descriptions: rejected whole in a historical stored summary, in the web report and the PDF alike', async () => {
+    for (const c of REJECTED['9. automation described in other words (review of 449470c)'].slice(0, 3)) {
+      const dto = stored(c);
+      expect(dto.summaryWasAiEnhanced, c).toBe(false);
+      for (const text of [await pdfText(dto), await webText(dto)]) {
+        expect(text, c).not.toContain(c.slice(0, 30));
+        expect(text, c).toContain(DETERMINISTIC.slice(0, 80));
+      }
+    }
+  }, 60_000);
 
   it('8. a historical stored summary is screened at render: the web report and the PDF both show the deterministic summary', async () => {
     const historical = [

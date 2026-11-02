@@ -15,6 +15,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import levFixture from './fixtures/leverocks-local-audit-opportunities.json';
+import { REJECTED, SAFE_NON_AUTOMATION } from './fixtures/ai-summary-adversarial';
 import { generateSalesBrief } from '@/lib/reports/sales';
 import type { RankedOpportunity } from '@/lib/reports/owner';
 import {
@@ -116,12 +117,28 @@ describe('9. unconditional Sales Brief automation recommendations are rejected',
     // The gate's words, but not the approved sentence: keywords do not authorise.
     `Recommend the AI FRONT DESK SYSTEM as a limited, monitored pilot, ${SALES_AUTOMATION_GATE}, but pitch it today anyway.`,
     `Do not recommend the AI FRONT DESK SYSTEM on this call, then sell it in the follow-up.`,
+    // Automation described in other words (review of 449470c).
+    'Route incoming calls through a speech engine.',
+    'Let a speech engine field the dinner rush.',
+    'Use a synthetic voice operator for reservations.',
+    'Tell the owner a speech engine could field the dinner rush.',
+    'Suggest sending overflow calls to a voice model.',
+    'Explain that reservations can be confirmed by a voice program.',
   ];
   it('each is flagged', () => {
     for (const text of UNCONDITIONAL) expect(unauthorisedSalesSentences(text).length, text).toBeGreaterThan(0);
   });
   it('and withheld when shown', () => {
     for (const text of UNCONDITIONAL) expect(presentSalesField('followUpAngle', text), text).toBe(SALES_WITHHELD_NOTICE);
+  });
+  it('every alternative automation description (speech engine, synthetic voice, voice model, outsourcing the phones …) is flagged and withheld', () => {
+    for (const text of REJECTED['9. automation described in other words (review of 449470c)']) {
+      expect(unauthorisedSalesSentences(text).length, text).toBeGreaterThan(0);
+      expect(presentSalesField('talkTrack', `MINUTE 16–20 — ${text}`), text).toBe(SALES_WITHHELD_NOTICE);
+    }
+  });
+  it('safe non-automation statements are not flagged', () => {
+    for (const text of SAFE_NON_AUTOMATION) expect(unauthorisedSalesSentences(text), text).toEqual([]);
   });
   it('the owner\'s quoted objection is shown as stored; it is not an instruction', () => {
     const quoted = '"We\'re too busy to set up new systems, and AI sounds complicated / impersonal for a restaurant."';

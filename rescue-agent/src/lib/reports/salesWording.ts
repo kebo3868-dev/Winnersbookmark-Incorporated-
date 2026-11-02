@@ -1,5 +1,5 @@
 import { COMPANY } from '@/lib/config';
-import { DIRECTIVE, ENDORSEMENT, IMPERATIVE_START, RECOMMENDS, mentionsAutomation, withoutSelfDescription } from './automationWording';
+import { SUGGESTS, TECH_OBJECT, handlesGuestCommunication, instructsOrRecommends, mentionsAutomation, withoutSelfDescription } from './automationWording';
 
 /**
  * NO SALES REPRESENTATIVE IS TOLD TO RECOMMEND AN AUTOMATION UNCONDITIONALLY.
@@ -103,9 +103,14 @@ export function unauthorisedSalesSentences(text: string): string[] {
   return sentencesOf(text).filter((sentence) => {
     if (approved.has(stripLabel(sentence))) return false;
     const s = withoutSelfDescription(stripLabel(sentence));
-    if (!(mentionsAutomation(s) || TIER_NAME.test(s))) return false;
-    return RECOMMENDS.test(s) || DIRECTIVE.test(s) || IMPERATIVE_START.test(s) || ENDORSEMENT.test(s) || SALES_PUSH.test(s) ||
-      SALES_ENDORSEMENT.test(s);
+    const instructs = instructsOrRecommends(s) || SALES_PUSH.test(s) || SALES_ENDORSEMENT.test(s);
+    // A product, named or described, recommended or suggested to the owner.
+    if ((mentionsAutomation(s) || TIER_NAME.test(s)) && (instructs || SUGGESTS.test(s))) return true;
+    // Any product or system the rep is told to get, buy or offer.
+    if (instructs && TECH_OBJECT.test(s)) return true;
+    // Any instruction or suggestion to change who handles the restaurant's
+    // calls, inquiries or reservations, whatever names the thing doing it.
+    return handlesGuestCommunication(s) && (instructs || SUGGESTS.test(s));
   });
 }
 

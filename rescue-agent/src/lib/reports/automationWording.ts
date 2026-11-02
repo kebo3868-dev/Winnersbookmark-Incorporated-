@@ -152,7 +152,7 @@ const AUTOMATION_NAMED =
   /\b(AI|A\.I\.|automat\w*|Front Desk|chat ?bots?|bots?|robot\w*|robo\w*|IVR|auto[- ]?(attendants?|responders?|repl(y|ies)|answer\w*|text\w*|dial\w*)|autoresponders?|phone tree|voice (answering|receptionist|agent|assistant|bot|system|technology|AI)|receptionists?|text-back|missed-call|intake|reactivation|virtual (receptionists?|assistants?|agents?|hosts?|attendants?|concierges?|operators?|front desk)|answering (services?|systems?|software|machines?|technology|platforms?|solutions?|tools?)|machine learning|LLMs?|GPT|conversational)\b/i;
 
 /** Technology that does a person's job in the conversation with a guest. */
-const STRONG_TECH = String.raw`(?:automatic|automated|automatically|auto|robotic|unattended|self-service|hands-free|machines?|software|computer\w*|algorithm\w*)`;
+const STRONG_TECH = String.raw`(?:automatic|automated|automatically|auto|robotic|unattended|self-service|hands-free|machines?|software|computer\w*|algorithm\w*|speech|synthetic|synthesi[sz]ed|text-to-speech|TTS|neural|engines?|models?|programs?|widgets?|chat|conversational|cloud|platforms?)`;
 /** Weaker qualifiers: technology only when attached to a role a person would fill. */
 const WEAK_TECH = String.raw`(?:digital|virtual|electronic|smart|cloud|24\/7|always-on|round-the-clock|after-hours)`;
 const COMMUNICATION = String.raw`(?:answer\w*|attendants?|receptionists?|hosts?|operators?|agents?|assistants?|phones?|telephon\w*|calls?|calling|callers?|lines?|repl(?:y|ies|ying)|respon\w*|inquir\w*|bookings?|reservations?|messag\w*|texts?|texting|follow-?ups?|intake|concierges?|switchboards?|voicemail|front desk|greet\w*|orders?|ordering)`;
@@ -165,13 +165,74 @@ const WITHOUT_A_PERSON =
   /\b(answer|handl|pick|tak|respond|return|field|screen|rout|cover)\w*\b[^.;]{0,40}\b(without (a |any )?(staff|person|people|human|humans|employees?|hosts?)|by (software|a machine|machines|a system|technology|a computer|an app|an algorithm))\b/i;
 
 /**
+ * WHO HANDLES A GUEST IS A CLOSED TOPIC.
+ *
+ * A list of technology words always leaks ("a speech engine", "a synthetic
+ * voice operator", "a voice model"…). What every such recommendation has in
+ * common is its subject matter: it changes who or what answers, takes, routes
+ * or confirms a guest's calls, inquiries or reservations. So an AI-written
+ * summary or a Sales Brief may not instruct, recommend or suggest any change to
+ * that — whatever names the thing doing it — unless the sentence is the
+ * authorised gate form, an explicit non-recommendation, or an approved
+ * deterministic sentence. Describing what was observed ("Calls are not
+ * answered after 9 p.m.") is still allowed: only instructing, recommending or
+ * suggesting is closed.
+ */
+const GUEST_CHANNEL = String.raw`(?:calls?|phones?|lines?|callers?|inquir(?:y|ies)|reservations?|bookings?|messages?|texts?|orders?|guests?|rush|overflow|voicemails?)`;
+const HANDLE = String.raw`(?:answer\w*|handl\w*|rout\w*|field\w*|take|takes|taking|taken|took|pick\w* up|screen\w*|respond\w* to|repl\w* to|return\w*|cover\w*|manag\w*|process\w*|confirm\w*|greet\w*|qualif\w*|captur\w*|triag\w*|transfer\w*|forward\w*|send\w*|sent|hand|hands|handed|handing|direct\w*|point\w*|divert\w*|absorb\w*|deal\w* with|book\w*|receiv\w*|outsourc\w*|mov(?:e|es|ed|ing)|shift\w*|swap\w*|switch\w*|migrat\w*|giv(?:e|es|en|ing)|gave|leav(?:e|es|ing)|left|entrust\w*|delegat\w*|offload\w*|hand\w* off|hand\w* over|replac\w*|convert\w*|automat\w*)`;
+const WORDS = (n: number) => String.raw`(?:[\w'’-]+\s+){0,${n}}?`;
+const HANDLES_ACTIVE = new RegExp(String.raw`\b${HANDLE}\s+${WORDS(3)}${GUEST_CHANNEL}\b`, 'i');
+const HANDLES_PASSIVE = new RegExp(String.raw`\b${GUEST_CHANNEL}\s+${WORDS(2)}(?:be|are|is|get|gets|being|been)\s+(?:\w+\s+)?${HANDLE}\b`, 'i');
+const ROUTED_TO = new RegExp(String.raw`\b${GUEST_CHANNEL}\s+${WORDS(2)}(?:go|goes|going|went)\s+(?:\w+\s+)?(?:to|through|via)\b`, 'i');
+
+/** A sentence about who or what answers, takes, routes or confirms a guest's calls, inquiries or reservations. */
+export function handlesGuestCommunication(sentence: string): boolean {
+  return HANDLES_ACTIVE.test(sentence) || HANDLES_PASSIVE.test(sentence) || ROUTED_TO.test(sentence);
+}
+
+/** A suggestion without an instruction: "a speech engine could field the rush". */
+export const SUGGESTS =
+  /\b(could|would|might|may|can|should|will|shall|ought to|is able to|are able to|capable of|designed to|meant to)\b/i;
+
+/** Words that open a descriptive sentence and are never an instruction. */
+const NOT_A_VERB =
+  /^(whether|if|when|while|because|although|though|since|as|after|before|once|until|unless|where|how|what|which|who|why|our|its|their|his|her|my|your|the|a|an|this|that|these|those|there|here|each|every|all|both|no|not|only|also|overall|today|currently|publicly|in|on|at|for|from|with|by|of|to|about|across|between|during|without|within|per|most|many|some|several|few|one|two|three|four|five|six|seven|eight|nine|ten|it|they|we|he|she|you|i|nothing|none|neither|either|any|more|less|other|another|such|same|so|and|but|or|yet|then|still|even|however|instead|otherwise|meanwhile|finally|first|second|third|next|last)$/i;
+const ARTICLE_NEXT =
+  /^([A-Za-z][\w-]*)\s+(the|a|an|all|every|incoming|missed|overflow|any|each|more|your|their|its|some|this|that|these|those|our|them|it)\b/i;
+
+/**
+ * An instruction by its grammar, not its verb: a sentence that opens with a
+ * verb from the list, or with a word that is not a function word directly
+ * followed by an article or object ("Route incoming calls …", "Field the …").
+ */
+export function opensWithInstruction(sentence: string): boolean {
+  const s = sentence.trim().replace(/^["“(]+/, '');
+  if (IMPERATIVE_START.test(s)) return true;
+  const m = ARTICLE_NEXT.exec(s);
+  if (!m) return false;
+  const first = m[1];
+  return !NOT_A_VERB.test(first) && !/['’]s$/i.test(first) && !/ly$/i.test(first) && !/^[A-Z]{2,}$/.test(first);
+}
+
+/** Instructing, recommending or endorsing, by any of the means above. */
+export function instructsOrRecommends(sentence: string): boolean {
+  return RECOMMENDS.test(sentence) || DIRECTIVE.test(sentence) || opensWithInstruction(sentence) || ENDORSEMENT.test(sentence);
+}
+
+/**
  * Whether a sentence is about an automation — named or described. Exported for
  * the Sales Brief screen (salesWording.ts), which uses the same definition.
  */
 export function mentionsAutomation(sentence: string): boolean {
   return AUTOMATION_NAMED.test(sentence) || TECH_NEAR_COMMUNICATION.test(sentence) ||
-    WEAK_TECH_NEAR_ROLE.test(sentence) || WITHOUT_A_PERSON.test(sentence);
+    WEAK_TECH_NEAR_ROLE.test(sentence) || WITHOUT_A_PERSON.test(sentence) || ACTS_ON_ITS_OWN.test(sentence);
 }
+
+/** Something that answers, replies or books by itself: "a number that replies on its own". */
+const ACTS_ON_ITS_OWN = near(
+  String.raw`(?:answer\w*|repl\w*|respond\w*|text\w*|messag\w*|call\w*|book\w*|confirm\w*|greet\w*|acknowledg\w*)`,
+  String.raw`(?:on its own|by itself|by themselves|on their own|itself|themselves|unattended|around the clock|24\/7|instantly|without anyone)`,
+);
 
 /**
  * Not an automation: the validation service, and descriptions of the summary
@@ -213,10 +274,10 @@ export const DIRECTIVE =
   /\b(deploy\w*|install\w*|implement\w*|adopt\w*|roll(s|ed|ing)? (it |them )?out|rollout|launch\w*|put (it |them |one |an? [\w-]+ ?[\w-]* )?in place|set (it |them |one )?up|bring(s|ing)? (it |them |one )?(on|in)|brought (on|in)|switch(es|ed|ing)? (to|on|over)|mov(e|es|ed|ing) to|upgrad\w* to|turn(s|ed|ing)? on|sign(s|ed|ing)? up|subscrib\w*|purchas\w*|buy(s|ing)?|go(es|ing)? live|onboard\w*|go(es|ing)? with|opt(s|ed|ing)? for|choos\w*)\b|\b(should|must|need(s)? to|ought to|has to|have to)\b/i;
 /** A sentence that opens with an instruction ("Put …", "Let a machine …"). */
 export const IMPERATIVE_START =
-  /^(?:please\s+|so\s+|then\s+|now\s+|just\s+)?(put|get|add|install|use|deploy|set|switch|buy|purchase|try|let|have|give|hire|bring|start|begin|consider|adopt|implement|launch|roll|make|replace|turn|activate|enable|connect|integrate|sign|subscribe|go|choose|pick|select|move|upgrade|automate|outsource|invest|introduce|trial|pilot|evaluate|explore|test|offer|switch)\b/i;
+  /^(?:please\s+|so\s+|then\s+|now\s+|just\s+)?(put|get|add|install|use|deploy|set|switch|buy|purchase|try|let|have|give|hire|bring|start|begin|consider|adopt|implement|launch|roll|make|replace|turn|activate|enable|connect|integrate|sign|subscribe|go|choose|pick|select|move|upgrade|automate|outsource|invest|introduce|trial|pilot|evaluate|explore|test|offer|route|field|send|forward|hand|point|direct|divert|transfer|delegate|assign|leave|allow|tell|explain|suggest|say|mention|show|pitch|sell|propose|recommend|push)\b/i;
 /** Something you would buy, install or hire to handle guests. */
-const TECH_OBJECT =
-  /\b(systems?|software|tools?|platforms?|technolog(y|ies)|apps?|applications?|solutions?|products?|vendors?|packages?|subscriptions?|providers?|attendants?|receptionists?|operators?|assistants?|agents?|concierges?|devices?|widgets?|plug-?ins?|integrations?)\b/i;
+export const TECH_OBJECT =
+  /\b(systems?|software|tools?|platforms?|technolog(y|ies)|apps?|applications?|solutions?|products?|vendors?|packages?|subscriptions?|providers?|attendants?|receptionists?|operators?|assistants?|agents?|concierges?|devices?|widgets?|plug-?ins?|integrations?|engines?|models?|programs?|services?|voices?|bots?)\b/i;
 /** Hurry: a gated recommendation is never immediate. */
 const IMMEDIACY =
   /\b(now|immediately|today|tomorrow|right away|straight away|at once|without delay|asap|as soon as possible|this (week|month|quarter|season|year)|next (week|month))\b/i;
@@ -427,7 +488,10 @@ function unsafeReason(sentence: string, summaryMentionsAutomation: boolean): str
   if (parseGatedProposal(sentence).authorised || parseDisclaimer(sentence)) return null;
   if (mentionsAutomation(sentence)) return 'mentions an automation outside an authorised gate or disclaimer';
   if (GATE_VOCABULARY.test(sentence)) return 'uses gate wording that does not parse as an authorised gate';
-  const recommends = RECOMMENDS.test(sentence) || DIRECTIVE.test(sentence) || IMPERATIVE_START.test(sentence) || ENDORSEMENT.test(sentence);
+  const recommends = instructsOrRecommends(sentence);
+  if ((recommends || SUGGESTS.test(sentence)) && handlesGuestCommunication(sentence)) {
+    return 'instructs, recommends or suggests a change to who handles guest calls, inquiries or reservations';
+  }
   if (recommends && TECH_OBJECT.test(sentence)) return 'recommends a system or product';
   if (recommends && summaryMentionsAutomation && BACK_REFERENCE.test(sentence)) return 'recommends something named earlier';
   return null;
