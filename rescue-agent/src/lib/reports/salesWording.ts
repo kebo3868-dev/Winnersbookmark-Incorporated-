@@ -1,5 +1,5 @@
 import { COMPANY } from '@/lib/config';
-import { SUGGESTS, TECH_OBJECT, handlesGuestCommunication, instructsOrRecommends, mentionsAutomation, withoutSelfDescription } from './automationWording';
+import { assessNarrative, sentencesOf } from './narrativePolicy';
 
 /**
  * NO SALES REPRESENTATIVE IS TOLD TO RECOMMEND AN AUTOMATION UNCONDITIONALLY.
@@ -15,11 +15,10 @@ import { SUGGESTS, TECH_OBJECT, handlesGuestCommunication, instructsOrRecommends
  * safety validation for this restaurant, and the owner has explicitly approved
  * the pilot.
  *
- * New briefs are written that way (sales.ts). Briefs already stored are
- * presented that way when loaded (salesData.ts): known historical wording is
- * replaced with the current wording, and any remaining field that still tells
- * the rep to recommend an automation without those conditions is withheld and
- * replaced with the rule. Stored records are never rewritten.
+ * Briefs are written that way (sales.ts), and a stored brief's text is never
+ * shown: salesData.ts regenerates every narrative field from the stored audit
+ * data when the brief is opened, then checks it against the shared narrative
+ * policy (narrativePolicy.ts). Stored records are never rewritten.
  */
 
 /** A product tier, not a validation step ("AI DISCOVERY AUDIT"). */
@@ -58,95 +57,41 @@ export function salesAutomationObjectionStrategy(): string {
 
 /** Shown in place of a stored field that recommends an automation without its conditions. */
 export const SALES_WITHHELD_NOTICE =
-  'Withheld: this stored text recommended an automation without its required conditions. Do not recommend any automation. ' +
+  'Withheld: this text recommended an automation without its required conditions. Do not recommend any automation. ' +
   `An automation may be proposed only as a limited, monitored pilot, ${SALES_AUTOMATION_GATE}.`;
+
+/** The owner's objection the brief quotes when an automation is in the picture — their words, not an instruction. */
+export const SALES_AUTOMATION_OBJECTION =
+  '"We\'re too busy to set up new systems, and AI sounds complicated / impersonal for a restaurant."';
 
 const PRODUCT_TIERS = ['AI FRONT DESK SYSTEM', 'AI REACTIVATION CAMPAIGN'];
 
-const normalise = (s: string) => s.replace(/\s+/g, ' ').trim();
-const sentencesOf = (text: string) => text.split(/(?<=[.!?])\s+|\n+/).map(normalise).filter(Boolean);
-/** "Minute 16–20 — Next step: …" → "Next step: …"; "• …" → "…". */
-const stripLabel = (s: string) => s.replace(/^•\s*/, '').replace(/^[^—\n]{1,30}\s—\s(?=[A-Z])/, '');
-
 /**
  * Sentences the brief itself writes about automation, approved by exact
- * wording: every one of them carries the conditions or withholds the
- * recommendation. A stored sentence is authorised by being one of these, never
- * by containing the right keywords.
+ * wording: every one carries the conditions, withholds the recommendation, or
+ * quotes the owner. Nothing is authorised by containing the right keywords.
  */
 function approvedSentences(): Set<string> {
   const texts = [
     SALES_WITHHELD_NOTICE,
+    SALES_AUTOMATION_OBJECTION,
     salesAutomationObjectionStrategy(),
     ...PRODUCT_TIERS.flatMap((tier) => [salesOfferFor(tier), salesNextStepFor(tier)]),
   ];
-  return new Set(texts.flatMap(sentencesOf));
+  return new Set(texts.flatMap(sentencesOf).map((t) => t.replace(/\s+/g, ' ').trim()));
 }
 
-/** Pitching, selling or proposing — the sales verbs a report screen does not need. */
-const SALES_PUSH = /\b(pitch\w*|sell\w*|clos(e|es|ing) (on|with)|position\w*|push\w*|propos\w*|offer\w*|lead with|upsell\w*)\b/i;
 /**
- * The product, in the brief's own words: a tier name, or "the system" — in a
- * Sales Brief that always means the product being sold.
- */
-const TIER_NAME = /\bAI (FRONT DESK|REACTIVATION)\b|\bthe (system|product|tool|platform|solution)\b/i;
-/** Endorsing the product to the owner without a recommending verb. */
-const SALES_ENDORSEMENT = /\bexactly (the|what)\b|\b(is )?built (for|to absorb)\b|\babsorbs?\b|\bsolves?\b|\bthe answer\b/i;
-
-/**
- * The sentences of a Sales Brief field that tell a rep to recommend, pitch or
- * endorse an automation without being one of the approved, conditional
- * sentences. Empty means the field is safe to show.
+ * The sentences of one Sales Brief field that break the shared narrative
+ * policy, read in context across the whole field ("The AI Front Desk is
+ * available. It should be installed." fails on its second sentence). Empty
+ * means the field may be shown.
  */
 export function unauthorisedSalesSentences(text: string): string[] {
-  const approved = approvedSentences();
-  return sentencesOf(text).filter((sentence) => {
-    if (approved.has(stripLabel(sentence))) return false;
-    const s = withoutSelfDescription(stripLabel(sentence));
-    const instructs = instructsOrRecommends(s) || SALES_PUSH.test(s) || SALES_ENDORSEMENT.test(s);
-    // A product, named or described, recommended or suggested to the owner.
-    if ((mentionsAutomation(s) || TIER_NAME.test(s)) && (instructs || SUGGESTS.test(s))) return true;
-    // Any product or system the rep is told to get, buy or offer.
-    if (instructs && TECH_OBJECT.test(s)) return true;
-    // Any instruction or suggestion to change who handles the restaurant's
-    // calls, inquiries or reservations, whatever names the thing doing it.
-    return handlesGuestCommunication(s) && (instructs || SUGGESTS.test(s));
-  });
+  return assessNarrative(text, { approved: approvedSentences() }).violations.map((v) => v.sentence);
 }
 
-/** Known stored wording, current only until this change, mapped to what is shown now. */
-const HISTORICAL: [RegExp, (...groups: string[]) => string][] = [
-  [
-    /Next step: recommend (AI (?!DISCOVERY)[A-Z ]+?) and explain exactly why the evidence points there\. If their answers changed the picture, say that instead\. Book the follow-up before hanging up\./g,
-    (_m, tier) => salesNextStepFor(tier),
-  ],
-  [
-    /^Agree — being too busy is exactly the problem the system (?:absorbs|is built for)\. Reframe: [\s\S]*?Offer the \d+-minute review as zero-commitment proof, walking through their own audit evidence\.$/,
-    () => salesAutomationObjectionStrategy(),
-  ],
-];
-
-/** Fields a rep acts on. "likelyObjection" is the owner's own words, quoted, and is shown as stored. */
-const SCREENED_FIELDS = new Set([
-  'bestSalesAngle', 'topDiscoveryQuestion', 'discoveryQuestions', 'objectionStrategy', 'recommendedOffer',
-  'outreachAngle', 'emailOpener', 'callOpener', 'talkTrack', 'followUpAngle',
-]);
-
-/**
- * One stored Sales Brief field, as a rep reads it: historical wording replaced,
- * a product tier offer made conditional, and anything still unconditional
- * withheld. Values of other fields are returned unchanged.
- */
-export function presentSalesField(field: string, value: string): string {
-  if (!SCREENED_FIELDS.has(field)) return value;
-  let shown = value;
-  if (field === 'recommendedOffer' && PRODUCT_TIER.test(shown.trim()) && !/— conditional, not a recommendation\./.test(shown)) {
-    shown = salesOfferFor(shown.trim());
-  }
-  for (const [stored, current] of HISTORICAL) shown = shown.replace(stored, current as (...a: string[]) => string);
-  if (field === 'talkTrack') {
-    // Withhold line by line, so the rest of the agenda stays usable.
-    return shown.split('\n').map((line) => (unauthorisedSalesSentences(line).length > 0 ? SALES_WITHHELD_NOTICE : line)).join('\n');
-  }
-  return unauthorisedSalesSentences(shown).length > 0 ? SALES_WITHHELD_NOTICE : shown;
+/** One Sales Brief field as a rep may read it: as written, or withheld whole. */
+export function presentSalesField(value: string): string {
+  return unauthorisedSalesSentences(value).length > 0 ? SALES_WITHHELD_NOTICE : value;
 }

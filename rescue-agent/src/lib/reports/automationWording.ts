@@ -149,7 +149,7 @@ export function presentAutomationClaims(text: string): string {
  * "AI Discovery Audit" and self-descriptions are removed first (VALIDATION_SERVICE).
  */
 const AUTOMATION_NAMED =
-  /\b(AI|A\.I\.|automat\w*|Front Desk|chat ?bots?|bots?|robot\w*|robo\w*|IVR|auto[- ]?(attendants?|responders?|repl(y|ies)|answer\w*|text\w*|dial\w*)|autoresponders?|phone tree|voice (answering|receptionist|agent|assistant|bot|system|technology|AI)|receptionists?|text-back|missed-call|intake|reactivation|virtual (receptionists?|assistants?|agents?|hosts?|attendants?|concierges?|operators?|front desk)|answering (services?|systems?|software|machines?|technology|platforms?|solutions?|tools?)|machine learning|LLMs?|GPT|conversational)\b/i;
+  /\b(AI|A\.I\.|automat\w*|Front Desk|chat ?bots?|bots?|robot\w*|robo\w*|IVR|auto[- ]?(attendants?|responders?|repl(y|ies)|answer\w*|text\w*|dial\w*)|autoresponders?|phone tree|voice (answering|receptionist|agent|assistant|bot|system|technology|AI)|text-back|virtual (receptionists?|assistants?|agents?|hosts?|attendants?|concierges?|operators?|front desk)|answering (services?|systems?|software|machines?|technology|platforms?|solutions?|tools?)|machine learning|LLMs?|GPT|conversational)\b/i;
 
 /** Technology that does a person's job in the conversation with a guest. */
 const STRONG_TECH = String.raw`(?:automatic|automated|automatically|auto|robotic|unattended|self-service|hands-free|machines?|software|computer\w*|algorithm\w*|speech|synthetic|synthesi[sz]ed|text-to-speech|TTS|neural|engines?|models?|programs?|widgets?|chat|conversational|cloud|platforms?)`;
@@ -179,7 +179,7 @@ const WITHOUT_A_PERSON =
  * suggesting is closed.
  */
 const GUEST_CHANNEL = String.raw`(?:calls?|phones?|lines?|callers?|inquir(?:y|ies)|reservations?|bookings?|messages?|texts?|orders?|guests?|rush|overflow|voicemails?)`;
-const HANDLE = String.raw`(?:answer\w*|handl\w*|rout\w*|field\w*|take|takes|taking|taken|took|pick\w* up|screen\w*|respond\w* to|repl\w* to|return\w*|cover\w*|manag\w*|process\w*|confirm\w*|greet\w*|qualif\w*|captur\w*|triag\w*|transfer\w*|forward\w*|send\w*|sent|hand|hands|handed|handing|direct\w*|point\w*|divert\w*|absorb\w*|deal\w* with|book\w*|receiv\w*|outsourc\w*|mov(?:e|es|ed|ing)|shift\w*|swap\w*|switch\w*|migrat\w*|giv(?:e|es|en|ing)|gave|leav(?:e|es|ing)|left|entrust\w*|delegat\w*|offload\w*|hand\w* off|hand\w* over|replac\w*|convert\w*|automat\w*)`;
+const HANDLE = String.raw`(?:answer\w*|handl\w*|rout\w*|field\w*|take|takes|taking|taken|took|pick\w* up|screen\w*|respond\w* to|repl\w* to|return\w*|cover\w*|manag\w*|process\w*|confirm\w*|greet\w*|qualif\w*|captur\w*|triag\w*|transfer\w*|forward\w*|send\w*|sent|hand|hands|handed|handing|direct\w*|point\w*|divert\w*|absorb\w*|deal\w* with|book(?:s|ed)?|receiv\w*|outsourc\w*|mov(?:e|es|ed|ing)|shift\w*|swap\w*|switch\w*|migrat\w*|giv(?:e|es|en|ing)|gave|leav(?:e|es|ing)|left|entrust\w*|delegat\w*|offload\w*|hand\w* off|hand\w* over|replac\w*|convert\w*|automat\w*)`;
 const WORDS = (n: number) => String.raw`(?:[\w'’-]+\s+){0,${n}}?`;
 const HANDLES_ACTIVE = new RegExp(String.raw`\b${HANDLE}\s+${WORDS(3)}${GUEST_CHANNEL}\b`, 'i');
 const HANDLES_PASSIVE = new RegExp(String.raw`\b${GUEST_CHANNEL}\s+${WORDS(2)}(?:be|are|is|get|gets|being|been)\s+(?:\w+\s+)?${HANDLE}\b`, 'i');
@@ -189,6 +189,18 @@ const ROUTED_TO = new RegExp(String.raw`\b${GUEST_CHANNEL}\s+${WORDS(2)}(?:go|go
 export function handlesGuestCommunication(sentence: string): boolean {
   return HANDLES_ACTIVE.test(sentence) || HANDLES_PASSIVE.test(sentence) || ROUTED_TO.test(sentence);
 }
+
+/**
+ * The same three vocabularies as whole-sentence tests, with no word window:
+ * a handling verb, a guest channel, and a technology term anywhere in one
+ * sentence. Used by the narrative policy, which judges a sentence by what it
+ * contains, not by how close the words are.
+ */
+export const HANDLING_VERB = new RegExp(String.raw`\b${HANDLE}\b|\broll(s|ed|ing)? (over )?to\b`, 'i');
+export const GUEST_CHANNEL_WORD = new RegExp(String.raw`\b${GUEST_CHANNEL}\b`, 'i');
+// Strong terms only: a weak qualifier ("digital", "after-hours") is
+// technology only when it qualifies a role, which mentionsAutomation checks.
+export const TECHNOLOGY_WORD = new RegExp(String.raw`\b${STRONG_TECH}\b`, 'i');
 
 /** A suggestion without an instruction: "a speech engine could field the rush". */
 export const SUGGESTS =
@@ -211,7 +223,9 @@ export function opensWithInstruction(sentence: string): boolean {
   const m = ARTICLE_NEXT.exec(s);
   if (!m) return false;
   const first = m[1];
-  return !NOT_A_VERB.test(first) && !/['’]s$/i.test(first) && !/ly$/i.test(first) && !/^[A-Z]{2,}$/.test(first);
+  // A gerund opens a description ("Tapping the button confirms it"); the
+  // imperative verbs that end in -ing ("Bring") are in IMPERATIVE_START.
+  return !NOT_A_VERB.test(first) && !/['’]s$/i.test(first) && !/ly$/i.test(first) && !/^[A-Z]{2,}$/.test(first) && !/\w{3,}ing$/i.test(first);
 }
 
 /** Instructing, recommending or endorsing, by any of the means above. */
@@ -231,7 +245,7 @@ export function mentionsAutomation(sentence: string): boolean {
 /** Something that answers, replies or books by itself: "a number that replies on its own". */
 const ACTS_ON_ITS_OWN = near(
   String.raw`(?:answer\w*|repl\w*|respond\w*|text\w*|messag\w*|call\w*|book\w*|confirm\w*|greet\w*|acknowledg\w*)`,
-  String.raw`(?:on its own|by itself|by themselves|on their own|itself|themselves|unattended|around the clock|24\/7|instantly|without anyone)`,
+  String.raw`(?:on its own|by itself|by themselves|on their own|itself|themselves|unattended|around the clock|24\/7|instant|instantly|without anyone|never sleeps)`,
 );
 
 /**
@@ -240,7 +254,7 @@ const ACTS_ON_ITS_OWN = near(
  * markup was read automatically").
  */
 const VALIDATION_SERVICE =
-  /\bAI Discovery Audit\b|\bAI[- ](enhanced|generated|written|assisted (audit|analysis|summary|review))\b|\bautomated (audit|analysis|check|checks|review|scan|crawl)\b|\b(read|checked|collected|analy[sz]ed|scanned|tested|detected|found) automatically\b/gi;
+  /\bAI Discovery Audit\b|\bAI[- ](enhanced|generated|written|assisted (audit|analysis|summary|review))\b|\b(automated|digital|online|website) (audit|analysis|check|checks|review|scan|crawl|presence)\b|\b(read|checked|collected|analy[sz]ed|scanned|tested|detected|found) automatically\b/gi;
 
 /** A text with self-descriptions of the audit and summary removed, before automation is looked for. */
 export function withoutSelfDescription(text: string): string {
@@ -264,14 +278,14 @@ export const RECOMMENDS =
  * has been measured. Includes softened forms ("would likely solve", "could
  * help reduce missed inquiries").
  */
-const OUTCOME_CLAIM =
+export const OUTCOME_CLAIM =
   /\b(will|would|could|can|might|may|should|is likely to|are likely to|is expected to|are expected to)\s+(likely\s+|probably\s+|certainly\s+|help\s+(to\s+)?)?(stop|solve|eliminate|end|prevent|recover|capture|win back|bring back|answer every|resolve)\b|\b(will|would|could|can|might|may|should|is likely to|is expected to)\s+(likely\s+|probably\s+|help\s+(to\s+)?)?(reduce|cut|increase|boost|improve|raise|lift|double|grow|save)\b[^.]{0,40}\b(missed|lost|unanswered|dropped|calls|inquir\w*|orders|revenue|bookings|sales|conversions?|guests?)\b|\b(stops?|eliminates?|prevents?|recovers?|ends?|solves?) (the )?(missed|lost|unanswered|dropped|phone)\b|\bguarantee\w*\b|\bnever miss\b|\bno (single )?(call|calls|inquir\w*|guest|guests|order|orders|booking|bookings)\b[^.]{0,30}\b(would|will|could)\b[^.]{0,20}\b(go|be|get)\b[^.]{0,10}\b(unanswered|missed|lost|dropped)\b|\bhelp(s|ed|ing)? (with|against|reduce|cut|stop|fix|solve|prevent)\b[^.]{0,30}\b(missed|lost|unanswered|dropped)\b/i;
 /** Praise or comparison that recommends without a recommending verb. */
 export const ENDORSEMENT =
   /\b(beats?|beating|better|best|superior|outperform\w*|unmatched|unbeatable|unrivall?ed|ideal|perfect|must-have|essential|indispensable|game[- ]chang\w*|comes? close|(right|good|great|strong|natural|perfect|ideal) (fit|match) for|second to none|top choice|clear choice|obvious choice|biggest risk|no-brainer)\b|\bno (alternative|substitute|competitor|rival|other (option|system|tool|product|choice))\b|\bnothing (beats|compares|matches|comes close)\b|\bonly (option|choice|solution|answer)\b|\bwithout an? (AI|automat\w*|Front Desk|receptionist|chatbot|bot)\b/i;
 /** An instruction to act, or a modal that makes one. */
 export const DIRECTIVE =
-  /\b(deploy\w*|install\w*|implement\w*|adopt\w*|roll(s|ed|ing)? (it |them )?out|rollout|launch\w*|put (it |them |one |an? [\w-]+ ?[\w-]* )?in place|set (it |them |one )?up|bring(s|ing)? (it |them |one )?(on|in)|brought (on|in)|switch(es|ed|ing)? (to|on|over)|mov(e|es|ed|ing) to|upgrad\w* to|turn(s|ed|ing)? on|sign(s|ed|ing)? up|subscrib\w*|purchas\w*|buy(s|ing)?|go(es|ing)? live|onboard\w*|go(es|ing)? with|opt(s|ed|ing)? for|choos\w*)\b|\b(should|must|need(s)? to|ought to|has to|have to)\b/i;
+  /\b(deploy\w*|install\w*|implement\w*|adopt\w*|roll(s|ed|ing)? (it |them )?out|rollout|launch\w*|put (it |them |one |an? [\w-]+ ?[\w-]* )?in place|set (it |them |one )?up|bring(s|ing)? (it |them |one )?(on|in)|brought (on|in)|switch(es|ed|ing)? (to|on|over)|mov(e|es|ed|ing) to|upgrad\w* to|turn(s|ed|ing)? on|sign(s|ed|ing)? up|subscrib\w*|purchas\w*|buy(s|ing)?|go(es|ing)? live|onboard\w*|go(es|ing)? with|opt(s|ed|ing)? for|choos\w*)\b|\b(should|must|need(s)? to|ought to|has to|have to)\b|\b(is|are) to be \w+(ed|en|t)\b/i;
 /** A sentence that opens with an instruction ("Put …", "Let a machine …"). */
 export const IMPERATIVE_START =
   /^(?:please\s+|so\s+|then\s+|now\s+|just\s+)?(put|get|add|install|use|deploy|set|switch|buy|purchase|try|let|have|give|hire|bring|start|begin|consider|adopt|implement|launch|roll|make|replace|turn|activate|enable|connect|integrate|sign|subscribe|go|choose|pick|select|move|upgrade|automate|outsource|invest|introduce|trial|pilot|evaluate|explore|test|offer|route|field|send|forward|hand|point|direct|divert|transfer|delegate|assign|leave|allow|tell|explain|suggest|say|mention|show|pitch|sell|propose|recommend|push)\b/i;
@@ -297,7 +311,9 @@ const NOT_THE_RESTAURANT =
 export type GateCondition = 'demand' | 'readiness' | 'approval';
 
 /** "<owner>" in a demand clause: whose records. */
-const RECORD_OWNER = String.raw`(?:the restaurant's own|the restaurant's|your own|your|its own|the owner's own|the owner's|(?:[A-Z][\w&.-]*\s){0,3}[A-Z][\w&.-]*['’]s own|the)`;
+// Only this restaurant's records: a named restaurant ("Harbor Grill's own
+// records") could be any restaurant, so it is not accepted.
+const RECORD_OWNER = String.raw`(?:the restaurant's own|the restaurant's|your own|your|its own|the owner's own|the owner's|the)`;
 /** The restaurant's own operating records, by kind. */
 const RECORD_KIND = String.raw`(?:call|phone|booking|reservation|inquiry|event inquiry|private-event inquiry|catering inquiry|order|ordering|sales|POS|operating)`;
 const CLAUSE_END = String.raw`(?=\s*,|\s+and\s|$)`;
@@ -318,7 +334,9 @@ const CONDITION_CLAUSES: [GateCondition, RegExp][] = [
   [
     'readiness',
     new RegExp(
-      String.raw`^(?:(?:it|the (?:product|system|tool|pilot|service|automation)|the (?:[A-Z][\w-]*\s){0,4}[A-Z][\w-]*)\s+(?:passes|has passed)\s+(?:all of\s+)?its own readiness and safety tests(?:\s+for this restaurant)?` +
+      // Only the product being proposed ("it", "the system"): a named product
+      // could be any product, so its tests are not accepted.
+      String.raw`^(?:(?:it|the (?:product|system|tool|pilot|service|automation))\s+(?:passes|has passed)\s+(?:all of\s+)?its own readiness and safety tests(?:\s+for this restaurant)?` +
         String.raw`|its (?:own )?readiness and safety tests (?:pass|have passed)(?:\s+for this restaurant)?)${CLAUSE_END}`,
       'i',
     ),

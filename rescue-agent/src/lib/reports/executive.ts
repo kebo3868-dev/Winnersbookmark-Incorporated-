@@ -14,10 +14,11 @@ import {
   EXPLORATORY_STATUS,
   isAutomationCandidate,
   isExploratoryOpportunity,
-  presentOpportunitySolution,
   presentTierRecommendation,
-  screenAiSummary,
 } from './automationWording';
+import { auditedTierRecommendation, presentFindingRecommendation } from './recommendationTemplates';
+import { safeNarrative } from './narrativePolicy';
+import { NO_PILOT_RECORDS, authorisePilotImplementation, type PilotAuthorisation, type PilotRecords } from './pilotAuthorization';
 
 export { isAutomationCandidate, isExploratoryOpportunity };
 import {
@@ -213,6 +214,8 @@ export interface ExecutiveReportInput {
   storedSummary: string | null;
   storedSummaryWasAiEnhanced: boolean;
   storedRecommendation: { tier: string; rationale: string } | null;
+  /** Structured demand, readiness and approval records (none are stored in this release). */
+  pilotRecords?: PilotRecords;
 }
 
 // ── DTO ─────────────────────────────────────────────────────────────────────
@@ -342,6 +345,13 @@ export interface RankedAiOpportunity {
    * link) does not establish demand, so no pilot is proposed for it.
    */
   exploratory: boolean;
+  /**
+   * Whether implementation is authorised, from structured records bound to
+   * this restaurant and this product (pilotAuthorization.ts). Never from text.
+   * No such records are stored in this release, so this is always false and
+   * the report offers at most the conditional pilot decision.
+   */
+  pilotAuthorisation: PilotAuthorisation;
   whyItFits: string;
   capabilities: string[];
   validationBeforeImplementation: string;
@@ -564,7 +574,46 @@ const MAX_REPORT_FINDINGS = 5;
 /** No finding measures what customers did; every card says so in the same words. */
 export const CUSTOMER_OUTCOME_LABEL = 'Not measured';
 
-export function buildExecutiveReport(input: ExecutiveReportInput): ExecutiveReportDTO {
+/**
+ * THE RELEASE POLICY, applied once before anything is derived, so the web
+ * report and the PDF (which render the same DTO) cannot disagree:
+ * - no AI-written summary is shown: the deterministic summary always is
+ *   (free-text screening is not relied on for safety in this release);
+ * - the package recommendation is reduced to a known tier and an audited
+ *   rationale (recommendationTemplates.ts);
+ * - stored observations (finding titles, descriptions and impacts, journey
+ *   findings, evidence facts, score explanations) are shown unless the shared
+ *   narrative policy finds a recommendation of automation in them, in which
+ *   case a neutral fallback is shown (narrativePolicy.ts);
+ * - recommended solutions are chosen later, per finding, from the audited
+ *   templates (presentFindingRecommendation).
+ * Stored records are never changed.
+ */
+function applyReleasePolicy(input: ExecutiveReportInput): ExecutiveReportInput {
+  const sentenceCase = (category: string) => category.charAt(0) + category.slice(1).toLowerCase();
+  return {
+    ...input,
+    storedSummary: null,
+    storedSummaryWasAiEnhanced: false,
+    storedRecommendation: auditedTierRecommendation(input.storedRecommendation),
+    opportunities: input.opportunities.map((o) => ({
+      ...o,
+      title: safeNarrative(o.title, sentenceCase(o.category)),
+      problem: safeNarrative(o.problem, 'The stored description of this finding is not shown; its evidence is listed in the appendix.'),
+      businessImpact: safeNarrative(o.businessImpact, 'Not measured — see the evidence for this finding.'),
+    })),
+    journey: input.journey.map((j) => ({ ...j, finding: safeNarrative(j.finding, 'See the evidence for this stage in the appendix.') })),
+    evidence: input.evidence.map((e) => ({
+      ...e,
+      fact: safeNarrative(e.fact, 'Evidence text withheld from this report; it remains in the audit record.'),
+      supportingContext: e.supportingContext === null ? null : safeNarrative(e.supportingContext, ''),
+    })),
+    categoryScores: input.categoryScores.map((c) => ({ ...c, explanation: safeNarrative(c.explanation, 'See the findings for this category.') })),
+  };
+}
+
+export function buildExecutiveReport(rawInput: ExecutiveReportInput): ExecutiveReportDTO {
+  const input = applyReleasePolicy(rawInput);
   const evidenceById = new Map(input.evidence.map((e) => [e.id, e]));
   const attachedTo = (opp: OppInput) =>
     opp.evidenceIds.map((id) => evidenceById.get(id)).filter((e): e is NonNullable<typeof e> => Boolean(e));
@@ -575,8 +624,12 @@ export function buildExecutiveReport(input: ExecutiveReportInput): ExecutiveRepo
   // purchase, no pilot (automationWording.ts). Cards, the AI section and the
   // plan all read the presented text.
   const ranked = input.opportunities
-    .map((opp) => withOrderButtonCopy(opp, attachedTo(opp)))
-    .map((opp) => ({ ...opp, recommendedSolution: presentOpportunitySolution(opp) }))
+    .map((opp) => {
+      // Order-button copy is computed here from the finding's own evidence;
+      // every other recommendation comes from the audited templates.
+      const copied = withOrderButtonCopy(opp, attachedTo(opp));
+      return { ...copied, recommendedSolution: presentFindingRecommendation(copied, copied !== opp) };
+    })
     .sort((a, b) => b.rescuePriorityScore - a.rescuePriorityScore);
   const top = ranked.slice(0, MAX_REPORT_FINDINGS);
 
@@ -684,7 +737,7 @@ export function buildExecutiveReport(input: ExecutiveReportInput): ExecutiveRepo
       prefill: prefillFromAverageTicket(f.scenarioKind, input.avgTicket),
     });
   }
-  const rankedAiOpportunities = buildRankedAiOpportunities(top);
+  const rankedAiOpportunities = buildRankedAiOpportunities(top, { auditId: input.auditId, records: input.pilotRecords ?? NO_PILOT_RECORDS });
   const journeyMap = buildJourneyMap(input.journey);
   const usedStatuses = new Set(journeyMap.map((s) => s.status));
   const snapshot = buildSnapshot(input, findings, rankedAiOpportunities);
@@ -921,7 +974,7 @@ export const AI_OPPORTUNITIES_INTRO =
   'Potential improvements matched to the findings above. "Fit" describes how well an automation suits the kind of problem, not evidence that the problem exists here; ' +
   'none of these rests on measured missed calls or lost revenue. ' + AUTOMATION_PROPOSAL_GATE;
 
-function buildRankedAiOpportunities(top: OppInput[]): RankedAiOpportunity[] {
+function buildRankedAiOpportunities(top: OppInput[], target: { auditId: string; records: PilotRecords }): RankedAiOpportunity[] {
   // Pilot candidates and exploratory opportunities, by the same rules as the
   // Decision box and Days 15–21. Catering (AI fit 60, private-party link) is
   // listed as exploratory, never as a recommendation; nothing is re-scored.
@@ -943,6 +996,10 @@ function buildRankedAiOpportunities(top: OppInput[]): RankedAiOpportunity[] {
         // Every card states the whole gate, the verified branch included: a
         // verified observation is not evidence of demand, readiness or approval.
         exploratory: isExploratoryOpportunity(opp),
+        pilotAuthorisation: authorisePilotImplementation(
+          { restaurantId: target.auditId, product: solutionCategoryFor(opp.category) },
+          isExploratoryOpportunity(opp) ? NO_PILOT_RECORDS : target.records,
+        ),
         basis: isExploratoryOpportunity(opp)
           ? `Not a recommendation. ${EXPLORATORY_STATUS} The next step is to understand and improve the current workflow from your own records.`
           : requiresValidation
@@ -1223,17 +1280,16 @@ function limitationSentence(text: string): string | null {
   return found ? found.trim().slice(0, 240) : null;
 }
 
-/** Whether the stored AI-written summary is shown: it exists and passes the automation screen. */
+/**
+ * No AI-written summary is shown in this release (applyReleasePolicy clears
+ * it): free text cannot be proven safe, so the summary is always composed
+ * deterministically from the stored audit data.
+ */
 function usesAiSummary(input: ExecutiveReportInput): boolean {
-  return Boolean(input.storedSummaryWasAiEnhanced && input.storedSummary && screenAiSummary(input.storedSummary).safe);
+  return Boolean(input.storedSummaryWasAiEnhanced && input.storedSummary);
 }
 
 function buildSummary(input: ExecutiveReportInput, findings: ExecutiveFinding[]): string {
-  // Prefer the audit-time summary when it was AI-enhanced (it was schema-
-  // validated against the same stored data); otherwise compose deterministically.
-  // A stored AI-written summary is shown only if it passes the automation
-  // screen (automationWording.ts); otherwise the deterministic summary below is
-  // used. Audits stored before the screen existed are covered the same way.
   if (usesAiSummary(input)) return input.storedSummary!;
 
   const stageOrder = Object.keys(JOURNEY_LABELS);

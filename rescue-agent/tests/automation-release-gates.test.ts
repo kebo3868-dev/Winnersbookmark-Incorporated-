@@ -121,11 +121,12 @@ describe('H1 — AI-written summaries are screened, and an unsafe one is replace
     }
   });
 
-  it('a stored acceptable AI summary is shown as written', () => {
+  it('a stored acceptable AI summary passes the audit-time screen but is still not shown: this release shows only the deterministic summary', () => {
     const s = padded(ACCEPTABLE_SUMMARIES[2]);
+    expect(screenAiSummary(s).safe).toBe(true);
     const dto = buildExecutiveReport(input(lev, { storedSummary: s, storedSummaryWasAiEnhanced: true }));
-    expect(dto.executiveSummary).toBe(s);
-    expect(dto.summaryWasAiEnhanced).toBe(true);
+    expect(dto.executiveSummary).toBe(buildExecutiveReport(input(lev)).executiveSummary);
+    expect(dto.summaryWasAiEnhanced).toBe(false);
   });
 
   it('neither the PDF nor the web page prints a rejected summary', async () => {
@@ -137,7 +138,7 @@ describe('H1 — AI-written summaries are screened, and an unsafe one is replace
   it('the audit pipeline screens the summary before storing it, and feeds the model the conditional wording', () => {
     const src = fs.readFileSync(path.join(__dirname, '../src/lib/audit/orchestrator.ts'), 'utf8');
     expect(src).toMatch(/AI_SUMMARY_AUTOMATION_RULE/);
-    expect(src).toMatch(/recommendation: presentOpportunitySolution\(l\)/);
+    expect(src).toMatch(/recommendation: presentFindingRecommendation\(l\)/);
     expect(src).not.toMatch(/recommendation: l\.recommendedSolution/);
     const screenAt = src.indexOf('screenAiSummary(aiNarrative.executiveSummary)');
     expect(screenAt).toBeGreaterThan(-1);
@@ -252,9 +253,10 @@ describe('H1 (re-review) — adversarial AI-summary wording is rejected whole', 
     const SELF_DESCRIPTION = 'This AI-enhanced summary was generated at audit time from the validated findings.';
     for (const text of [GATED, padded(GATED), ACCEPTABLE_FULL_SUMMARY, padded(NON_RECOMMENDATION), padded(SELF_DESCRIPTION)]) {
       expect(screenAiSummary(text), text).toEqual({ safe: true, unsafe: [] });
+      // Accepted by the audit-time screen, but not shown: deterministic summary only in this release.
       const dto = buildExecutiveReport(input(lev, { storedSummary: text, storedSummaryWasAiEnhanced: true }));
-      expect(dto.executiveSummary).toBe(text);
-      expect(dto.summaryWasAiEnhanced).toBe(true);
+      expect(dto.executiveSummary).toBe(deterministic);
+      expect(dto.summaryWasAiEnhanced).toBe(false);
     }
   });
 
@@ -326,8 +328,8 @@ describe('H1 (review of f53ffd1) — disclaimers must disclaim, gates must gover
     for (const c of LEGITIMATE) {
       expect(screenAiSummary(padded(c)), c).toEqual({ safe: true, unsafe: [] });
       const dto = buildExecutiveReport(input(lev, { storedSummary: padded(c), storedSummaryWasAiEnhanced: true }));
-      expect(dto.executiveSummary, c).toBe(padded(c));
-      expect(dto.summaryWasAiEnhanced, c).toBe(true);
+      expect(dto.executiveSummary, c).toBe(deterministic);
+      expect(dto.summaryWasAiEnhanced, c).toBe(false);
     }
   });
 });

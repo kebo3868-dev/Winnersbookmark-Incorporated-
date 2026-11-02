@@ -110,19 +110,19 @@ describe('adversarial AI summaries are rejected whole — new and historical', (
     });
   }
 
-  it('accepted: genuinely conditional language and explicit non-recommendations are shown as written', () => {
+  it('accepted by the audit-time screen, but never shown: this release shows only the deterministic summary', () => {
     for (const c of ACCEPTED) {
       expect(screenAiSummary(padded(c)), c).toEqual({ safe: true, unsafe: [] });
       const dto = stored(c);
-      expect(dto.executiveSummary, c).toBe(padded(c));
-      expect(dto.summaryWasAiEnhanced, c).toBe(true);
+      expect(dto.executiveSummary, c).toBe(DETERMINISTIC);
+      expect(dto.summaryWasAiEnhanced, c).toBe(false);
     }
   });
 
-  it('safe non-automation statements are shown as written', () => {
+  it('safe non-automation statements pass the audit-time screen (and, like every AI summary, are not shown)', () => {
     for (const c of SAFE_NON_AUTOMATION) {
       expect(screenAiSummary(padded(c)), c).toEqual({ safe: true, unsafe: [] });
-      expect(stored(c).executiveSummary, c).toBe(padded(c));
+      expect(stored(c).executiveSummary, c).toBe(DETERMINISTIC);
     }
   });
 
@@ -152,9 +152,12 @@ describe('adversarial AI summaries are rejected whole — new and historical', (
     }
   }, 60_000);
 
-  it('an accepted stored summary is printed identically by the web report and the PDF', async () => {
+  it('even an accepted stored summary is printed by neither the web report nor the PDF; both print the deterministic one', async () => {
     const dto = stored(GATED);
-    for (const text of [await pdfText(dto), await webText(dto)]) expect(text).toContain(GATED);
+    for (const text of [await pdfText(dto), await webText(dto)]) {
+      expect(text).not.toContain(GATED.slice(0, 60));
+      expect(text).toContain(DETERMINISTIC.slice(0, 80));
+    }
   }, 60_000);
 
   it('the audit pipeline applies the same screen before storing a new summary', () => {
@@ -163,9 +166,10 @@ describe('adversarial AI summaries are rejected whole — new and historical', (
     expect(screenAt).toBeGreaterThan(-1);
     expect(src.indexOf('aiNarrative = null;', screenAt)).toBeGreaterThan(screenAt);
     expect(screenAt).toBeLessThan(src.indexOf('generateOwnerReport({'));
-    // The render path uses the same function (executive.ts usesAiSummary).
+    // The render path does not rely on the screen: the release policy clears the stored summary.
     const exec = fs.readFileSync(path.join(__dirname, '../src/lib/reports/executive.ts'), 'utf8');
-    expect(exec).toMatch(/screenAiSummary\(input\.storedSummary\)\.safe/);
+    expect(exec).toMatch(/storedSummary: null,\s+storedSummaryWasAiEnhanced: false,/);
+    expect(exec).toMatch(/const input = applyReleasePolicy\(rawInput\);/);
   });
 });
 

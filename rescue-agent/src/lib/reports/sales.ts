@@ -1,5 +1,5 @@
 import type { EvidenceRecordLike, JourneyStageResult } from '@/types/audit';
-import { salesAutomationObjectionStrategy, salesNextStepFor, salesOfferFor } from './salesWording';
+import { SALES_AUTOMATION_OBJECTION, salesAutomationObjectionStrategy, salesNextStepFor, salesOfferFor } from './salesWording';
 import type { RankedOpportunity } from './owner';
 import { COMPANY } from '@/lib/config';
 import {
@@ -125,7 +125,7 @@ export function generateSalesBrief(input: {
     : 'Lead with the clean audit: their public presence is solid, so the open question is what happens off-line (calls, follow-up, repeat visits) — which only they can answer.';
 
   const likelyObjection = aiFitLeaks.length > 0
-    ? '"We\'re too busy to set up new systems, and AI sounds complicated / impersonal for a restaurant."'
+    ? SALES_AUTOMATION_OBJECTION
     : '"Our website is fine and business is okay — why would we pay for an audit or a system?"';
 
   const objectionStrategy = aiFitLeaks.length > 0

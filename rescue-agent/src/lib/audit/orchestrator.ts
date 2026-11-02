@@ -10,7 +10,8 @@ import { detectRevenueLeaks } from '@/lib/audit/leaks';
 import { rankOpportunities } from '@/lib/scoring/priority';
 import { calculateCategoryScores, calculateOverallScore } from '@/lib/scoring/rescueScore';
 import { generateOwnerReport, type RankedOpportunity } from '@/lib/reports/owner';
-import { AI_SUMMARY_AUTOMATION_RULE, presentOpportunitySolution, screenAiSummary } from '@/lib/reports/automationWording';
+import { AI_SUMMARY_AUTOMATION_RULE, screenAiSummary } from '@/lib/reports/automationWording';
+import { presentFindingRecommendation } from '@/lib/reports/recommendationTemplates';
 import { generateSalesBrief } from '@/lib/reports/sales';
 import { getAiProvider } from '@/lib/ai/provider';
 import { analyzeOwnerReviews, reviewEvidence, socialEvidence } from '@/lib/audit/reviews';
@@ -487,7 +488,7 @@ export async function runAudit(auditId: string): Promise<void> {
             coverageScore: overall.coverageScore,
             // The client-approved, conditional wording — never the stored
             // "… is the matched fix" text the model would otherwise repeat.
-            topLeaks: topLeaks.map((l) => ({ title: l.title, problem: l.problem, recommendation: presentOpportunitySolution(l) })),
+            topLeaks: topLeaks.map((l) => ({ title: l.title, problem: l.problem, recommendation: presentFindingRecommendation(l) })),
             journey: journey.map((j) => ({ stage: j.stage, status: j.status })),
           }),
           schema: aiSummarySchema,

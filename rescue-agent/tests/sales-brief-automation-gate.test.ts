@@ -1,25 +1,30 @@
 /**
- * PR #77 INDEPENDENT REVIEW AT 5764862 — FINDING 4 (MEDIUM): the internal Sales
- * Brief told a rep, unconditionally, to "recommend AI FRONT DESK SYSTEM and
- * explain exactly why the evidence points there" (sales.ts), listed the tier as
- * the "Recommended WBI Offer", and answered the busy-owner objection with
- * "being too busy is exactly the problem the system is built for".
+ * THE INTERNAL SALES BRIEF NEVER TELLS A REP TO RECOMMEND AN AUTOMATION.
  *
- * Now an automation may be proposed only as a limited, monitored pilot, and
- * only after the restaurant's own records document measurable demand, the
- * system has completed its readiness and safety validation, and the owner has
- * explicitly approved the pilot. New briefs are written that way; stored
- * briefs are presented that way (salesData.ts) without being rewritten.
+ * Reviews of 5764862 and 1e2c271. The brief's free text was screened sentence
+ * by sentence, so "The AI Front Desk is available. It should be installed."
+ * passed (its second sentence names nothing), and buyerPersona and
+ * likelyObjection were shown as stored without any check.
+ *
+ * Now (salesData.ts) stored brief text is never shown: every narrative field
+ * is regenerated from the stored audit data by the audited generator
+ * (sales.ts) and checked, field by field and in context across sentences,
+ * against the shared narrative policy (narrativePolicy.ts). For a product tier
+ * the next step is "do not recommend … on this call", proposing it only as a
+ * limited, monitored pilot after documented demand in the restaurant's own
+ * records, completed readiness and safety validation and explicit owner
+ * approval. Stored records are not changed.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import levFixture from './fixtures/leverocks-local-audit-opportunities.json';
-import { REJECTED, SAFE_NON_AUTOMATION } from './fixtures/ai-summary-adversarial';
+import { ADVERSARIAL_NARRATIVE, SAFE_NARRATIVE } from './fixtures/narrative-policy-cases';
 import { generateSalesBrief } from '@/lib/reports/sales';
 import type { RankedOpportunity } from '@/lib/reports/owner';
 import {
   SALES_AUTOMATION_GATE,
+  SALES_AUTOMATION_OBJECTION,
   SALES_WITHHELD_NOTICE,
   presentSalesField,
   salesAutomationObjectionStrategy,
@@ -56,157 +61,166 @@ afterEach(() => {
 });
 
 const lev = (levFixture as { opportunities: RankedOpportunity[] }).opportunities;
-const brief = (tier: string) =>
-  generateSalesBrief({ restaurantName: "Leverock's Great Seafood", overallScore: 84, coverageScore: 80, topLeaks: lev.slice(0, 3), journey: [], evidence: [], recommendedTier: tier });
+const brief = (tier: string, topLeaks = lev.slice(0, 3)) =>
+  generateSalesBrief({ restaurantName: "Leverock's Great Seafood", overallScore: 84, coverageScore: 80, topLeaks, journey: [], evidence: [], recommendedTier: tier });
 
-const SCREENED = ['bestSalesAngle', 'topDiscoveryQuestion', 'discoveryQuestions', 'objectionStrategy', 'recommendedOffer', 'outreachAngle', 'emailOpener', 'callOpener', 'talkTrack', 'followUpAngle'] as const;
+const NARRATIVE = ['buyerPersona', 'bestSalesAngle', 'topDiscoveryQuestion', 'discoveryQuestions', 'likelyObjection', 'objectionStrategy', 'recommendedOffer', 'outreachAngle', 'emailOpener', 'callOpener', 'talkTrack', 'followUpAngle'] as const;
 const textOf = (value: unknown) => (Array.isArray(value) ? value.join('\n') : String(value));
+const AUDIT_ID = 'cmvhistsales000000000001';
 
-describe('new briefs: no unconditional automation instruction', () => {
+/** A stored brief and its audit, as the database would return them. */
+function storedRecord(tier: string, poison: string | null, opportunities = lev) {
+  const text = (fallback: string) => poison ?? fallback;
+  return {
+    id: 'si1', auditId: AUDIT_ID, leadQualityScore: 70, salesOpportunityScore: 80, painLevel: 'HIGH', priority: 'HOT',
+    createdAt: new Date('2026-06-01T00:00:00Z'),
+    buyerPersona: text('Independent restaurant owner-operator.'),
+    bestSalesAngle: text('Lead with the audit evidence.'),
+    topDiscoveryQuestion: text('How many calls go unanswered in a week?'),
+    discoveryQuestions: [text('How many calls go unanswered in a week?')],
+    likelyObjection: text('"We are too busy."'),
+    objectionStrategy: text('Agree — being too busy is exactly the problem the system absorbs.'),
+    recommendedOffer: text(tier),
+    outreachAngle: text('Reference the finding.'),
+    emailOpener: text('Subject: hello'),
+    callOpener: text('"Hi."'),
+    talkTrack: text(`MINUTE 16–20 — Next step: recommend ${tier} and explain exactly why the evidence points there.`),
+    followUpAngle: text('Follow up.'),
+    audit: {
+      demoMode: false, overallScore: 84, coverageScore: 80,
+      restaurant: { name: "Leverock's Great Seafood", websiteUrl: 'https://leverocks.example/' },
+      opportunities: opportunities.map((o, i) => ({ id: `o${i}`, ...o })),
+      journeyStages: [], evidence: [],
+      reports: [{ content: { recommendation: { tier, rationale: 'x' } } }],
+    },
+  };
+}
+
+async function load() {
+  const { checkOperator } = await import('@/lib/operatorAuth');
+  const { loadSalesBrief } = await import('@/lib/reports/salesData');
+  const check = checkOperator(AUTH);
+  if (!check.ok) throw new Error('operator refused');
+  return (await loadSalesBrief(check.operator, AUDIT_ID)) as unknown as Record<string, unknown>;
+}
+async function page(): Promise<string> {
+  const Page = (await import('@/app/audits/[auditId]/sales/page')).default;
+  return renderToStaticMarkup((await Page({ params: Promise.resolve({ auditId: AUDIT_ID }) })) as React.ReactElement)
+    .replace(/<[^>]+>/g, ' ').replace(/&#x27;|&#39;/g, "'").replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/\s+/g, ' ');
+}
+const squash = (s: string) => s.replace(/\s+/g, '');
+
+describe('the brief the generator writes', () => {
   for (const tier of ['AI FRONT DESK SYSTEM', 'AI REACTIVATION CAMPAIGN']) {
-    it(`${tier}: the next step, the offer and the objection all carry the conditions`, () => {
+    it(`${tier}: the next step, the offer and the objection carry the conditions`, () => {
       const b = brief(tier);
-      expect(b.talkTrack).not.toMatch(new RegExp(`Next step: recommend ${tier}`));
       expect(b.talkTrack).toContain(`Next step: do not recommend the ${tier} on this call. It may be proposed only as a limited, monitored pilot, ${SALES_AUTOMATION_GATE}.`);
       expect(b.recommendedOffer).toBe(`${tier} — conditional, not a recommendation. It may be proposed only as a limited, monitored pilot, ${SALES_AUTOMATION_GATE}.`);
       expect(b.objectionStrategy).toBe(salesAutomationObjectionStrategy());
-      expect(b.objectionStrategy).not.toMatch(/exactly the problem|before anything is installed|80%/);
-      for (const field of SCREENED) expect(unauthorisedSalesSentences(textOf(b[field])), field).toEqual([]);
+      expect(b.likelyObjection).toBe(SALES_AUTOMATION_OBJECTION);
+      for (const field of NARRATIVE) expect(unauthorisedSalesSentences(textOf(b[field])), field).toEqual([]);
     });
   }
 
-  it('a freshly written brief passes its own presentation unchanged, for every tier and every subset of findings', () => {
+  it('every field passes the shared policy unchanged, for every tier and every subset of findings', () => {
     const subsets: RankedOpportunity[][] = [[]];
     for (const o of lev) for (const existing of [...subsets]) if (existing.length < 3) subsets.push([...existing, o]);
     for (const tier of ['AI FRONT DESK SYSTEM', 'AI REACTIVATION CAMPAIGN', 'AI DISCOVERY AUDIT', 'BASIC OPTIMIZATION']) {
       for (const topLeaks of subsets) {
-        const b = generateSalesBrief({ restaurantName: "Leverock's Great Seafood", overallScore: 84, coverageScore: 80, topLeaks, journey: [], evidence: [], recommendedTier: tier });
-        for (const field of SCREENED) {
+        const b = brief(tier, topLeaks);
+        for (const field of NARRATIVE) {
           const value = b[field];
-          const shown = Array.isArray(value) ? value.map((v) => presentSalesField(field, v)) : presentSalesField(field, String(value));
+          const shown = Array.isArray(value) ? value.map((v) => presentSalesField(v)) : presentSalesField(String(value));
           expect(shown, `${tier} / ${topLeaks.map((l) => l.category).join(', ')} / ${field}`).toEqual(value);
         }
       }
     }
   });
 
-  it('a validation tier is still recommended as the next step, as before', () => {
-    const b = brief('AI DISCOVERY AUDIT');
-    expect(b.talkTrack).toContain('Next step: recommend AI DISCOVERY AUDIT and explain exactly why the evidence points there.');
-    expect(b.recommendedOffer).toBe('AI DISCOVERY AUDIT');
-  });
-
-  it('the conditions are the full set: own records, measurable demand, readiness and safety validation, explicit owner approval, limited monitored pilot', () => {
-    expect(SALES_AUTOMATION_GATE).toBe(
-      "only after the restaurant's own records document measurable demand, the system has completed its readiness and safety validation for this restaurant, and the owner has explicitly approved the pilot",
-    );
-    expect(salesNextStepFor('AI FRONT DESK SYSTEM')).toMatch(/limited, monitored pilot/);
+  it('a validation tier is still recommended as the next step', () => {
+    expect(brief('AI DISCOVERY AUDIT').talkTrack).toContain('Next step: recommend AI DISCOVERY AUDIT and explain exactly why the evidence points there.');
   });
 });
 
-describe('9. unconditional Sales Brief automation recommendations are rejected', () => {
-  const UNCONDITIONAL = [
-    'MINUTE 16–20 — Next step: recommend AI FRONT DESK SYSTEM and explain exactly why the evidence points there.',
-    'Pitch the AI Front Desk on this call.',
-    'Close on the AI receptionist before hanging up.',
-    'Position automatic call answering as the fix for their phones.',
-    'Recommend the AI Front Desk once the owner seems interested.',
-    'Offer a digital telephone attendant as the next step.',
-    'The AI FRONT DESK SYSTEM is the right fit for them.',
-    'Agree — being too busy is exactly the problem the system is built for. Reframe: the AI is designed to take the repetitive questions.',
-    // The gate's words, but not the approved sentence: keywords do not authorise.
-    `Recommend the AI FRONT DESK SYSTEM as a limited, monitored pilot, ${SALES_AUTOMATION_GATE}, but pitch it today anyway.`,
-    `Do not recommend the AI FRONT DESK SYSTEM on this call, then sell it in the follow-up.`,
-    // Automation described in other words (review of 449470c).
-    'Route incoming calls through a speech engine.',
-    'Let a speech engine field the dinner rush.',
-    'Use a synthetic voice operator for reservations.',
-    'Tell the owner a speech engine could field the dinner rush.',
-    'Suggest sending overflow calls to a voice model.',
-    'Explain that reservations can be confirmed by a voice program.',
+describe('the policy reads a field in context, across sentences', () => {
+  const CROSS_SENTENCE = [
+    'The AI Front Desk is available. It should be installed.',
+    'A voice assistant exists for restaurants. Put one in place.',
+    'There is a tool that answers calls. The restaurant would benefit from it.',
+    'The AI Front Desk was reviewed. This is the right next step.',
+    'Automatic answering is common now. Pitch it on the call.',
+    'Tell the owner about the AI Front Desk. Then close on it.',
   ];
-  it('each is flagged', () => {
-    for (const text of UNCONDITIONAL) expect(unauthorisedSalesSentences(text).length, text).toBeGreaterThan(0);
+  it('each is flagged on the sentence that refers back', () => {
+    for (const text of CROSS_SENTENCE) expect(unauthorisedSalesSentences(text).length, text).toBeGreaterThan(0);
   });
-  it('and withheld when shown', () => {
-    for (const text of UNCONDITIONAL) expect(presentSalesField('followUpAngle', text), text).toBe(SALES_WITHHELD_NOTICE);
+  it('a different explicit subject ends the reference', () => {
+    expect(unauthorisedSalesSentences('The AI Front Desk was not discussed. The menu page is broken. It should be fixed.')).toEqual([]);
   });
-  it('every alternative automation description (speech engine, synthetic voice, voice model, outsourcing the phones …) is flagged and withheld', () => {
-    for (const text of REJECTED['9. automation described in other words (review of 449470c)']) {
-      expect(unauthorisedSalesSentences(text).length, text).toBeGreaterThan(0);
-      expect(presentSalesField('talkTrack', `MINUTE 16–20 — ${text}`), text).toBe(SALES_WITHHELD_NOTICE);
+});
+
+describe('stored brief text is never shown: the loader regenerates every narrative field', () => {
+  it('the three reported bypasses, stored in EVERY narrative field (buyerPersona and likelyObjection included), never reach the page', async () => {
+    for (const poison of [
+      'Calls are to be answered by a prerecorded greeter.',
+      'A speech engine could field all of the late evening calls.',
+      'The AI Front Desk is available. It should be installed.',
+    ]) {
+      storedBrief = storedRecord('AI FRONT DESK SYSTEM', poison);
+      const shown = await load();
+      for (const field of NARRATIVE) expect(squash(textOf(shown[field])), `${poison} / ${field}`).not.toContain(squash(poison));
+      expect(squash(await page())).not.toContain(squash(poison));
     }
   });
-  it('safe non-automation statements are not flagged', () => {
-    for (const text of SAFE_NON_AUTOMATION) expect(unauthorisedSalesSentences(text), text).toEqual([]);
+
+  it('every adversarial case, stored in every field, never reaches the loader output or the page', async () => {
+    for (const poison of ADVERSARIAL_NARRATIVE) {
+      storedBrief = storedRecord('AI FRONT DESK SYSTEM', poison);
+      const shown = await load();
+      for (const field of NARRATIVE) expect(squash(textOf(shown[field])), `${poison} / ${field}`).not.toContain(squash(poison));
+    }
+    storedBrief = storedRecord('AI FRONT DESK SYSTEM', ADVERSARIAL_NARRATIVE[0]);
+    expect(squash(await page())).not.toContain(squash(ADVERSARIAL_NARRATIVE[0]));
   });
-  it('the owner\'s quoted objection is shown as stored; it is not an instruction', () => {
-    const quoted = '"We\'re too busy to set up new systems, and AI sounds complicated / impersonal for a restaurant."';
-    expect(presentSalesField('likelyObjection', quoted)).toBe(quoted);
+
+  it('a stored opportunity title that recommends automation is not quoted to the rep; a factual one is', async () => {
+    const poisonedTitle = 'Calls are to be answered by a prerecorded greeter.';
+    storedBrief = storedRecord('AI FRONT DESK SYSTEM', null, lev.map((o, i) => (i === 0 ? { ...o, title: poisonedTitle } : o)));
+    const poisoned = await load();
+    for (const field of NARRATIVE) expect(textOf(poisoned[field]), field).not.toContain(poisonedTitle);
+    storedBrief = storedRecord('AI FRONT DESK SYSTEM', null);
+    const clean = await load();
+    expect(textOf(clean.bestSalesAngle) + textOf(clean.callOpener)).toMatch(new RegExp(lev[0].title.slice(0, 20).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'));
+  });
+
+  it('the regenerated brief shows the conditional next step and offer; the stored record is unchanged; stored numbers are kept', async () => {
+    storedBrief = storedRecord('AI FRONT DESK SYSTEM', null);
+    const before = JSON.stringify(storedBrief);
+    const shown = await load();
+    expect(textOf(shown.talkTrack)).toContain(salesNextStepFor('AI FRONT DESK SYSTEM'));
+    expect(textOf(shown.recommendedOffer)).toMatch(/^AI FRONT DESK SYSTEM — conditional, not a recommendation\./);
+    expect(textOf(shown.objectionStrategy)).not.toMatch(/exactly the problem/);
+    expect([shown.leadQualityScore, shown.salesOpportunityScore, shown.painLevel, shown.priority]).toEqual([70, 80, 'HIGH', 'HOT']);
+    expect(JSON.stringify(storedBrief)).toBe(before);
+    const html = await page();
+    expect(html).toContain('do not recommend the AI FRONT DESK SYSTEM on this call');
+    expect(html).not.toMatch(/Next step: recommend AI FRONT DESK SYSTEM/);
+  });
+
+  it('an unknown stored tier is presented as the validation step', async () => {
+    storedBrief = storedRecord('AI FRONT DESK INSTALL NOW', null);
+    const shown = await load();
+    expect(textOf(shown.recommendedOffer)).toBe('AI DISCOVERY AUDIT');
+    expect(textOf(shown.talkTrack)).not.toContain('INSTALL NOW');
+  });
+
+  it('the withheld notice exists for a field the policy rejects', () => {
+    expect(presentSalesField('Pitch the AI Front Desk on this call.')).toBe(SALES_WITHHELD_NOTICE);
   });
 });
 
-describe('historical stored briefs: presented with the conditions, never rewritten', () => {
-  const HISTORICAL = {
-    id: 'si1', auditId: 'cmvhistsales000000000001', leadQualityScore: 70, salesOpportunityScore: 80, painLevel: 'HIGH',
-    buyerPersona: 'Independent restaurant owner-operator.',
-    bestSalesAngle: 'Lead with the audit evidence: "No dedicated FAQ page was found". State it plainly.',
-    topDiscoveryQuestion: 'How many calls go unanswered in a week?',
-    discoveryQuestions: ['How many calls go unanswered in a week?', 'Do you currently have an automated system for following up with customers after they visit or order?'],
-    likelyObjection: '"We\'re too busy to set up new systems, and AI sounds complicated / impersonal for a restaurant."',
-    objectionStrategy: 'Agree — being too busy is exactly the problem the system absorbs. Reframe: the AI handles the repetitive 80% (hours, directions, FAQs, after-hours inquiries) so staff handle the human 20%. Offer the 15-minute review as zero-commitment proof, walking through their own audit evidence.',
-    recommendedOffer: 'AI FRONT DESK SYSTEM',
-    outreachAngle: 'Reference the specific finding with its evidence. Evidence first, product second.',
-    emailOpener: 'Subject: Found something\n\nI ran a digital audit.',
-    callOpener: '"Hi, this is [name] with Winnersbookmark."',
-    talkTrack: 'MINUTE 0–2 — Frame: "I audited the public digital presence."\nMINUTE 16–20 — Next step: recommend AI FRONT DESK SYSTEM and explain exactly why the evidence points there. If their answers changed the picture, say that instead. Book the follow-up before hanging up.',
-    followUpAngle: 'If no response in 4–5 days, push the AI Front Desk in a one-line follow-up.',
-    priority: 'HOT', createdAt: new Date('2026-06-01T00:00:00Z'),
-    audit: { demoMode: false, restaurant: { name: "Leverock's Great Seafood" } },
-  };
-
-  async function load() {
-    const { checkOperator } = await import('@/lib/operatorAuth');
-    const { loadSalesBrief } = await import('@/lib/reports/salesData');
-    const check = checkOperator(AUTH);
-    if (!check.ok) throw new Error('operator refused');
-    return (await loadSalesBrief(check.operator, 'cmvhistsales000000000001')) as unknown as typeof HISTORICAL;
-  }
-
-  it('known historical wording is shown in the current, conditional wording; unknown unconditional text is withheld', async () => {
-    storedBrief = HISTORICAL;
-    const shown = await load();
-    expect(shown.talkTrack).toContain(`MINUTE 16–20 — ${salesNextStepFor('AI FRONT DESK SYSTEM')}`);
-    expect(shown.talkTrack).toContain('MINUTE 0–2 — Frame:');
-    expect(shown.talkTrack).not.toMatch(/Next step: recommend AI FRONT DESK SYSTEM/);
-    expect(shown.recommendedOffer).toMatch(/^AI FRONT DESK SYSTEM — conditional, not a recommendation\./);
-    expect(shown.objectionStrategy).toBe(salesAutomationObjectionStrategy());
-    expect(shown.followUpAngle).toBe(SALES_WITHHELD_NOTICE);
-    // Untouched: fields that recommend nothing, and the owner's quoted objection.
-    expect(shown.bestSalesAngle).toBe(HISTORICAL.bestSalesAngle);
-    expect(shown.discoveryQuestions).toEqual(HISTORICAL.discoveryQuestions);
-    expect(shown.likelyObjection).toBe(HISTORICAL.likelyObjection);
-    expect(shown.leadQualityScore).toBe(70);
-    expect(shown.salesOpportunityScore).toBe(80);
-    expect(shown.priority).toBe('HOT');
-    for (const field of SCREENED) expect(unauthorisedSalesSentences(textOf(shown[field])), field).toEqual([]);
-  });
-
-  it('the stored record itself is not modified (presentation only, no database write)', async () => {
-    storedBrief = structuredClone(HISTORICAL);
-    const before = JSON.stringify(storedBrief);
-    await load();
-    expect(JSON.stringify(storedBrief)).toBe(before);
-  });
-
-  it('the Sales Brief page shows the presented wording', async () => {
-    storedBrief = HISTORICAL;
-    const Page = (await import('@/app/audits/[auditId]/sales/page')).default;
-    const html = renderToStaticMarkup((await Page({ params: Promise.resolve({ auditId: 'cmvhistsales000000000001' }) })) as React.ReactElement)
-      .replace(/&#x27;|&#39;/g, "'").replace(/&quot;/g, '"').replace(/&amp;/g, '&');
-    expect(html).not.toMatch(/Next step: recommend AI FRONT DESK SYSTEM/);
-    expect(html).not.toMatch(/exactly the problem the system/);
-    expect(html).toContain('do not recommend the AI FRONT DESK SYSTEM on this call');
-    expect(html).toContain('AI FRONT DESK SYSTEM — conditional, not a recommendation.');
+describe('legitimate rep instructions are not flagged', () => {
+  it('operational improvements and human staffing pass', () => {
+    for (const text of SAFE_NARRATIVE) expect(unauthorisedSalesSentences(text), text).toEqual([]);
   });
 });

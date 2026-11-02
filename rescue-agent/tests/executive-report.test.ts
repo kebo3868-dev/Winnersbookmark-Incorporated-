@@ -285,10 +285,10 @@ describe('buildExecutiveReport', () => {
     expect(dto.executiveSummary).toMatch(/Our audit analyzed/);
   });
 
-  it('prefers the audit-time AI-enhanced summary when one was stored', () => {
+  it('never shows a stored AI-written summary in this release: the deterministic summary is shown instead', () => {
     const dto = buildExecutiveReport(baseInput({ storedSummary: 'Stored AI-enhanced summary generated at audit time from validated data.', storedSummaryWasAiEnhanced: true }));
-    expect(dto.executiveSummary).toBe('Stored AI-enhanced summary generated at audit time from validated data.');
-    expect(dto.summaryWasAiEnhanced).toBe(true);
+    expect(dto.executiveSummary).toBe(buildExecutiveReport(baseInput()).executiveSummary);
+    expect(dto.summaryWasAiEnhanced).toBe(false);
   });
 
   it('handles zero opportunities without inventing findings', () => {
