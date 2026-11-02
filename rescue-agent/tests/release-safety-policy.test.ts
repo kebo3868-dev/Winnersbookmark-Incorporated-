@@ -25,9 +25,9 @@ import zlib from 'node:zlib';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import levFixture from './fixtures/leverocks-local-audit-opportunities.json';
-import { ADVERSARIAL_NARRATIVE, REPORTED_1E2C271, SAFE_NARRATIVE, WRONG_ENTITY } from './fixtures/narrative-policy-cases';
+import { ADVERSARIAL_NARRATIVE, ENDORSEMENTS, REPORTED_1E2C271, REPORTED_CA3BE50, SAFE_NARRATIVE, WRONG_ENTITY } from './fixtures/narrative-policy-cases';
 import { assessNarrative } from '@/lib/reports/narrativePolicy';
-import { auditedSolutionsFor, presentFindingRecommendation } from '@/lib/reports/recommendationTemplates';
+import { AUDITED_ENGINE_OBSERVATION_SENTENCES, auditedSolutionsFor, presentFindingRecommendation } from '@/lib/reports/recommendationTemplates';
 import { authorisePilotImplementation, NO_PILOT_RECORDS, type PilotRecords } from '@/lib/reports/pilotAuthorization';
 import { buildExecutiveReport, type ExecutiveReportDTO, type ExecutiveReportInput } from '@/lib/reports/executive';
 
@@ -37,6 +37,8 @@ type Opp = ExecutiveReportInput['opportunities'][number];
 const lev = (levFixture as { opportunities: Opp[] }).opportunities;
 const PHONE_PRODUCT = 'AI Front Desk & Missed-Call Text Back';
 const AUDIT_ID = 'cmvrelease000000000000001';
+/** The audited restaurant (Audit.restaurantId): a different id from the audit's. */
+const RESTAURANT_ID = 'cmvrestaurantleverocks001';
 
 // ── The stored audit, as the database returns it ───────────────────────────
 
@@ -53,7 +55,7 @@ const writes: string[] = [];
 function storedAudit() {
   const o = poison.observation;
   return {
-    id: AUDIT_ID, status: 'COMPLETED', demoMode: false,
+    id: AUDIT_ID, restaurantId: RESTAURANT_ID, status: 'COMPLETED', demoMode: false,
     createdAt: new Date('2026-11-01T12:00:00Z'), completedAt: new Date('2026-11-01T12:05:00Z'),
     avgTicketInput: null, overallScore: 84, coverageScore: 80,
     restaurant: { name: "Leverock's Great Seafood", websiteUrl: 'https://leverocks.example/', city: 'St. Petersburg', state: 'FL' },
@@ -197,6 +199,47 @@ describe('every adversarial case, stored in every narrative field, is absent fro
   }, 180_000);
 });
 
+// ── Review of ca3be50: product endorsement in observation fields ───────────
+
+describe('product endorsement in historical observation fields never reaches the report', () => {
+  for (const phrase of REPORTED_CA3BE50) {
+    it(`"${phrase}" — absent from the real loader, the web report and the PDF`, async () => {
+      expect(assessNarrative(phrase).safe).toBe(false);
+      poison = { observation: phrase };
+      const dto = await loadDto();
+      expect(squash(JSON.stringify(dto))).not.toContain(squash(phrase));
+      for (const text of [await webText(), await pdfText()]) expect(squash(text)).not.toContain(squash(phrase));
+      expect(writes).toEqual([]);
+    }, 60_000);
+  }
+
+  it('value judgements and unobserved assertions about an automation, alone or carried by context, are absent too', async () => {
+    for (const phrase of ENDORSEMENTS) {
+      expect(assessNarrative(phrase).safe, phrase).toBe(false);
+      poison = { observation: phrase };
+      expect(squash(JSON.stringify(await loadDto())), phrase).not.toContain(squash(phrase));
+      expect(squash(await webText()), phrase).not.toContain(squash(phrase));
+    }
+  });
+
+  it('factual observations about automation that exists, and the audited engine sentence, are kept', async () => {
+    for (const phrase of SAFE_NARRATIVE.slice(-2)) {
+      poison = { observation: phrase };
+      const dto = await loadDto();
+      expect(dto.appendix.map((e) => e.fact), phrase).toContain(phrase);
+      expect(squash(await webText())).toContain(squash(phrase));
+    }
+    poison = { observation: SAFE_NARRATIVE[SAFE_NARRATIVE.length - 1] };
+    expect(squash(await pdfText())).toContain(squash(SAFE_NARRATIVE[SAFE_NARRATIVE.length - 1]));
+    // The phone finding's current engine impact sentence is audited and shown as written.
+    const [audited] = [...AUDITED_ENGINE_OBSERVATION_SENTENCES];
+    expect(assessNarrative(audited).safe).toBe(false);
+    expect(assessNarrative(audited, { approved: AUDITED_ENGINE_OBSERVATION_SENTENCES }).safe).toBe(true);
+    // …but only that exact sentence: anything appended to it is still checked.
+    expect(assessNarrative(`${audited} The AI Front Desk is a worthwhile purchase.`, { approved: AUDITED_ENGINE_OBSERVATION_SENTENCES }).safe).toBe(false);
+  }, 60_000);
+});
+
 // ── 3, 6: recommendations are audited templates ────────────────────────────
 
 describe('recommendations are audited templates; unknown stored text is not shown', () => {
@@ -303,12 +346,18 @@ describe('the web report and the PDF print the same summary and recommendations'
 // ── 4: authorisation bound to entities and evidence ────────────────────────
 
 describe('implementation is authorised only by structured records bound to this restaurant and this product', () => {
-  const target = { restaurantId: AUDIT_ID, product: PHONE_PRODUCT };
+  // In-memory records only: none are written anywhere, and the loader passes none.
+  const target = { restaurantId: RESTAURANT_ID, product: PHONE_PRODUCT };
   const valid: PilotRecords = {
-    demand: [{ restaurantId: AUDIT_ID, product: PHONE_PRODUCT, source: 'RESTAURANT_OPERATING_RECORDS', measurableDemand: true, verifiedByOperator: true }],
-    readiness: [{ restaurantId: AUDIT_ID, product: PHONE_PRODUCT, readinessTest: 'PASSED', safetyTest: 'PASSED' }],
-    approvals: [{ restaurantId: AUDIT_ID, product: PHONE_PRODUCT, approverRole: 'OWNER', decision: 'APPROVED', scope: 'LIMITED_MONITORED_PILOT' }],
+    demand: [{ restaurantId: RESTAURANT_ID, product: PHONE_PRODUCT, source: 'RESTAURANT_OPERATING_RECORDS', measurableDemand: true, verifiedByOperator: true }],
+    readiness: [{ restaurantId: RESTAURANT_ID, product: PHONE_PRODUCT, readinessTest: 'PASSED', safetyTest: 'PASSED' }],
+    approvals: [{ restaurantId: RESTAURANT_ID, product: PHONE_PRODUCT, approverRole: 'OWNER', decision: 'APPROVED', scope: 'LIMITED_MONITORED_PILOT' }],
   };
+  const keyedTo = (id: string): PilotRecords => ({
+    demand: valid.demand.map((r) => ({ ...r, restaurantId: id })),
+    readiness: valid.readiness.map((r) => ({ ...r, restaurantId: id })),
+    approvals: valid.approvals.map((r) => ({ ...r, restaurantId: id })),
+  });
 
   it('all three bound records authorise; nothing less does', () => {
     expect(authorisePilotImplementation(target, valid)).toEqual({ implementationAuthorised: true, missing: [] });
@@ -330,7 +379,14 @@ describe('implementation is authorised only by structured records bound to this 
     ['approval of a full roll-out, not a limited pilot', { ...valid, approvals: [{ ...valid.approvals[0], scope: 'FULL_ROLLOUT' }] }],
     ["another restaurant's owner", { ...valid, approvals: [{ ...valid.approvals[0], restaurantId: 'cmvharborgrill00000000001' }] }],
     ['approval of another product', { ...valid, approvals: [{ ...valid.approvals[0], product: 'Lead Capture & Inquiry Automation' }] }],
+    ['every record keyed to the audit id instead of the restaurant id', keyedTo(AUDIT_ID)],
   ];
+
+  it('with no restaurant identity, nothing is authorised, whatever the records say', () => {
+    expect(authorisePilotImplementation({ restaurantId: null, product: PHONE_PRODUCT }, valid))
+      .toEqual({ implementationAuthorised: false, missing: ['restaurant', 'demand', 'readiness', 'approval'] });
+    expect(authorisePilotImplementation({ restaurantId: '', product: PHONE_PRODUCT }, valid).implementationAuthorised).toBe(false);
+  });
   for (const [label, records] of WRONG) {
     it(`not authorised: ${label}`, () => {
       expect(authorisePilotImplementation(target, records).implementationAuthorised).toBe(false);
@@ -342,7 +398,7 @@ describe('implementation is authorised only by structured records bound to this 
     const dto = await loadDto();
     for (const card of dto.rankedAiOpportunities) expect(card.pilotAuthorisation.implementationAuthorised, card.solutionCategory).toBe(false);
     const input = (records: PilotRecords): ExecutiveReportInput => ({
-      auditId: AUDIT_ID, restaurantName: "Leverock's Great Seafood", websiteUrl: 'https://leverocks.example/', location: null, auditDate: '2026-11-01',
+      auditId: AUDIT_ID, restaurantId: RESTAURANT_ID, restaurantName: "Leverock's Great Seafood", websiteUrl: 'https://leverocks.example/', location: null, auditDate: '2026-11-01',
       auditStatus: 'COMPLETED', demoMode: false,
       contact: { company: 'Winnersbookmark', consultantName: 'Keith Warren', phone: '727-291-5965', email: null, bookingUrl: null, fallbackText: 'Call.' },
       bookingQrDataUrl: null, avgTicket: null, overallScore: 84, coverageScore: 80, sourcesCollected: 1, sourcesFailed: 0, evidence: [], opportunities: lev,
@@ -353,6 +409,23 @@ describe('implementation is authorised only by structured records bound to this 
     for (const [label, records] of WRONG) expect(phoneCard(records).pilotAuthorisation.implementationAuthorised, label).toBe(false);
     const catering = buildExecutiveReport(input(valid)).rankedAiOpportunities.find((c) => c.exploratory)!;
     expect(catering.pilotAuthorisation.implementationAuthorised).toBe(false);
+    // The report binds to the restaurant id, not the audit id.
+    const asAudit = buildExecutiveReport({ ...input(keyedTo(AUDIT_ID)) }).rankedAiOpportunities.find((c) => c.solutionCategory === PHONE_PRODUCT)!;
+    expect(asAudit.pilotAuthorisation.implementationAuthorised).toBe(false);
+    const noIdentity = buildExecutiveReport({ ...input(valid), restaurantId: undefined }).rankedAiOpportunities.find((c) => c.solutionCategory === PHONE_PRODUCT)!;
+    expect(noIdentity.pilotAuthorisation).toEqual({ implementationAuthorised: false, missing: ['restaurant', 'demand', 'readiness', 'approval'] });
+  });
+
+  it('the loader binds to Audit.restaurantId: identity present, every evidence requirement missing', async () => {
+    const dto = await loadDto();
+    for (const card of dto.rankedAiOpportunities.filter((c) => !c.exploratory)) {
+      expect(card.pilotAuthorisation, card.solutionCategory).toEqual({ implementationAuthorised: false, missing: ['demand', 'readiness', 'approval'] });
+    }
+    const src = fs.readFileSync(path.join(__dirname, '../src/lib/reports/executiveData.ts'), 'utf8');
+    expect(src).toMatch(/restaurantId: audit\.restaurantId,/);
+    const exec = fs.readFileSync(path.join(__dirname, '../src/lib/reports/executive.ts'), 'utf8');
+    expect(exec).toMatch(/restaurantId: target\.restaurantId, product: solutionCategoryFor\(opp\.category\)/);
+    expect(exec).not.toMatch(/restaurantId: target\.auditId|restaurantId: input\.auditId/);
   });
 
   it('the loader passes no records, so no report authorises implementation in this release', () => {

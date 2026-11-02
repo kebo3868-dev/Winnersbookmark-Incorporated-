@@ -28,8 +28,13 @@
  */
 
 export interface PilotTarget {
-  /** The restaurant being audited. */
-  restaurantId: string;
+  /**
+   * The restaurant being audited: Restaurant.id (Audit.restaurantId) — never
+   * an audit id. Records follow the restaurant across audits; an audit id
+   * would bind them to one report instead. Null when unknown: then nothing
+   * can be authorised.
+   */
+  restaurantId: string | null;
   /** The product being proposed, by its solution category ("AI Front Desk & Missed-Call Text Back"). */
   product: string;
 }
@@ -66,7 +71,7 @@ export interface PilotRecords {
 /** What the audit stores today: nothing. */
 export const NO_PILOT_RECORDS: PilotRecords = { demand: [], readiness: [], approvals: [] };
 
-export type PilotRequirement = 'demand' | 'readiness' | 'approval';
+export type PilotRequirement = 'restaurant' | 'demand' | 'readiness' | 'approval';
 
 export interface PilotAuthorisation {
   implementationAuthorised: boolean;
@@ -82,6 +87,9 @@ const bound = (r: { restaurantId: string; product: string }, t: PilotTarget) =>
  * both; anything else is missing.
  */
 export function authorisePilotImplementation(target: PilotTarget, records: PilotRecords): PilotAuthorisation {
+  if (!target.restaurantId || !target.product) {
+    return { implementationAuthorised: false, missing: ['restaurant', 'demand', 'readiness', 'approval'] };
+  }
   const missing: PilotRequirement[] = [];
   if (!records.demand.some((d) => bound(d, target) && d.source === 'RESTAURANT_OPERATING_RECORDS' && d.measurableDemand && d.verifiedByOperator)) {
     missing.push('demand');

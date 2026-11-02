@@ -16,7 +16,7 @@ import {
   isExploratoryOpportunity,
   presentTierRecommendation,
 } from './automationWording';
-import { auditedTierRecommendation, presentFindingRecommendation } from './recommendationTemplates';
+import { AUDITED_ENGINE_OBSERVATION_SENTENCES, auditedTierRecommendation, presentFindingRecommendation } from './recommendationTemplates';
 import { safeNarrative } from './narrativePolicy';
 import { NO_PILOT_RECORDS, authorisePilotImplementation, type PilotAuthorisation, type PilotRecords } from './pilotAuthorization';
 
@@ -214,6 +214,11 @@ export interface ExecutiveReportInput {
   storedSummary: string | null;
   storedSummaryWasAiEnhanced: boolean;
   storedRecommendation: { tier: string; rationale: string } | null;
+  /**
+   * The audited restaurant's id (Audit.restaurantId) — the identity pilot
+   * authorisation binds to. Absent, nothing can be authorised.
+   */
+  restaurantId?: string | null;
   /** Structured demand, readiness and approval records (none are stored in this release). */
   pilotRecords?: PilotRecords;
 }
@@ -600,7 +605,7 @@ function applyReleasePolicy(input: ExecutiveReportInput): ExecutiveReportInput {
       ...o,
       title: safeNarrative(o.title, sentenceCase(o.category)),
       problem: safeNarrative(o.problem, 'The stored description of this finding is not shown; its evidence is listed in the appendix.'),
-      businessImpact: safeNarrative(o.businessImpact, 'Not measured — see the evidence for this finding.'),
+      businessImpact: safeNarrative(o.businessImpact, 'Not measured — see the evidence for this finding.', { approved: AUDITED_ENGINE_OBSERVATION_SENTENCES }),
     })),
     journey: input.journey.map((j) => ({ ...j, finding: safeNarrative(j.finding, 'See the evidence for this stage in the appendix.') })),
     evidence: input.evidence.map((e) => ({
@@ -737,7 +742,7 @@ export function buildExecutiveReport(rawInput: ExecutiveReportInput): ExecutiveR
       prefill: prefillFromAverageTicket(f.scenarioKind, input.avgTicket),
     });
   }
-  const rankedAiOpportunities = buildRankedAiOpportunities(top, { auditId: input.auditId, records: input.pilotRecords ?? NO_PILOT_RECORDS });
+  const rankedAiOpportunities = buildRankedAiOpportunities(top, { restaurantId: input.restaurantId ?? null, records: input.pilotRecords ?? NO_PILOT_RECORDS });
   const journeyMap = buildJourneyMap(input.journey);
   const usedStatuses = new Set(journeyMap.map((s) => s.status));
   const snapshot = buildSnapshot(input, findings, rankedAiOpportunities);
@@ -974,7 +979,7 @@ export const AI_OPPORTUNITIES_INTRO =
   'Potential improvements matched to the findings above. "Fit" describes how well an automation suits the kind of problem, not evidence that the problem exists here; ' +
   'none of these rests on measured missed calls or lost revenue. ' + AUTOMATION_PROPOSAL_GATE;
 
-function buildRankedAiOpportunities(top: OppInput[], target: { auditId: string; records: PilotRecords }): RankedAiOpportunity[] {
+function buildRankedAiOpportunities(top: OppInput[], target: { restaurantId: string | null; records: PilotRecords }): RankedAiOpportunity[] {
   // Pilot candidates and exploratory opportunities, by the same rules as the
   // Decision box and Days 15–21. Catering (AI fit 60, private-party link) is
   // listed as exploratory, never as a recommendation; nothing is re-scored.
@@ -997,7 +1002,7 @@ function buildRankedAiOpportunities(top: OppInput[], target: { auditId: string; 
         // verified observation is not evidence of demand, readiness or approval.
         exploratory: isExploratoryOpportunity(opp),
         pilotAuthorisation: authorisePilotImplementation(
-          { restaurantId: target.auditId, product: solutionCategoryFor(opp.category) },
+          { restaurantId: target.restaurantId, product: solutionCategoryFor(opp.category) },
           isExploratoryOpportunity(opp) ? NO_PILOT_RECORDS : target.records,
         ),
         basis: isExploratoryOpportunity(opp)

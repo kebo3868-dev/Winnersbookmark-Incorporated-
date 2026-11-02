@@ -77,6 +77,8 @@ export async function loadExecutiveReport(operator: OperatorAuthorization, audit
 
   const input: ExecutiveReportInput = {
     auditId: audit.id,
+    // Pilot authorisation binds to the restaurant, not to this audit.
+    restaurantId: audit.restaurantId,
     restaurantName: audit.restaurant.name,
     websiteUrl: audit.restaurant.websiteUrl,
     location: [audit.restaurant.city, audit.restaurant.state].filter(Boolean).join(', ') || null,

@@ -63,7 +63,26 @@ export const WRONG_ENTITY = [
   "If the restaurant's own call records show measurable demand, the AI Front Desk could be considered as a limited, monitored pilot only after it passes its own readiness and safety tests and the general manager approves it.",
 ];
 
+/** Reported in the review of ca3be50: product endorsement with no recommending verb. */
+export const REPORTED_CA3BE50 = [
+  'The AI Front Desk is a worthwhile purchase.',
+  'A voice agent for calls is a sound investment.',
+];
+
+/** Value judgements and unobserved assertions about an automation, alone or carried by context. */
+export const ENDORSEMENTS = [
+  ...REPORTED_CA3BE50,
+  'A chatbot for reservations pays for itself.',
+  'The voice agent is money well spent.',
+  'An AI receptionist is good value for a seafood restaurant.',
+  'The AI Front Desk is available.',
+  'The AI Front Desk was detected on a competitor site. It is a worthwhile purchase.',
+  'The AI Front Desk uses voice answering and is a sensible upgrade.',
+  'Automatic call answering offers strong return on investment.',
+];
+
 export const ADVERSARIAL_NARRATIVE = [
+  ...ENDORSEMENTS,
   ...REPORTED_1E2C271,
   ...GUEST_HANDLING,
   ...MULTI_SENTENCE,
@@ -90,6 +109,9 @@ export const OPERATIONAL = [
   'Calls are answered by the host stand during service.',
   'Guests can book online through OpenTable.',
   'The booking widget can be reached from the homepage.',
+  // Factual observations the engine writes about automation that exists.
+  'No public reservation pathway could be resolved, but a SpotHopper widget was detected on the page.',
+  'A third-party booking widget was detected, but its destination is rendered in the browser and could not be verified from the public page.',
 ];
 
 export const SAFE_NARRATIVE = [...OPERATIONAL, ...SAFE_NON_AUTOMATION];

@@ -6,7 +6,7 @@ import type { JourneyStageResult } from '@/types/audit';
 import { generateSalesBrief, type SalesBriefContent } from './sales';
 import type { OwnerReportContent, RankedOpportunity } from './owner';
 import { presentSalesField } from './salesWording';
-import { auditedTier } from './recommendationTemplates';
+import { AUDITED_ENGINE_OBSERVATION_SENTENCES, auditedTier } from './recommendationTemplates';
 import { safeNarrative } from './narrativePolicy';
 
 /** The brief's narrative fields: every one is regenerated, never read from storage. */
@@ -55,7 +55,8 @@ export async function loadSalesBrief(operator: OperatorAuthorization, auditId: s
   if (!brief) return brief;
 
   const audit = brief.audit;
-  const observation = (text: string, fallback: string) => safeNarrative(presentOrderingText(text), fallback);
+  const observation = (text: string, fallback: string) =>
+    safeNarrative(presentOrderingText(text), fallback, { approved: AUDITED_ENGINE_OBSERVATION_SENTENCES });
   const topLeaks: RankedOpportunity[] = (audit.opportunities ?? []).slice(0, 3).map((o) => ({
     category: o.category,
     title: observation(o.title, o.category.charAt(0) + o.category.slice(1).toLowerCase()),

@@ -81,6 +81,23 @@ const DESCRIPTIVE_PASSIVE = /\b(is|are|was|were|been|being|be) (set up|put in pl
 /** A list of page labels quoted from the site ("View Menu | ORDER NOW | Call Us"), not prose. */
 const LABEL_LIST = /\s\|\s/g;
 
+/**
+ * FAIL CLOSED ON SENTENCES ABOUT AN AUTOMATION. Such a sentence is allowed
+ * only when it reports what was observed — something detected, found, linked,
+ * used, shown or not verified — or asks a question. Anything else said about
+ * an automation ("The AI Front Desk is a worthwhile purchase.", "… is
+ * available.") is an assertion the audit did not observe, and is not shown.
+ */
+const OBSERVES =
+  /\b(was|were|is|are|been|being|be) (not )?(detected|found|observed|seen|shown|listed|linked|displayed|rendered|loaded|resolved|verified|tested|embedded|present|visible|referenced|mentioned|configured|checked|named|used|offered|provided|operated|hosted|connected)\b|\b(detected|found|observed|lists|linked|links to|embeds|shows|displays|uses|offers|mentions|references|appears|contains|includes|runs|hosts|loads|opens|points to|did not|does not|do not|no longer|(was|were|is|are|has|have) (not|never))\b|^(no|none|neither)\b|^(based on|measured by|scored (on|from)|derived from|not assessed|not observed|not measured|not verified|requires your data|unknown)\b|\b(invisible to|leaves no (public )?trace|not visible|is not something a public page can show)\b|\brequires? (direct |your |internal |owner |the owner's |the restaurant's own )?(access|data|records|validation|confirmation|platform access)\b/i;
+/**
+ * A value judgement — merit, worth, cost-benefit — in any phrasing. About an
+ * automation it is an endorsement, whatever verb carries it, so it is never
+ * allowed, observation verb or not.
+ */
+const VALUE_JUDGEMENT =
+  /\b(worth\w*|sound|smart|wise|good|great|excellent|valuable|profitable|cost[- ]effective|affordable|economical|essential|indispensable|must[- ]have|no[- ]brainer|ideal|perfect|best|better|strong|solid|compelling|attractive|sensible|prudent|justified|beneficial|helpful|useful|effective|powerful|game[- ]chang\w*|win|winner|bargain|deal|asset|investment|purchase|buy|spend|upgrade|addition|recommended|endorsed)\b|\bpays? (for )?itself\b|\bearns? its keep\b|\bmoney well spent\b|\bvalue for money\b|\breturn on investment\b|\bROI\b/i;
+
 /** A suggestion: "a speech engine could field the late calls". */
 const SUGGESTION = /\b(could|would|might|may)\b/i;
 /** A capability claimed for something not yet in place: "a speech engine can field the calls". */
@@ -162,6 +179,10 @@ export function assessNarrative(text: string, options: NarrativeOptions = {}): N
         violations.push({ sentence, reason: 'changes who handles guest calls, inquiries or reservations without naming a person' });
       } else if (proposes && ACQUIRES.test(s) && TECH_OBJECT.test(s)) {
         violations.push({ sentence, reason: 'acquires a system or product' });
+      } else if (about && VALUE_JUDGEMENT.test(s)) {
+        violations.push({ sentence, reason: 'judges the value of an automation' });
+      } else if (namesAutomation && !repairOnly && !OBSERVES.test(s) && !/\?$/.test(s)) {
+        violations.push({ sentence, reason: 'asserts something about an automation that is not an observation' });
       }
     }
 
