@@ -929,9 +929,9 @@ function buildRankedAiOpportunities(top: OppInput[]): RankedAiOpportunity[] {
         problemAddressed: problemAddressedBy(opp),
         // Every card states the whole gate, the verified branch included: a
         // verified observation is not evidence of demand, readiness or approval.
-        basis: requiresValidation
+        basis: `${exploratoryNote(opp.aiFitScore)}${requiresValidation
           ? `Potential improvement — requires operational validation before any implementation: ${AUTOMATION_CARD_REQUIREMENTS}. No missed calls or lost revenue have been measured; a public audit cannot see either.`
-          : `Addresses a verified public finding; its effect on revenue has not been measured. Any implementation still requires ${AUTOMATION_CARD_REQUIREMENTS}.`,
+          : `Addresses a verified public finding; its effect on revenue has not been measured. Any implementation still requires ${AUTOMATION_CARD_REQUIREMENTS}.`}`,
         requiresValidation,
         whyItFits: opp.businessImpact,
         capabilities: caps.capabilities,
@@ -1018,7 +1018,7 @@ function buildPrescription(input: ExecutiveReportInput, findings: ExecutiveFindi
 
 function buildDecisionBox(findings: ExecutiveFinding[], ranked: RankedAiOpportunity[]): DecisionBox {
   // The Section 06 proposals, every one — the same list Days 15–21 decides.
-  const proposals = ranked.map((o) => o.solutionCategory);
+  const proposals = ranked.map((o) => (o.fit === 'STRONG' ? o.solutionCategory : `${o.solutionCategory} (exploratory, ${o.fit.toLowerCase()} fit)`));
   const frictionExists = findings.some((f) => f.classification !== 'INSUFFICIENT DATA');
   return {
     doNothing: {
@@ -1169,6 +1169,16 @@ export function telHref(phone: string): string | null {
   return `tel:${digits}`;
 }
 
+/**
+ * A proposal below the strong-automation fit (AI fit under 70) is exploratory:
+ * the catering inquiry-intake proposal (fit 60) is listed so it is decided, not
+ * because the evidence justifies buying it. Strong-fit proposals carry no note.
+ */
+function exploratoryNote(aiFitScore: number): string {
+  const fit = automationLabel(aiFitScore);
+  return fit === 'Strong' ? '' : `Exploratory — a ${fit.toLowerCase()} automation fit, not a purchase recommendation. `;
+}
+
 /** "A", "A or B", "A, B or C". */
 function joinOr(items: string[]): string {
   return items.length <= 1 ? (items[0] ?? '') : `${items.slice(0, -1).join(', ')} or ${items[items.length - 1]}`;
@@ -1310,7 +1320,7 @@ function buildThirtyDayPlan(
     ? [
         'Review the operational evidence collected in Days 1–7 before choosing any automation.',
         ...automation.map((o) =>
-          `If ${demandConditionFor(o.category)}: consider a limited, monitored pilot of ${solutionCategoryFor(o.category)} — only after the proposed system passes its own readiness and safety checks for this restaurant (${readinessChecksFor(o.category)}) and the owner approves the pilot. Set success metrics and human escalation before it starts.`),
+          `${exploratoryNote(o.aiFitScore)}If ${demandConditionFor(o.category)}: consider a limited, monitored pilot of ${solutionCategoryFor(o.category)} — only after the proposed system passes its own readiness and safety checks for this restaurant (${readinessChecksFor(o.category)}) and the owner approves the pilot. Set success metrics and human escalation before it starts.`),
         `If the records do not show that demand, or the system has not passed those checks, make no automation change — ${otherwise}.`,
       ]
     // No candidate, no pilot: the report identified no automation, so this

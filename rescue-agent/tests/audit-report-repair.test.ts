@@ -171,7 +171,7 @@ describe('2. a private-party link does not establish how inquiries are handled',
     expect(intake, 'listed as a gated proposal under the shared rule').toBeDefined();
     expect(intake!.fit).toBe('MODERATE');
     expect(intake!.requiresValidation).toBe(true);
-    expect(intake!.basis).toMatch(/^Potential improvement — requires operational validation before any implementation: measurable demand in your own records, the product passing its own readiness and safety tests, your explicit approval, and a limited, monitored pilot first\./);
+    expect(intake!.basis).toMatch(/^Exploratory — a moderate automation fit, not a purchase recommendation\. Potential improvement — requires operational validation before any implementation: measurable demand in your own records, the product passing its own readiness and safety tests, your explicit approval, and a limited, monitored pilot first\./);
     expect(dto.findings.find((f) => /CATERING|PRIVATE/i.test(f.category))!.internalScores.aiFit).toBe(leak!.aiFitScore);
     const finding = dto.findings.find((f) => /Private-event/.test(f.title))!;
     expect(finding.commercialEffect).not.toMatch(/manual handling/i);

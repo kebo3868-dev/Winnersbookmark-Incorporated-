@@ -105,7 +105,10 @@ function expectDays15to21Gated(r: ReturnType<typeof report>, candidates: string[
   expect(pilots).toHaveLength(candidates.length);
   pilots.forEach((line, i) => {
     // 1. demand shown by the records  2. own readiness and safety checks  3. only then a limited, monitored pilot
-    expect(line).toMatch(/^If (the|a) .+: consider a limited, monitored pilot of /);
+    // A moderate-fit proposal (catering inquiry intake, AI fit 60) is marked exploratory, not a purchase recommendation; strong-fit proposals are not.
+    if (candidates[i] === 'Lead Capture & Inquiry Automation') expect(line.startsWith('Exploratory — a moderate automation fit, not a purchase recommendation. ')).toBe(true);
+    else expect(line).not.toMatch(/^Exploratory/);
+    expect(line).toMatch(/^(Exploratory — a moderate automation fit, not a purchase recommendation\. )?If (the|a) .+: consider a limited, monitored pilot of /);
     expect(line).toContain(`pilot of ${candidates[i]} — only after the proposed system passes its own readiness and safety checks for this restaurant (`);
     expect(line).toMatch(READINESS[candidates[i]]);
     expect(line).toMatch(/\) and the owner approves the pilot\. Set success metrics and human escalation before it starts\.$/);
@@ -200,7 +203,7 @@ describe("the Leverock's audit", () => {
   it('Days 15–21 gates the AI Front Desk on call records and catering intake on inquiry records, each with its own checks', () => {
     expectDays15to21Gated(r, ['AI Front Desk & Missed-Call Text Back', 'Lead Capture & Inquiry Automation']);
     expect(r.decide.actions[1]).toMatch(/^If the call records show calls going unanswered, or the same questions asked again and again: /);
-    expect(r.decide.actions[2]).toMatch(/^If the inquiry records show slow or missed responses to catering or private-event requests: /);
+    expect(r.decide.actions[2]).toMatch(/^Exploratory — a moderate automation fit, not a purchase recommendation\. If the inquiry records show slow or missed responses to catering or private-event requests: /);
   });
 
   it('no later phase repeats a Days 1–7 step, and the plan says "deploy" nowhere', () => {

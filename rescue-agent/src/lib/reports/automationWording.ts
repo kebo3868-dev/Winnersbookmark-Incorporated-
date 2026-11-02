@@ -113,19 +113,55 @@ export function presentAutomationClaims(text: string): string {
 // that fallback; a false negative puts an unconditional product claim in front
 // of a client.
 
-/** Something an automation is: the product, the technique, or what it does. */
+/**
+ * Something an automation is: the product, the technique, or what it does.
+ * "AI Discovery Audit" is removed before this is tested — it is the
+ * validation service, not an automation.
+ */
 const AUTOMATION_SUBJECT =
-  /\b(AI|automation|automations|automated|automate|automating|Front Desk|chatbot|bot|voice (answering|receptionist|agent)|text-back|intake|reactivation|virtual (receptionist|assistant))\b/i;
-/** Doing it, or naming it the answer. */
-const CATEGORICAL_ACTION =
-  /\b(deploy\w*|install\w*|implement(s|ed|ing|ation)?|adopt\w*|roll(s|ed|ing)? out|rollout|launch\w*|introduc\w*|put (it )?in place|switch(es|ed|ing)? on|turn(s|ed|ing)? on|sign(s|ed|ing)? up for|subscrib\w* to|purchas\w*|buy(s|ing)?|go(es|ing)? live)\b|\bis (the|a|an|your) (right|matched|best|ideal|perfect|obvious|clear|recommended|natural|proven) (fix|solution|answer|choice|tool|system|next step)\b|\b(should|must|needs? to|ought to) (use|get|add|have|be (deployed|installed|implemented|adopted|added|used))\b/i;
-/** A promised result — never acceptable, gated or not: no outcome has been measured. */
+  /\b(AI|A\.I\.|automation|automations|automated|automate|automating|Front Desk|chatbot|chat bot|bot|voice (answering|receptionist|agent|assistant)|receptionist|text-back|missed-call|intake|reactivation|virtual (receptionist|assistant|agent)|answering service)\b/i;
+const VALIDATION_SERVICE = /\bAI Discovery Audit\b/gi;
+/**
+ * A sentence that refers back to something named earlier ("Put it in place",
+ * "They should install one") — the second half of a recommendation split
+ * across sentences.
+ */
+const BACK_REFERENCE = /\b(it|its|this|that|these|those|they|them|one|the (system|tool|product|service|platform|solution|assistant|receptionist))\b/i;
+/**
+ * Recommending, adopting or crowning it — active, passive or softened. Kept
+ * broad on purpose: a false positive costs only the fallback to the
+ * deterministic summary.
+ */
+const RECOMMENDS =
+  /\b(deploy\w*|install\w*|implement\w*|adopt\w*|roll(s|ed|ing)? (it |them )?out|rollout|launch\w*|introduc\w*|put (it |them |one )?in place|set (it |them |one )?up|bring(s|ing)? (it |them |one )?(on|in)|brought (on|in)|switch(es|ed|ing)? (to|on|over)|mov(e|es|ed|ing) to|upgrad\w* to|turn(s|ed|ing)? on|sign(s|ed|ing)? up|subscrib\w*|purchas\w*|buy(s|ing)?|go(es|ing)? live|get(s|ting)? (an?|the) |add(s|ed|ing)? (an?|the) |us(e|es|ing) (an?|the) |benefit\w* from|invest\w* in|recommend\w* (an?|the|that|installing|adding|using|adopting|deploying|piloting|trying|getting|moving|switching)|pilot\w*|trial\w*|try(ing)? (out )?(an?|the|it))\b|\bis (the|a|an|your) (right|matched|best|ideal|perfect|obvious|clear|recommended|natural|proven|smart|sensible|logical) (fix|solution|answer|choice|tool|system|next step|move|option|investment)\b|\b(would|will|could) be (a|an) (good|great|ideal|smart|strong|valuable|worthwhile|sensible) (fit|addition|investment|choice|solution|step|option)\b|\b(should|must|need(s)? to|ought to|has to|have to) be \w+(ed|en|t)\b|\b(should|must|need(s)? to|ought to|has to|have to) (use|get|add|have|consider|start|run)\b/i;
+/**
+ * A promised or implied result — never acceptable, gated or not: no outcome
+ * has been measured. Includes softened forms ("would likely solve", "could
+ * help reduce missed inquiries").
+ */
 const OUTCOME_CLAIM =
-  /\bwill (stop|eliminate|end|prevent|fix|solve|recover|capture|cut|reduce|increase|boost|double|bring back|win back|save|answer every)\b|\b(stops?|eliminates?|prevents?|recovers?|ends?) (missed|lost|unanswered|dropped)\b|\bguarantee\w*\b|\bnever miss\b/i;
+  /\b(will|would|could|can|might|may|should|is likely to|are likely to|is expected to|are expected to)\s+(likely\s+|probably\s+|certainly\s+|help\s+(to\s+)?)?(stop|solve|eliminate|end|prevent|recover|capture|win back|bring back|answer every|resolve)\b|\b(will|would|could|can|might|may|should|is likely to|is expected to)\s+(likely\s+|probably\s+|help\s+(to\s+)?)?(reduce|cut|increase|boost|improve|raise|lift|double|grow|save)\b[^.]{0,40}\b(missed|lost|unanswered|dropped|calls|inquir\w*|orders|revenue|bookings|sales|conversions?|guests?)\b|\b(stops?|eliminates?|prevents?|recovers?|ends?|solves?) (the )?(missed|lost|unanswered|dropped|phone)\b|\bguarantee\w*\b|\bnever miss\b/i;
 
-/** A sentence that carries the whole gate: demand, readiness and safety, approval, a limited monitored pilot. */
+/** Evidence of measurable demand in the restaurant's own operating records. */
+function namesRecordedDemand(sentence: string): boolean {
+  return /\b(records?|logs?|operating data|call data|booking data|inquiry data)\b/i.test(sentence) &&
+    /\b(demand|volume)\b/i.test(sentence) &&
+    /\b(confirm\w*|show\w*|demonstrat\w*|evidenc\w*|measur\w*|prov(e|es|en))\b/i.test(sentence);
+}
+
+/**
+ * A sentence that carries the whole gate, every part of it: conditional
+ * ("only after / only if / only once"); measurable demand shown in the
+ * restaurant's own records; the product's own readiness and safety tests; the
+ * owner's approval; and a limited, monitored pilot. Missing any one part, the
+ * sentence is not gated.
+ */
 function carriesGate(sentence: string): boolean {
-  return /only (after|if|once)/i.test(sentence) && /readiness and safety/i.test(sentence) && /approv/i.test(sentence) && /monitored pilot/i.test(sentence);
+  return /\bonly (after|if|once|when)\b/i.test(sentence) &&
+    namesRecordedDemand(sentence) &&
+    /\breadiness and safety\b/i.test(sentence) &&
+    /\bapprov\w*/i.test(sentence) &&
+    /\blimited, monitored pilot\b/i.test(sentence);
 }
 
 export interface SummaryScreen {
@@ -135,18 +171,26 @@ export interface SummaryScreen {
 }
 
 /**
- * Whether an AI-written summary may be shown to a client. Unsafe: any promised
- * outcome, any "is the matched fix", and any sentence that both names an
- * automation and installs, deploys, adopts or crowns it — unless that sentence
- * carries the whole gate (only after demand, its own readiness and safety
- * tests, approval, and a limited, monitored pilot).
+ * Whether an AI-written summary may be shown to a client. Unsafe, sentence by
+ * sentence:
+ *  - any promised or implied result, softened or not;
+ *  - any "is the matched fix";
+ *  - any sentence that recommends, adopts or crowns an automation — named in
+ *    that sentence, or referred back to once the summary has named one
+ *    ("…the AI Front Desk is ready. Install it.") — unless that same sentence
+ *    carries the whole gate (carriesGate).
+ * One unsafe sentence rejects the whole summary; the caller falls back to the
+ * deterministic summary.
  */
 export function screenAiSummary(text: string): SummaryScreen {
-  const sentences = text.split(/(?<=[.!?])\s+/).map((s) => s.trim()).filter(Boolean);
-  const unsafe = sentences.filter((s) =>
-    OUTCOME_CLAIM.test(s) ||
-    /\bis the matched fix\b/i.test(s) ||
-    (AUTOMATION_SUBJECT.test(s) && CATEGORICAL_ACTION.test(s) && !carriesGate(s)));
+  const scrubbed = text.replace(VALIDATION_SERVICE, 'validation audit');
+  const namesAutomation = AUTOMATION_SUBJECT.test(scrubbed);
+  const sentences = scrubbed.split(/(?<=[.!?;])\s+/).map((s) => s.trim()).filter(Boolean);
+  const unsafe = sentences.filter((s) => {
+    if (OUTCOME_CLAIM.test(s) || /\bis the matched fix\b/i.test(s)) return true;
+    const aboutAutomation = AUTOMATION_SUBJECT.test(s) || (namesAutomation && BACK_REFERENCE.test(s));
+    return aboutAutomation && RECOMMENDS.test(s) && !carriesGate(s);
+  });
   return { safe: unsafe.length === 0, unsafe };
 }
 

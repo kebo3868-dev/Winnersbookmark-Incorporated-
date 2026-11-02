@@ -245,7 +245,7 @@ describe('phone, catering and retention together: cards and plan agree', () => {
       'Customer Reactivation & Follow-Up Automation', 'AI Front Desk & Missed-Call Text Back', 'Lead Capture & Inquiry Automation',
     ]);
     const catering = pilots[2];
-    expect(catering).toMatch(/^If the inquiry records show slow or missed responses to catering or private-event requests: /);
+    expect(catering).toMatch(/^Exploratory — a moderate automation fit, not a purchase recommendation\. If the inquiry records show slow or missed responses to catering or private-event requests: /);
     expect(catering).toMatch(/intake questions and acknowledgment wording approved by the owner; every inquiry verified to route to a named staff member; human escalation tested\) and the owner approves the pilot\./);
     expect(decide.at(-1)).toMatch(/make no automation change/);
     // Each card that recommends an automation has its decision here.

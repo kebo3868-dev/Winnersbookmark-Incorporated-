@@ -150,6 +150,100 @@ describe('H1 — AI-written summaries are screened, and an unsafe one is replace
   });
 });
 
+// ── H1 (re-review of 6b0b068): adversarial wording ──────────────────────────
+//
+// The independent re-review found carriesGate() accepted a "gate" with no
+// demand in the records, and probing found split, passive, softened and
+// back-referenced recommendations passing too. Each case here passed the
+// 6b0b068 screen and must now be rejected — whole — with the deterministic
+// summary shown instead.
+
+const GATED =
+  'If call records confirm the demand, the AI Front Desk could be considered as a limited, monitored pilot only after it passes its own readiness and safety tests and the owner approves it.';
+
+const ADVERSARIAL: Record<string, string[]> = {
+  'readiness, safety, approval and pilot — but no measurable demand in the records': [
+    'The AI Front Desk should be installed as a limited, monitored pilot only after it passes its own readiness and safety tests and the owner approves it.',
+    'Consider a limited, monitored pilot of AI-assisted intake only after it passes its own readiness and safety tests and the owner approves it.',
+    'If demand seems high, a limited, monitored pilot of the AI Front Desk could follow, but only after its readiness and safety tests pass and the owner approves.',
+  ],
+  'an unconditional recommendation split across sentences': [
+    "The AI Front Desk is ready for this restaurant. Leverock's should install it this month.",
+    'An AI receptionist suits this restaurant well. Put it in place before the summer season.',
+    'Private-event inquiries are high-value. AI-assisted intake is available. The owner should set it up now.',
+  ],
+  'passive-voice and softened installation': [
+    'An AI voice receptionist would be put in place to answer calls.',
+    'The AI Front Desk ought to be brought on for the dinner rush.',
+    'An AI Front Desk would likely solve the phone problem.',
+    'AI-assisted intake could help reduce missed inquiries.',
+    "Leverock's could switch to an AI receptionist.",
+    "Leverock's would benefit from an AI Front Desk.",
+    'An AI Front Desk would be a smart investment for the restaurant.',
+    'Start a pilot of the AI Front Desk next week.',
+  ],
+  'a gated recommendation followed by an unconditional one': [
+    `${GATED} Either way, they should install it this quarter.`,
+    `${GATED} The AI Front Desk will stop missed calls.`,
+    `${GATED} In practice, the restaurant should simply adopt the AI Front Desk.`,
+  ],
+};
+
+const ACCEPTABLE_FULL_SUMMARY =
+  "Leverock's Great Seafood scored 84 out of 100, with 80% of the audit scope covered by public evidence. " +
+  'The strongest areas are discovery, the website, the menu and contact details. ' +
+  'The most important issue is the online ordering button, which uses a telephone link instead of an online checkout; the owner should confirm which experience is intended and update the button or the section label. ' +
+  "Phone demand and private-event inquiry handling cannot be measured from public pages and need the restaurant's own records. " +
+  GATED;
+
+describe('H1 (re-review) — adversarial AI-summary wording is rejected whole', () => {
+  const deterministic = buildExecutiveReport(input(lev)).executiveSummary;
+
+  for (const [kind, cases] of Object.entries(ADVERSARIAL)) {
+    it(`unsafe: ${kind}`, () => {
+      for (const c of cases) {
+        expect(screenAiSummary(padded(c)).safe, c).toBe(false);
+        const dto = buildExecutiveReport(input(lev, { storedSummary: padded(c), storedSummaryWasAiEnhanced: true }));
+        expect(dto.executiveSummary, c).toBe(deterministic);
+        expect(dto.summaryWasAiEnhanced, c).toBe(false);
+      }
+    });
+  }
+
+  it('the gate needs every part: removing any one — demand in the records, readiness and safety, approval, the monitored pilot, "only after" — makes it unsafe', () => {
+    expect(screenAiSummary(GATED).safe).toBe(true);
+    const withoutPart: [string, string][] = [
+      ['demand in the records', GATED.replace('If call records confirm the demand, ', '')],
+      ['records (demand alone)', GATED.replace('call records confirm the demand', 'the demand seems high')],
+      ['readiness and safety', GATED.replace(' it passes its own readiness and safety tests and', '')],
+      ['approval', GATED.replace(' and the owner approves it', '')],
+      ['limited, monitored pilot', GATED.replace('a limited, monitored pilot', 'a rollout')],
+      ['"only after"', GATED.replace('only after', 'once')],
+    ];
+    for (const [part, sentence] of withoutPart) {
+      expect(sentence, part).not.toBe(GATED);
+      expect(screenAiSummary(sentence).safe, `without ${part}: ${sentence}`).toBe(false);
+    }
+  });
+
+  it('acceptable: a correctly gated conditional recommendation, alone and inside a realistic summary, is shown as written', () => {
+    for (const text of [GATED, padded(GATED), ACCEPTABLE_FULL_SUMMARY]) {
+      expect(screenAiSummary(text), text).toEqual({ safe: true, unsafe: [] });
+      const dto = buildExecutiveReport(input(lev, { storedSummary: text, storedSummaryWasAiEnhanced: true }));
+      expect(dto.executiveSummary).toBe(text);
+      expect(dto.summaryWasAiEnhanced).toBe(true);
+    }
+  });
+
+  it('PDF and web page show the deterministic summary for a split recommendation', async () => {
+    const dto = buildExecutiveReport(input(lev, { storedSummary: padded(ADVERSARIAL['an unconditional recommendation split across sentences'][0]), storedSummaryWasAiEnhanced: true }));
+    for (const text of [await pdfText(dto), await webText(dto)]) {
+      expect(text).not.toContain('should install it this month');
+      expect(text).toContain(deterministic.slice(0, 60));
+    }
+  }, 60_000);
+});
+
 // ── M1 ──────────────────────────────────────────────────────────────────────
 
 const REQUIREMENTS = 'measurable demand in your own records, the product passing its own readiness and safety tests, your explicit approval, and a limited, monitored pilot first';
@@ -192,6 +286,13 @@ describe('M2 — Section 06, the Decision box and Days 15–21 name the same aut
     expect(sorted(pilotNames(dto))).toEqual(sorted(section06));
     for (const name of section06) expect(dto.decisionBox.implement.detail).toContain(name);
     expect(sorted(dto.aiOpportunities.map((o) => o.solutionCategory))).toEqual(sorted(section06));
+    // Catering (AI fit 60) is an exploratory moderate-fit proposal, never presented as a justified purchase.
+    const intake = dto.rankedAiOpportunities.find((o) => o.solutionCategory === 'Lead Capture & Inquiry Automation')!;
+    expect(intake.fit).toBe('MODERATE');
+    expect(intake.basis.startsWith('Exploratory — a moderate automation fit, not a purchase recommendation. ')).toBe(true);
+    expect(dto.rankedAiOpportunities.find((o) => o.fit === 'STRONG')!.basis).not.toMatch(/Exploratory/);
+    expect(dto.decisionBox.implement.detail).toContain('Lead Capture & Inquiry Automation (exploratory, moderate fit)');
+    expect(dto.decisionBox.implement.detail).not.toContain('AI Front Desk & Missed-Call Text Back (exploratory');
   });
 
   it('phone, catering and retention together: all three everywhere; catering shown at its scored fit', () => {
