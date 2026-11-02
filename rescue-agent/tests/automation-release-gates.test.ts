@@ -95,7 +95,6 @@ const ACCEPTABLE_SUMMARIES = [
   'The online ordering button uses a telephone link instead of an online checkout; whether this is intended needs the owner.',
   'If call records confirm high, repetitive demand, the AI Front Desk could be considered as a limited, monitored pilot only after it passes its own readiness and safety tests and the owner approves it.',
   "No automation change is proposed until the restaurant's records confirm the demand.",
-  'Phone demand is unmeasured; answering those calls automatically is worth measuring, but whether that is the case here is an open question.',
   'Winnersbookmark recommends an AI Discovery Audit as the next step to validate these findings against internal records.',
 ];
 const padded = (s: string) => `Our audit analyzed 8 public pages and collected 29 evidence items. ${s} The 30-day plan sequences validation first.`;
@@ -138,7 +137,7 @@ describe('H1 — AI-written summaries are screened, and an unsafe one is replace
   it('the audit pipeline screens the summary before storing it, and feeds the model the conditional wording', () => {
     const src = fs.readFileSync(path.join(__dirname, '../src/lib/audit/orchestrator.ts'), 'utf8');
     expect(src).toMatch(/AI_SUMMARY_AUTOMATION_RULE/);
-    expect(src).toMatch(/recommendation: presentRecommendedSolution\(l\.category, l\.recommendedSolution\)/);
+    expect(src).toMatch(/recommendation: presentOpportunitySolution\(l\)/);
     expect(src).not.toMatch(/recommendation: l\.recommendedSolution/);
     const screenAt = src.indexOf('screenAiSummary(aiNarrative.executiveSummary)');
     expect(screenAt).toBeGreaterThan(-1);
@@ -343,7 +342,16 @@ describe('M1 — Section 06 states the whole gate, in the introduction and on ev
     const dto = buildExecutiveReport(input([...lev, RETENTION]));
     expect(dto.aiOpportunitiesIntro).toMatch(INTRO_GATE);
     expect(dto.rankedAiOpportunities.length).toBeGreaterThan(0);
-    for (const card of dto.rankedAiOpportunities) expect(card.basis, card.solutionCategory).toContain(REQUIREMENTS);
+    // Every pilot candidate states the whole gate. An exploratory card proposes
+    // nothing, so it states no gate: it says no purchase and no pilot.
+    for (const card of dto.rankedAiOpportunities) {
+      if (card.exploratory) {
+        expect(card.basis, card.solutionCategory).not.toContain(REQUIREMENTS);
+        expect(card.basis, card.solutionCategory).toMatch(/no automation purchase is justified and no pilot is recommended/);
+      } else {
+        expect(card.basis, card.solutionCategory).toContain(REQUIREMENTS);
+      }
+    }
 
     // A verified automation finding (no manual validation, confidence >= 80).
     const verifiedPhone = { ...PHONE, manualValidationRequired: false, confidenceScore: 90 };
@@ -356,7 +364,7 @@ describe('M1 — Section 06 states the whole gate, in the introduction and on ev
     const dto = buildExecutiveReport(input([...lev, RETENTION]));
     for (const text of [await pdfText(dto), await webText(dto)]) {
       expect(text).toMatch(INTRO_GATE);
-      expect(text.split(REQUIREMENTS).length - 1).toBeGreaterThanOrEqual(dto.rankedAiOpportunities.length);
+      expect(text.split(REQUIREMENTS).length - 1).toBeGreaterThanOrEqual(dto.rankedAiOpportunities.filter((o) => !o.exploratory).length);
     }
   }, 60_000);
 });
@@ -387,7 +395,7 @@ describe('M2 — Section 06, the Decision box and Days 15–21 agree; catering s
     // Section 06: visible, flagged, never a recommendation; owner-record validation first.
     const intake = dto.rankedAiOpportunities.find((o) => o.exploratory)!;
     expect(intake.fit).toBe('MODERATE');
-    expect(intake.basis).toBe(`Exploratory only — not a recommendation, and no pilot is proposed. Public evidence alone does not establish demand for it; it could be considered only once your own records show that demand, and then only with ${REQUIREMENTS}.`);
+    expect(intake.basis).toBe('Not a recommendation. This opportunity is exploratory only: public evidence alone does not establish demand for it, so no automation purchase is justified and no pilot is recommended. The next step is to understand and improve the current workflow from your own records.');
     expect(dto.snapshot.topRecommendedAutomation).toBe('AI Front Desk & Missed-Call Text Back');
   });
 

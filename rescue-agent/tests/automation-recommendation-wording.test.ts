@@ -58,6 +58,8 @@ const LEGACY = {
 const CATEGORICAL = /is the matched fix|AI Front Desk System:|then run an AI Reactivation Campaign|AI-assisted lead capture and qualification for event inquiries|\bdeploy/i;
 const PHONE_GATE = /may be worth a limited, monitored pilot — only after it passes its own readiness and safety tests for this restaurant \(answers on hours, menu and ordering checked against the restaurant's own information; missed-call text-back and transfer to staff tested\) and the owner approves the pilot\./;
 const CATERING_GATE = /may be worth a limited, monitored pilot — only after the owner approves the intake questions and acknowledgment wording, every inquiry is verified to reach a named staff member, and the system passes its own readiness and safety tests with human escalation in place — and the owner approves the pilot\./;
+/** Catering (AI fit 60) is exploratory: its card recommends understanding and improving the workflow, never a pilot. */
+const CATERING_EXPLORATORY = /Before considering any automation, collect acknowledgment records, response times and booking records for recent event inquiries, and use them to map how each inquiry is received, acknowledged, passed to a named staff member and followed up today\. Where the records show gaps, improve that workflow first: a named owner for every inquiry and a consistent acknowledgment\. This opportunity is exploratory only: public evidence alone does not establish demand for it, so no automation purchase is justified and no pilot is recommended\./;
 
 function input(opportunities: Opp[], extra: Partial<ExecutiveReportInput> = {}): ExecutiveReportInput {
   return {
@@ -152,7 +154,8 @@ describe('the finding cards: wording conditional, everything else unchanged', ()
 
   it('phone and catering cards carry the conditional recommendation; the order-button card is unchanged', () => {
     expect(card(dto, PHONE.category).recommendedAction).toMatch(PHONE_GATE);
-    expect(card(dto, CATERING.category).recommendedAction).toMatch(CATERING_GATE);
+    expect(card(dto, CATERING.category).recommendedAction).toMatch(CATERING_EXPLORATORY);
+    expect(card(dto, CATERING.category).recommendedAction).not.toMatch(/pilot —|limited, monitored pilot|AI-assisted/);
     expect(card(dto, ORDER_BUTTON.category).recommendedAction).toBe(ORDER_BUTTON.recommendedSolution);
     for (const f of dto.findings) expect(f.recommendedAction, f.title).not.toMatch(CATEGORICAL);
   });
@@ -182,7 +185,8 @@ describe('PDF and web report print the same conditional wording', () => {
     const text = await pdfText(dto);
     expect(text).not.toMatch(CATEGORICAL);
     expect(text).toMatch(PHONE_GATE);
-    expect(text).toMatch(CATERING_GATE);
+    expect(text).toMatch(CATERING_EXPLORATORY);
+    expect(text).not.toMatch(CATERING_GATE);
   }, 60_000);
 
   it('the web report page renders the same', async () => {
@@ -190,7 +194,8 @@ describe('PDF and web report print the same conditional wording', () => {
     expect(text).toContain('Recommended next action');
     expect(text).not.toMatch(CATEGORICAL);
     expect(text.replace(/\s+/g, ' ')).toMatch(PHONE_GATE);
-    expect(text.replace(/\s+/g, ' ')).toMatch(CATERING_GATE);
+    expect(text.replace(/\s+/g, ' ')).toMatch(CATERING_EXPLORATORY);
+    expect(text.replace(/\s+/g, ' ')).not.toMatch(CATERING_GATE);
   }, 60_000);
 });
 

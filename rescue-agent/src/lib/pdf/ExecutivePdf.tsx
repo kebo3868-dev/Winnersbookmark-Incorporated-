@@ -784,7 +784,7 @@ export function ExecutivePdf({ dto: report }: { dto: ExecutiveReportDTO }) {
                 <Text style={[s.body, { marginBottom: 5 }]}>{opp.whyItFits}</Text>
                 <Text style={s.label}>What it can do</Text>
                 <Text style={[s.body, { marginBottom: 5 }]}>{opp.capabilities.join(' · ')}</Text>
-                <Text style={s.label}>Validation before implementation</Text>
+                <Text style={s.label}>{opp.exploratory ? 'What to check first' : 'Validation before implementation'}</Text>
                 <Text style={[s.body, { marginBottom: 5 }]}>{opp.validationBeforeImplementation}</Text>
                 <View style={[s.row, { gap: 16, borderTopWidth: 0.5, borderTopColor: C.line, paddingTop: 5 }]}>
                   <View><Text style={s.label}>Complexity</Text><Text style={{ fontSize: 8.5, fontFamily: 'Helvetica-Bold', color: C.ink }}>{opp.implementationComplexity}</Text></View>

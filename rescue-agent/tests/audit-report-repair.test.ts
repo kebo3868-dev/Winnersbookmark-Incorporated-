@@ -172,7 +172,11 @@ describe('2. a private-party link does not establish how inquiries are handled',
     expect(intake!.exploratory).toBe(true);
     expect(intake!.fit).toBe('MODERATE');
     expect(intake!.requiresValidation).toBe(true);
-    expect(intake!.basis).toMatch(/^Exploratory only — not a recommendation, and no pilot is proposed\. Public evidence alone does not establish demand for it/);
+    expect(intake!.basis).toMatch(/^Not a recommendation\. This opportunity is exploratory only: public evidence alone does not establish demand for it, so no automation purchase is justified and no pilot is recommended\./);
+    // Its finding card recommends no automation and no pilot either.
+    const card = dto.findings.find((f) => /CATERING|PRIVATE/i.test(f.category))!;
+    expect(card.recommendedAction).not.toMatch(/pilot —|limited, monitored pilot|matched fix|AI-assisted/i);
+    expect(card.recommendedAction).toMatch(/no automation purchase is justified and no pilot is recommended/);
     // Never a pilot decision: not piloted in Days 15–21, not piloted in the Decision box.
     const decide = dto.thirtyDayPlan.find((p) => p.phase === 'DAYS 15–21')!.actions.join(' ');
     expect(decide).not.toMatch(/pilot of Lead Capture/);

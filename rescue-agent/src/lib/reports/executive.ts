@@ -11,10 +11,15 @@ import { safeDisplayName } from '@/lib/audit/restaurantName';
 import {
   AUTOMATION_CARD_REQUIREMENTS,
   AUTOMATION_PROPOSAL_GATE,
-  presentRecommendedSolution,
+  EXPLORATORY_STATUS,
+  isAutomationCandidate,
+  isExploratoryOpportunity,
+  presentOpportunitySolution,
   presentTierRecommendation,
   screenAiSummary,
 } from './automationWording';
+
+export { isAutomationCandidate, isExploratoryOpportunity };
 import {
   CONFIDENCE_BANDS,
   CONFIDENCE_EXPLANATION,
@@ -340,7 +345,7 @@ export interface RankedAiOpportunity {
   whyItFits: string;
   capabilities: string[];
   validationBeforeImplementation: string;
-  implementationComplexity: 'Low' | 'Moderate' | 'High';
+  implementationComplexity: 'Low' | 'Moderate' | 'High' | 'Not assessed';
   measurement: string[];
 }
 
@@ -565,11 +570,13 @@ export function buildExecutiveReport(input: ExecutiveReportInput): ExecutiveRepo
     opp.evidenceIds.map((id) => evidenceById.get(id)).filter((e): e is NonNullable<typeof e> => Boolean(e));
   // Stored recommended solutions are presented, never rewritten: an
   // automation is conditional on demand, its own readiness and safety tests
-  // and owner approval (automationWording.ts). Cards, the AI section and the
+  // and owner approval, and an exploratory opportunity (catering) recommends
+  // only understanding and improving the current workflow — no automation, no
+  // purchase, no pilot (automationWording.ts). Cards, the AI section and the
   // plan all read the presented text.
   const ranked = input.opportunities
     .map((opp) => withOrderButtonCopy(opp, attachedTo(opp)))
-    .map((opp) => ({ ...opp, recommendedSolution: presentRecommendedSolution(opp.category, opp.recommendedSolution) }))
+    .map((opp) => ({ ...opp, recommendedSolution: presentOpportunitySolution(opp) }))
     .sort((a, b) => b.rescuePriorityScore - a.rescuePriorityScore);
   const top = ranked.slice(0, MAX_REPORT_FINDINGS);
 
@@ -937,7 +944,7 @@ function buildRankedAiOpportunities(top: OppInput[]): RankedAiOpportunity[] {
         // verified observation is not evidence of demand, readiness or approval.
         exploratory: isExploratoryOpportunity(opp),
         basis: isExploratoryOpportunity(opp)
-          ? `Exploratory only — not a recommendation, and no pilot is proposed. Public evidence alone does not establish demand for it; it could be considered only once your own records show that demand, and then only with ${AUTOMATION_CARD_REQUIREMENTS}.`
+          ? `Not a recommendation. ${EXPLORATORY_STATUS} The next step is to understand and improve the current workflow from your own records.`
           : requiresValidation
             ? `Potential improvement — requires operational validation before any implementation: ${AUTOMATION_CARD_REQUIREMENTS}. No missed calls or lost revenue have been measured; a public audit cannot see either.`
             : `Addresses a verified public finding; its effect on revenue has not been measured. Any implementation still requires ${AUTOMATION_CARD_REQUIREMENTS}.`,
@@ -945,7 +952,8 @@ function buildRankedAiOpportunities(top: OppInput[]): RankedAiOpportunity[] {
         whyItFits: opp.businessImpact,
         capabilities: caps.capabilities,
         validationBeforeImplementation: unknownsFor(opp.category),
-        implementationComplexity: 'Moderate',
+        // Nothing is being implemented for an exploratory opportunity.
+        implementationComplexity: isExploratoryOpportunity(opp) ? 'Not assessed' : 'Moderate',
         measurement: caps.measurement,
       };
     });
@@ -1125,31 +1133,6 @@ export function directFixesFor<T extends { category: string; aiFitScore: number;
     .slice(0, 3);
 }
 
-/**
- * Findings whose recommended solution is an automation, whatever their AI fit:
- * the phone, retention and catering / private-event findings, plus any finding
- * scored as a strong automation fit. Each is decided in Days 15–21.
- */
-const AUTOMATION_CATEGORY = /PHONE-DEPENDENT|RETENTION|CATERING|PRIVATE/i;
-/**
- * A pilot candidate: a strong automation fit (AI fit >= 70). Only these reach a
- * pilot decision — in Section 06, the Decision box and Days 15–21 alike.
- *
- * PR #63's safeguard holds: a link alone does not establish demand. The
- * catering finding (AI fit 60) rests on a private-party link, so it is not a
- * pilot candidate; it is an exploratory opportunity (isExploratoryOpportunity).
- */
-export function isAutomationCandidate(o: { category: string; aiFitScore: number }): boolean {
-  return o.aiFitScore >= 70;
-}
-/**
- * An automation opportunity shown for visibility only, below the strong fit:
- * exploratory, no pilot proposed, owner-record validation first. Shown the
- * same way in Section 06, the Decision box and Days 15–21.
- */
-export function isExploratoryOpportunity(o: { category: string; aiFitScore: number }): boolean {
-  return !isAutomationCandidate(o) && AUTOMATION_CATEGORY.test(o.category);
-}
 /** Listed in Section 06: a pilot candidate or an exploratory opportunity. */
 function inSection06(o: { category: string; aiFitScore: number }): boolean {
   return isAutomationCandidate(o) || isExploratoryOpportunity(o);

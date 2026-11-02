@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/db';
 import { assertOperator, type OperatorAuthorization } from '@/lib/operatorAuth';
 import { presentOrderingText } from '@/lib/audit/orderingChannel';
+import { presentSalesField } from './salesWording';
 
 /**
  * The internal Sales Brief, for the operator only.
@@ -19,13 +20,18 @@ export async function loadSalesBrief(operator: OperatorAuthorization, auditId: s
     include: { audit: { include: { restaurant: true } } },
   });
   if (!brief) return brief;
-  // A brief stored before the ordering wording was corrected says the button
-  // "places a phone call". It is shown in the current wording; the stored
-  // record is not rewritten.
+  // A brief stored before a wording correction is shown in the current
+  // wording; the stored record is not rewritten:
+  // - the ordering button "places a phone call" (orderingChannel.ts);
+  // - an automation recommended to the rep without its conditions — demand in
+  //   the restaurant's own records, readiness and safety validation, owner
+  //   approval, a limited, monitored pilot — is made conditional or withheld
+  //   (salesWording.ts).
+  const present = (key: string, text: string) => presentSalesField(key, presentOrderingText(text));
   const shown = Object.fromEntries(
     Object.entries(brief).map(([key, value]) => [
       key,
-      typeof value === 'string' ? presentOrderingText(value) : Array.isArray(value) ? value.map((v) => (typeof v === 'string' ? presentOrderingText(v) : v)) : value,
+      typeof value === 'string' ? present(key, value) : Array.isArray(value) ? value.map((v) => (typeof v === 'string' ? present(key, v) : v)) : value,
     ]),
   );
   return shown as typeof brief;

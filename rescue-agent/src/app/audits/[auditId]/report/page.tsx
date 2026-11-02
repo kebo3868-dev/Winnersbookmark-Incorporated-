@@ -284,7 +284,7 @@ export default async function ExecutiveReportPage({ params }: { params: Promise<
                   <p className="label mb-1">What it can do</p>
                   <ul className="list-disc list-inside text-ivory-dim space-y-0.5">{opp.capabilities.map((c, i) => <li key={i}>{c}</li>)}</ul>
                 </div>
-                <div className="mt-3"><Field label="Validation before implementation">{opp.validationBeforeImplementation}</Field></div>
+                <div className="mt-3"><Field label={opp.exploratory ? 'What to check first' : 'Validation before implementation'}>{opp.validationBeforeImplementation}</Field></div>
                 <div className="flex flex-wrap gap-6 mt-3 pt-3 border-t border-obsidian-line">
                   <div><p className="label">Complexity</p><p className="text-ivory text-sm">{opp.implementationComplexity}</p></div>
                   <div className="flex-1 min-w-[200px]"><p className="label">Measurement</p><p className="text-ivory-dim text-xs">{opp.measurement.join(' · ')}</p></div>
