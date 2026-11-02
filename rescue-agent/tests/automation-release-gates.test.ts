@@ -268,6 +268,71 @@ describe('H1 (re-review) — adversarial AI-summary wording is rejected whole', 
   }, 60_000);
 });
 
+// ── H1 (review of f53ffd1): disguised endorsements and decoy gates ──────────
+//
+// Defect A: any "no"/"not" made a sentence a disclaimer, so "No alternative
+// beats the AI Front Desk." passed. Only an explicit non-recommendation is a
+// disclaimer now, and never one that also endorses, directs or hurries.
+// Defect B: a sentence carrying the full gate passed even when the gate
+// qualified something else ("Install the AI Front Desk now, while a different
+// automation may be considered only after …"). A gated sentence now passes
+// only if the gate governs it: no directive, no immediacy, no contrast joining
+// a second instruction, no endorsement.
+
+const DISGUISED_ENDORSEMENTS = [
+  'No alternative beats the AI Front Desk.',
+  'No other system comes close to the AI Front Desk.',
+  'There is no better option than the AI Front Desk.',
+  'Not having an AI Front Desk is the biggest risk here.',
+  'No automation is proposed yet, but the AI Front Desk is the best choice.',
+  'No restaurant should be without an AI receptionist.',
+  'Nothing beats the AI Front Desk.',
+];
+const DECOY_GATES = [
+  'Install the AI Front Desk now, while a different automation may be considered only after call records show measurable demand, its readiness and safety tests pass, and the owner approves a limited, monitored pilot.',
+  'The owner approves a limited, monitored pilot only after call records show measurable demand and its readiness and safety tests pass, so install the AI Front Desk today.',
+  'The AI Front Desk is the ideal solution and could be considered as a limited, monitored pilot only after call records confirm the demand, it passes its own readiness and safety tests and the owner approves it.',
+  'Set up the AI Front Desk this week, treating it as a limited, monitored pilot only after call records confirm the demand, its readiness and safety tests pass and the owner approves.',
+  'AI-assisted intake may be considered as a limited, monitored pilot only after inquiry records confirm the demand, its readiness and safety tests pass and the owner approves it; however, the AI Front Desk should go live immediately.',
+];
+const LEGITIMATE = [
+  GATED,
+  'If call records confirm the demand, the AI Front Desk could be considered as a limited, monitored pilot, but only after it passes its own readiness and safety tests and the owner approves it.',
+  "No automation change is proposed until the restaurant's own records confirm the demand.",
+  'Catering automation is not recommended until inquiry records show demand.',
+  'We do not recommend any automation until the call records confirm the demand.',
+];
+
+describe('H1 (review of f53ffd1) — disclaimers must disclaim, gates must govern', () => {
+  const deterministic = buildExecutiveReport(input(lev)).executiveSummary;
+
+  it('Defect A: a negation that endorses is not a disclaimer — rejected whole, deterministic summary shown', () => {
+    for (const c of DISGUISED_ENDORSEMENTS) {
+      expect(screenAiSummary(padded(c)).safe, c).toBe(false);
+      const dto = buildExecutiveReport(input(lev, { storedSummary: padded(c), storedSummaryWasAiEnhanced: true }));
+      expect(dto.executiveSummary, c).toBe(deterministic);
+      expect(dto.summaryWasAiEnhanced, c).toBe(false);
+    }
+  });
+
+  it('Defect B: a full gate attached to something else does not qualify an unconditional recommendation', () => {
+    for (const c of DECOY_GATES) {
+      expect(screenAiSummary(padded(c)).safe, c).toBe(false);
+      const dto = buildExecutiveReport(input(lev, { storedSummary: padded(c), storedSummaryWasAiEnhanced: true }));
+      expect(dto.executiveSummary, c).toBe(deterministic);
+    }
+  });
+
+  it('legitimate conditional recommendations and explicit non-recommendations still pass and are shown as written', () => {
+    for (const c of LEGITIMATE) {
+      expect(screenAiSummary(padded(c)), c).toEqual({ safe: true, unsafe: [] });
+      const dto = buildExecutiveReport(input(lev, { storedSummary: padded(c), storedSummaryWasAiEnhanced: true }));
+      expect(dto.executiveSummary, c).toBe(padded(c));
+      expect(dto.summaryWasAiEnhanced, c).toBe(true);
+    }
+  });
+});
+
 // ── M1 ──────────────────────────────────────────────────────────────────────
 
 const REQUIREMENTS = 'measurable demand in your own records, the product passing its own readiness and safety tests, your explicit approval, and a limited, monitored pilot first';

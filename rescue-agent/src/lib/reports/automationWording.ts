@@ -171,25 +171,68 @@ export interface SummaryScreen {
   unsafe: string[];
 }
 
-/** An explicit non-recommendation: "No automation change is proposed …", "… is not recommended until …". */
-const NEGATION = /\b(no|not|never|none|without)\b/i;
+/**
+ * An explicit non-recommendation: the negation applies to proposing,
+ * recommending or authorising automation — "No automation change is proposed
+ * …", "… is not recommended until …", "We do not recommend …". A bare "no" or
+ * "not" is not one: "No alternative beats the AI Front Desk." negates the
+ * competition, not the recommendation.
+ */
+const DISCLAIMER =
+  /\bno (automation|AI|pilot)( (change|product|system|tool|purchase))? (is|are|has been|was|will be) (currently |yet )?(proposed|recommended|authori[sz]ed|justified|warranted|planned)\b|\b(is|are) not (currently |yet )?(proposed|recommended|authori[sz]ed|justified|warranted)\b|\b(we )?do(es)? not (recommend|propose)\b|\bno automation change\b/gi;
+/** Praise or comparison that recommends without a recommending verb. */
+const ENDORSEMENT =
+  /\b(beats?|beating|better|best|superior|outperform\w*|unmatched|unbeatable|unrivall?ed|ideal|perfect|must-have|essential|indispensable|game[- ]chang\w*|comes? close|second to none|top choice|clear choice|obvious choice|biggest risk|no-brainer)\b|\bno (alternative|substitute|competitor|rival|other (option|system|tool|product|choice))\b|\bnothing (beats|compares|matches|comes close)\b|\bonly (option|choice|solution|answer)\b|\bwithout an? (AI|automat\w*|Front Desk|receptionist|chatbot|bot)\b/i;
+/** An instruction to act, or a modal that makes one. */
+const DIRECTIVE =
+  /\b(deploy\w*|install\w*|implement\w*|adopt\w*|roll(s|ed|ing)? (it |them )?out|rollout|launch\w*|put (it |them |one )?in place|set (it |them |one )?up|bring(s|ing)? (it |them |one )?(on|in)|brought (on|in)|switch(es|ed|ing)? (to|on|over)|mov(e|es|ed|ing) to|upgrad\w* to|turn(s|ed|ing)? on|sign(s|ed|ing)? up|subscrib\w*|purchas\w*|buy(s|ing)?|go(es|ing)? live|onboard\w*|go(es|ing)? with|opt(s|ed|ing)? for|choos\w*)\b|\b(should|must|need(s)? to|ought to|has to|have to)\b/i;
+/** Hurry: a gated recommendation is never immediate. */
+const IMMEDIACY =
+  /\b(now|immediately|today|tomorrow|right away|straight away|at once|without delay|asap|as soon as possible|this (week|month|quarter|season|year)|next (week|month))\b/i;
+/** A joint that attaches a second, separate instruction to a gated one. "but only after" is part of a gate. */
+const CONTRAST =
+  /\b(while|whereas|however|although|though|meanwhile|in the meantime|regardless|either way|in any case|anyway|instead|separately|on the other hand|so)\b|\bbut\b(?!\s+only\b)/i;
+
+/**
+ * A gated recommendation the gate actually governs: it carries the whole gate,
+ * and nothing in it escapes the gate — no directive (install, deploy, set up,
+ * should …), no immediacy (now, today, this week), no contrast joining a
+ * second instruction ("…, while …", "…; however, …", "…, so install …"), and no
+ * endorsement ("the ideal solution"). "Install the AI Front Desk now, while a
+ * different automation may be considered only after …" carries every gate term
+ * and is still an unconditional instruction; it is not gated.
+ */
+function gatedRecommendation(sentence: string): boolean {
+  return carriesGate(sentence) && !DIRECTIVE.test(sentence) && !IMMEDIACY.test(sentence) &&
+    !CONTRAST.test(sentence) && !ENDORSEMENT.test(sentence);
+}
+
+/**
+ * An explicit non-recommendation that does nothing else: the disclaimer
+ * phrase is present, and the rest of the sentence neither recommends, endorses,
+ * hurries nor joins a second instruction.
+ */
+function explicitDisclaimer(sentence: string): boolean {
+  if (!new RegExp(DISCLAIMER.source, 'i').test(sentence)) return false;
+  const rest = sentence.replace(DISCLAIMER, ' ');
+  return !RECOMMENDS.test(rest) && !ENDORSEMENT.test(sentence) && !IMMEDIACY.test(sentence) && !CONTRAST.test(sentence);
+}
 
 /**
  * Whether an AI-written summary may be shown to a client.
  *
  * FAIL CLOSED ON MENTION, NOT ON VERBS. A list of recommending verbs always
  * leaks ("we suggest", "go with", "is what this restaurant needs", "makes
- * sense"…), so a sentence that NAMES an automation is safe only if it carries
- * the whole gate (carriesGate: only after measurable demand in the restaurant's
- * own records, the product's own readiness and safety tests, approval, and a
- * limited, monitored pilot) or is an explicit non-recommendation ("No
- * automation change is proposed until the records confirm the demand.").
+ * sense"…), so a sentence that NAMES an automation is safe only if it is a
+ * gated recommendation the gate actually governs (gatedRecommendation) or an
+ * explicit non-recommendation that does nothing else (explicitDisclaimer).
  * Whatever its verb, any other mention is unsafe.
  *
  * Also unsafe: any promised or implied result, softened or absolute ("would
  * likely solve", "no call would go unanswered"); "is the matched fix"; and,
  * once the summary has named an automation, a later sentence that refers back
- * to it and recommends it ("Install it this month.").
+ * to it and recommends or endorses it ("Install it this month.", "Nothing
+ * beats it.") unless it too is gated or a disclaimer.
  *
  * One unsafe sentence rejects the whole summary; the caller falls back to the
  * deterministic summary.
@@ -200,9 +243,9 @@ export function screenAiSummary(text: string): SummaryScreen {
   const sentences = scrubbed.split(/(?<=[.!?;])\s+/).map((s) => s.trim()).filter(Boolean);
   const unsafe = sentences.filter((s) => {
     if (OUTCOME_CLAIM.test(s) || /\bis the matched fix\b/i.test(s)) return true;
-    if (carriesGate(s)) return false;
-    if (AUTOMATION_SUBJECT.test(s)) return !(NEGATION.test(s) && !RECOMMENDS.test(s));
-    return namesAutomation && BACK_REFERENCE.test(s) && RECOMMENDS.test(s);
+    if (gatedRecommendation(s) || explicitDisclaimer(s)) return false;
+    if (AUTOMATION_SUBJECT.test(s)) return true;
+    return namesAutomation && BACK_REFERENCE.test(s) && (RECOMMENDS.test(s) || ENDORSEMENT.test(s));
   });
   return { safe: unsafe.length === 0, unsafe };
 }
