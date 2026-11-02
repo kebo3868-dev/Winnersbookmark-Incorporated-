@@ -21,7 +21,7 @@ The app is adapted for this target:
 
 1. **Root Directory must be `rescue-agent`** (project → Settings → General → Root Directory). If it isn't, Vercel builds the unrelated Vite site at the repo root — this alone explains a broken first deployment.
 2. **Confirm the Neon env vars** (Settings → Environment Variables): the integration should have added `DATABASE_URL`, `DATABASE_URL_UNPOOLED`, `POSTGRES_PRISMA_URL`, `POSTGRES_URL_NON_POOLING`, etc. for Production and Preview. Nothing to copy manually.
-3. **Set the auth env vars** (Production): `BASIC_AUTH_USER`, `BASIC_AUTH_PASSWORD`. **Until these exist, every route returns 503 "ACCESS NOT CONFIGURED" by design** — if the previous deploy showed that message, this is the cause and the fix. Optionally add `AI_PROVIDER=anthropic`, `AI_MODEL`, `ANTHROPIC_API_KEY`.
+3. **Set the auth env vars** (Production): `BASIC_AUTH_USER`, `BASIC_AUTH_PASSWORD`. **Until these exist, every route returns 503 "ACCESS NOT CONFIGURED" by design** — if the previous deploy showed that message, this is the cause and the fix. Optionally add `AI_PROVIDER=anthropic`, `AI_MODEL`, `ANTHROPIC_API_KEY`; these are used for the executive summary only once `AI_EXECUTIVE_SUMMARY=enabled` is also set (see [AI executive summary](#ai-executive-summary-feature-flag)).
 4. **Check Fluid Compute is on** (Settings → Functions) and **redeploy** (Deployments → ⋯ → Redeploy, or push to main).
 5. Post-deploy verification, in order:
    - `https://<app>/api/health` → expect `{"status":"ok","database":"up","config":{"auth":"configured",...}}`. If `auth` says MISSING, set the vars from step 3. If `database` is down, check the Neon integration's env vars are attached to Production.
@@ -76,8 +76,40 @@ This brings up the app plus a persistent PostgreSQL with migrations applied.
 | `AUDIT_BUDGET_MS` | no | Collection time budget (default 45000, clamped 5000–280000). Past the deadline remaining targets are skipped and the audit completes as `PARTIALLY_COMPLETED` rather than being killed by the platform |
 | `LEAD_RETENTION_DAYS` | no | Days after which lead contact details are redacted. **Unset = retention disabled and personal data is kept indefinitely** |
 | `POSTGRES_PASSWORD` | compose only | Provisions the bundled Postgres |
-| `AI_PROVIDER` / `AI_MODEL` / `ANTHROPIC_API_KEY` | no | Optional AI narrative layer; deterministic fallback when unset |
+| `AI_EXECUTIVE_SUMMARY` | no | Feature flag for the AI-written executive summary. **Default off**; only `enabled` turns it on. See [below](#ai-executive-summary-feature-flag) |
+| `AI_PROVIDER` / `AI_MODEL` / `ANTHROPIC_API_KEY` | no | AI provider for the executive summary; used only while `AI_EXECUTIVE_SUMMARY=enabled`. Deterministic summary otherwise |
 | `RESCUE_AGENT_ALLOW_PRIVATE_TARGETS` | never in production | Test-only fixture hook; hard-disabled when `NODE_ENV=production` |
+
+### AI executive summary (feature flag)
+
+`AI_EXECUTIVE_SUMMARY` controls the one AI-written element of a report: the
+executive-summary paragraph. **The default is off.** Only the exact value
+`enabled` (case-insensitive, surrounding spaces ignored) turns it on. Blank,
+`true`, `1`, `on` and every other value leave it off.
+
+| `AI_EXECUTIVE_SUMMARY` | Provider configured | New audits store | Reports show for an audit stored with an AI summary |
+| --- | --- | --- | --- |
+| unset / anything but `enabled` | either | deterministic summary | deterministic summary |
+| `enabled` | yes (`AI_PROVIDER=anthropic` + `ANTHROPIC_API_KEY`) | AI summary (deterministic if the call fails) | stored AI summary |
+| `enabled` | no | deterministic summary | stored AI summary |
+
+- A provider is configured only when `AI_PROVIDER=anthropic` **and**
+  `ANTHROPIC_API_KEY` are both set. A key alone, or another provider name, is
+  not a configured provider.
+- The web report and the PDF export load through the same loader, so they
+  always agree.
+- Turning the flag off changes no stored record. An audit whose summary was
+  stored as AI-written shows the deterministic summary, composed from the same
+  stored audit data, while the flag is off, and the stored AI summary again if
+  it is turned back on.
+- Scores, evidence, confidence labels, finding classification, rankings and
+  every other report section are deterministic and do not depend on the flag.
+- `/api/health`, called with the operator credential, reports the result under
+  `config.executiveSummary`: what new audits store (`newAudits`), whether
+  stored AI summaries are shown (`storedAiSummaries`), the flag state (`flag`)
+  and the provider state (`provider`). It names settings, never values.
+- Changing it takes effect on the next deployment or restart, like any other
+  environment variable.
 
 ### Database URL overrides
 
@@ -130,9 +162,9 @@ Node >= 20.9 (pinned in `package.json` engines; image uses Node 22).
 - [ ] TLS termination in front of the app (platform default or reverse proxy) — Basic Auth must never cross plain HTTP
 - [ ] Health check wired to `/api/health`
 - [ ] Outbound HTTPS egress unrestricted (collector requirement)
-- [ ] Optional: `ANTHROPIC_API_KEY` set if AI narrative is wanted
+- [ ] AI executive summary decided: leave `AI_EXECUTIVE_SUMMARY` unset (default off) for deterministic summaries, or set `AI_EXECUTIVE_SUMMARY=enabled` together with `AI_PROVIDER=anthropic` and `ANTHROPIC_API_KEY`
 - [ ] `LEAD_RETENTION_DAYS` decided and set — leads hold third-party personal data, and it is kept indefinitely while this is unset
-- [ ] Confirm `/api/health` reports the expected `databaseSource` and `leadRetention`
+- [ ] Confirm `/api/health` reports the expected `databaseSource`, `leadRetention` and `executiveSummary`
 - [ ] Demo data removed before showing the pipeline to a client (**Remove demo data** on `/leads`)
 - [ ] Run one Demo audit and one real audit post-deploy
 

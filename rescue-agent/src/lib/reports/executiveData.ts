@@ -4,6 +4,7 @@ import type { OwnerReportContent } from './owner';
 import { getContact } from '@/lib/config';
 import { generateBookingQrDataUrl } from './qrcode';
 import { assertOperator, type OperatorAuthorization } from '@/lib/operatorAuth';
+import { showStoredAiExecutiveSummary } from '@/lib/ai/executiveSummary';
 
 export type ExecutiveReportResult =
   | { status: 'ok'; dto: ExecutiveReportDTO }
@@ -72,6 +73,7 @@ export async function loadExecutiveReport(operator: OperatorAuthorization, audit
 
   const sourceUrlById = new Map(audit.sources.map((s) => [s.id, s.url]));
   const owner = (audit.reports[0]?.content ?? null) as unknown as OwnerReportContent | null;
+  const showStoredAi = showStoredAiExecutiveSummary(Boolean(owner?.aiNarrativeUsed));
   const contact = getContact();
   const bookingQrDataUrl = await generateBookingQrDataUrl(contact.bookingUrl);
 
@@ -101,8 +103,12 @@ export async function loadExecutiveReport(operator: OperatorAuthorization, audit
     opportunities: audit.opportunities,
     journey: audit.journeyStages,
     categoryScores: audit.scores,
-    storedSummary: owner?.executiveSummary ?? null,
-    storedSummaryWasAiEnhanced: Boolean(owner?.aiNarrativeUsed),
+    // A summary stored as AI-written is shown only while AI_EXECUTIVE_SUMMARY is
+    // enabled; otherwise the deterministic summary is composed from the same
+    // stored data. The stored record itself is never changed. Web and PDF both
+    // load through here, so they always agree.
+    storedSummary: showStoredAi ? owner?.executiveSummary ?? null : null,
+    storedSummaryWasAiEnhanced: showStoredAi,
     storedRecommendation: owner?.recommendation ?? null,
   };
   return { status: 'ok', dto: buildExecutiveReport(input) };

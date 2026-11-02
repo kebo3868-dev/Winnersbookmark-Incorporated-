@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma, resolveDatabaseUrlSource } from '@/lib/db';
 import { checkBasicAuth, resolveAuthMode } from '@/lib/auth';
 import { resolveLeadRetentionDays } from '@/lib/leads/retention';
+import { executiveSummaryStatus } from '@/lib/ai/executiveSummary';
 
 export const dynamic = 'force-dynamic';
 
@@ -66,8 +67,9 @@ function diagnosticConfig() {
     migrationSourceAvailable: Boolean(
       process.env.RESCUE_DIRECT_URL || process.env.DATABASE_URL_UNPOOLED || process.env.POSTGRES_URL_NON_POOLING,
     ),
-    aiNarrative:
-      process.env.AI_PROVIDER && process.env.ANTHROPIC_API_KEY ? 'configured' : 'disabled (deterministic reports)',
+    // What the pipeline and reports actually do: AI_EXECUTIVE_SUMMARY and the
+    // provider configuration together, by the same tests they use.
+    executiveSummary: executiveSummaryStatus(),
     leadRetention: (() => {
       const days = resolveLeadRetentionDays();
       return days === null

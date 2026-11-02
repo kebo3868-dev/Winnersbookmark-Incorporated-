@@ -11,7 +11,7 @@ import { rankOpportunities } from '@/lib/scoring/priority';
 import { calculateCategoryScores, calculateOverallScore } from '@/lib/scoring/rescueScore';
 import { generateOwnerReport, type RankedOpportunity } from '@/lib/reports/owner';
 import { generateSalesBrief } from '@/lib/reports/sales';
-import { getAiProvider } from '@/lib/ai/provider';
+import { aiExecutiveSummaryEnabled, getExecutiveSummaryProvider } from '@/lib/ai/executiveSummary';
 import { analyzeOwnerReviews, reviewEvidence, socialEvidence } from '@/lib/audit/reviews';
 import { createAuditBudget, resolveAuditBudgetMs } from '@/lib/audit/budget';
 import type { AuditStage, AuditStatus } from '@prisma/client';
@@ -470,7 +470,13 @@ export async function runAudit(auditId: string): Promise<void> {
     const overall = calculateOverallScore(categories);
 
     // ---- OPTIONAL AI NARRATIVE (never fabricates; enhancement only) ----
-    const provider = getAiProvider();
+    // Off unless AI_EXECUTIVE_SUMMARY=enabled AND a provider is configured; see
+    // src/lib/ai/executiveSummary.ts. Without both, the deterministic summary
+    // is stored.
+    const provider = getExecutiveSummaryProvider();
+    if (!provider && aiExecutiveSummaryEnabled()) {
+      await log(auditId, 'INFO', 'AI_EXECUTIVE_SUMMARY is enabled but no AI provider is configured; deterministic summary used.');
+    }
     let aiNarrative: { executiveSummary: string } | null = null;
     let aiFailed = false;
     if (provider) {

@@ -78,7 +78,8 @@ tests/                    Business-rule tests + live fixture-site integration te
 DATA COLLECTION → EVIDENCE STORAGE → ANALYSIS → SCORING → RECOMMENDATION →
 REPORT GENERATION → SALES INTELLIGENCE are independent modules. Deterministic
 code does all math, weighting, ranking, and validation. The optional AI layer
-(set `AI_PROVIDER`, `AI_MODEL`, `ANTHROPIC_API_KEY`) only enhances report
+(`AI_EXECUTIVE_SUMMARY=enabled` plus `AI_PROVIDER`, `AI_MODEL`,
+`ANTHROPIC_API_KEY`; off by default, see docs/DEPLOYMENT.md) only enhances report
 narrative from supplied evidence, with schema-validated output and bounded
 retries; when unconfigured or failing, the deterministic summary is used and
 the audit says so — AI output is never faked.
