@@ -55,40 +55,56 @@ describe('the committed templates are what the engine writes', () => {
 
 describe('provenance of one evidence text', () => {
   const real = storedFixture.evidence;
+  const ctx = { sources: storedFixture.sources, restaurant: storedFixture.restaurant };
+  const titleOf = (e: { auditSourceId: string | null }) => storedFixture.sources.find((s) => s.id === e.auditSourceId)?.pageTitle ?? null;
 
-  it('every fact in the unaltered stored audit has template provenance for its own evidence type', () => {
-    for (const e of real) expect(evidenceTextProvenance(e.evidenceType, 'fact', e.fact), `${e.evidenceType}: ${e.fact}`).toBe('TEMPLATE');
+  it('every fact in the unaltered stored audit has provenance for its own evidence type; the page title is bound to the collected page', () => {
+    for (const e of real) {
+      const p = evidenceTextProvenance(e.evidenceType, 'fact', e.fact, ctx, titleOf(e));
+      expect(p, `${e.evidenceType}: ${e.fact}`).toBe(e.evidenceType === 'BUSINESS_IDENTITY' && e.fact.startsWith('Homepage title:') ? 'SOURCE_BOUND' : 'TEMPLATE');
+    }
   });
 
   it('a real fact stored under another evidence type has none: provenance is contextual, not text matching', () => {
     const faq = real.find((e) => e.evidenceType === 'FAQ_SIGNAL')!;
     const phone = real.find((e) => e.evidenceType === 'PHONE_VISIBILITY')!;
-    expect(evidenceTextProvenance(faq.evidenceType, 'fact', faq.fact)).toBe('TEMPLATE');
-    expect(evidenceTextProvenance(phone.evidenceType, 'fact', faq.fact)).toBe('NONE');
-    expect(publishEvidence({ ...phone, sourceUrl: null, fact: faq.fact }).fact).toBe(NEUTRAL_FACT);
+    expect(evidenceTextProvenance(faq.evidenceType, 'fact', faq.fact, ctx)).toBe('TEMPLATE');
+    expect(evidenceTextProvenance(phone.evidenceType, 'fact', faq.fact, ctx)).toBe('NONE');
+    expect(publishEvidence({ ...phone, sourceUrl: null, fact: faq.fact }, ctx).fact).toBe(NEUTRAL_FACT);
   });
 
-  it('the reported endorsements and mixed-clause attacks have no provenance, alone or quoted in a real template slot', () => {
+  it('the reported endorsements and mixed-clause attacks: no provenance alone; in a real template slot the frame matches but the value is not shown', () => {
     for (const phrase of [...REPORTED_9B4329E, ...MIXED_CLAUSE]) {
-      expect(evidenceTextProvenance('FAQ_SIGNAL', 'fact', phrase), phrase).toBe('NONE');
-      expect(evidenceTextProvenance('BUSINESS_IDENTITY', 'fact', `Homepage title: "${phrase}".`), phrase).toBe('NONE');
+      expect(evidenceTextProvenance('FAQ_SIGNAL', 'fact', phrase, ctx), phrase).toBe('NONE');
+      const text = `Homepage title: "${phrase}".`;
+      const published = publishEvidence({ id: 'x', evidenceType: 'BUSINESS_IDENTITY', fact: text, supportingContext: null, confidence: 90, sourceUrl: null, auditSourceId: storedFixture.sources[0].id }, ctx);
+      expect(published.provenance.fact, phrase).toBe('REDACTED');
+      expect(published.fact, phrase).toBe('Homepage title: "[not verified]".');
     }
   });
 
   it('a real template with an endorsement appended to its fixed wording has none', () => {
     const faq = real.find((e) => e.evidenceType === 'FAQ_SIGNAL')!;
-    for (const phrase of REPORTED_9B4329E) expect(evidenceTextProvenance('FAQ_SIGNAL', 'fact', `${faq.fact} ${phrase}`), phrase).toBe('NONE');
+    for (const phrase of REPORTED_9B4329E) expect(evidenceTextProvenance('FAQ_SIGNAL', 'fact', `${faq.fact} ${phrase}`, ctx), phrase).toBe('NONE');
   });
 
-  it('legitimate negative assessments and repairs quoted in a slot keep their provenance', () => {
+  it('legitimate negative assessments and repairs are shown when supported by the collected source, and not otherwise', () => {
     for (const phrase of LEGITIMATE_9B4329E) {
-      expect(evidenceTextProvenance('BUSINESS_IDENTITY', 'fact', `Homepage title: "${phrase}".`), phrase).toBe('TEMPLATE');
+      expect(evidenceTextProvenance('BUSINESS_IDENTITY', 'fact', `Homepage title: "${phrase}".`, ctx, phrase), phrase).toBe('SOURCE_BOUND');
+      expect(evidenceTextProvenance('BUSINESS_IDENTITY', 'fact', `Homepage title: "${phrase}".`, ctx, titleOf(real[0])), phrase).toBe('REDACTED');
     }
   });
 
-  it('supporting context that is only URLs is data; free text is not', () => {
-    expect(evidenceTextProvenance('MENU_PATH', 'supportingContext', 'https://a.example/menu, https://a.example/drinks')).toBe('DATA');
-    expect(evidenceTextProvenance('MENU_PATH', 'supportingContext', 'https://a.example/menu It is a boon for the restaurant.')).toBe('NONE');
+  it('supporting context that is only bound URLs is data; an unbound URL or free text is not', () => {
+    expect(evidenceTextProvenance('MENU_ACCESS', 'supportingContext', 'https://127.0.0.1:3443/menu, https://www.facebook.com/x', ctx)).toBe('DATA');
+    expect(evidenceTextProvenance('MENU_ACCESS', 'supportingContext', 'https://ai-front-desk-is-a-boon.example/', ctx)).toBe('NONE');
+    expect(evidenceTextProvenance('MENU_ACCESS', 'supportingContext', 'https://127.0.0.1:3443/menu It is a boon for the restaurant.', ctx)).toBe('NONE');
+  });
+
+  it('without collected data nothing that needs it is verified: no page title, no URL', () => {
+    const title = real.find((e) => e.fact.startsWith('Homepage title:'))!;
+    expect(evidenceTextProvenance('BUSINESS_IDENTITY', 'fact', title.fact)).toBe('REDACTED');
+    expect(evidenceTextProvenance('MENU_ACCESS', 'supportingContext', 'https://127.0.0.1:3443/menu')).toBe('NONE');
   });
 });
 

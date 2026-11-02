@@ -15,6 +15,29 @@ const NARRATIVE_FIELDS = [
   'recommendedOffer', 'outreachAngle', 'emailOpener', 'callOpener', 'talkTrack', 'followUpAngle',
 ] as const satisfies readonly (keyof SalesBriefContent)[];
 
+/** The Sales Brief as the page may show it: the stored scores, regenerated narrative fields, and of the audit only its demo flag and display name. */
+export type SalesBriefView = Omit<NonNullable<Awaited<ReturnType<typeof findBrief>>>, 'audit'> & {
+  audit: { demoMode: boolean; restaurant: { name: string } };
+};
+
+const findBrief = (auditId: string) =>
+  prisma.salesIntelligence.findUnique({
+    where: { auditId },
+    include: {
+      audit: {
+        include: {
+          restaurant: true,
+          // Created in rank order by the orchestrator, so creation order is rank order.
+          opportunities: { orderBy: { createdAt: 'asc' } },
+          journeyStages: true,
+          evidence: { orderBy: { createdAt: 'asc' } },
+          sources: { select: { id: true, url: true, pageTitle: true, sourceType: true } },
+          reports: { where: { reportType: 'OWNER_AUDIT' }, select: { content: true } },
+        },
+      },
+    },
+  });
+
 /**
  * The internal Sales Brief, for the operator only.
  *
@@ -35,24 +58,10 @@ const NARRATIVE_FIELDS = [
  * with the rule. The stored record is not changed. Stored numbers (lead
  * quality, sales opportunity, pain level, priority) are shown as stored.
  */
-export async function loadSalesBrief(operator: OperatorAuthorization, auditId: string) {
+export async function loadSalesBrief(operator: OperatorAuthorization, auditId: string): Promise<SalesBriefView | null> {
   assertOperator(operator);
-  const brief = await prisma.salesIntelligence.findUnique({
-    where: { auditId },
-    include: {
-      audit: {
-        include: {
-          restaurant: true,
-          // Created in rank order by the orchestrator, so creation order is rank order.
-          opportunities: { orderBy: { createdAt: 'asc' } },
-          journeyStages: true,
-          evidence: { orderBy: { createdAt: 'asc' } },
-          reports: { where: { reportType: 'OWNER_AUDIT' }, select: { content: true } },
-        },
-      },
-    },
-  });
-  if (!brief) return brief;
+  const brief = await findBrief(auditId);
+  if (!brief) return null;
 
   const audit = brief.audit;
   // The same publication as the client report: evidence traced to audited
@@ -60,11 +69,17 @@ export async function loadSalesBrief(operator: OperatorAuthorization, auditId: s
   // evidence (observationPublication.ts). Stored text is not read as written.
   const published = publishAuditObservations({
     evidence: (audit.evidence ?? []).map((e) => ({
-      id: e.id, evidenceType: e.evidenceType, fact: e.fact, supportingContext: e.supportingContext, confidence: e.confidence, sourceUrl: null,
+      id: e.id, evidenceType: e.evidenceType, fact: e.fact, supportingContext: e.supportingContext, confidence: e.confidence,
+      auditSourceId: e.auditSourceId, sourceUrl: null,
     })),
     journey: audit.journeyStages ?? [],
     opportunities: audit.opportunities ?? [],
     scores: [],
+    context: {
+      sources: audit.sources ?? [],
+      restaurant: audit.restaurant,
+      suppliedUrls: [audit.orderingUrlInput, audit.reservationUrlInput, audit.socialUrlInput, audit.googleBusinessUrl],
+    },
   });
   const topLeaks: RankedOpportunity[] = published.opportunities.slice(0, 3).map((o) => ({
     category: o.category,
@@ -89,7 +104,7 @@ export async function loadSalesBrief(operator: OperatorAuthorization, auditId: s
     manualValidationRequired: j.manualValidationRequired,
     evidenceIds: j.evidenceIds,
   }));
-  const evidence = published.evidence.map(({ provenance: _p, sourceUrl: _u, ...e }) => e);
+  const evidence = published.evidence.map(({ provenance: _p, sourceUrl: _u, auditSourceId: _s, ...e }) => e);
   const owner = (audit.reports?.[0]?.content ?? null) as unknown as OwnerReportContent | null;
 
   const regenerated = generateSalesBrief({
@@ -102,21 +117,17 @@ export async function loadSalesBrief(operator: OperatorAuthorization, auditId: s
     recommendedTier: auditedTier(owner?.recommendation?.tier),
   });
 
-  // The audit travels with the brief only as published: the stored evidence,
-  // journey and finding text it was regenerated from is not handed on.
+  // Of the audit, the brief carries only what the page shows: whether it is
+  // demonstration data and the restaurant's display name. No stored evidence,
+  // finding, journey or report text travels with it, verified or not.
+  const { audit: _audit, ...record } = brief;
   const shown: Record<string, unknown> = {
-    ...brief,
-    audit: {
-      ...audit,
-      evidence: evidence.map((e) => ({ ...audit.evidence.find((x) => x.id === e.id)!, fact: e.fact, supportingContext: e.supportingContext })),
-      journeyStages: published.journey,
-      opportunities: published.opportunities.map((o) => ({ ...o, recommendedSolution: '' })),
-      reports: [],
-    },
+    ...record,
+    audit: { demoMode: audit.demoMode, restaurant: { name: safeDisplayName(audit.restaurant.name, audit.restaurant.websiteUrl) } },
   };
   for (const field of NARRATIVE_FIELDS) {
     const value = regenerated[field];
     shown[field] = Array.isArray(value) ? value.map((v) => presentSalesField(v)) : presentSalesField(value);
   }
-  return shown as typeof brief;
+  return shown as SalesBriefView;
 }

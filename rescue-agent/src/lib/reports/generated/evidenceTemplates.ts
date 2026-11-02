@@ -3,8 +3,8 @@
  *
  * Audited provenance patterns for evidence facts and supporting context: the
  * literal wording the audit engine writes (working tree and every historical
- * commit that touched src/lib/audit — 46 commits), with a slot
- * wherever it interpolated a value, bound to the evidenceType beside it.
+ * commit that touched src/lib/audit), with a slot wherever it interpolated a
+ * value, bound to the evidenceType beside it.
  */
 export interface EvidenceTemplate {
   types: readonly string[] | null;
@@ -264,6 +264,20 @@ export const EVIDENCE_TEMPLATES: readonly EvidenceTemplate[] = [
   ],
   "field": "fact",
   "pattern": "A customer enquiry form is published on the website\\."
+ },
+ {
+  "types": [
+   "CONTACT_PATH"
+  ],
+  "field": "fact",
+  "pattern": "A contact pathway is publicly available by , but no contact page or enquiry form was detected on the pages that could be collected\\."
+ },
+ {
+  "types": [
+   "CONTACT_PATH"
+  ],
+  "field": "fact",
+  "pattern": "A contact pathway is publicly available by , but no contact page or enquiry form was detected\\."
  },
  {
   "types": [
@@ -1325,7 +1339,28 @@ export const EVIDENCE_TEMPLATES: readonly EvidenceTemplate[] = [
    "MENU_AVAILABILITY"
   ],
   "field": "fact",
-  "pattern": "A working menu was verified at ([^\\n]{0,600}?); ([^\\n]{0,600}?)\\."
+  "pattern": "A working menu was verified at ([^\\n]{0,600}?); ([^\\n]{0,600}?) other menu link\\(s\\) failed when tested or have no menu yet; ([^\\n]{0,600}?) other menu link\\(s\\) were not verified\\."
+ },
+ {
+  "types": [
+   "MENU_AVAILABILITY"
+  ],
+  "field": "fact",
+  "pattern": "A working menu was verified at ([^\\n]{0,600}?); ([^\\n]{0,600}?) other menu link\\(s\\) failed when tested or have no menu yet\\."
+ },
+ {
+  "types": [
+   "MENU_AVAILABILITY"
+  ],
+  "field": "fact",
+  "pattern": "A working menu was verified at ([^\\n]{0,600}?); ([^\\n]{0,600}?) other menu link\\(s\\) were not verified\\."
+ },
+ {
+  "types": [
+   "MENU_AVAILABILITY"
+  ],
+  "field": "fact",
+  "pattern": "A working menu was verified at ([^\\n]{0,600}?); \\."
  },
  {
   "types": [
@@ -8122,6 +8157,13 @@ export const EVIDENCE_TEMPLATES: readonly EvidenceTemplate[] = [
   ],
   "field": "supportingContext",
   "pattern": "([^\\n]{0,600}?)\\. Collected as one of the audit's source pages, so it was not probed separately\\. This confirms the page loads; whether it shows a complete, current menu is not assessed\\."
+ },
+ {
+  "types": [
+   "MENU_ACCESS"
+  ],
+  "field": "supportingContext",
+  "pattern": "([^\\n]{0,600}?)\\. Signal read from the page — ([^\\n]{0,600}?): \"([^\\n]{0,600}?)\"\\. Customers who follow the menu link do not find a menu\\."
  },
  {
   "types": [

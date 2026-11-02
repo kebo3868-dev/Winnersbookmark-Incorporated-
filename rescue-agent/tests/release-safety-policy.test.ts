@@ -30,6 +30,7 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import levFixture from './fixtures/leverocks-local-audit-opportunities.json';
 import storedFixture from './fixtures/leverocks-stored-audit.json';
+import legacyFixture from './fixtures/leverocks-legacy-audit.json';
 import {
   ADVERSARIAL_NARRATIVE,
   ENDORSEMENTS,
@@ -42,7 +43,7 @@ import { assessNarrative, isClaimFree } from '@/lib/reports/narrativePolicy';
 import { NEUTRAL_FACT, publishAuditObservations } from '@/lib/reports/observationPublication';
 import { auditedSolutionsFor, presentFindingRecommendation } from '@/lib/reports/recommendationTemplates';
 import { authorisePilotImplementation, NO_PILOT_RECORDS, type PilotRecords } from '@/lib/reports/pilotAuthorization';
-import { buildExecutiveReport, type ExecutiveReportDTO, type ExecutiveReportInput } from '@/lib/reports/executive';
+import { buildExecutiveReport, journeyStatusLabel, type ExecutiveReportDTO, type ExecutiveReportInput } from '@/lib/reports/executive';
 
 (globalThis as { React?: typeof React }).React = React;
 
@@ -68,14 +69,18 @@ interface Poison {
   observation?: string;
   /** Written into the homepage-title slot of a real evidence template. */
   titleSlot?: string;
+  /** Written as the collected homepage's stored pageTitle (AuditSource). */
+  sourceTitle?: string;
   /** Any other edit to the stored copy. */
   edit?: (s: Stored) => void;
+  /** Another stored audit in place of the Leverock's audit. */
+  fixture?: Stored;
 }
 let poison: Poison = {};
 const writes: string[] = [];
 
 function storedAudit() {
-  const s: Stored = structuredClone(storedFixture);
+  const s: Stored = structuredClone(poison.fixture ?? storedFixture);
   const o = poison.observation;
   if (o) {
     for (const e of s.evidence) if (e.id === FAQ_FACT_ID) e.fact = o;
@@ -85,6 +90,7 @@ function storedAudit() {
     for (const sc of s.scores) sc.explanation = o;
   }
   if (poison.titleSlot !== undefined) for (const e of s.evidence) if (e.id === TITLE_FACT_ID) e.fact = `Homepage title: "${poison.titleSlot}".`;
+  if (poison.sourceTitle !== undefined) for (const x of s.sources) if (x.sourceType === 'HOMEPAGE') x.pageTitle = poison.sourceTitle;
   if (poison.solution) for (const op of s.opportunities) op.recommendedSolution = poison.solution;
   poison.edit?.(s);
   return {
@@ -192,13 +198,16 @@ describe('the unaltered Leverock’s audit publishes every observation with prov
       journey: s.journeyStages,
       opportunities: s.opportunities,
       scores: s.scores,
+      context: { sources: s.sources, restaurant: s.restaurant },
     });
     expect(p.report).toEqual({
-      evidence: { total: 26, factFallbacks: 0, contextOmitted: 1 },
-      journey: { total: 10, fallbacks: 0 },
-      opportunities: { total: 4, fallbacks: 0 },
-      scores: { total: 9, fallbacks: 0 },
+      evidence: { total: 26, factFallbacks: 0, factsRedacted: 0, contextOmitted: 1, linksRemoved: 0 },
+      journey: { total: 10, fallbacks: 0, historical: 0 },
+      opportunities: { total: 4, fallbacks: 0, historicalFields: 0 },
+      scores: { total: 9, fallbacks: 0, derived: 0 },
+      identifiers: { unrecognised: 0 },
     });
+    expect(p.evidence.find((e) => e.id === TITLE_FACT_ID)!.provenance.fact).toBe('SOURCE_BOUND');
     // The withheld context is the restaurant's own marketing copy, which asserts things the audit did not observe.
     const withheld = p.evidence.find((e) => e.provenance.supportingContext === 'FALLBACK')!;
     expect(withheld.evidenceType).toBe('BUSINESS_IDENTITY');
@@ -227,11 +236,11 @@ describe('review of 9b4329e: the reported endorsements never reach the report, w
     }, 60_000);
   }
 
-  it('in the homepage-title slot of a real template, the frame has provenance but the claim does not: neutral fact', async () => {
+  it('in the homepage-title slot of a real template, the frame matches but the value is not the collected title: not shown', async () => {
     for (const phrase of REPORTED_9B4329E) {
       poison = { titleSlot: phrase };
       const dto = await loadDto();
-      expect(dto.appendix.map((e) => e.fact), phrase).toContain(NEUTRAL_FACT);
+      expect(dto.appendix.map((e) => e.fact), phrase).toContain('Homepage title: "[not verified]".');
       expect(squash(JSON.stringify(dto)), phrase).not.toContain(squash(phrase));
     }
   });
@@ -275,15 +284,22 @@ describe('legitimate negative assessments and repairs are published where they a
     }
   });
 
-  it('quoted in a real evidence template, each appears in the loaded report, the web report and the PDF', async () => {
+  it('quoted as a homepage title that is the collected page title, each appears in the loaded report, the web report and the PDF', async () => {
     for (const phrase of LEGITIMATE_9B4329E) {
-      poison = { titleSlot: phrase };
+      poison = { titleSlot: phrase, sourceTitle: phrase };
       const dto = await loadDto();
       expect(dto.appendix.map((e) => e.fact), phrase).toContain(`Homepage title: "${phrase}".`);
       expect(squash(await webText()), phrase).toContain(squash(phrase));
       expect(squash(await pdfText()), phrase).toContain(squash(phrase));
     }
   }, 120_000);
+
+  it('the same statements, quoted as a title the collected page does not have, are not shown', async () => {
+    for (const phrase of LEGITIMATE_9B4329E) {
+      poison = { titleSlot: phrase };
+      expect(squash(JSON.stringify(await loadDto())), phrase).not.toContain(squash(phrase));
+    }
+  });
 
   it('the same statements, stored directly in an observation field with no provenance, are not published', async () => {
     poison = { observation: LEGITIMATE_9B4329E[0] };
@@ -481,5 +497,181 @@ describe('scores, statuses, classifications and confidence labels are unchanged 
     poison = everywhere(REPORTED_9B4329E[2]);
     await loadDto();
     expect(JSON.stringify(storedFixture)).toBe(before);
+  });
+});
+
+// ── Review of 5bfac83 ──────────────────────────────────────────────────────
+
+/** The four quoted endorsements the review of 5bfac83 published through the homepage-title slot. */
+const SLOT_ENDORSEMENTS = [
+  'The AI Front Desk, a quantum leap for the restaurant',
+  'The SIP dialog orchestrator — a sound investment',
+  'AI Front Desk — a boon for every restaurant',
+  'The AI Front Desk works wonders for restaurants',
+];
+const ORDER_FACT_ID = storedFixture.evidence.find((e) => e.evidenceType === 'ORDERING_CHANNEL')!.id;
+const CTA_FACT_ID = storedFixture.evidence.find((e) => e.evidenceType === 'CTA_SIGNAL')!.id;
+const HOMEPAGE_SOURCE = storedFixture.sources.find((x) => x.sourceType === 'HOMEPAGE')!;
+const everySurface = async () => ({ dto: squash(JSON.stringify(await loadDto())), web: squash(await webText()), pdf: squash(await pdfText()) });
+
+describe('review of 5bfac83 (1, High): a quoted value is published only when it is bound to collected source data', () => {
+  it('the four reported endorsements in the homepage-title slot reach neither the loader, the web report nor the PDF', async () => {
+    for (const phrase of SLOT_ENDORSEMENTS) {
+      poison = { titleSlot: phrase };
+      const shown = await everySurface();
+      for (const [surface, text] of Object.entries(shown)) expect(text, `${surface}: ${phrase}`).not.toContain(squash(phrase));
+    }
+  }, 240_000);
+
+  it("the authentic homepage title — equal to the collected page's pageTitle — is shown on every surface", async () => {
+    const title = HOMEPAGE_SOURCE.pageTitle!;
+    const shown = await everySurface();
+    for (const [surface, text] of Object.entries(shown)) expect(text, surface).toContain(squash(`Homepage title: "${title}"`));
+  }, 120_000);
+
+  it('a title that does not equal the collected pageTitle is not shown, even when it is harmless', async () => {
+    poison = { titleSlot: "Leverock's Great Seafood | Madeira Beach, FL" };
+    const dto = await loadDto();
+    expect(JSON.stringify(dto)).not.toContain('Madeira Beach');
+  });
+
+  it('a title whose source record has no pageTitle is not shown', async () => {
+    poison = { edit: (s) => { for (const x of s.sources) (x as { pageTitle: string | null }).pageTitle = null; } };
+    expect(JSON.stringify(await loadDto())).not.toContain(HOMEPAGE_SOURCE.pageTitle!);
+  });
+
+  it('the endorsements quoted as a button label or a call-to-action example are not shown; the authentic labels are', async () => {
+    for (const phrase of SLOT_ENDORSEMENTS) {
+      poison = {
+        edit: (s) => {
+          for (const e of s.evidence) {
+            if (e.id === ORDER_FACT_ID) e.fact = e.fact.replace('The "Order" button', `The "${phrase}" button`);
+            if (e.id === CTA_FACT_ID && e.supportingContext) e.supportingContext = `Examples: ${phrase} | View Menu`;
+          }
+        },
+      };
+      const dto = await loadDto();
+      expect(squash(JSON.stringify(dto)), phrase).not.toContain(squash(phrase));
+      expect(squash(await webText()), phrase).not.toContain(squash(phrase));
+    }
+    poison = {};
+    const clean = JSON.stringify(await loadDto());
+    expect(clean).toContain('The \\"Order\\" button under \\"ORDER ONLINE\\"');
+  }, 240_000);
+
+  it('a valid template frame does not verify its interpolated content: the provenance of the slot is reported', () => {
+    const e = storedFixture.evidence.find((x) => x.id === TITLE_FACT_ID)!;
+    const ctx = { sources: storedFixture.sources, restaurant: storedFixture.restaurant };
+    const bound = publishAuditObservations({ evidence: [{ ...e, sourceUrl: null }], journey: [], opportunities: [], scores: [], context: ctx });
+    expect(bound.evidence[0].provenance.fact).toBe('SOURCE_BOUND');
+    const forged = publishAuditObservations({ evidence: [{ ...e, fact: `Homepage title: "${SLOT_ENDORSEMENTS[0]}".`, sourceUrl: null }], journey: [], opportunities: [], scores: [], context: ctx });
+    expect(forged.evidence[0].provenance.fact).toBe('REDACTED');
+    expect(forged.evidence[0].fact).not.toContain(SLOT_ENDORSEMENTS[0]);
+  });
+});
+
+describe('review of 5bfac83 (2, High): stored identifiers are shown only through canonical labels', () => {
+  const INJECTED = 'Buy the AI Front Desk now';
+  it('an injected category, journey stage, customer-journey stage, score category, stage status and evidence type reach no surface', async () => {
+    poison = {
+      edit: (s) => {
+        s.opportunities[1].category = INJECTED;
+        s.opportunities[0].customerJourneyStage = INJECTED;
+        s.journeyStages[0].stage = INJECTED;
+        s.journeyStages[1].status = INJECTED;
+        s.scores[0].category = INJECTED;
+        s.evidence[0].evidenceType = INJECTED;
+      },
+    };
+    const shown = await everySurface();
+    for (const [surface, text] of Object.entries(shown)) expect(text, surface).not.toContain(squash(INJECTED));
+    expect(shown.web).toContain(squash('Unrecognised finding'));
+  }, 120_000);
+
+  it('the reported heading payload: an injected category never becomes a finding title', async () => {
+    poison = { edit: (s) => { s.opportunities[1].category = 'INSTALL THE AI FRONT DESK IMMEDIATELY'; } };
+    const shown = await everySurface();
+    for (const [surface, text] of Object.entries(shown)) expect(text, surface).not.toContain('installtheaifrontdeskimmediately');
+  }, 120_000);
+
+  it('the deterministic summary names stages only by their canonical labels', async () => {
+    poison = { edit: (s) => { for (const j of s.journeyStages) if (j.status === 'HEALTHY') j.stage = INJECTED; } };
+    const dto = await loadDto();
+    expect(dto.executiveSummary).not.toContain(INJECTED);
+  });
+
+  it('every known identifier keeps its label: the unaltered audit is unchanged', async () => {
+    const dto = await loadDto();
+    expect(JSON.stringify(dto)).not.toMatch(/Unrecognised/);
+  });
+});
+
+describe('review of 5bfac83 (6, Low): evidence links are bound to collected sources', () => {
+  it('a tampered URL stored as supporting context is not linked', async () => {
+    const url = 'https://ai-front-desk-is-a-boon-for-restaurants.example/';
+    poison = { edit: (s) => { const e = s.evidence.find((x) => x.id === FAQ_FACT_ID)!; e.supportingContext = url; } };
+    const dto = await loadDto();
+    expect(JSON.stringify(dto)).not.toContain('ai-front-desk-is-a-boon');
+    expect((await webText())).not.toContain('ai-front-desk-is-a-boon');
+  });
+
+  it('links to collected pages are kept and stay clickable', async () => {
+    const dto = await loadDto();
+    const urls = new Set(storedFixture.sources.map((x) => x.url));
+    const linked = dto.appendix.map((e) => e.sourceUrl).filter((u): u is string => Boolean(u));
+    expect(linked.length).toBeGreaterThan(0);
+    for (const u of linked) expect(urls.has(u) || new URL(u).host === new URL(storedFixture.sources[0].url).host, u).toBe(true);
+  });
+});
+
+describe('review of 5bfac83 (7, Low): authentic historical findings are kept where they can be verified', () => {
+  const legacy = legacyFixture as unknown as Stored;
+  it("the earlier Leverock's audit shows its own PHONE, FOLLOW_UP and RETURN findings, verified against the engine version that wrote them", async () => {
+    poison = { fixture: legacy };
+    const dto = await loadDto();
+    const text = JSON.stringify(dto);
+    // The scorecard prints a finding's first sentence.
+    for (const stage of ['PHONE', 'FOLLOW_UP', 'RETURN']) {
+      const stored = legacy.journeyStages.find((j) => j.stage === stage)!;
+      const shown = dto.journeyScorecard.find((j) => j.stage === stage)!.explanation;
+      expect(stored.finding.startsWith(shown.replace(/\.$/, '')), `${stage}: ${shown}`).toBe(true);
+    }
+    expect(text).not.toMatch(/recorded at this stage; see the evidence in the appendix/);
+    const p = publishAuditObservations({
+      evidence: legacy.evidence.map((e) => ({ ...e, sourceUrl: null })), journey: legacy.journeyStages, opportunities: legacy.opportunities, scores: legacy.scores,
+      context: { sources: legacy.sources, restaurant: legacy.restaurant },
+    });
+    for (const stage of ['PHONE', 'FOLLOW_UP', 'RETURN']) {
+      expect(p.journey.find((j) => j.stage === stage)!.finding).toBe(legacy.journeyStages.find((j) => j.stage === stage)!.finding);
+    }
+    expect(p.report.journey).toEqual({ total: 10, fallbacks: 0, historical: 3 });
+  });
+
+  it('its score explanations are derived from its own stored statuses and match its stored scores', () => {
+    // Score explanations are not printed in the client report; they are published here for every consumer.
+    const p = publishAuditObservations({
+      evidence: legacy.evidence.map((e) => ({ ...e, sourceUrl: null })), journey: legacy.journeyStages, opportunities: legacy.opportunities, scores: legacy.scores,
+      context: { sources: legacy.sources, restaurant: legacy.restaurant },
+    });
+    for (const cat of ['PHONE_RESPONSE_READINESS', 'CUSTOMER_RETENTION']) {
+      const stored = legacy.scores.find((x) => x.category === cat)!;
+      expect(p.scores.find((x) => x.category === cat)!.explanation, cat).toBe(stored.explanation);
+    }
+    expect(p.report.scores).toEqual({ total: 9, fallbacks: 0, derived: 2 });
+    expect(p.scores.map((x) => x.score)).toEqual(legacy.scores.map((x) => x.score));
+  });
+
+  it('statuses, scores and confidence are exactly the stored ones', async () => {
+    poison = { fixture: legacy };
+    const dto = await loadDto();
+    expect(dto.journeyScorecard.map((j) => j.status).sort()).toEqual(legacy.journeyStages.map((j) => journeyStatusLabel(j.status)).sort());
+    expect(dto.score.rescueScore).toBe(legacy.overallScore);
+  });
+
+  it('a stored historical finding that no engine version wrote, or whose wording fails the policy, still gets neutral wording', async () => {
+    poison = { fixture: legacy, edit: (s) => { s.journeyStages.find((j) => j.stage === 'PHONE')!.finding = 'Observed: the AI Front Desk is a boon for the restaurant.'; } };
+    const dto = JSON.stringify(await loadDto());
+    expect(dto).not.toContain('boon');
+    expect(dto).toContain('Friction was recorded at this stage; see the evidence in the appendix.');
   });
 });

@@ -460,6 +460,78 @@ export function objectLiterals(sf: ts.SourceFile): ts.ObjectLiteralExpression[] 
   return out;
 }
 
+/** Constructors whose result cannot be read from source: the scan cannot determine what they build. */
+const DYNAMIC_CONSTRUCTORS = new Set(['JSON.parse', 'Object.fromEntries', 'Object.create', 'Reflect.construct', 'structuredClone', 'eval', 'Function']);
+
+/**
+ * Ways to build a value that the effective-property scan cannot see, in a
+ * file: a dynamic constructor (JSON.parse, Object.fromEntries, Object.create,
+ * Reflect.construct, structuredClone, eval, Function); a class that declares
+ * a watched member (field, parameter property, accessor or method); and a
+ * constant string anywhere that spells a constructed property's name outside
+ * the positions the scan already resolves (a computed key, an element access,
+ * a type). Engine values are built with object literals; anything else fails
+ * closed rather than being skipped.
+ */
+export function unsupportedConstructions(
+  ep: EngineProgram,
+  sf: ts.SourceFile,
+  watched: ReadonlySet<string>,
+  spelledNames: readonly string[] = ['recommendedSolution'],
+): string[] {
+  const found: string[] = [];
+  const inType = (n: ts.Node): boolean => {
+    for (let p: ts.Node | undefined = n.parent; p; p = p.parent) {
+      if (ts.isTypeNode(p) || ts.isTypeAliasDeclaration(p) || ts.isInterfaceDeclaration(p)) return true;
+      if (ts.isStatement(p) || ts.isExpression(p) && !ts.isStringLiteral(p) && !ts.isBinaryExpression(p) && !ts.isTemplateExpression(p) && !ts.isParenthesizedExpression(p)) return false;
+    }
+    return false;
+  };
+  const resolvedPosition = (n: ts.Node): boolean => {
+    let top: ts.Node = n;
+    while (top.parent && (ts.isBinaryExpression(top.parent) || ts.isParenthesizedExpression(top.parent))) top = top.parent;
+    const p = top.parent;
+    return Boolean(p && (ts.isComputedPropertyName(p) || (ts.isElementAccessExpression(p) && p.argumentExpression === top)));
+  };
+  const spells = (texts: string[]) => texts.some((t) => spelledNames.some((name) => t.includes(name)));
+  const visit = (n: ts.Node) => {
+    if (ts.isCallExpression(n) || ts.isNewExpression(n)) {
+      const callee = n.expression.getText(sf).replace(/\s+/g, '').replace(/^globalThis\./, '');
+      if (DYNAMIC_CONSTRUCTORS.has(callee)) found.push(`dynamic construction (${callee}) at ${where(n)}`);
+    }
+    if (ts.isClassDeclaration(n) || ts.isClassExpression(n)) {
+      for (const m of n.members) {
+        const name = m.name && (ts.isIdentifier(m.name) || ts.isStringLiteral(m.name) || ts.isPrivateIdentifier(m.name)) ? m.name.text : undefined;
+        if (name && watched.has(name)) found.push(`class member ${name} at ${where(m)}`);
+        if (ts.isConstructorDeclaration(m)) {
+          for (const p of m.parameters) {
+            if (ts.isIdentifier(p.name) && watched.has(p.name.text) && ts.getModifiers(p)?.length) found.push(`class parameter property ${p.name.text} at ${where(p)}`);
+          }
+        }
+      }
+    }
+    if ((ts.isStringLiteral(n) || ts.isNoSubstitutionTemplateLiteral(n)) && !inType(n) && !resolvedPosition(n) && spells([n.text])) {
+      found.push(`the property name is spelled as a value at ${where(n)}`);
+    }
+    if (
+      (ts.isTemplateExpression(n) || (ts.isBinaryExpression(n) && n.operatorToken.kind === ts.SyntaxKind.PlusToken)) &&
+      !(n.parent && ts.isBinaryExpression(n.parent) && n.parent.operatorToken.kind === ts.SyntaxKind.PlusToken) &&
+      !inType(n) && !resolvedPosition(n)
+    ) {
+      let texts: string[] = [];
+      try {
+        texts = patternValues(ep, n as ts.Expression).map((p) => p.replace(/\\(.)/g, '$1'));
+      } catch {
+        texts = [];
+      }
+      if (spells(texts)) found.push(`the property name is built as a value at ${where(n)}`);
+    }
+    ts.forEachChild(n, visit);
+  };
+  visit(sf);
+  return [...new Set(found)];
+}
+
 /** Mutations of a watched property anywhere in a file: they make an object's final value undeterminable. */
 export function watchedMutations(ep: EngineProgram, sf: ts.SourceFile, watched: ReadonlySet<string>): string[] {
   const found: string[] = [];
@@ -575,6 +647,51 @@ export function loopBindings(ep: EngineProgram, node: ts.Node): Bindings[] {
   return envs;
 }
 
+/** The function a node is written in, when it is a named function or a const binding to one. */
+function enclosingFunction(node: ts.Node): { fn: ts.SignatureDeclaration; decl: ts.Declaration } | undefined {
+  for (let p: ts.Node | undefined = node.parent; p; p = p.parent) {
+    if (ts.isFunctionDeclaration(p) && p.name) return { fn: p, decl: p };
+    if ((ts.isArrowFunction(p) || ts.isFunctionExpression(p)) && ts.isVariableDeclaration(p.parent) && p.parent.initializer === p) {
+      return { fn: p, decl: p.parent };
+    }
+    if (ts.isFunctionLike(p)) return undefined;
+  }
+  return undefined;
+}
+
+/**
+ * loopBindings, plus — when the node is written inside a helper function
+ * (`function stage(name, status, finding) { return { stage: name, … } }`) —
+ * one environment per call site of that helper, binding its parameters to the
+ * caller's arguments (and the caller's own loops). The helper's text is then
+ * read as each call writes it, with the stage, status and wording correlated
+ * per call. The unbound reading is kept as well.
+ */
+export function contextBindings(ep: EngineProgram, node: ts.Node): Bindings[] {
+  const inner = loopBindings(ep, node);
+  const f = enclosingFunction(node);
+  if (!f) return inner;
+  const calls: ts.CallExpression[] = [];
+  for (const sf of ep.sources.values()) {
+    const visit = (n: ts.Node) => {
+      if (ts.isCallExpression(n) && ts.isIdentifier(n.expression) && declarationOf(ep.checker, n.expression) === f.decl) calls.push(n);
+      ts.forEachChild(n, visit);
+    };
+    visit(sf);
+  }
+  const out: Bindings[] = [...inner];
+  for (const call of calls) {
+    for (const outer of loopBindings(ep, call)) {
+      const bound = bindArguments(f.fn, call, outer);
+      for (const env of inner) {
+        out.push(new Map([...bound, ...env]));
+        if (out.length > MAX_LOOP_VARIANTS * 4) return out;
+      }
+    }
+  }
+  return out;
+}
+
 /** A slot: text the engine interpolated, checked when published. */
 export const SLOT = '([^\\n]{0,600}?)';
 const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -614,6 +731,34 @@ export function patternValues(ep: EngineProgram, node: ts.Expression, depth = 0,
     if (fn && fn.returns.length > 0) {
       const inner = bindArguments(fn.fn, e, env);
       return cap(fn.returns.flatMap((r) => patternValues(ep, r, depth + 1, inner)));
+    }
+  }
+  // `[a, b].join(sep)` and `[a, b].filter(Boolean).join(sep)`: every
+  // combination of the elements' values (empty ones dropped when filtered).
+  if (ts.isCallExpression(e) && ts.isPropertyAccessExpression(e.expression) && e.expression.name.text === 'join' && e.arguments.length <= 1) {
+    let list = strip(e.expression.expression);
+    if (ts.isIdentifier(list)) {
+      const init = constInitializer(ep.checker, list);
+      if (init) list = strip(init);
+    }
+    let filtered = false;
+    if (
+      ts.isCallExpression(list) && ts.isPropertyAccessExpression(list.expression) && list.expression.name.text === 'filter' &&
+      list.arguments.length === 1 && ts.isIdentifier(list.arguments[0]) && list.arguments[0].text === 'Boolean'
+    ) {
+      filtered = true;
+      list = strip(list.expression.expression);
+    }
+    const sepNode = e.arguments[0];
+    const sep = sepNode === undefined ? ',' : ts.isStringLiteral(sepNode) || ts.isNoSubstitutionTemplateLiteral(sepNode) ? sepNode.text : null;
+    if (ts.isArrayLiteralExpression(list) && sep !== null && list.elements.every((el) => !ts.isSpreadElement(el))) {
+      let combos: string[][] = [[]];
+      for (const el of list.elements) {
+        const values = patternValues(ep, el as ts.Expression, depth + 1, env);
+        combos = combos.flatMap((c) => values.map((v) => (filtered && v === '' ? c : [...c, v])));
+        if (combos.length > MAX_ALTERNATIVES) return [SLOT];
+      }
+      return cap(combos.map((c) => c.join(escapeRe(sep))));
     }
   }
   // A property read of an object the engine built: every value it can hold.

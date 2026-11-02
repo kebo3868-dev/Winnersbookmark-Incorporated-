@@ -1,47 +1,79 @@
 {
- "_about": "Leverock's Great Seafood local verification audit (a locally hosted copy of the public site, not production data): the stored evidence, journey stages, findings and category scores, exported for the evidence-provenance and release-safety tests.",
+ "_about": "Leverock's Great Seafood local verification audit (a locally hosted copy of the public site, not production data): the stored sources, evidence, journey stages, findings and category scores, exported for the evidence-provenance and release-safety tests.",
+ "auditId": "cmvy93jxy00027d46q4mnw053",
+ "createdAt": "2026-11-01T19:56:34.870Z",
+ "restaurant": {
+  "name": "Leverock's Great Seafood",
+  "websiteUrl": "https://127.0.0.1:3443",
+  "city": "St. Petersburg",
+  "state": "FL"
+ },
  "overallScore": 84,
  "coverageScore": 80,
  "sources": [
   {
    "id": "cmvy93k0600057d46jaxp3xvj",
    "url": "https://127.0.0.1:3443/",
-   "status": "COLLECTED"
+   "status": "COLLECTED",
+   "sourceType": "HOMEPAGE",
+   "pageTitle": "Leverock's Great Seafood | St. Petersburg, FL",
+   "httpStatus": 200
   },
   {
    "id": "cmvy93k0r00077d466764owne",
    "url": "https://127.0.0.1:3443/st-petersburg-leverock-s-great-seafood-food-menu",
-   "status": "COLLECTED"
+   "status": "COLLECTED",
+   "sourceType": "MENU",
+   "pageTitle": "Menu",
+   "httpStatus": 200
   },
   {
    "id": "cmvy93k1500097d46v9uzt7x2",
    "url": "https://127.0.0.1:3443/st-petersburg-leverock-s-great-seafood-drink-menu",
-   "status": "COLLECTED"
+   "status": "COLLECTED",
+   "sourceType": "MENU",
+   "pageTitle": "Menu",
+   "httpStatus": 200
   },
   {
    "id": "cmvy93k1h000b7d46iwe3zv52",
    "url": "https://127.0.0.1:3443/st-petersburg-leverock-s-great-seafood-happy-hours-specials",
-   "status": "COLLECTED"
+   "status": "COLLECTED",
+   "sourceType": "HOURS",
+   "pageTitle": "Happy Hours",
+   "httpStatus": 200
   },
   {
    "id": "cmvy93k1u000d7d46kzc1on9l",
    "url": "https://127.0.0.1:3443/-party?source=pop_up&spot_id=78550&destination=private_parties&promotion=holiday_party",
-   "status": "COLLECTED"
+   "status": "COLLECTED",
+   "sourceType": "PRIVATE_DINING",
+   "pageTitle": "Private Parties",
+   "httpStatus": 200
   },
   {
    "id": "cmvy93k2b000f7d46m95jllml",
    "url": "https://127.0.0.1:3443/st-petersburg-leverock-s-great-seafood-events",
-   "status": "COLLECTED"
+   "status": "COLLECTED",
+   "sourceType": "EVENTS",
+   "pageTitle": "Events",
+   "httpStatus": 200
   },
   {
    "id": "cmvy93k2s000h7d46xg2gbgxa",
    "url": "https://127.0.0.1:3443/st-petersburg-leverock-s-great-seafood-gift-cards",
-   "status": "COLLECTED"
+   "status": "COLLECTED",
+   "sourceType": "GIFT_CARD",
+   "pageTitle": "Gift Cards",
+   "httpStatus": 200
   },
   {
    "id": "cmvy93k34000j7d4623uo7ob0",
    "url": "https://127.0.0.1:3443/st-petersburg-leverock-s-great-seafood-about",
-   "status": "COLLECTED"
+   "status": "COLLECTED",
+   "sourceType": "ABOUT",
+   "pageTitle": "About",
+   "httpStatus": 200
   }
  ],
  "evidence": [

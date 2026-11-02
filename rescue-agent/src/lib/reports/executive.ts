@@ -1,5 +1,6 @@
 import { scoreBand } from '@/lib/scoring/rescueScore';
 import { CATEGORY_LABELS } from '@/lib/reports/owner';
+import { UNRECOGNISED_STAGE_LABEL, canonicalEvidenceType } from '@/lib/reports/canonicalIdentifiers';
 import { COMPANY, type Contact } from '@/lib/config';
 import { prefillFromAverageTicket, scenarioKindFor, SCENARIO_SPECS, type ScenarioKind } from '@/lib/reports/scenarios';
 import { STATE_LABEL, STATE_PLAIN, stateForOpportunity, type EvidenceState } from '@/lib/audit/evidenceState';
@@ -573,6 +574,11 @@ const JOURNEY_LABELS: Record<string, string> = {
   RETURN: 'Return & Retention',
 };
 
+/** A journey stage's label; a stage no allowlist knows is never shown by its stored name. */
+function journeyLabel(stage: string): string {
+  return JOURNEY_LABELS[stage] ?? UNRECOGNISED_STAGE_LABEL;
+}
+
 const MAX_REPORT_FINDINGS = 5;
 
 /** No finding measures what customers did; every card says so in the same words. */
@@ -643,7 +649,7 @@ export function buildExecutiveReport(rawInput: ExecutiveReportInput): ExecutiveR
       recommendedAction: opp.recommendedSolution,
       automationOpportunity: automationLabel(opp.aiFitScore),
       validationRequired: unknownsFor(opp.category),
-      journeyStage: JOURNEY_LABELS[opp.customerJourneyStage] ?? opp.customerJourneyStage,
+      journeyStage: journeyLabel(opp.customerJourneyStage),
       evidenceBasis: evidenceBasisFor(opp.category),
       labels: {
         businessImpact: levelLabel(opp.impactScore),
@@ -687,7 +693,7 @@ export function buildExecutiveReport(rawInput: ExecutiveReportInput): ExecutiveR
     .sort((a, b) => stageOrder.indexOf(a.stage) - stageOrder.indexOf(b.stage))
     .map((s) => ({
       stage: s.stage,
-      label: JOURNEY_LABELS[s.stage] ?? s.stage,
+      label: journeyLabel(s.stage),
       status: journeyStatusLabel(s.status),
       explanation: firstSentence(presentEvidenceText(s.finding)),
     }));
@@ -928,7 +934,7 @@ function buildJourneyMap(journey: ExecutiveReportInput['journey']): JourneyMapSt
     const s = byStage.get(stage)!;
     return {
       stage,
-      label: JOURNEY_LABELS[stage] ?? stage,
+      label: journeyLabel(stage),
       status: journeyStatusLabel(s.status),
       note: firstSentence(presentEvidenceText(s.finding)),
       limitation: limitationSentence(presentEvidenceText(s.finding)),
@@ -1017,7 +1023,7 @@ function problemAddressedBy(opp: OppInput): string {
 function buildPrescription(input: ExecutiveReportInput, findings: ExecutiveFinding[]): Prescription {
   const primary = findings[0];
   const tier = input.storedRecommendation?.tier ?? 'AI DISCOVERY AUDIT';
-  const frictionStages = input.journey.filter((s) => s.status === 'FRICTION' || s.status === 'RISK').map((s) => JOURNEY_LABELS[s.stage] ?? s.stage);
+  const frictionStages = input.journey.filter((s) => s.status === 'FRICTION' || s.status === 'RISK').map((s) => journeyLabel(s.stage));
   // OBSERVED FRICTION AND OPEN QUESTIONS ARE SEPARATE SENTENCES.
   //
   // The diagnosis used to append the top finding's first observation straight
@@ -1283,8 +1289,8 @@ function buildSummary(input: ExecutiveReportInput, findings: ExecutiveFinding[])
 
   const stageOrder = Object.keys(JOURNEY_LABELS);
   const ordered = [...input.journey].sort((a, b) => stageOrder.indexOf(a.stage) - stageOrder.indexOf(b.stage));
-  const healthy = ordered.filter((s) => s.status === 'HEALTHY').map((s) => JOURNEY_LABELS[s.stage] ?? s.stage);
-  const friction = ordered.filter((s) => s.status === 'FRICTION' || s.status === 'RISK').map((s) => JOURNEY_LABELS[s.stage] ?? s.stage);
+  const healthy = ordered.filter((s) => s.status === 'HEALTHY').map((s) => journeyLabel(s.stage));
+  const friction = ordered.filter((s) => s.status === 'FRICTION' || s.status === 'RISK').map((s) => journeyLabel(s.stage));
   const parts: string[] = [];
 
   parts.push(
@@ -1464,9 +1470,9 @@ const EVIDENCE_TYPE_LABEL: Record<string, string> = {
   REVIEW_SIGNAL: 'Reviews',
 };
 
-/** A readable label for an evidence type; unknown codes become plain words. */
+/** A readable label for an evidence type: a known code's label, its words when it is a known type without one, otherwise "Other evidence". */
 export function evidenceTypeLabel(type: string): string {
-  return EVIDENCE_TYPE_LABEL[type] ?? plainWords(type);
+  return EVIDENCE_TYPE_LABEL[type] ?? (canonicalEvidenceType(type) === type && type !== 'UNKNOWN' ? plainWords(type) : 'Other evidence');
 }
 
 /** Evidence text with machine codes replaced by the words they stand for. */

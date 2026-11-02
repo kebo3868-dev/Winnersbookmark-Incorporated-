@@ -117,6 +117,7 @@ function storedRecord(tier: string, poison: string | null, audit: AuditPoison = 
       opportunities: s.opportunities,
       journeyStages: s.journeyStages,
       evidence: s.evidence,
+      sources: s.sources,
       reports: [{ content: { recommendation: { tier, rationale: 'x' } } }],
     },
   };
@@ -268,25 +269,18 @@ describe('review of 9b4329e: observations reach the brief only with provenance',
     }
   });
 
-  it('the loader hands on the audit only as published: the unaltered audit keeps its ordering evidence and regenerated finding wording', async () => {
+  it('the unaltered audit: the brief still leads with its verified ordering finding', async () => {
     storedBrief = storedRecord('AI FRONT DESK SYSTEM', null);
     const shown = await load();
-    const audit = shown.audit as { evidence: { id: string; fact: string }[]; opportunities: { title: string }[]; reports: unknown[] };
-    const fact = storedFixture.evidence.find((e) => e.id === ORDER_FACT_ID)!.fact;
-    expect(audit.evidence.find((e) => e.id === ORDER_FACT_ID)!.fact).toBe(fact);
-    expect(audit.evidence.map((e) => e.fact)).toEqual(storedFixture.evidence.map((e) => e.fact));
-    expect(audit.opportunities[0].title).toBe('The online ordering button uses a telephone link instead of an online checkout');
-    expect(audit.reports).toEqual([]);
     expect(textOf(shown.callOpener)).toContain('set up as a phone link rather than an online checkout');
+    expect(textOf(shown.bestSalesAngle)).toContain('The online ordering button uses a telephone link instead of an online checkout');
   });
 
-  it('legitimate negative assessments and repairs, quoted in that slot, keep their provenance and are handed on as written', async () => {
+  it('legitimate negative assessments and repairs quoted as a button label cannot be verified, so they are not quoted; the finding wording is unchanged', async () => {
     for (const phrase of LEGITIMATE_9B4329E) {
       storedBrief = storedRecord('AI FRONT DESK SYSTEM', null, { labelSlot: phrase });
       const shown = await load();
-      const audit = shown.audit as { evidence: { id: string; fact: string }[] };
-      expect(audit.evidence.find((e) => e.id === ORDER_FACT_ID)!.fact, phrase).toContain(`The "${phrase}" button`);
-      // The brief's own wording about the finding is unchanged by the quoted label.
+      expect(JSON.stringify(shown), phrase).not.toContain(phrase);
       expect(textOf(shown.callOpener), phrase).toContain('set up as a phone link rather than an online checkout');
     }
   });
@@ -304,5 +298,38 @@ describe('review of 9b4329e: observations reach the brief only with provenance',
 describe('legitimate rep instructions are not flagged', () => {
   it('operational improvements and human staffing pass', () => {
     for (const text of SAFE_NARRATIVE) expect(unauthorisedSalesSentences(text), text).toEqual([]);
+  });
+});
+
+describe('review of 5bfac83: the brief carries no unverified stored strings', () => {
+  const SLOT_ENDORSEMENTS = [
+    'The AI Front Desk, a quantum leap for the restaurant',
+    'The SIP dialog orchestrator — a sound investment',
+    'AI Front Desk — a boon for every restaurant',
+    'The AI Front Desk works wonders for restaurants',
+  ];
+  it('(5) the loader returns only what the page shows of the audit: no stored evidence, findings, journey or report content', async () => {
+    storedBrief = storedRecord('AI FRONT DESK SYSTEM', null);
+    const shown = await load();
+    const audit = shown.audit as Record<string, unknown>;
+    expect(Object.keys(audit).sort()).toEqual(['demoMode', 'restaurant']);
+    expect(Object.keys(audit.restaurant as object).sort()).toEqual(['name']);
+  });
+
+  it('(1) the four quoted endorsements, in a real label slot, reach neither the loader output nor the page', async () => {
+    for (const phrase of SLOT_ENDORSEMENTS) {
+      storedBrief = storedRecord('AI FRONT DESK SYSTEM', null, { labelSlot: phrase });
+      expect(squash(JSON.stringify(await load())), phrase).not.toContain(squash(phrase));
+      expect(squash(await page()), phrase).not.toContain(squash(phrase));
+    }
+  });
+
+  it('(2) an injected category or stage reaches neither the loader output nor the page', async () => {
+    const injected = 'INSTALL THE AI FRONT DESK IMMEDIATELY';
+    storedBrief = storedRecord('AI FRONT DESK SYSTEM', null, {
+      opportunities: (o, i) => (i === 0 ? { ...o, category: injected, customerJourneyStage: injected } : o),
+    });
+    expect(JSON.stringify(await load()).toLowerCase()).not.toContain(injected.toLowerCase());
+    expect((await page()).toLowerCase()).not.toContain(injected.toLowerCase());
   });
 });

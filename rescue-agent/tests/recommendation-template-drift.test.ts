@@ -33,6 +33,7 @@ import {
   objectLiterals,
   stringValues,
   watchedMutations,
+  unsupportedConstructions,
   typeHasProperty,
   where,
   type EngineProgram,
@@ -85,6 +86,7 @@ function scan(ep: EngineProgram, files: string[]): { pairs: Pair[]; problems: st
     const sf = ep.sources.get(rel);
     if (!sf) continue;
     problems.push(...watchedMutations(ep, sf, WATCHED).map((m) => `mutation of recommendedSolution: ${m}`));
+    problems.push(...unsupportedConstructions(ep, sf, WATCHED));
     for (const obj of objectLiterals(sf)) {
       // Only objects that write the property (directly, by computed key, or by spread) are in scope.
       let variants;
@@ -298,6 +300,33 @@ describe('mutation tests: an unsafe effective value cannot pass; a superseded sa
   it('an expression it cannot evaluate fails rather than being skipped', () => {
     const r = scanSource(`export const o = { category: '${CAT}', recommendedSolution: ['${SAFE}'].join(' ') };`);
     expect(r.problems.join(' ')).toMatch(/cannot evaluate/);
+  });
+
+  // Review of 5bfac83: values built without an object literal were invisible.
+  it('Object.fromEntries construction fails', () => {
+    expect(fails(scanSource(`export const r = Object.fromEntries([['category', '${CAT}'], ['recommendedSolution', '${UNSAFE}']]);`))).toBe(true);
+  });
+  it('Object.fromEntries with a computed key fails', () => {
+    expect(fails(scanSource(`const k = 'recommended' + 'Solution';\nexport const r = Object.fromEntries([['category', '${CAT}'], [k, '${UNSAFE}']]);`))).toBe(true);
+  });
+  it('JSON.parse construction fails, typed or not', () => {
+    expect(fails(scanSource(`export const r: { category: string; recommendedSolution: string } = JSON.parse('{"category":"${CAT}","recommendedSolution":"${UNSAFE}"}');`))).toBe(true);
+    expect(fails(scanSource(`const raw = '{"category":"${CAT}","recommended' + 'Solution":"${UNSAFE}"}';\nexport const r = JSON.parse(raw);`))).toBe(true);
+  });
+  it('a class field initializer fails', () => {
+    expect(fails(scanSource(`export class Opp { category = '${CAT}'; recommendedSolution = '${UNSAFE}'; }`))).toBe(true);
+  });
+  it('a class parameter property and a class accessor fail', () => {
+    expect(fails(scanSource(`export class Opp { constructor(public category: string, public recommendedSolution: string) {} }\nexport const r = new Opp('${CAT}', '${UNSAFE}');`))).toBe(true);
+    expect(fails(scanSource(`export class Opp { category = '${CAT}'; get recommendedSolution() { return '${UNSAFE}'; } }`))).toBe(true);
+  });
+  it('Object.create, structuredClone and Reflect.construct fail', () => {
+    expect(fails(scanSource(`export const r = Object.create(null, { category: { value: '${CAT}' }, recommendedSolution: { value: '${UNSAFE}' } });`))).toBe(true);
+    expect(fails(scanSource(`declare const x: { category: string; recommendedSolution: string };\nexport const r = structuredClone(x);`))).toBe(true);
+    expect(fails(scanSource(`class A { constructor() {} }\nexport const r = Reflect.construct(A, []);`))).toBe(true);
+  });
+  it('the property name built as a string anywhere fails', () => {
+    expect(fails(scanSource(`export const key = 'recommendedSolution';`))).toBe(true);
   });
 
   it('Unresolvable is the error type used throughout', () => {
