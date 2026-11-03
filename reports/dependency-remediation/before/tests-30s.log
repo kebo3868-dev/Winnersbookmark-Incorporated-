@@ -1,0 +1,177 @@
+
+> wbi-restaurant-rescue-agent@0.1.0 test
+> vitest run --maxWorkers=2 --minWorkers=1 --testTimeout=30000
+
+
+ RUN  v3.2.7 /workspace/winnersbookmark/rescue-agent
+
+ ✓ tests/safe-fetch.test.ts (2 tests) 5090ms
+   ✓ safeLookup (connection-time DNS rebinding guard) > fails closed on unresolvable hostnames  5082ms
+stderr | tests/frontdesk-unauth-writes.test.ts > noteRejection > never lets a queue-write failure escape into the response path
+[frontdesk] rejection-record write failed {
+  operation: 'test.op',
+  error: Error: database is down
+      at Object.upsert (/workspace/winnersbookmark/rescue-agent/tests/frontdesk-unauth-writes.test.ts:1161:38)
+      at noteRejection (/workspace/winnersbookmark/rescue-agent/src/lib/frontdesk/security/rejections.ts:107:24)
+      at /workspace/winnersbookmark/rescue-agent/tests/frontdesk-unauth-writes.test.ts:1165:7
+      at processTicksAndRejections (node:internal/process/task_queues:103:5)
+      at file:///tmp/wbi-baseline/node_modules/@vitest/runner/dist/chunk-hooks.js:752:20
+}
+
+ ✓ tests/frontdesk-unauth-writes.test.ts (62 tests) 9943ms
+   ✓ sign-in > does not write an audit row per failed attempt  1750ms
+   ✓ sign-in > coalesces failed sign-ins onto one row per hour  1848ms
+   ✓ bounding storage must never gate authentication > counts every unknown address onto ONE shared subject  2342ms
+   ✓ bounding storage must never gate authentication > uses an atomic upsert-increment, never a read-then-write  867ms
+   ✓ bounding storage must never gate authentication > stays bounded under CONCURRENT failures at the ceiling  986ms
+ ✓ tests/executive-pdf.test.ts (9 tests) 10907ms
+   ✓ Executive PDF pagination > never emits a near-blank page (short executive summary)  2501ms
+   ✓ Executive PDF pagination > never emits a near-blank page (medium executive summary)  1301ms
+   ✓ Executive PDF pagination > never emits a near-blank page (long executive summary)  1420ms
+   ✓ Executive PDF pagination > no page is mostly empty (short executive summary)  1604ms
+   ✓ Executive PDF pagination > no page is mostly empty (medium executive summary)  1404ms
+   ✓ Executive PDF pagination > no page is mostly empty (long executive summary)  1303ms
+   ✓ Executive PDF generation > renders a valid multi-page PDF buffer from a DTO with special characters and long text  486ms
+   ✓ Executive PDF generation > renders without duplicate React keys (score-weight rows share their percentage)  478ms
+   ✓ Executive PDF generation > PDF content does not contain secrets or internal markers  405ms
+ ✓ tests/audit-report-repair.test.ts (46 tests) 8374ms
+   ✓ 6. export layout > no page ends on a section heading (summary × 0)  1631ms
+   ✓ 6. export layout > no page ends on a section heading (summary × 6)  1033ms
+   ✓ 6. export layout > no page ends on a section heading (summary × 12)  879ms
+   ✓ 6. export layout > no page ends on a section heading (summary × 18)  925ms
+   ✓ 6. export layout > a long finding is labelled "continued" only on later pages  3525ms
+ ✓ tests/report-qa-consistency.test.ts (26 tests) 4048ms
+   ✓ 1. diagnostic identifiers stay out of client text > the web/PDF data and the rendered PDF carry none  1654ms
+   ✓ 5. confidence in what was observed is separate from customer outcomes > web, PDF and operator page label item confidence as evidence confidence  1024ms
+   ✓ 7. web report, executive summary, PDF and operator page agree > the PDF prints the same technical-context, reputation and ordering wording as the web data  1318ms
+ ✓ tests/release-safety-policy.test.ts (51 tests) 40859ms
+   ✓ review of 9b4329e: the reported endorsements never reach the report, web or PDF > "The AI Front Desk is detected. It is a boon for the restaurant."  1637ms
+   ✓ review of 9b4329e: the reported endorsements never reach the report, web or PDF > "The AI Front Desk is detected and represents a quantum leap for the restaurant."  883ms
+   ✓ review of 9b4329e: the reported endorsements never reach the report, web or PDF > "The SIP dialog orchestrator is a sound investment."  836ms
+   ✓ review of 9b4329e: the reported endorsements never reach the report, web or PDF > earlier reported bypasses and the adversarial corpus, stored everywhere, are absent from the loaded report and the web page  2434ms
+   ✓ review of 9b4329e: the reported endorsements never reach the report, web or PDF > and from the PDF, for a sample across every category  18854ms
+   ✓ legitimate negative assessments and repairs are published where they are supported > quoted as a homepage title that is the collected page title, each appears in the loaded report, the web report and the PDF  3622ms
+   ✓ the phone finding’s impact is the evidence-backed sentence, never the old speculative one > the engine writes the new sentence; the stored speculative sentence is not published  984ms
+   ✓ the web report and the PDF print the same summary, recommendations and evidence > clean, poisoned and legitimate-slot stored data alike  2911ms
+   ✓ review of 5bfac83 (1, High): a quoted value is published only when it is bound to collected source data > the four reported endorsements in the homepage-title slot reach neither the loader, the web report nor the PDF  4135ms
+   ✓ review of 5bfac83 (1, High): a quoted value is published only when it is bound to collected source data > the authentic homepage title — equal to the collected page's pageTitle — is shown on every surface  1154ms
+   ✓ review of 5bfac83 (2, High): stored identifiers are shown only through canonical labels > an injected category, journey stage, customer-journey stage, score category, stage status and evidence type reach no surface  1476ms
+   ✓ review of 5bfac83 (2, High): stored identifiers are shown only through canonical labels > the reported heading payload: an injected category never becomes a finding title  1312ms
+ ✓ tests/report-presentation-repair.test.ts (16 tests) 3689ms
+   ✓ layout and continuation labels agree > a card that may span pages carries the finding name on its later blocks  1498ms
+   ✓ layout and continuation labels agree > a card that fits one page carries no continuation label at all  720ms
+   ✓ continuation bookkeeping is per render, not global > two documents rendered concurrently each label their own continuation  1297ms
+ ✓ tests/ordering-report-cleanup.test.ts (29 tests) 2351ms
+   ✓ PDF line breaking for addresses > the exported PDF prints the address intact, the card once, and no code  2296ms
+ ✓ tests/evidence-layers.test.ts (20 tests) 2533ms
+   ✓ the exported PDF > prints the new counters, the three layers and the legend note  2506ms
+ ✓ tests/pdf9-report-corrections.test.ts (16 tests) 2174ms
+   ✓ the contact telephone number is a working tel: link > the rendered PDF has a link annotation targeting it  2153ms
+ ✓ tests/online-label-opens-phone.test.ts (62 tests) 1759ms
+   ✓ the executive report, the PDF and the sales brief communicate the same finding > the PDF prints the same title and evidence state  1616ms
+ ✓ tests/sales-brief-automation-gate.test.ts (21 tests) 2183ms
+   ✓ stored brief text is never shown: the loader regenerates every narrative field > every adversarial case, stored in every field, never reaches the loader output or the page  1141ms
+ ✓ tests/telephone-link-wording.test.ts (11 tests) 2466ms
+   ✓ a new audit never claims a call was placed because a tel: link was found > the PDF says the same, and nothing about a placed call  2306ms
+ ✓ tests/evidence-provenance.test.ts (14 tests) 1638ms
+   ✓ the committed templates are what the engine writes > a mutation: new evidence wording in the engine is detected as uncommitted  1394ms
+ ✓ tests/integration-pipeline.test.ts (5 tests) 926ms
+   ✓ collection engine against a live fixture site > collects, discovers, probes, and detects the broken ordering link end-to-end  355ms
+   ✓ collection engine against a live fixture site > caps body size for huge chunked responses instead of buffering them fully  532ms
+ ✓ tests/recommendation-template-drift.test.ts (26 tests) 1784ms
+   ✓ mutation tests: an unsafe effective value cannot pass; a superseded safe value is still scanned > the reported payload, inserted into the real engine's leaks.ts: ...{ ['recommendedSolution']: unsafe } fails; the safe value it supersedes is scanned  1713ms
+ ✓ tests/operator-authorization.test.ts (77 tests) 906ms
+ ✓ tests/visit-answers.test.ts (105 tests) 439ms
+ ✓ tests/ai-summary-authorization.test.ts (23 tests) 522ms
+   ✓ adversarial AI summaries are rejected whole — new and historical > 9. alternative automation descriptions: rejected whole in a historical stored summary, in the web report and the PDF alike  310ms
+ ✓ tests/claim-accuracy.test.ts (109 tests) 171ms
+ ✓ tests/automation-release-gates.test.ts (29 tests) 404ms
+ ✓ tests/frontdesk-authorization.test.ts (56 tests) 385ms
+ ✓ tests/form-purpose.test.ts (97 tests) 166ms
+ ✓ tests/post-reaudit-quality.test.ts (17 tests) 340ms
+ ✓ tests/scoring-explainability.test.ts (27 tests) 277ms
+ ✓ tests/executive-report.test.ts (40 tests) 207ms
+ ✓ tests/automation-recommendation-wording.test.ts (17 tests) 339ms
+ ✓ tests/menu-access-restricted.test.ts (12 tests) 124ms
+ ✓ tests/operator-surface-structure.test.ts (21 tests) 111ms
+ ✓ tests/forms-retention-presentation.test.ts (49 tests) 153ms
+ ✓ tests/link-resolution.test.ts (36 tests) 106ms
+ ✓ tests/thirty-day-plan-gates.test.ts (13 tests) 231ms
+ ✓ tests/pilot-enablement.test.ts (47 tests) 105ms
+ ✓ tests/frontdesk-safety.test.ts (69 tests) 97ms
+ ✓ tests/frontdesk-engine.test.ts (53 tests) 90ms
+ ✓ tests/frontdesk-readiness.test.ts (50 tests) 41ms
+ ✓ tests/slot-verification.test.ts (16 tests) 70ms
+ ✓ tests/report-defects.test.ts (36 tests) 77ms
+ ✓ tests/review-request-ui.test.ts (52 tests) 87ms
+ ✓ tests/reservation-false-positive.test.ts (15 tests) 33ms
+ ✓ tests/public-contact-email.test.ts (23 tests) 75ms
+ ✓ tests/spothopper-destination.test.ts (14 tests) 68ms
+ ✓ tests/qrcode.test.ts (2 tests) 22ms
+ ✓ tests/ordering-menu-functionality.test.ts (11 tests) 43ms
+ ✓ tests/frontdesk-guardrails.test.ts (35 tests) 69ms
+ ✓ tests/probe-provenance.test.ts (10 tests) 53ms
+ ✓ tests/reservation-functionality.test.ts (7 tests) 66ms
+ ✓ tests/telephone-ordering.test.ts (9 tests) 69ms
+ ✓ tests/marketing-leads.test.ts (16 tests) 42ms
+ ✓ tests/ordering-channel.test.ts (19 tests) 58ms
+ ✓ tests/restaurant-name.test.ts (17 tests) 24ms
+ ✓ tests/frontdesk-intent.test.ts (45 tests) 30ms
+ ✓ tests/link-taxonomy.test.ts (17 tests) 29ms
+ ✓ tests/sales-claim-safety.test.ts (15 tests) 9ms
+ ✓ tests/scenario-model.test.ts (22 tests) 54ms
+ ✓ tests/frontdesk-hours.test.ts (20 tests) 23ms
+ ✓ tests/frontdesk-config.test.ts (30 tests) 30ms
+ ✓ tests/pilot-activation-gates.test.ts (37 tests) 17ms
+ ✓ tests/frontdesk-verification.test.ts (24 tests) 28ms
+ ✓ tests/email-dispatch-wiring.test.ts (28 tests) 16ms
+ ✓ tests/review-activation.test.ts (46 tests) 20ms
+ ✓ tests/frontdesk-twilio.test.ts (53 tests) 17ms
+ ✓ tests/frontdesk-notify.test.ts (43 tests) 18ms
+ ✓ tests/leverocks-regression.test.ts (28 tests) 18ms
+ ✓ tests/url-sanitization.test.ts (25 tests) 14ms
+ ✓ tests/resend-provider.test.ts (12 tests) 10ms
+ ✓ tests/frontdesk-auth.test.ts (45 tests) 20ms
+ ✓ tests/frontdesk-consent.test.ts (51 tests) 12ms
+ ✓ tests/ordering-email-m7b.test.ts (19 tests) 13ms
+ ✓ tests/priority-scoring.test.ts (10 tests) 6ms
+ ✓ tests/url-validation.test.ts (11 tests) 9ms
+ ✓ tests/lead-retention.test.ts (9 tests) 5ms
+stderr | tests/frontdesk-tenant-isolation.test.ts > tenant lookup > returns null when a tenant config is corrupt instead of running on a partial config
+[frontdesk] tenant config rejected { slug: 's', error: 'restaurantName: Required' }
+
+ ✓ tests/frontdesk-tenant-isolation.test.ts (12 tests) 9ms
+ ✓ tests/reservation-provider.test.ts (15 tests) 7ms
+ ✓ tests/frontdesk-isolation-guard.test.ts (11 tests) 12ms
+ ✓ tests/review-integration.test.ts (3 tests) 6ms
+ ✓ tests/leak-detection.test.ts (7 tests) 8ms
+ ✓ tests/score-77-vs-84.test.ts (4 tests) 20ms
+ ✓ tests/security-headers.test.ts (4 tests) 3ms
+ ✓ tests/review-workflow-m7c.test.ts (15 tests) 8ms
+ ✓ tests/frontdesk-worker.test.ts (13 tests) 5ms
+ ✓ tests/report-separation.test.ts (5 tests) 6ms
+ ✓ tests/audit-presentation.test.ts (7 tests) 9ms
+ ✓ tests/frontdesk-webhook.test.ts (26 tests) 6ms
+ ✓ tests/reviews.test.ts (10 tests) 5ms
+ ✓ tests/budget.test.ts (10 tests) 5ms
+ ✓ tests/attention.test.ts (6 tests) 4ms
+ ✓ tests/sales-talk-track-layout.test.ts (6 tests) 5ms
+ ✓ tests/rescue-score.test.ts (6 tests) 3ms
+ ✓ tests/collector.test.ts (6 tests) 5ms
+ ✓ tests/leads-pipeline.test.ts (7 tests) 5ms
+ ✓ tests/db-url.test.ts (6 tests) 8ms
+ ✓ tests/auth.test.ts (5 tests) 3ms
+ ✓ tests/branch-protection-config.test.ts (3 tests) 5ms
+ ✓ tests/lead-prisma-error.test.ts (2 tests) 3ms
+ ✓ tests/middleware-matcher.test.ts (4 tests) 3ms
+
+ Test Files  96 passed (96)
+      Tests  2428 passed (2428)
+   Start at  16:40:00
+   Duration  79.32s (transform 4.21s, setup 0ms, collect 29.28s, tests 107.35s, environment 30ms, prepare 7.07s)
+
+npm notice
+npm notice New major version of npm available! 10.9.9 -> 12.2.1
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.1
+npm notice To update run: npm install -g npm@12.2.1
+npm notice

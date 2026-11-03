@@ -1,0 +1,59 @@
+
+ RUN  v3.2.7 /workspace/winnersbookmark/rescue-agent
+
+stderr | tests/frontdesk-unauth-writes.test.ts > noteRejection > never lets a queue-write failure escape into the response path
+[frontdesk] rejection-record write failed {
+  operation: 'test.op',
+  error: Error: database is down
+      at Object.upsert (/workspace/winnersbookmark/rescue-agent/tests/frontdesk-unauth-writes.test.ts:1161:38)
+      at noteRejection (/workspace/winnersbookmark/rescue-agent/src/lib/frontdesk/security/rejections.ts:107:24)
+      at /workspace/winnersbookmark/rescue-agent/tests/frontdesk-unauth-writes.test.ts:1165:7
+      at processTicksAndRejections (node:internal/process/task_queues:103:5)
+      at file:///workspace/winnersbookmark/rescue-agent/node_modules/@vitest/runner/dist/chunk-hooks.js:752:20
+}
+
+ ✓ tests/frontdesk-unauth-writes.test.ts (62 tests) 18393ms
+   ✓ delivery-status webhook > writes NOTHING for a request with no signature  744ms
+   ✓ scheduled dispatch trigger > writes NOTHING for a bare GET — the crawler case  1014ms
+   ✓ inbound messaging webhook > writes NOTHING, and does not even READ, without a signature  491ms
+   ✓ sign-in > does not write an audit row per failed attempt  4863ms
+   ✓ sign-in > coalesces failed sign-ins onto one row per hour  2664ms
+   ✓ bounding storage must never gate authentication > counts every unknown address onto ONE shared subject  2899ms
+   ✓ bounding storage must never gate authentication > uses an atomic upsert-increment, never a read-then-write  1161ms
+   ✓ bounding storage must never gate authentication > stays bounded under CONCURRENT failures at the ceiling  2153ms
+   ✓ the failure counter cannot be fragmented > lands whitespace and case variants on the SAME counter  408ms
+ ✓ tests/recommendation-template-drift.test.ts (26 tests) 2036ms
+   ✓ mutation tests: an unsafe effective value cannot pass; a superseded safe value is still scanned > the reported payload, inserted into the real engine's leaks.ts: ...{ ['recommendedSolution']: unsafe } fails; the safe value it supersedes is scanned  2000ms
+ ✓ tests/frontdesk-authorization.test.ts (56 tests) 412ms
+ ✓ tests/operator-authorization.test.ts (77 tests) 1509ms
+   ✓ operator API routes refuse before reading anything > 'POST /api/audits': no credential → 401, with a challenge, and no database access  790ms
+   ✓ operator API routes refuse before reading anything > 'GET /api/audits/[id]/report/pdf': no credential → 401, with a challenge, and no database access  428ms
+ ✓ tests/slot-verification.test.ts (16 tests) 66ms
+stderr | tests/frontdesk-tenant-isolation.test.ts > tenant lookup > returns null when a tenant config is corrupt instead of running on a partial config
+[frontdesk] tenant config rejected { slug: 's', error: 'restaurantName: Required' }
+
+ ✓ tests/frontdesk-tenant-isolation.test.ts (12 tests) 9ms
+ ✓ tests/url-validation.test.ts (11 tests) 8ms
+ ✓ tests/auth.test.ts (5 tests) 3ms
+ ✓ tests/release-safety-policy.test.ts (51 tests) 55782ms
+   ✓ the unaltered Leverock’s audit publishes every observation with provenance > no fact, finding, journey stage or score falls back; one marketing-copy context is withheld  411ms
+   ✓ the unaltered Leverock’s audit publishes every observation with provenance > the loaded report shows every stored fact as written  376ms
+   ✓ review of 9b4329e: the reported endorsements never reach the report, web or PDF > "The AI Front Desk is detected. It is a boon for the restaurant."  4674ms
+   ✓ review of 9b4329e: the reported endorsements never reach the report, web or PDF > "The AI Front Desk is detected and represents a quantum leap for the restaurant."  1852ms
+   ✓ review of 9b4329e: the reported endorsements never reach the report, web or PDF > "The SIP dialog orchestrator is a sound investment."  2390ms
+   ✓ review of 9b4329e: the reported endorsements never reach the report, web or PDF > earlier reported bypasses and the adversarial corpus, stored everywhere, are absent from the loaded report and the web page  7289ms
+   ✓ review of 9b4329e: the reported endorsements never reach the report, web or PDF > and from the PDF, for a sample across every category  22286ms
+   ✓ legitimate negative assessments and repairs are published where they are supported > quoted as a homepage title that is the collected page title, each appears in the loaded report, the web report and the PDF  2207ms
+   ✓ the phone finding’s impact is the evidence-backed sentence, never the old speculative one > the engine writes the new sentence; the stored speculative sentence is not published  716ms
+   ✓ the web report and the PDF print the same summary, recommendations and evidence > clean, poisoned and legitimate-slot stored data alike  2612ms
+   ✓ review of 5bfac83 (1, High): a quoted value is published only when it is bound to collected source data > the four reported endorsements in the homepage-title slot reach neither the loader, the web report nor the PDF  5830ms
+   ✓ review of 5bfac83 (1, High): a quoted value is published only when it is bound to collected source data > the authentic homepage title — equal to the collected page's pageTitle — is shown on every surface  1801ms
+   ✓ review of 5bfac83 (2, High): stored identifiers are shown only through canonical labels > an injected category, journey stage, customer-journey stage, score category, stage status and evidence type reach no surface  1467ms
+   ✓ review of 5bfac83 (2, High): stored identifiers are shown only through canonical labels > the reported heading payload: an injected category never becomes a finding title  1427ms
+ ✓ tests/safe-fetch.test.ts (2 tests) 13ms
+
+ Test Files  10 passed (10)
+      Tests  318 passed (318)
+   Start at  16:33:17
+   Duration  59.33s (transform 3.93s, setup 0ms, collect 14.88s, tests 78.23s, environment 1ms, prepare 940ms)
+
