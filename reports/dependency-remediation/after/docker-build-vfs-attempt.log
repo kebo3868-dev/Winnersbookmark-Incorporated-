@@ -1,0 +1,349 @@
+#0 building with "default" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 2.02kB done
+#1 DONE 0.0s
+
+#2 resolve image config for docker-image://docker.io/docker/dockerfile:1
+#2 DONE 4.8s
+
+#3 docker-image://docker.io/docker/dockerfile:1@sha256:4edf897a3ffa55b89f906fc8cc78afdb3f1834cc9c7083565e611a8a7d5fe99e
+#3 resolve docker.io/docker/dockerfile:1@sha256:4edf897a3ffa55b89f906fc8cc78afdb3f1834cc9c7083565e611a8a7d5fe99e done
+#3 sha256:4edf897a3ffa55b89f906fc8cc78afdb3f1834cc9c7083565e611a8a7d5fe99e 9.08kB / 9.08kB done
+#3 sha256:7b32114e84ca21aeb2d6f871a0b62b3a0762193f75d9afd048ee4cbe889f3148 1.13kB / 1.13kB done
+#3 sha256:528c92d70d7e39dbb3dd1c6681f6750c565c7e45b70527cda47c1a61495c1b6a 1.41kB / 1.41kB done
+#3 sha256:9d2b4f57f9e20f33279375ce25c6ff14f30f64270ed5c7b613b2b30256754f62 0B / 14.28MB 0.1s
+#3 sha256:9d2b4f57f9e20f33279375ce25c6ff14f30f64270ed5c7b613b2b30256754f62 1.05MB / 14.28MB 1.8s
+#3 sha256:9d2b4f57f9e20f33279375ce25c6ff14f30f64270ed5c7b613b2b30256754f62 2.10MB / 14.28MB 2.2s
+#3 sha256:9d2b4f57f9e20f33279375ce25c6ff14f30f64270ed5c7b613b2b30256754f62 3.15MB / 14.28MB 2.5s
+#3 sha256:9d2b4f57f9e20f33279375ce25c6ff14f30f64270ed5c7b613b2b30256754f62 4.19MB / 14.28MB 2.9s
+#3 sha256:9d2b4f57f9e20f33279375ce25c6ff14f30f64270ed5c7b613b2b30256754f62 5.24MB / 14.28MB 3.4s
+#3 sha256:9d2b4f57f9e20f33279375ce25c6ff14f30f64270ed5c7b613b2b30256754f62 6.29MB / 14.28MB 3.6s
+#3 sha256:9d2b4f57f9e20f33279375ce25c6ff14f30f64270ed5c7b613b2b30256754f62 7.34MB / 14.28MB 4.0s
+#3 sha256:9d2b4f57f9e20f33279375ce25c6ff14f30f64270ed5c7b613b2b30256754f62 8.39MB / 14.28MB 4.4s
+#3 sha256:9d2b4f57f9e20f33279375ce25c6ff14f30f64270ed5c7b613b2b30256754f62 9.44MB / 14.28MB 4.8s
+#3 sha256:9d2b4f57f9e20f33279375ce25c6ff14f30f64270ed5c7b613b2b30256754f62 10.49MB / 14.28MB 5.1s
+#3 sha256:9d2b4f57f9e20f33279375ce25c6ff14f30f64270ed5c7b613b2b30256754f62 11.53MB / 14.28MB 5.5s
+#3 sha256:9d2b4f57f9e20f33279375ce25c6ff14f30f64270ed5c7b613b2b30256754f62 12.58MB / 14.28MB 5.8s
+#3 sha256:9d2b4f57f9e20f33279375ce25c6ff14f30f64270ed5c7b613b2b30256754f62 13.63MB / 14.28MB 6.2s
+#3 sha256:9d2b4f57f9e20f33279375ce25c6ff14f30f64270ed5c7b613b2b30256754f62 14.28MB / 14.28MB 6.5s done
+#3 extracting sha256:9d2b4f57f9e20f33279375ce25c6ff14f30f64270ed5c7b613b2b30256754f62 0.1s
+#3 extracting sha256:9d2b4f57f9e20f33279375ce25c6ff14f30f64270ed5c7b613b2b30256754f62 0.1s done
+#3 DONE 6.6s
+
+#4 [internal] load metadata for docker.io/library/node:22-bookworm-slim
+#4 DONE 5.4s
+
+#5 [internal] load .dockerignore
+#5 transferring context: 123B done
+#5 DONE 0.0s
+
+#6 [base 1/3] FROM docker.io/library/node:22-bookworm-slim@sha256:4b150b48b4116e2a22f2c39cc27025fbf4f153e2078fd3b14d159fdb5c7279da
+#6 resolve docker.io/library/node:22-bookworm-slim@sha256:4b150b48b4116e2a22f2c39cc27025fbf4f153e2078fd3b14d159fdb5c7279da done
+#6 sha256:9f0dde62d10e7ff7a310ecaebd66225f6b46c17e6cb778449a77b05d3541bea2 1.93kB / 1.93kB done
+#6 sha256:c469fbffcbb0086ddfb92598192d3e09eab25f2d81b9750a00f77f0910fed744 6.77kB / 6.77kB done
+#6 sha256:4b150b48b4116e2a22f2c39cc27025fbf4f153e2078fd3b14d159fdb5c7279da 5.22kB / 5.22kB done
+#6 DONE 0.1s
+
+#7 [internal] load build context
+#7 transferring context: 2.54MB 0.1s done
+#7 DONE 0.1s
+
+#8 [base 2/3] WORKDIR /app
+#8 DONE 2.6s
+
+#9 [base 3/3] RUN apt-get update -y && apt-get install -y --no-install-recommends openssl curl && rm -rf /var/lib/apt/lists/*   && groupadd --system nodejs && useradd --system --gid nodejs nextjs
+#9 2.560 Get:1 http://deb.debian.org/debian bookworm InRelease [151 kB]
+#9 3.413 Get:2 http://deb.debian.org/debian bookworm-updates InRelease [55.4 kB]
+#9 3.661 Get:3 http://deb.debian.org/debian-security bookworm-security InRelease [34.8 kB]
+#9 3.823 Get:4 http://deb.debian.org/debian bookworm/main amd64 Packages [8790 kB]
+#9 5.066 Get:5 http://deb.debian.org/debian bookworm-updates/main amd64 Packages [6924 B]
+#9 5.233 Get:6 http://deb.debian.org/debian-security bookworm-security/main amd64 Packages [360 kB]
+#9 5.437 Fetched 9398 kB in 4s (2576 kB/s)
+#9 5.437 Reading package lists...
+#9 5.831 Reading package lists...
+#9 6.199 Building dependency tree...
+#9 6.305 Reading state information...
+#9 6.393 The following additional packages will be installed:
+#9 6.394   libbrotli1 libcurl4 libgssapi-krb5-2 libk5crypto3 libkeyutils1 libkrb5-3
+#9 6.394   libkrb5support0 libldap-2.5-0 libnghttp2-14 libpsl5 librtmp1 libsasl2-2
+#9 6.394   libsasl2-modules-db libssh2-1 libssl3
+#9 6.395 Suggested packages:
+#9 6.395   krb5-doc krb5-user ca-certificates
+#9 6.395 Recommended packages:
+#9 6.395   ca-certificates krb5-locales libldap-common publicsuffix libsasl2-modules
+#9 6.468 The following NEW packages will be installed:
+#9 6.468   curl libbrotli1 libcurl4 libgssapi-krb5-2 libk5crypto3 libkeyutils1
+#9 6.468   libkrb5-3 libkrb5support0 libldap-2.5-0 libnghttp2-14 libpsl5 librtmp1
+#9 6.469   libsasl2-2 libsasl2-modules-db libssh2-1 libssl3 openssl
+#9 6.809 0 upgraded, 17 newly installed, 0 to remove and 1 not upgraded.
+#9 6.809 Need to get 5685 kB of archives.
+#9 6.809 After this operation, 14.4 MB of additional disk space will be used.
+#9 6.809 Get:1 http://deb.debian.org/debian-security bookworm-security/main amd64 libbrotli1 amd64 1.0.9-2+deb12u1 [275 kB]
+#9 7.529 Get:2 http://deb.debian.org/debian bookworm/main amd64 libkrb5support0 amd64 1.20.1-2+deb12u5 [33.2 kB]
+#9 8.601 Get:3 http://deb.debian.org/debian bookworm/main amd64 libk5crypto3 amd64 1.20.1-2+deb12u5 [79.7 kB]
+#9 9.032 Get:4 http://deb.debian.org/debian bookworm/main amd64 libkeyutils1 amd64 1.6.3-2 [8808 B]
+#9 9.385 Get:5 http://deb.debian.org/debian-security bookworm-security/main amd64 libssl3 amd64 3.0.22-1~deb12u2 [2040 kB]
+#9 10.44 Get:6 http://deb.debian.org/debian bookworm/main amd64 libkrb5-3 amd64 1.20.1-2+deb12u5 [332 kB]
+#9 10.99 Get:7 http://deb.debian.org/debian bookworm/main amd64 libgssapi-krb5-2 amd64 1.20.1-2+deb12u5 [135 kB]
+#9 11.53 Get:8 http://deb.debian.org/debian-security bookworm-security/main amd64 libsasl2-modules-db amd64 2.1.28+dfsg-10+deb12u1 [20.5 kB]
+#9 11.69 Get:9 http://deb.debian.org/debian-security bookworm-security/main amd64 libsasl2-2 amd64 2.1.28+dfsg-10+deb12u1 [59.9 kB]
+#9 12.07 Get:10 http://deb.debian.org/debian bookworm/main amd64 libldap-2.5-0 amd64 2.5.13+dfsg-5 [183 kB]
+#9 12.24 Get:11 http://deb.debian.org/debian bookworm/main amd64 libnghttp2-14 amd64 1.52.0-1+deb12u3 [72.4 kB]
+#9 12.61 Get:12 http://deb.debian.org/debian bookworm/main amd64 libpsl5 amd64 0.21.2-1 [58.7 kB]
+#9 12.82 Get:13 http://deb.debian.org/debian bookworm/main amd64 librtmp1 amd64 2.4+20151223.gitfa8646d.1-2+b2 [60.8 kB]
+#9 13.03 Get:14 http://deb.debian.org/debian-security bookworm-security/main amd64 libssh2-1 amd64 1.10.0-3+deb12u1 [176 kB]
+#9 13.60 Get:15 http://deb.debian.org/debian bookworm/main amd64 libcurl4 amd64 7.88.1-10+deb12u15 [392 kB]
+#9 13.90 Get:16 http://deb.debian.org/debian bookworm/main amd64 curl amd64 7.88.1-10+deb12u15 [316 kB]
+#9 14.36 Get:17 http://deb.debian.org/debian-security bookworm-security/main amd64 openssl amd64 3.0.22-1~deb12u2 [1442 kB]
+#9 14.52 debconf: delaying package configuration, since apt-utils is not installed
+#9 14.53 Fetched 5685 kB in 8s (714 kB/s)
+#9 14.54 Selecting previously unselected package libbrotli1:amd64.
+#9 14.54 (Reading database ...
+(Reading database ... 5%
+(Reading database ... 10%
+(Reading database ... 15%
+(Reading database ... 20%
+(Reading database ... 25%
+(Reading database ... 30%
+(Reading database ... 35%
+(Reading database ... 40%
+(Reading database ... 45%
+(Reading database ... 50%
+(Reading database ... 55%
+(Reading database ... 60%
+(Reading database ... 65%
+(Reading database ... 70%
+(Reading database ... 75%
+(Reading database ... 80%
+(Reading database ... 85%
+(Reading database ... 90%
+(Reading database ... 95%
+(Reading database ... 100%
+(Reading database ... 6096 files and directories currently installed.)
+#9 14.54 Preparing to unpack .../00-libbrotli1_1.0.9-2+deb12u1_amd64.deb ...
+#9 14.55 Unpacking libbrotli1:amd64 (1.0.9-2+deb12u1) ...
+#9 14.57 Selecting previously unselected package libkrb5support0:amd64.
+#9 14.57 Preparing to unpack .../01-libkrb5support0_1.20.1-2+deb12u5_amd64.deb ...
+#9 14.57 Unpacking libkrb5support0:amd64 (1.20.1-2+deb12u5) ...
+#9 14.58 Selecting previously unselected package libk5crypto3:amd64.
+#9 14.59 Preparing to unpack .../02-libk5crypto3_1.20.1-2+deb12u5_amd64.deb ...
+#9 14.59 Unpacking libk5crypto3:amd64 (1.20.1-2+deb12u5) ...
+#9 14.60 Selecting previously unselected package libkeyutils1:amd64.
+#9 14.60 Preparing to unpack .../03-libkeyutils1_1.6.3-2_amd64.deb ...
+#9 14.60 Unpacking libkeyutils1:amd64 (1.6.3-2) ...
+#9 14.61 Selecting previously unselected package libssl3:amd64.
+#9 14.61 Preparing to unpack .../04-libssl3_3.0.22-1~deb12u2_amd64.deb ...
+#9 14.62 Unpacking libssl3:amd64 (3.0.22-1~deb12u2) ...
+#9 14.71 Selecting previously unselected package libkrb5-3:amd64.
+#9 14.71 Preparing to unpack .../05-libkrb5-3_1.20.1-2+deb12u5_amd64.deb ...
+#9 14.71 Unpacking libkrb5-3:amd64 (1.20.1-2+deb12u5) ...
+#9 14.74 Selecting previously unselected package libgssapi-krb5-2:amd64.
+#9 14.74 Preparing to unpack .../06-libgssapi-krb5-2_1.20.1-2+deb12u5_amd64.deb ...
+#9 14.74 Unpacking libgssapi-krb5-2:amd64 (1.20.1-2+deb12u5) ...
+#9 14.76 Selecting previously unselected package libsasl2-modules-db:amd64.
+#9 14.76 Preparing to unpack .../07-libsasl2-modules-db_2.1.28+dfsg-10+deb12u1_amd64.deb ...
+#9 14.76 Unpacking libsasl2-modules-db:amd64 (2.1.28+dfsg-10+deb12u1) ...
+#9 14.77 Selecting previously unselected package libsasl2-2:amd64.
+#9 14.77 Preparing to unpack .../08-libsasl2-2_2.1.28+dfsg-10+deb12u1_amd64.deb ...
+#9 14.77 Unpacking libsasl2-2:amd64 (2.1.28+dfsg-10+deb12u1) ...
+#9 14.79 Selecting previously unselected package libldap-2.5-0:amd64.
+#9 14.79 Preparing to unpack .../09-libldap-2.5-0_2.5.13+dfsg-5_amd64.deb ...
+#9 14.79 Unpacking libldap-2.5-0:amd64 (2.5.13+dfsg-5) ...
+#9 14.81 Selecting previously unselected package libnghttp2-14:amd64.
+#9 14.81 Preparing to unpack .../10-libnghttp2-14_1.52.0-1+deb12u3_amd64.deb ...
+#9 14.81 Unpacking libnghttp2-14:amd64 (1.52.0-1+deb12u3) ...
+#9 14.82 Selecting previously unselected package libpsl5:amd64.
+#9 14.82 Preparing to unpack .../11-libpsl5_0.21.2-1_amd64.deb ...
+#9 14.82 Unpacking libpsl5:amd64 (0.21.2-1) ...
+#9 14.83 Selecting previously unselected package librtmp1:amd64.
+#9 14.83 Preparing to unpack .../12-librtmp1_2.4+20151223.gitfa8646d.1-2+b2_amd64.deb ...
+#9 14.84 Unpacking librtmp1:amd64 (2.4+20151223.gitfa8646d.1-2+b2) ...
+#9 14.85 Selecting previously unselected package libssh2-1:amd64.
+#9 14.85 Preparing to unpack .../13-libssh2-1_1.10.0-3+deb12u1_amd64.deb ...
+#9 14.85 Unpacking libssh2-1:amd64 (1.10.0-3+deb12u1) ...
+#9 14.87 Selecting previously unselected package libcurl4:amd64.
+#9 14.87 Preparing to unpack .../14-libcurl4_7.88.1-10+deb12u15_amd64.deb ...
+#9 14.87 Unpacking libcurl4:amd64 (7.88.1-10+deb12u15) ...
+#9 14.89 Selecting previously unselected package curl.
+#9 14.89 Preparing to unpack .../15-curl_7.88.1-10+deb12u15_amd64.deb ...
+#9 14.90 Unpacking curl (7.88.1-10+deb12u15) ...
+#9 14.92 Selecting previously unselected package openssl.
+#9 14.92 Preparing to unpack .../16-openssl_3.0.22-1~deb12u2_amd64.deb ...
+#9 14.92 Unpacking openssl (3.0.22-1~deb12u2) ...
+#9 15.00 Setting up libkeyutils1:amd64 (1.6.3-2) ...
+#9 15.00 Setting up libpsl5:amd64 (0.21.2-1) ...
+#9 15.00 Setting up libbrotli1:amd64 (1.0.9-2+deb12u1) ...
+#9 15.00 Setting up libssl3:amd64 (3.0.22-1~deb12u2) ...
+#9 15.00 Setting up libnghttp2-14:amd64 (1.52.0-1+deb12u3) ...
+#9 15.00 Setting up libkrb5support0:amd64 (1.20.1-2+deb12u5) ...
+#9 15.01 Setting up libsasl2-modules-db:amd64 (2.1.28+dfsg-10+deb12u1) ...
+#9 15.01 Setting up librtmp1:amd64 (2.4+20151223.gitfa8646d.1-2+b2) ...
+#9 15.01 Setting up libk5crypto3:amd64 (1.20.1-2+deb12u5) ...
+#9 15.01 Setting up libsasl2-2:amd64 (2.1.28+dfsg-10+deb12u1) ...
+#9 15.01 Setting up libssh2-1:amd64 (1.10.0-3+deb12u1) ...
+#9 15.01 Setting up libkrb5-3:amd64 (1.20.1-2+deb12u5) ...
+#9 15.02 Setting up openssl (3.0.22-1~deb12u2) ...
+#9 15.02 Setting up libldap-2.5-0:amd64 (2.5.13+dfsg-5) ...
+#9 15.02 Setting up libgssapi-krb5-2:amd64 (1.20.1-2+deb12u5) ...
+#9 15.02 Setting up libcurl4:amd64 (7.88.1-10+deb12u15) ...
+#9 15.03 Setting up curl (7.88.1-10+deb12u15) ...
+#9 15.03 Processing triggers for libc-bin (2.36-9+deb12u14) ...
+#9 DONE 15.1s
+
+#10 [deps 1/3] COPY package.json package-lock.json ./
+#10 ...
+
+#11 [migrator 1/3] WORKDIR /app/migrator
+#11 DONE 2.6s
+
+#10 [deps 1/3] COPY package.json package-lock.json ./
+#10 DONE 2.7s
+
+#12 [migrator 2/3] COPY docker/migrator/package.json docker/migrator/package-lock.json ./
+#12 ...
+
+#13 [builder 1/2] COPY . .
+#13 DONE 3.0s
+
+#14 [deps 2/3] COPY prisma ./prisma
+#14 ...
+
+#12 [migrator 2/3] COPY docker/migrator/package.json docker/migrator/package-lock.json ./
+#12 DONE 1.6s
+
+#14 [deps 2/3] COPY prisma ./prisma
+#14 DONE 1.6s
+
+#15 [deps 3/3] RUN --mount=type=secret,id=proxy_ca   if [ -f /run/secrets/proxy_ca ]; then export NODE_EXTRA_CA_CERTS=/run/secrets/proxy_ca; fi;   npm ci
+#15 ...
+
+#16 [migrator 3/3] RUN --mount=type=secret,id=proxy_ca   if [ -f /run/secrets/proxy_ca ]; then export NODE_EXTRA_CA_CERTS=/run/secrets/proxy_ca; fi;   npm ci --omit=dev
+#16 7.111
+#16 7.111 added 35 packages, and audited 36 packages in 6s
+#16 7.111
+#16 7.111 6 packages are looking for funding
+#16 7.111   run `npm fund` for details
+#16 7.111
+#16 7.111 found 0 vulnerabilities
+#16 7.111 npm notice
+#16 7.111 npm notice New major version of npm available! 10.9.9 -> 12.2.1
+#16 7.111 npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.1
+#16 7.111 npm notice To update run: npm install -g npm@12.2.1
+#16 7.111 npm notice
+#16 DONE 7.1s
+
+#15 [deps 3/3] RUN --mount=type=secret,id=proxy_ca   if [ -f /run/secrets/proxy_ca ]; then export NODE_EXTRA_CA_CERTS=/run/secrets/proxy_ca; fi;   npm ci
+#15 24.63
+#15 24.63 > wbi-restaurant-rescue-agent@0.1.0 postinstall
+#15 24.63 > prisma generate
+#15 24.63
+#15 25.31 Prisma schema loaded from prisma/schema.prisma
+#15 25.77
+#15 25.77 ✔ Generated Prisma Client (v6.19.3) to ./node_modules/@prisma/client in 214ms
+#15 25.77
+#15 25.77 Start by importing your Prisma Client (See: https://pris.ly/d/importing-client)
+#15 25.77
+#15 25.77 Tip: Want to turn off tips and other hints? https://pris.ly/tip-4-nohints
+#15 25.77
+#15 25.78
+#15 25.78 added 329 packages, and audited 330 packages in 24s
+#15 25.78
+#15 25.78 74 packages are looking for funding
+#15 25.78   run `npm fund` for details
+#15 25.78
+#15 25.78 found 0 vulnerabilities
+#15 25.78 npm notice
+#15 25.78 npm notice New major version of npm available! 10.9.9 -> 12.2.1
+#15 25.78 npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.1
+#15 25.78 npm notice To update run: npm install -g npm@12.2.1
+#15 25.78 npm notice
+#15 DONE 25.8s
+
+#17 [builder 2/2] RUN --mount=type=bind,from=deps,source=/app/node_modules,target=/app/node_modules,rw   npm run build
+#17 6.276
+#17 6.276 > wbi-restaurant-rescue-agent@0.1.0 build
+#17 6.276 > next build
+#17 6.276
+#17 6.874    ▲ Next.js 15.5.28
+#17 6.875
+#17 6.902    Creating an optimized production build ...
+#17 21.90  ✓ Compiled successfully in 12.9s
+#17 21.90    Linting and checking validity of types ...
+#17 29.93    Collecting page data ...
+#17 32.94    Generating static pages (0/6) ...
+#17 33.51    Generating static pages (1/6)
+#17 33.51    Generating static pages (2/6)
+#17 33.56    Generating static pages (4/6)
+#17 33.56  ✓ Generating static pages (6/6)
+#17 34.29    Finalizing page optimization ...
+#17 34.29    Collecting build traces ...
+#17 50.50
+#17 50.51 Route (app)                                             Size  First Load JS
+#17 50.51 ┌ ƒ /                                                  168 B         106 kB
+#17 50.51 ├ ○ /_not-found                                        996 B         104 kB
+#17 50.51 ├ ƒ /api/audits                                        206 B         103 kB
+#17 50.51 ├ ƒ /api/audits/[auditId]/report/pdf                   206 B         103 kB
+#17 50.51 ├ ƒ /api/audits/[auditId]/status                       206 B         103 kB
+#17 50.51 ├ ƒ /api/audits/demo                                   206 B         103 kB
+#17 50.51 ├ ƒ /api/demo/purge                                    206 B         103 kB
+#17 50.51 ├ ƒ /api/frontdesk/[tenantSlug]/activate               206 B         103 kB
+#17 50.51 ├ ƒ /api/frontdesk/[tenantSlug]/attestations           206 B         103 kB
+#17 50.51 ├ ƒ /api/frontdesk/[tenantSlug]/keys                   206 B         103 kB
+#17 50.51 ├ ƒ /api/frontdesk/[tenantSlug]/keys/[keyId]           206 B         103 kB
+#17 50.51 ├ ƒ /api/frontdesk/[tenantSlug]/leads/[leadId]         206 B         103 kB
+#17 50.51 ├ ƒ /api/frontdesk/[tenantSlug]/message                206 B         103 kB
+#17 50.51 ├ ƒ /api/frontdesk/[tenantSlug]/readiness              206 B         103 kB
+#17 50.51 ├ ƒ /api/frontdesk/[tenantSlug]/reviews/request        206 B         103 kB
+#17 50.51 ├ ƒ /api/frontdesk/[tenantSlug]/rota                   206 B         103 kB
+#17 50.51 ├ ƒ /api/frontdesk/[tenantSlug]/sms/twilio             206 B         103 kB
+#17 50.51 ├ ƒ /api/frontdesk/[tenantSlug]/voice/twilio-status    206 B         103 kB
+#17 50.51 ├ ƒ /api/frontdesk/[tenantSlug]/webhook-secret         206 B         103 kB
+#17 50.51 ├ ƒ /api/frontdesk/auth/login                          206 B         103 kB
+#17 50.51 ├ ƒ /api/frontdesk/auth/logout                         206 B         103 kB
+#17 50.51 ├ ƒ /api/frontdesk/demo                                206 B         103 kB
+#17 50.51 ├ ƒ /api/frontdesk/notifications/cron                  206 B         103 kB
+#17 50.51 ├ ƒ /api/frontdesk/notifications/dispatch              206 B         103 kB
+#17 50.51 ├ ƒ /api/frontdesk/notifications/webhook               206 B         103 kB
+#17 50.51 ├ ƒ /api/frontdesk/sms/inbound                         206 B         103 kB
+#17 50.51 ├ ƒ /api/frontdesk/tenants                             206 B         103 kB
+#17 50.51 ├ ƒ /api/health                                        206 B         103 kB
+#17 50.51 ├ ƒ /api/leads/[leadId]                                206 B         103 kB
+#17 50.51 ├ ƒ /api/marketing/leads                               206 B         103 kB
+#17 50.51 ├ ƒ /api/retention/sweep                               206 B         103 kB
+#17 50.51 ├ ƒ /audits                                            443 B         107 kB
+#17 50.51 ├ ƒ /audits/[auditId]                                1.11 kB         107 kB
+#17 50.51 ├ ƒ /audits/[auditId]/report                         2.93 kB         109 kB
+#17 50.51 ├ ƒ /audits/[auditId]/sales                            168 B         106 kB
+#17 50.51 ├ ƒ /audits/new                                      3.76 kB         107 kB
+#17 50.51 ├ ƒ /frontdesk                                       1.03 kB         107 kB
+#17 50.51 ├ ƒ /frontdesk/[tenantSlug]                          3.42 kB         110 kB
+#17 50.51 ├ ƒ /frontdesk/[tenantSlug]/simulator                2.34 kB         108 kB
+#17 50.51 └ ƒ /leads                                           1.48 kB         108 kB
+#17 50.51 + First Load JS shared by all                         103 kB
+#17 50.51   ├ chunks/1255-dc3ddf72a1dc71a7.js                  46.6 kB
+#17 50.51   ├ chunks/4bd1b696-f785427dddbba9fb.js              54.2 kB
+#17 50.51   └ other shared chunks (total)                      1.93 kB
+#17 50.51
+#17 50.51
+#17 50.51 ƒ Middleware                                         34.9 kB
+#17 50.51
+#17 50.51 ○  (Static)   prerendered as static content
+#17 50.51 ƒ  (Dynamic)  server-rendered on demand
+#17 50.51
+#17 DONE 50.9s
+
+#18 [runner 1/5] COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+#18 DONE 0.8s
+
+#19 [runner 2/5] COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+#19 DONE 1.4s
+
+#20 [runner 3/5] COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
+#20 DONE 1.2s
+
+#21 [runner 4/5] COPY --from=migrator --chown=nextjs:nodejs /app/migrator ./migrator
+#21 DONE 3.0s
+
+#22 [runner 5/5] COPY --chown=nextjs:nodejs --chmod=755 docker-entrypoint.sh ./docker-entrypoint.sh
+#22 ERROR: failed to prepare kzug7q0ecycfdl6qm

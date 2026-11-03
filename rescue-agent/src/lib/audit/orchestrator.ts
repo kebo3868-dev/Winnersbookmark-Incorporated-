@@ -17,7 +17,7 @@ import { getAiProvider } from '@/lib/ai/provider';
 import { analyzeOwnerReviews, reviewEvidence, socialEvidence } from '@/lib/audit/reviews';
 import { createAuditBudget, resolveAuditBudgetMs } from '@/lib/audit/budget';
 import type { AuditStage, AuditStatus } from '@prisma/client';
-import { z } from 'zod';
+import { z } from '@/lib/validation/zod';
 
 export interface CreateAuditInput {
   websiteUrl: string;

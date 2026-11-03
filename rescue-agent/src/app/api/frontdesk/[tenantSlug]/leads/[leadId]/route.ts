@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { z } from 'zod';
+import { z } from '@/lib/validation/zod';
 import { authorize, resolveActor } from '@/lib/frontdesk/auth/actor';
 import { getTenantBySlug, updateLeadStatus } from '@/lib/frontdesk/store';
 import { LEAD_STATUSES } from '@/lib/frontdesk/types';
