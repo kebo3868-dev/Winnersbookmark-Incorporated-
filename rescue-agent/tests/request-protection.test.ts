@@ -87,7 +87,13 @@ describe('source trust and admission', () => {
     expect(JSON.stringify(first)).not.toContain('owner@example.invalid');
     mocks.raw.mockClear();
     await loginAccountBudget(req(), 'tenant-b', 'owner@example.invalid');
-    expect(mocks.raw.mock.calls[0][1]).toBe('login:tenant-b');
+    expect(mocks.raw.mock.calls[0][1]).toBe('login:tenant:tenant-b');
+  });
+  it('separates the platform from an existing tenant whose id is literally platform', async () => {
+    await loginAccountBudget(req(), null, 'owner@example.invalid');
+    const platform = mocks.raw.mock.calls.at(-1)?.[1];
+    await loginAccountBudget(req(), 'platform', 'owner@example.invalid');
+    expect(mocks.raw.mock.calls.at(-1)?.[1]).not.toBe(platform);
   });
 });
 

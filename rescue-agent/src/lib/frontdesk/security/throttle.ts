@@ -83,5 +83,6 @@ export async function loginAccountBudget(request: Request, tenantId: string | nu
   if (!source) return false;
   // Pairing with source prevents someone who knows an email from locking its
   // owner out at every other source. Tenant ids separate identical addresses.
-  return takeBudget(`login:${tenantId ?? 'platform'}`, JSON.stringify([source, email.trim().toLowerCase()]), LOGIN_ACCOUNT_LIMIT, 900);
+  const namespace = tenantId === null ? 'login:platform' : `login:tenant:${tenantId}`;
+  return takeBudget(namespace, JSON.stringify([source, email.trim().toLowerCase()]), LOGIN_ACCOUNT_LIMIT, 900);
 }
