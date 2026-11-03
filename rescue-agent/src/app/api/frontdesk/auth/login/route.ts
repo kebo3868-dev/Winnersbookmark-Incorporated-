@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { z } from 'zod';
+import { z } from '@/lib/validation/zod';
 import { prisma } from '@/lib/db';
 import { recordAudit } from '@/lib/frontdesk/auth/store';
 import { issueSession, verifyCredentials } from '@/lib/frontdesk/auth/users';

@@ -1,0 +1,46 @@
+{
+  "root": "/app/migrator",
+  "physicalPackages": 35,
+  "inventory": {
+    "node_modules/@prisma/config": "6.19.3",
+    "node_modules/@prisma/debug": "6.19.3",
+    "node_modules/@prisma/engines": "6.19.3",
+    "node_modules/@prisma/engines-version": "7.1.1-3.c2990dca591cba766e3b7ef5d9e8a84796e47ab7",
+    "node_modules/@prisma/fetch-engine": "6.19.3",
+    "node_modules/@prisma/get-platform": "6.19.3",
+    "node_modules/@standard-schema/spec": "1.1.0",
+    "node_modules/c12": "3.1.0",
+    "node_modules/chokidar": "4.0.3",
+    "node_modules/citty": "0.1.6",
+    "node_modules/confbox": "0.2.4",
+    "node_modules/consola": "3.4.2",
+    "node_modules/deepmerge-ts": "8.0.2",
+    "node_modules/defu": "6.1.7",
+    "node_modules/destr": "2.0.5",
+    "node_modules/dotenv": "16.6.1",
+    "node_modules/effect": "3.21.0",
+    "node_modules/empathic": "2.0.0",
+    "node_modules/exsolve": "1.2.0",
+    "node_modules/fast-check": "3.23.2",
+    "node_modules/giget": "2.0.0",
+    "node_modules/jiti": "2.7.0",
+    "node_modules/node-fetch-native": "1.6.7",
+    "node_modules/nypm": "0.6.12",
+    "node_modules/nypm/node_modules/citty": "0.2.2",
+    "node_modules/ohash": "2.0.12",
+    "node_modules/pathe": "2.0.3",
+    "node_modules/perfect-debounce": "1.0.0",
+    "node_modules/pkg-types": "2.4.0",
+    "node_modules/pkg-types/node_modules/confbox": "0.3.2",
+    "node_modules/prisma": "6.19.3",
+    "node_modules/pure-rand": "6.1.0",
+    "node_modules/rc9": "2.1.2",
+    "node_modules/readdirp": "4.1.2",
+    "node_modules/tinyexec": "1.3.1"
+  }
+}
+npm notice
+npm notice New major version of npm available! 10.9.9 -> 12.2.1
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.1
+npm notice To update run: npm install -g npm@12.2.1
+npm notice

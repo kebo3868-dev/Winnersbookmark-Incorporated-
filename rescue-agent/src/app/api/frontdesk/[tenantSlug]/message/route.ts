@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { NextResponse, type NextRequest } from 'next/server';
-import { z } from 'zod';
+import { z } from '@/lib/validation/zod';
 import { prisma } from '@/lib/db';
 import { SCOPES } from '@/lib/frontdesk/auth/apiKey';
 import { authFailureMessage, authenticateTenantRequest } from '@/lib/frontdesk/auth/authenticate';
