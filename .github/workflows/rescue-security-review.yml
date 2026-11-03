@@ -74,7 +74,7 @@ jobs:
           server_pid=$!
           trap 'kill "$server_pid"' EXIT
           for attempt in $(seq 1 60); do curl -fsS http://localhost:3000/api/health && break || sleep 1; done
-          PW_CHROMIUM="$(find /home/runner/.cache/ms-playwright -path '*/chrome-linux64/chrome' -o -path '*/chrome-linux/chrome' | head -1)" E2E_USER="$BASIC_AUTH_USER" E2E_PASS="$BASIC_AUTH_PASSWORD" npm run test:e2e
+          PW_CHROMIUM="$(find /home/runner/.cache/ms-playwright -path '*/chrome-linux64/chrome' -o -path '*/chrome-linux/chrome' | head -1)" E2E_USER="$BASIC_AUTH_USER" E2E_PASS="$BASIC_AUTH_PASSWORD" /tmp/rescue-browser/node_modules/.bin/playwright test
       - name: Build actual application and locked migrator images
         run: |
           docker build --progress=plain -t rescue-remediation:final . 2>&1 | tee .review/docker-build.log
@@ -86,6 +86,21 @@ jobs:
           docker run --rm -i --entrypoint node rescue-remediation:migrator - /app/migrator < scripts/audit-runtime.mjs > .review/audit-image-migrator.json 2> .review/image-migrator-inventory.json
           docker run --rm -i --entrypoint node rescue-remediation:final - /app < scripts/verify-standalone.mjs > .review/image-sharp.json
           docker run --rm --add-host host.docker.internal:host-gateway --entrypoint /app/migrator/node_modules/.bin/prisma -e DATABASE_URL=postgresql://postgres:disposable-rescue-test@host.docker.internal:5432/rescue_remediation rescue-remediation:final migrate deploy --schema=/app/prisma/schema.prisma > .review/image-migrations.log
+          docker run --rm --add-host host.docker.internal:host-gateway --mount "type=bind,src=$PWD/prisma,dst=/schema,readonly" --entrypoint node -e DATABASE_URL=postgresql://postgres:disposable-rescue-test@host.docker.internal:5432/rescue_remediation rescue-remediation:migrator node_modules/prisma/build/index.js migrate deploy --schema=/schema/schema.prisma > .review/migrator-image-migrations.log
+      - name: Start the final image with its real non-root entrypoint
+        run: |
+          docker run -d --name rescue-image-verification --add-host host.docker.internal:host-gateway -p 127.0.0.1:3001:3000 \
+            -e DATABASE_URL=postgresql://postgres:disposable-rescue-test@host.docker.internal:5432/rescue_remediation \
+            -e BASIC_AUTH_USER=operator -e BASIC_AUTH_PASSWORD=local-verification-operator-password \
+            -e FRONTDESK_TRUSTED_SOURCE_HEADER=x-test-source \
+            -e FRONTDESK_THROTTLE_SECRET=stable-disposable-verification-key-not-for-production \
+            rescue-remediation:final
+          trap 'docker logs rescue-image-verification > .review/image-server.log 2>&1; docker rm -f rescue-image-verification' EXIT
+          for attempt in $(seq 1 60); do curl -fsS http://localhost:3001/api/health > .review/image-health.json && break || sleep 1; done
+          node -e 'const a=require("./.review/image-health.json"); if(a.status!=="ok"||a.database!=="up") process.exit(1)'
+          curl -fsS -H 'x-test-source: 192.0.2.7' --json '{"email":"owner@example.invalid","password":"valid-disposable-password"}' http://localhost:3001/api/frontdesk/auth/login > .review/image-login.json
+          node -e 'const a=require("./.review/image-login.json"); if(!a.ok||a.role!=="WBI_ADMIN"||a.tenantId!==null) process.exit(1)'
+          docker exec rescue-image-verification node -e 'const {Prisma}=require("@prisma/client");const audit=Prisma.dmmf.datamodel.models.find(m=>m.name==="FdAuditLog");if(!audit.fields.some(f=>f.name==="dedupeKey"))process.exit(1);console.log(JSON.stringify({auditFields:audit.fields.map(f=>f.name),securityBucket:Prisma.dmmf.datamodel.models.some(m=>m.name==="FdSecurityBucket")}))' > .review/image-client-schema.json
       - name: Scan final application and migrator images (all OS and package findings)
         run: |
           docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$PWD/.review:/reports" aquasec/trivy:0.67.2 image --format json --output /reports/trivy-app.json rescue-remediation:final
