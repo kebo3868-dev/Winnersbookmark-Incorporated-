@@ -1,0 +1,19 @@
+versions { vips: '8.18.7', sharp: '0.35.5' }
+{
+  format: 'heif',
+  width: 128,
+  height: 128,
+  channels: 3,
+  premultiplied: false,
+  hasAlpha: false,
+  size: 292
+}
+AVIF input resize: {
+  format: 'heif',
+  width: 64,
+  height: 64,
+  channels: 3,
+  premultiplied: false,
+  hasAlpha: false,
+  size: 288
+}

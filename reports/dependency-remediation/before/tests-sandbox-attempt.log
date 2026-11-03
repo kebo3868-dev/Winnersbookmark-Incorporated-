@@ -1,0 +1,430 @@
+
+> wbi-restaurant-rescue-agent@0.1.0 test
+> vitest run --maxWorkers=2 --minWorkers=1
+
+
+ RUN  v3.2.7 /workspace/winnersbookmark/rescue-agent
+
+ ✓ tests/visit-answers.test.ts (105 tests) 1140ms
+ ✓ tests/claim-accuracy.test.ts (109 tests) 1333ms
+   ✓ the journey map keeps the limitation beside the observation > carries what the FOLLOW_UP stage could not see  739ms
+ ✓ tests/audit-report-repair.test.ts (46 tests) 18074ms
+   ✓ phone wording: observed facts, open questions and losses stay distinct > no surface pairs "friction" with the FAQ page, and the PDF says the same  653ms
+   ✓ 6. export layout > no page ends on a section heading (summary × 0)  2878ms
+   ✓ 6. export layout > no page ends on a section heading (summary × 6)  1823ms
+   ✓ 6. export layout > no page ends on a section heading (summary × 12)  2076ms
+   ✓ 6. export layout > no page ends on a section heading (summary × 18)  1819ms
+   ✓ 6. export layout > a long finding is labelled "continued" only on later pages  8488ms
+ ✓ tests/online-label-opens-phone.test.ts (62 tests) 4711ms
+   ✓ the executive report, the PDF and the sales brief communicate the same finding > the PDF prints the same title and evidence state  4332ms
+stderr | tests/frontdesk-unauth-writes.test.ts > noteRejection > never lets a queue-write failure escape into the response path
+[frontdesk] rejection-record write failed {
+  operation: 'test.op',
+  error: Error: database is down
+      at Object.upsert (/workspace/winnersbookmark/rescue-agent/tests/frontdesk-unauth-writes.test.ts:1161:38)
+      at noteRejection (/workspace/winnersbookmark/rescue-agent/src/lib/frontdesk/security/rejections.ts:107:24)
+      at /workspace/winnersbookmark/rescue-agent/tests/frontdesk-unauth-writes.test.ts:1165:7
+      at processTicksAndRejections (node:internal/process/task_queues:103:5)
+      at file:///workspace/winnersbookmark/rescue-agent/node_modules/@vitest/runner/dist/chunk-hooks.js:752:20
+}
+
+ ❯ tests/frontdesk-unauth-writes.test.ts (62 tests | 4 failed) 26120ms
+   ✓ delivery-status webhook > writes NOTHING for a request with no signature  425ms
+   ✓ delivery-status webhook > writes nothing across a burst of unsigned requests 54ms
+   ✓ delivery-status webhook > DOES record a coalesced rejection when a signature was presented but failed 4ms
+   ✓ delivery-status webhook > coalesces a burst of bad signatures onto ONE row 22ms
+   ✓ scheduled dispatch trigger > writes NOTHING for a bare GET — the crawler case  307ms
+   ✓ scheduled dispatch trigger > writes NOTHING for a bare POST 2ms
+   ✓ scheduled dispatch trigger > records a coalesced rejection when a wrong secret WAS presented 4ms
+   ✓ scheduled dispatch trigger > never runs a dispatch cycle for an unauthenticated caller 0ms
+   ✓ inbound messaging webhook > writes NOTHING, and does not even READ, without a signature  478ms
+   ✓ inbound messaging webhook > writes nothing across a burst of unsigned requests naming a real restaurant 3ms
+   ✓ inbound messaging webhook > never echoes the caller-supplied slug into an operator-visible record 8ms
+   × sign-in > does not write an audit row per failed attempt 5070ms
+     → Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+   × sign-in > coalesces failed sign-ins onto one row per hour 5004ms
+     → Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+   ✓ sign-in > does not raise an unhandled error for an administrator sign-in 132ms
+   ✓ sign-in > still uses the compound unique lookup for a restaurant user 190ms
+   ✓ sign-in > rejects an unparseable body before any database work 1ms
+   ✓ bounding storage must never gate authentication > always verifies the password, however high the failure count 208ms
+   ✓ bounding storage must never gate authentication > does not refuse an unrelated account after a flood of failures 174ms
+   ✓ bounding storage must never gate authentication > no longer has a restaurant-wide ceiling at all 0ms
+   × bounding storage must never gate authentication > counts every unknown address onto ONE shared subject 5001ms
+     → Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+   × bounding storage must never gate authentication > counts a failure against a REAL account under that account 311ms
+     → expected [ '__unknown_account__', 'user-1' ] to deeply equal [ 'user-1' ]
+   ✓ bounding storage must never gate authentication > performs the SAME database work for a known and an unknown address  426ms
+   ✓ bounding storage must never gate authentication > uses an atomic upsert-increment, never a read-then-write  3048ms
+   ✓ bounding storage must never gate authentication > stays bounded under CONCURRENT failures at the ceiling  1598ms
+   ✓ bounding storage must never gate authentication > accepts CORRECT credentials once the shared counter is saturated  329ms
+   ✓ bounding storage must never gate authentication > still locks out THAT account once its own failures reach the limit 206ms
+   ✓ bounding storage must never gate authentication > checks the lockout only AFTER verification 0ms
+   ✓ a refused sign-in must leave nothing behind > creates NO session for a locked-out account given the correct password 205ms
+   ✓ a refused sign-in must leave nothing behind > does not touch lastLoginAt for a locked-out account  388ms
+   ✓ a refused sign-in must leave nothing behind > writes NOTHING at all when a locked-out account is refused  427ms
+   ✓ a refused sign-in must leave nothing behind > still signs in successfully once the lockout window has cleared 261ms
+   ✓ a refused sign-in must leave nothing behind > verification itself writes nothing 208ms
+   ✓ the failure counter cannot be fragmented > keys the counter on the immutable user id, not the typed address 216ms
+   ✓ the failure counter cannot be fragmented > lands whitespace and case variants on the SAME counter  809ms
+   ✓ the failure counter cannot be fragmented > reads the lockout counter under the same immutable key it writes 223ms
+   ✓ the failure counter cannot be fragmented > does not half-normalise in the store helper 0ms
+   ✓ credential presence uses the configured provider scheme > ignores a Twilio header on a non-Twilio deployment 1ms
+   ✓ credential presence uses the configured provider scheme > ignores the platform header on a Twilio deployment 1ms
+   ✓ credential presence uses the configured provider scheme > still records when the CONFIGURED scheme is presented and fails 1ms
+   ✓ a forged session cookie reaches the surface but changes nothing > is refused by the session lookup rather than trusted by the middleware 133ms
+   ✓ a forged session cookie reaches the surface but changes nothing > cannot activate a restaurant 98ms
+   ✓ a forged session cookie reaches the surface but changes nothing > cannot send a rota test message 21ms
+   ✓ a forged session cookie reaches the surface but changes nothing > cannot mint an API key 10ms
+   ✓ a forged session cookie reaches the surface but changes nothing > cannot seed or purge demo data 23ms
+   ✓ a forged session cookie reaches the surface but changes nothing > cannot change a lead 6ms
+   ✓ health endpoint > serves liveness to anyone 66ms
+   ✓ health endpoint > does NOT disclose configuration to an unauthenticated caller 0ms
+   ✓ health endpoint > discloses configuration to an operator 2ms
+   ✓ health endpoint > withholds configuration from EVERYONE when no credential is configured 0ms
+   ✓ health endpoint > never returns a secret value 0ms
+   ✓ structural guard: the exempt-route list is pinned > exempts exactly the six known self-authenticating routes 0ms
+   ✓ structural guard: the exempt-route list is pinned > keeps the public message endpoint behind an explicit opt-in 0ms
+   ✓ structural guard: the exempt-route list is pinned > every exempt write-capable route routes rejections through noteRejection 2ms
+   ✓ noteRejection > writes nothing at all when no credential was presented 0ms
+   ✓ noteRejection > upserts, never creates, when a credential was presented 0ms
+   ✓ noteRejection > increments rather than rewriting, so a caller cannot poison the detail 0ms
+   ✓ noteRejection > keys the same reason in the same hour onto one row 0ms
+   ✓ noteRejection > rolls over to a new row in the next hour 0ms
+   ✓ noteRejection > never collides an unattributed rejection with a tenant one 0ms
+   ✓ noteRejection > separates different reasons, so one does not mask another 1ms
+   ✓ noteRejection > never lets a queue-write failure escape into the response path 7ms
+   ✓ noteRejection > detects a presented credential by shape only 1ms
+ ✓ tests/frontdesk-safety.test.ts (69 tests) 252ms
+ ✓ tests/automation-release-gates.test.ts (29 tests) 653ms
+   ✓ H1 — AI-written summaries are screened, and an unsafe one is replaced > neither the PDF nor the web page prints a rejected summary  399ms
+ ✓ tests/form-purpose.test.ts (97 tests) 283ms
+ ✓ tests/review-activation.test.ts (46 tests) 63ms
+ ✓ tests/executive-report.test.ts (40 tests) 324ms
+ ✓ tests/link-resolution.test.ts (36 tests) 207ms
+ ✓ tests/ordering-report-cleanup.test.ts (29 tests) 2977ms
+   ✓ PDF line breaking for addresses > the exported PDF prints the address intact, the card once, and no code  2902ms
+ ✓ tests/forms-retention-presentation.test.ts (49 tests) 280ms
+ ✓ tests/frontdesk-readiness.test.ts (50 tests) 97ms
+ ✓ tests/report-qa-consistency.test.ts (26 tests) 5993ms
+   ✓ 1. diagnostic identifiers stay out of client text > the web/PDF data and the rendered PDF carry none  2631ms
+   ✓ 5. confidence in what was observed is separate from customer outcomes > web, PDF and operator page label item confidence as evidence confidence  1241ms
+   ✓ 7. web report, executive summary, PDF and operator page agree > the PDF prints the same technical-context, reputation and ordering wording as the web data  1954ms
+ ✓ tests/frontdesk-engine.test.ts (53 tests) 98ms
+ ✓ tests/pilot-enablement.test.ts (47 tests) 132ms
+ ✓ tests/review-request-ui.test.ts (52 tests) 140ms
+ ✓ tests/report-defects.test.ts (36 tests) 350ms
+ ✓ tests/automation-recommendation-wording.test.ts (17 tests) 413ms
+ ✓ tests/post-reaudit-quality.test.ts (17 tests) 686ms
+   ✓ P2: one review duration across every output > the executive report and PDF book the same review length  451ms
+ ✓ tests/sales-brief-automation-gate.test.ts (21 tests) 3865ms
+   ✓ the brief the generator writes > every field passes the shared policy unchanged, for every tier and every subset of findings  526ms
+   ✓ stored brief text is never shown: the loader regenerates every narrative field > the three reported bypasses, stored in EVERY narrative field (buyerPersona and likelyObjection included), never reach the page  844ms
+   ✓ stored brief text is never shown: the loader regenerates every narrative field > every adversarial case, stored in every field, never reaches the loader output or the page  1638ms
+ ✓ tests/email-dispatch-wiring.test.ts (28 tests) 48ms
+ ✓ tests/pilot-activation-gates.test.ts (37 tests) 19ms
+ ✓ tests/evidence-layers.test.ts (20 tests) 4152ms
+   ✓ the exported PDF > prints the new counters, the three layers and the legend note  4100ms
+ ✓ tests/thirty-day-plan-gates.test.ts (13 tests) 781ms
+   ✓ every combination of eight representative findings > Days 8–14 is exactly the verified direct fixes (or the no-fix statement), and Days 15–21 is always gated  710ms
+ ✓ tests/recommendation-template-drift.test.ts (26 tests) 2386ms
+   ✓ mutation tests: an unsafe effective value cannot pass; a superseded safe value is still scanned > the reported payload, inserted into the real engine's leaks.ts: ...{ ['recommendedSolution']: unsafe } fails; the safe value it supersedes is scanned  2305ms
+ ✓ tests/telephone-link-wording.test.ts (11 tests) 2609ms
+   ✓ a new audit never claims a call was placed because a tel: link was found > the PDF says the same, and nothing about a placed call  2555ms
+ ✓ tests/leverocks-regression.test.ts (28 tests) 23ms
+ ✓ tests/frontdesk-twilio.test.ts (53 tests) 80ms
+ ✓ tests/scoring-explainability.test.ts (27 tests) 430ms
+   ✓ codex P2: the retention category stays a usable machine key > report consumers still dispatch on it after the rename  394ms
+ ✓ tests/frontdesk-notify.test.ts (43 tests) 15ms
+ ✓ tests/report-presentation-repair.test.ts (16 tests) 4105ms
+   ✓ layout and continuation labels agree > a card that may span pages carries the finding name on its later blocks  1514ms
+   ✓ layout and continuation labels agree > a card that fits one page carries no continuation label at all  993ms
+   ✓ continuation bookkeeping is per render, not global > two documents rendered concurrently each label their own continuation  1509ms
+ ❯ tests/frontdesk-verification.test.ts (24 tests | 2 failed) 37ms
+   ✓ requesting a rota test > queues a test alert and opens a verification in SENT, not VERIFIED 3ms
+   ✓ requesting a rota test > sends the same message wording every time, so it is recognisable 0ms
+   ✓ requesting a rota test > masks the destination in what it returns 0ms
+   ✓ requesting a rota test > refuses an unknown contact key 1ms
+   ✓ requesting a rota test > refuses a contact with no phone number 0ms
+   ✓ requesting a rota test > goes through the gated send path, so a STOP blocks the test too 1ms
+   ✓ requesting a rota test > does not mark a test as critical, so it cannot bypass spend limits 0ms
+   ✓ requesting a rota test > clears a previous pass when a re-test is requested 0ms
+   ✓ applying a delivery outcome > marks a contact VERIFIED only on a delivery receipt 0ms
+   ✓ applying a delivery outcome > marks it FAILED on an undelivered receipt, with the reason 0ms
+   ✓ applying a delivery outcome > does NOT resolve another tenant’s verification 0ms
+   ✓ applying a delivery outcome > is a no-op for a notification with no verification waiting on it 0ms
+   ✓ applying a delivery outcome > does not re-verify a record that already failed 0ms
+   ✓ structural guard: the smoke test cannot run by accident > requires an explicit confirmation phrase 0ms
+   ✓ structural guard: the smoke test cannot run by accident > has no default recipient anywhere in it 0ms
+   ✓ structural guard: the smoke test cannot run by accident > refuses to run against the mock provider 0ms
+   ✓ structural guard: the smoke test cannot run by accident > sends exactly one message, with no loop 0ms
+   ✓ structural guard: the smoke test cannot run by accident > states plainly that acceptance is not delivery 0ms
+   ✓ structural guard: no secrets committed to the repository > scans a meaningful number of files 0ms
+   ✓ structural guard: no secrets committed to the repository > contains no Twilio account SID or auth token literal 8ms
+   × structural guard: no secrets committed to the repository > has no .env file tracked by git 12ms
+     → spawnSync git EPERM
+   × structural guard: no secrets committed to the repository > gitignores .env, so one cannot be added by accident 6ms
+     → spawnSync git EPERM
+   ✓ structural guard: no secrets committed to the repository > the example env file carries no credential material 1ms
+   ✓ structural guard: no secrets committed to the repository > the example env file documents the messaging and dispatch secrets 0ms
+ ✓ tests/release-safety-policy.test.ts (51 tests) 73164ms
+   ✓ review of 9b4329e: the reported endorsements never reach the report, web or PDF > "The AI Front Desk is detected. It is a boon for the restaurant."  3296ms
+   ✓ review of 9b4329e: the reported endorsements never reach the report, web or PDF > "The AI Front Desk is detected and represents a quantum leap for the restaurant."  1809ms
+   ✓ review of 9b4329e: the reported endorsements never reach the report, web or PDF > "The SIP dialog orchestrator is a sound investment."  1828ms
+   ✓ review of 9b4329e: the reported endorsements never reach the report, web or PDF > earlier reported bypasses and the adversarial corpus, stored everywhere, are absent from the loaded report and the web page  6053ms
+   ✓ review of 9b4329e: the reported endorsements never reach the report, web or PDF > and from the PDF, for a sample across every category  37234ms
+   ✓ legitimate negative assessments and repairs are published where they are supported > quoted as a homepage title that is the collected page title, each appears in the loaded report, the web report and the PDF  4506ms
+   ✓ the phone finding’s impact is the evidence-backed sentence, never the old speculative one > the engine writes the new sentence; the stored speculative sentence is not published  1824ms
+   ✓ the web report and the PDF print the same summary, recommendations and evidence > clean, poisoned and legitimate-slot stored data alike  4800ms
+   ✓ review of 5bfac83 (1, High): a quoted value is published only when it is bound to collected source data > the four reported endorsements in the homepage-title slot reach neither the loader, the web report nor the PDF  5581ms
+   ✓ review of 5bfac83 (1, High): a quoted value is published only when it is bound to collected source data > the authentic homepage title — equal to the collected page's pageTitle — is shown on every surface  1411ms
+   ✓ review of 5bfac83 (2, High): stored identifiers are shown only through canonical labels > an injected category, journey stage, customer-journey stage, score category, stage status and evidence type reach no surface  2321ms
+   ✓ review of 5bfac83 (2, High): stored identifiers are shown only through canonical labels > the reported heading payload: an injected category never becomes a finding title  1392ms
+ ✓ tests/frontdesk-authorization.test.ts (56 tests) 447ms
+ ✓ tests/ai-summary-authorization.test.ts (23 tests) 797ms
+   ✓ adversarial AI summaries are rejected whole — new and historical > 9. alternative automation descriptions: rejected whole in a historical stored summary, in the web report and the PDF alike  564ms
+ ✓ tests/frontdesk-auth.test.ts (45 tests) 16ms
+ ✓ tests/operator-authorization.test.ts (77 tests) 940ms
+   ✓ operator API routes refuse before reading anything > 'POST /api/audits': no credential → 401, with a challenge, and no database access  350ms
+ ✓ tests/executive-pdf.test.ts (9 tests) 16643ms
+   ✓ Executive PDF pagination > never emits a near-blank page (short executive summary)  3837ms
+   ✓ Executive PDF pagination > never emits a near-blank page (medium executive summary)  2258ms
+   ✓ Executive PDF pagination > never emits a near-blank page (long executive summary)  2313ms
+   ✓ Executive PDF pagination > no page is mostly empty (short executive summary)  2485ms
+   ✓ Executive PDF pagination > no page is mostly empty (medium executive summary)  2119ms
+   ✓ Executive PDF pagination > no page is mostly empty (long executive summary)  2215ms
+   ✓ Executive PDF generation > renders a valid multi-page PDF buffer from a DTO with special characters and long text  544ms
+   ✓ Executive PDF generation > renders without duplicate React keys (score-weight rows share their percentage)  454ms
+   ✓ Executive PDF generation > PDF content does not contain secrets or internal markers  413ms
+ ✓ tests/spothopper-destination.test.ts (14 tests) 45ms
+ ✓ tests/operator-surface-structure.test.ts (21 tests) 152ms
+ ✓ tests/public-contact-email.test.ts (23 tests) 68ms
+ ✓ tests/scenario-model.test.ts (22 tests) 29ms
+ ✓ tests/frontdesk-consent.test.ts (51 tests) 8ms
+ ✓ tests/ordering-channel.test.ts (19 tests) 121ms
+ ✓ tests/pdf9-report-corrections.test.ts (16 tests) 1586ms
+   ✓ the contact telephone number is a working tel: link > the rendered PDF has a link annotation targeting it  1567ms
+ ✓ tests/frontdesk-guardrails.test.ts (35 tests) 63ms
+ ✓ tests/reservation-provider.test.ts (15 tests) 7ms
+ ✓ tests/slot-verification.test.ts (16 tests) 58ms
+ ✓ tests/probe-provenance.test.ts (10 tests) 72ms
+ ✓ tests/ordering-email-m7b.test.ts (19 tests) 9ms
+ ✓ tests/sales-claim-safety.test.ts (15 tests) 9ms
+ ✓ tests/frontdesk-isolation-guard.test.ts (11 tests) 8ms
+ ✓ tests/frontdesk-config.test.ts (30 tests) 77ms
+ ✓ tests/reservation-false-positive.test.ts (15 tests) 64ms
+ ✓ tests/link-taxonomy.test.ts (17 tests) 75ms
+ ✓ tests/frontdesk-hours.test.ts (20 tests) 82ms
+stderr | tests/frontdesk-tenant-isolation.test.ts > tenant lookup > returns null when a tenant config is corrupt instead of running on a partial config
+[frontdesk] tenant config rejected { slug: 's', error: 'restaurantName: Required' }
+
+ ✓ tests/frontdesk-tenant-isolation.test.ts (12 tests) 18ms
+ ✓ tests/url-sanitization.test.ts (25 tests) 71ms
+ ✓ tests/evidence-provenance.test.ts (14 tests) 2657ms
+   ✓ the committed templates are what the engine writes > a mutation: new evidence wording in the engine is detected as uncommitted  2240ms
+ ✓ tests/restaurant-name.test.ts (17 tests) 56ms
+ ✓ tests/telephone-ordering.test.ts (9 tests) 147ms
+ ✓ tests/review-workflow-m7c.test.ts (15 tests) 9ms
+ ✓ tests/leak-detection.test.ts (7 tests) 40ms
+ ✓ tests/ordering-menu-functionality.test.ts (11 tests) 101ms
+ ❯ tests/menu-access-restricted.test.ts (12 tests | 12 skipped) 10013ms
+   ↓ access-restricted menu destinations stay unverified > probeLink reports HTTP 401 as reachable-not-verified (the premise)
+   ↓ access-restricted menu destinations stay unverified > probeLink reports HTTP 403 as reachable-not-verified (the premise)
+   ↓ access-restricted menu destinations stay unverified > probeLink reports HTTP 429 as reachable-not-verified (the premise)
+   ↓ access-restricted menu destinations stay unverified > shared menu/ordering link probed as ordering, HTTP 401 (codex): unverified everywhere
+   ↓ access-restricted menu destinations stay unverified > shared menu/ordering link probed as ordering, HTTP 403 (codex): unverified everywhere
+   ↓ access-restricted menu destinations stay unverified > shared menu/ordering link probed as ordering, HTTP 429 (codex): unverified everywhere
+   ↓ access-restricted menu destinations stay unverified > menu link probed as menu, HTTP 401: unverified, and its own record says so
+   ↓ access-restricted menu destinations stay unverified > menu link probed as menu, HTTP 403: unverified, and its own record says so
+   ↓ access-restricted menu destinations stay unverified > menu link probed as menu, HTTP 429: unverified, and its own record says so
+   ↓ access-restricted menu destinations stay unverified > an accessible menu (HTTP 200) is still verified, on a shared link and a menu link
+   ↓ access-restricted menu destinations stay unverified > a genuinely broken destination (HTTP 404) is still a failure
+   ↓ access-restricted menu destinations stay unverified > a restricted shared link beside an accessible menu: the accessible menu decides, the restricted one is unverified
+ ✓ tests/frontdesk-webhook.test.ts (26 tests) 10ms
+ ✓ tests/frontdesk-intent.test.ts (45 tests) 148ms
+ ✓ tests/marketing-leads.test.ts (16 tests) 107ms
+ ❯ tests/integration-pipeline.test.ts (5 tests | 5 skipped) 10010ms
+   ↓ collection engine against a live fixture site > collects, discovers, probes, and detects the broken ordering link end-to-end
+   ↓ collection engine against a live fixture site > records TIMEOUT/UNAVAILABLE honestly for an unreachable site
+   ↓ collection engine against a live fixture site > caps body size for huge chunked responses instead of buffering them fully
+   ↓ collection engine against a live fixture site > follows probe redirects manually and reports the final broken destination
+   ↓ collection engine against a live fixture site > aborts redirect loops at the hop limit
+ ✓ tests/reservation-functionality.test.ts (7 tests) 101ms
+ ✓ tests/report-separation.test.ts (5 tests) 16ms
+ ✓ tests/frontdesk-worker.test.ts (13 tests) 12ms
+ ✓ tests/score-77-vs-84.test.ts (4 tests) 51ms
+ ✓ tests/resend-provider.test.ts (12 tests) 69ms
+ ✓ tests/sales-talk-track-layout.test.ts (6 tests) 10ms
+ ✓ tests/reviews.test.ts (10 tests) 9ms
+ ✓ tests/middleware-matcher.test.ts (4 tests) 3ms
+ ✓ tests/audit-presentation.test.ts (7 tests) 6ms
+ ✓ tests/lead-retention.test.ts (9 tests) 13ms
+ ✓ tests/collector.test.ts (6 tests) 41ms
+ ✓ tests/budget.test.ts (10 tests) 15ms
+ ✓ tests/leads-pipeline.test.ts (7 tests) 47ms
+ ✓ tests/rescue-score.test.ts (6 tests) 8ms
+ ✓ tests/review-integration.test.ts (3 tests) 9ms
+ ✓ tests/url-validation.test.ts (11 tests) 18ms
+ ✓ tests/priority-scoring.test.ts (10 tests) 9ms
+ ✓ tests/db-url.test.ts (6 tests) 3ms
+ ✓ tests/attention.test.ts (6 tests) 8ms
+ ✓ tests/auth.test.ts (5 tests) 5ms
+ ✓ tests/branch-protection-config.test.ts (3 tests) 12ms
+ ✓ tests/security-headers.test.ts (4 tests) 49ms
+ ✓ tests/lead-prisma-error.test.ts (2 tests) 7ms
+ ✓ tests/safe-fetch.test.ts (2 tests) 25ms
+ ✓ tests/qrcode.test.ts (2 tests) 108ms
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/integration-pipeline.test.ts [ tests/integration-pipeline.test.ts ]
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/integration-pipeline.test.ts:26:1
+     24| let baseUrl: string;
+     25| 
+     26| beforeAll(async () => {
+       | ^
+     27|   server = http.createServer((req, res) => {
+     28|     const url = req.url ?? '/';
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/8]⎯
+
+ FAIL  tests/menu-access-restricted.test.ts [ tests/menu-access-restricted.test.ts ]
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/menu-access-restricted.test.ts:26:1
+     24| const previousAllow = process.env.RESCUE_AGENT_ALLOW_PRIVATE_TARGETS;
+     25| 
+     26| beforeAll(async () => {
+       | ^
+     27|   // The SSRF guard refuses loopback unless this is set outside produc…
+     28|   process.env.RESCUE_AGENT_ALLOW_PRIVATE_TARGETS = '1';
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/8]⎯
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 6 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/frontdesk-unauth-writes.test.ts > sign-in > does not write an audit row per failed attempt
+Error: Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ tests/frontdesk-unauth-writes.test.ts:313:3
+    311| 
+    312| describe('sign-in', () => {
+    313|   it('does not write an audit row per failed attempt', async () => {
+       |   ^
+    314|     // A sign-in endpoint cannot sit behind the credential it exists t…
+    315|     // so it is reachable by anyone. One audit row per attempt made it…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/8]⎯
+
+ FAIL  tests/frontdesk-unauth-writes.test.ts > sign-in > coalesces failed sign-ins onto one row per hour
+Error: Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ tests/frontdesk-unauth-writes.test.ts:328:3
+    326|   });
+    327| 
+    328|   it('coalesces failed sign-ins onto one row per hour', async () => {
+       |   ^
+    329|     const { POST } = await import('@/app/api/frontdesk/auth/login/rout…
+    330|     for (let i = 0; i < 40; i++) {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/8]⎯
+
+ FAIL  tests/frontdesk-unauth-writes.test.ts > bounding storage must never gate authentication > counts every unknown address onto ONE shared subject
+Error: Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ tests/frontdesk-unauth-writes.test.ts:453:3
+    451|   });
+    452| 
+    453|   it('counts every unknown address onto ONE shared subject', async () …
+       |   ^
+    454|     // This is what bounds the table now: attacker-chosen addresses ca…
+    455|     // create a row.
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/8]⎯
+
+ FAIL  tests/frontdesk-unauth-writes.test.ts > bounding storage must never gate authentication > counts a failure against a REAL account under that account
+AssertionError: expected [ '__unknown_account__', 'user-1' ] to deeply equal [ 'user-1' ]
+
+- Expected
++ Received
+
+  [
++   "__unknown_account__",
+    "user-1",
+  ]
+
+ ❯ tests/frontdesk-unauth-writes.test.ts:482:22
+    480|         .where.tenantId_scope_subject_windowStart.subject);
+    481| 
+    482|     expect(subjects).toEqual([REAL_USER.id]);
+       |                      ^
+    483|   });
+    484| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/8]⎯
+
+ FAIL  tests/frontdesk-verification.test.ts > structural guard: no secrets committed to the repository > has no .env file tracked by git
+Error: spawnSync git EPERM
+ ❯ tests/frontdesk-verification.test.ts:333:21
+    331|     // is done to the file afterwards. Scanning the working directory …
+    332|     // would fail on every machine that has ever run the app locally.
+    333|     const tracked = execFileSync('git', ['ls-files', '-z'], { cwd: pro…
+       |                     ^
+    334|       .split('\0')
+    335|       .filter(Boolean)
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/8]⎯
+
+ FAIL  tests/frontdesk-verification.test.ts > structural guard: no secrets committed to the repository > gitignores .env, so one cannot be added by accident
+Error: spawnSync git EPERM
+ ❯ tests/frontdesk-verification.test.ts:343:21
+    341| 
+    342|   it('gitignores .env, so one cannot be added by accident', () => {
+    343|     const ignored = execFileSync('git', ['check-ignore', '.env'], {
+       |                     ^
+    344|       cwd: process.cwd(),
+    345|       encoding: 'utf8',
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/8]⎯
+
+⎯⎯⎯⎯⎯⎯ Unhandled Errors ⎯⎯⎯⎯⎯⎯
+
+Vitest caught 2 unhandled errors during the test run.
+This might cause false positive tests. Resolve unhandled errors to make sure your tests are not affected.
+
+⎯⎯⎯⎯⎯ Uncaught Exception ⎯⎯⎯⎯⎯
+Error: listen EPERM: operation not permitted 127.0.0.1
+ ❯ Server.setupListenHandle [as _listen2] node:net:1919:21
+ ❯ listenInCluster node:net:1998:12
+ ❯ node:net:2207:7
+ ❯ processTicksAndRejections node:internal/process/task_queues:89:21
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+Serialized Error: { code: 'EPERM', errno: -1, syscall: 'listen', address: '127.0.0.1' }
+This error originated in "tests/menu-access-restricted.test.ts" test file. It doesn't mean the error was thrown inside the file itself, but while it was running.
+
+⎯⎯⎯⎯⎯ Uncaught Exception ⎯⎯⎯⎯⎯
+Error: listen EPERM: operation not permitted 127.0.0.1
+ ❯ Server.setupListenHandle [as _listen2] node:net:1919:21
+ ❯ listenInCluster node:net:1998:12
+ ❯ node:net:2207:7
+ ❯ processTicksAndRejections node:internal/process/task_queues:89:21
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+Serialized Error: { code: 'EPERM', errno: -1, syscall: 'listen', address: '127.0.0.1' }
+This error originated in "tests/integration-pipeline.test.ts" test file. It doesn't mean the error was thrown inside the file itself, but while it was running.
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+
+
+ Test Files  4 failed | 92 passed (96)
+      Tests  6 failed | 2405 passed | 17 skipped (2428)
+     Errors  2 errors
+   Start at  16:31:23
+   Duration  140.68s (transform 6.54s, setup 0ms, collect 39.77s, tests 201.45s, environment 13ms, prepare 13.16s)
+

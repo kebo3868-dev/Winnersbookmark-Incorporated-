@@ -1,0 +1,2982 @@
+{
+  "serviceWindowSchema": [
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Required"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Expected object, received null"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Expected object, received boolean"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Expected object, received number"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Expected object, received string"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Expected object, received string"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Expected object, received array"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "open"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "close"
+          ],
+          "message": "Required"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "open"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "close"
+          ],
+          "message": "Required"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "open"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "close"
+          ],
+          "message": "Required"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "open"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "close"
+          ],
+          "message": "Required"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "open"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "close"
+          ],
+          "message": "Required"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "open"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "close"
+          ],
+          "message": "Required"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "open"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "close"
+          ],
+          "message": "Required"
+        }
+      ]
+    }
+  ],
+  "weeklyHoursSchema": [
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Required"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Expected object, received null"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Expected object, received boolean"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Expected object, received number"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Expected object, received string"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Expected object, received string"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Expected object, received array"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "sun"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "mon"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "tue"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "wed"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "thu"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "fri"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "sat"
+          ],
+          "message": "Required"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "sun"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "mon"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "tue"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "wed"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "thu"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "fri"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "sat"
+          ],
+          "message": "Required"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "sun"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "mon"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "tue"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "wed"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "thu"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "fri"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "sat"
+          ],
+          "message": "Required"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "sun"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "mon"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "tue"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "wed"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "thu"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "fri"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "sat"
+          ],
+          "message": "Required"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "sun"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "mon"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "tue"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "wed"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "thu"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "fri"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "sat"
+          ],
+          "message": "Required"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "sun"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "mon"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "tue"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "wed"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "thu"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "fri"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "sat"
+          ],
+          "message": "Required"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "sun"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "mon"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "tue"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "wed"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "thu"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "fri"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "sat"
+          ],
+          "message": "Required"
+        }
+      ]
+    }
+  ],
+  "holidayHoursSchema": [
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Required"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Expected object, received null"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Expected object, received boolean"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Expected object, received number"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Expected object, received string"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Expected object, received string"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Expected object, received array"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "date"
+          ],
+          "message": "Required"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "date"
+          ],
+          "message": "Required"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "date"
+          ],
+          "message": "Required"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "date"
+          ],
+          "message": "Required"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "date"
+          ],
+          "message": "Required"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "date"
+          ],
+          "message": "Required"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "date"
+          ],
+          "message": "Required"
+        }
+      ]
+    }
+  ],
+  "locationSchema": [
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Required"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Expected object, received null"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Expected object, received boolean"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Expected object, received number"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Expected object, received string"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Expected object, received string"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Expected object, received array"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "id"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "name"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "addressLine1"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "city"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "state"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "timezone"
+          ],
+          "message": "Required"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "id"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "name"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "addressLine1"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "city"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "state"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "timezone"
+          ],
+          "message": "Required"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "id"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "name"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "addressLine1"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "city"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "state"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "timezone"
+          ],
+          "message": "Required"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "id"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "name"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "addressLine1"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "city"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "state"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "timezone"
+          ],
+          "message": "Required"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "id"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "name"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "addressLine1"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "city"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "state"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "timezone"
+          ],
+          "message": "Required"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "id"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "name"
+          ],
+          "message": "String must contain at least 1 character(s)"
+        },
+        {
+          "path": [
+            "addressLine1"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "city"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "state"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "timezone"
+          ],
+          "message": "Required"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "id"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "addressLine1"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "city"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "state"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "timezone"
+          ],
+          "message": "Required"
+        }
+      ]
+    }
+  ],
+  "pathwaySchema": [
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Required"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Expected object, received null"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Expected object, received boolean"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Expected object, received number"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Expected object, received string"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Expected object, received string"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Expected object, received array"
+        }
+      ]
+    },
+    {
+      "success": true,
+      "data": {
+        "enabled": false
+      }
+    },
+    {
+      "success": true,
+      "data": {
+        "enabled": false
+      }
+    },
+    {
+      "success": true,
+      "data": {
+        "enabled": false
+      }
+    },
+    {
+      "success": true,
+      "data": {
+        "enabled": false
+      }
+    },
+    {
+      "success": true,
+      "data": {
+        "enabled": false
+      }
+    },
+    {
+      "success": true,
+      "data": {
+        "enabled": false
+      }
+    },
+    {
+      "success": true,
+      "data": {
+        "enabled": false
+      }
+    }
+  ],
+  "faqSchema": [
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Required"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Expected object, received null"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Expected object, received boolean"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Expected object, received number"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Expected object, received string"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Expected object, received string"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Expected object, received array"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "id"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "keywords"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "question"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "answer"
+          ],
+          "message": "Required"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "id"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "keywords"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "question"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "answer"
+          ],
+          "message": "Required"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "id"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "keywords"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "question"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "answer"
+          ],
+          "message": "Required"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "id"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "keywords"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "question"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "answer"
+          ],
+          "message": "Required"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "id"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "keywords"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "question"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "answer"
+          ],
+          "message": "Required"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "id"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "keywords"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "question"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "answer"
+          ],
+          "message": "Required"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "id"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "keywords"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "question"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "answer"
+          ],
+          "message": "Required"
+        }
+      ]
+    }
+  ],
+  "escalationContactSchema": [
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Required"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Expected object, received null"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Expected object, received boolean"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Expected object, received number"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Expected object, received string"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Expected object, received string"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Expected object, received array"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "key"
+          ],
+          "message": "Required"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "key"
+          ],
+          "message": "Required"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "key"
+          ],
+          "message": "Required"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "key"
+          ],
+          "message": "Required"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "key"
+          ],
+          "message": "Required"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "key"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "email"
+          ],
+          "message": "Invalid email"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "key"
+          ],
+          "message": "Required"
+        }
+      ]
+    }
+  ],
+  "brandVoiceSchema": [
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Required"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Expected object, received null"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Expected object, received boolean"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Expected object, received number"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Expected object, received string"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Expected object, received string"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Expected object, received array"
+        }
+      ]
+    },
+    {
+      "success": true,
+      "data": {
+        "tone": "WARM_PROFESSIONAL",
+        "avoidPhrases": []
+      }
+    },
+    {
+      "success": true,
+      "data": {
+        "tone": "WARM_PROFESSIONAL",
+        "avoidPhrases": []
+      }
+    },
+    {
+      "success": true,
+      "data": {
+        "tone": "WARM_PROFESSIONAL",
+        "avoidPhrases": []
+      }
+    },
+    {
+      "success": true,
+      "data": {
+        "tone": "WARM_PROFESSIONAL",
+        "avoidPhrases": []
+      }
+    },
+    {
+      "success": true,
+      "data": {
+        "tone": "WARM_PROFESSIONAL",
+        "avoidPhrases": []
+      }
+    },
+    {
+      "success": true,
+      "data": {
+        "tone": "WARM_PROFESSIONAL",
+        "avoidPhrases": []
+      }
+    },
+    {
+      "success": true,
+      "data": {
+        "tone": "WARM_PROFESSIONAL",
+        "avoidPhrases": []
+      }
+    }
+  ],
+  "promotionSchema": [
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Required"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Expected object, received null"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Expected object, received boolean"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Expected object, received number"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Expected object, received string"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Expected object, received string"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Expected object, received array"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "id"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "title"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "details"
+          ],
+          "message": "Required"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "id"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "title"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "details"
+          ],
+          "message": "Required"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "id"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "title"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "details"
+          ],
+          "message": "Required"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "id"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "title"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "details"
+          ],
+          "message": "Required"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "id"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "title"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "details"
+          ],
+          "message": "Required"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "id"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "title"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "details"
+          ],
+          "message": "Required"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "id"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "title"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "details"
+          ],
+          "message": "Required"
+        }
+      ]
+    }
+  ],
+  "thresholdsSchema": [
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Required"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Expected object, received null"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Expected object, received boolean"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Expected object, received number"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Expected object, received string"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Expected object, received string"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Expected object, received array"
+        }
+      ]
+    },
+    {
+      "success": true,
+      "data": {
+        "largePartySize": 8,
+        "highPriorityPartySize": 12
+      }
+    },
+    {
+      "success": true,
+      "data": {
+        "largePartySize": 8,
+        "highPriorityPartySize": 12
+      }
+    },
+    {
+      "success": true,
+      "data": {
+        "largePartySize": 8,
+        "highPriorityPartySize": 12
+      }
+    },
+    {
+      "success": true,
+      "data": {
+        "largePartySize": 8,
+        "highPriorityPartySize": 12
+      }
+    },
+    {
+      "success": true,
+      "data": {
+        "largePartySize": 8,
+        "highPriorityPartySize": 12
+      }
+    },
+    {
+      "success": true,
+      "data": {
+        "largePartySize": 8,
+        "highPriorityPartySize": 12
+      }
+    },
+    {
+      "success": true,
+      "data": {
+        "largePartySize": 8,
+        "highPriorityPartySize": 12
+      }
+    }
+  ],
+  "policySchema": [
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Required"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Expected object, received null"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Expected object, received boolean"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Expected object, received number"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Expected object, received string"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Expected object, received string"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Expected object, received array"
+        }
+      ]
+    },
+    {
+      "success": true,
+      "data": {
+        "allowAllergenFreeClaims": false,
+        "restrictedTopics": [],
+        "approvedStatements": []
+      }
+    },
+    {
+      "success": true,
+      "data": {
+        "allowAllergenFreeClaims": false,
+        "restrictedTopics": [],
+        "approvedStatements": []
+      }
+    },
+    {
+      "success": true,
+      "data": {
+        "allowAllergenFreeClaims": false,
+        "restrictedTopics": [],
+        "approvedStatements": []
+      }
+    },
+    {
+      "success": true,
+      "data": {
+        "allowAllergenFreeClaims": false,
+        "restrictedTopics": [],
+        "approvedStatements": []
+      }
+    },
+    {
+      "success": true,
+      "data": {
+        "allowAllergenFreeClaims": false,
+        "restrictedTopics": [],
+        "approvedStatements": []
+      }
+    },
+    {
+      "success": true,
+      "data": {
+        "allowAllergenFreeClaims": false,
+        "restrictedTopics": [],
+        "approvedStatements": []
+      }
+    },
+    {
+      "success": true,
+      "data": {
+        "allowAllergenFreeClaims": false,
+        "restrictedTopics": [],
+        "approvedStatements": []
+      }
+    }
+  ],
+  "messagingSchema": [
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Required"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Expected object, received null"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Expected object, received boolean"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Expected object, received number"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Expected object, received string"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Expected object, received string"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Expected object, received array"
+        }
+      ]
+    },
+    {
+      "success": true,
+      "data": {
+        "smsEnabled": false,
+        "missedCallRecoveryEnabled": false,
+        "maxFollowUps": 1,
+        "optOutKeywords": [
+          "STOP",
+          "UNSUBSCRIBE",
+          "CANCEL",
+          "END",
+          "QUIT"
+        ],
+        "emailEnabled": false
+      }
+    },
+    {
+      "success": true,
+      "data": {
+        "smsEnabled": false,
+        "missedCallRecoveryEnabled": false,
+        "maxFollowUps": 1,
+        "optOutKeywords": [
+          "STOP",
+          "UNSUBSCRIBE",
+          "CANCEL",
+          "END",
+          "QUIT"
+        ],
+        "emailEnabled": false
+      }
+    },
+    {
+      "success": true,
+      "data": {
+        "smsEnabled": false,
+        "missedCallRecoveryEnabled": false,
+        "maxFollowUps": 1,
+        "optOutKeywords": [
+          "STOP",
+          "UNSUBSCRIBE",
+          "CANCEL",
+          "END",
+          "QUIT"
+        ],
+        "emailEnabled": false
+      }
+    },
+    {
+      "success": true,
+      "data": {
+        "smsEnabled": false,
+        "missedCallRecoveryEnabled": false,
+        "maxFollowUps": 1,
+        "optOutKeywords": [
+          "STOP",
+          "UNSUBSCRIBE",
+          "CANCEL",
+          "END",
+          "QUIT"
+        ],
+        "emailEnabled": false
+      }
+    },
+    {
+      "success": true,
+      "data": {
+        "smsEnabled": false,
+        "missedCallRecoveryEnabled": false,
+        "maxFollowUps": 1,
+        "optOutKeywords": [
+          "STOP",
+          "UNSUBSCRIBE",
+          "CANCEL",
+          "END",
+          "QUIT"
+        ],
+        "emailEnabled": false
+      }
+    },
+    {
+      "success": true,
+      "data": {
+        "smsEnabled": false,
+        "missedCallRecoveryEnabled": false,
+        "maxFollowUps": 1,
+        "optOutKeywords": [
+          "STOP",
+          "UNSUBSCRIBE",
+          "CANCEL",
+          "END",
+          "QUIT"
+        ],
+        "emailEnabled": false
+      }
+    },
+    {
+      "success": true,
+      "data": {
+        "smsEnabled": false,
+        "missedCallRecoveryEnabled": false,
+        "maxFollowUps": 1,
+        "optOutKeywords": [
+          "STOP",
+          "UNSUBSCRIBE",
+          "CANCEL",
+          "END",
+          "QUIT"
+        ],
+        "emailEnabled": false
+      }
+    }
+  ],
+  "pilotSchema": [
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Required"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Expected object, received null"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Expected object, received boolean"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Expected object, received number"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Expected object, received string"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Expected object, received string"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Expected object, received array"
+        }
+      ]
+    },
+    {
+      "success": true,
+      "data": {
+        "escalationRota": []
+      }
+    },
+    {
+      "success": true,
+      "data": {
+        "escalationRota": []
+      }
+    },
+    {
+      "success": true,
+      "data": {
+        "escalationRota": []
+      }
+    },
+    {
+      "success": true,
+      "data": {
+        "escalationRota": []
+      }
+    },
+    {
+      "success": true,
+      "data": {
+        "escalationRota": []
+      }
+    },
+    {
+      "success": true,
+      "data": {
+        "escalationRota": []
+      }
+    },
+    {
+      "success": true,
+      "data": {
+        "escalationRota": []
+      }
+    }
+  ],
+  "tenantConfigSchema": [
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Required"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Expected object, received null"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Expected object, received boolean"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Expected object, received number"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Expected object, received string"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Expected object, received string"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Expected object, received array"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "restaurantName"
+          ],
+          "message": "Required"
+        }
+      ]
+    },
+    {
+      "success": true,
+      "data": {
+        "version": 1,
+        "restaurantName": "A Restaurant",
+        "locations": [],
+        "menu": {
+          "highlights": [],
+          "dietaryOptions": []
+        },
+        "reservations": {
+          "enabled": false
+        },
+        "takeout": {
+          "enabled": false
+        },
+        "delivery": {
+          "enabled": false
+        },
+        "catering": {
+          "enabled": false
+        },
+        "privateEvents": {
+          "enabled": false
+        },
+        "giftCards": {
+          "enabled": false
+        },
+        "employment": {
+          "enabled": false
+        },
+        "reviews": {
+          "enabled": false,
+          "channel": "SMS"
+        },
+        "faqs": [],
+        "escalationContacts": [],
+        "escalationRouting": {},
+        "brandVoice": {
+          "tone": "WARM_PROFESSIONAL",
+          "avoidPhrases": []
+        },
+        "promotions": [],
+        "thresholds": {
+          "largePartySize": 8,
+          "highPriorityPartySize": 12
+        },
+        "policies": {
+          "allowAllergenFreeClaims": false,
+          "restrictedTopics": [],
+          "approvedStatements": []
+        },
+        "messaging": {
+          "smsEnabled": false,
+          "missedCallRecoveryEnabled": false,
+          "maxFollowUps": 1,
+          "optOutKeywords": [
+            "STOP",
+            "UNSUBSCRIBE",
+            "CANCEL",
+            "END",
+            "QUIT"
+          ],
+          "emailEnabled": false
+        },
+        "pilot": {
+          "escalationRota": []
+        }
+      }
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "restaurantName"
+          ],
+          "message": "String must contain at least 1 character(s)"
+        }
+      ]
+    },
+    {
+      "success": true,
+      "data": {
+        "version": 1,
+        "restaurantName": "A",
+        "locations": [],
+        "menu": {
+          "highlights": [],
+          "dietaryOptions": []
+        },
+        "reservations": {
+          "enabled": false
+        },
+        "takeout": {
+          "enabled": false
+        },
+        "delivery": {
+          "enabled": false
+        },
+        "catering": {
+          "enabled": false
+        },
+        "privateEvents": {
+          "enabled": false
+        },
+        "giftCards": {
+          "enabled": false
+        },
+        "employment": {
+          "enabled": false
+        },
+        "reviews": {
+          "enabled": false,
+          "channel": "SMS"
+        },
+        "faqs": [],
+        "escalationContacts": [],
+        "escalationRouting": {},
+        "brandVoice": {
+          "tone": "WARM_PROFESSIONAL",
+          "avoidPhrases": []
+        },
+        "promotions": [],
+        "thresholds": {
+          "largePartySize": 8,
+          "highPriorityPartySize": 12
+        },
+        "policies": {
+          "allowAllergenFreeClaims": false,
+          "restrictedTopics": [],
+          "approvedStatements": []
+        },
+        "messaging": {
+          "smsEnabled": false,
+          "missedCallRecoveryEnabled": false,
+          "maxFollowUps": 1,
+          "optOutKeywords": [
+            "STOP",
+            "UNSUBSCRIBE",
+            "CANCEL",
+            "END",
+            "QUIT"
+          ],
+          "emailEnabled": false
+        },
+        "pilot": {
+          "escalationRota": []
+        }
+      }
+    },
+    {
+      "success": true,
+      "data": {
+        "version": 1,
+        "restaurantName": "A",
+        "locations": [],
+        "menu": {
+          "highlights": [],
+          "dietaryOptions": []
+        },
+        "reservations": {
+          "enabled": false
+        },
+        "takeout": {
+          "enabled": false
+        },
+        "delivery": {
+          "enabled": false
+        },
+        "catering": {
+          "enabled": false
+        },
+        "privateEvents": {
+          "enabled": false
+        },
+        "giftCards": {
+          "enabled": false
+        },
+        "employment": {
+          "enabled": false
+        },
+        "reviews": {
+          "enabled": false,
+          "channel": "SMS"
+        },
+        "faqs": [],
+        "escalationContacts": [],
+        "escalationRouting": {
+          "UNKNOWN": "manager"
+        },
+        "brandVoice": {
+          "tone": "WARM_PROFESSIONAL",
+          "avoidPhrases": []
+        },
+        "promotions": [],
+        "thresholds": {
+          "largePartySize": 8,
+          "highPriorityPartySize": 12
+        },
+        "policies": {
+          "allowAllergenFreeClaims": false,
+          "restrictedTopics": [],
+          "approvedStatements": []
+        },
+        "messaging": {
+          "smsEnabled": false,
+          "missedCallRecoveryEnabled": false,
+          "maxFollowUps": 1,
+          "optOutKeywords": [
+            "STOP",
+            "UNSUBSCRIBE",
+            "CANCEL",
+            "END",
+            "QUIT"
+          ],
+          "emailEnabled": false
+        },
+        "pilot": {
+          "escalationRota": []
+        }
+      }
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "restaurantName"
+          ],
+          "message": "Required"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "restaurantName"
+          ],
+          "message": "Required"
+        }
+      ]
+    }
+  ],
+  "marketingLeadSchema": [
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Required"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Expected object, received null"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Expected object, received boolean"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Expected object, received number"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Expected object, received string"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Expected object, received string"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Expected object, received array"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "name"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "email"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "message"
+          ],
+          "message": "Required"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "name"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "email"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "message"
+          ],
+          "message": "Required"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "name"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "email"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "message"
+          ],
+          "message": "Required"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "name"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "email"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "message"
+          ],
+          "message": "Required"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "name"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "email"
+          ],
+          "message": "Required"
+        },
+        {
+          "path": [
+            "message"
+          ],
+          "message": "Required"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "name"
+          ],
+          "message": "Enter your name"
+        },
+        {
+          "path": [
+            "email"
+          ],
+          "message": "Enter a valid email address"
+        },
+        {
+          "path": [
+            "message"
+          ],
+          "message": "Tell us what you need"
+        }
+      ]
+    },
+    {
+      "success": true,
+      "data": {
+        "name": "A",
+        "email": "a@example.com",
+        "message": "Help"
+      }
+    }
+  ]
+}

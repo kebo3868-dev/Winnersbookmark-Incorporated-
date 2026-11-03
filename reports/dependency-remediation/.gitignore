@@ -1,0 +1,11 @@
+# Rendered client payloads remain local; publish hashes and verification results.
+before/*.pdf
+before/*.html
+before/*-executive.json
+before/*-sales.json
+before/*-pdf.txt
+after/*.pdf
+after/*.html
+after/*-executive.json
+after/*-sales.json
+after/*-pdf.txt

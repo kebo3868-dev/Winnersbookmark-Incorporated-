@@ -1,0 +1,13 @@
+{
+  "exports": {
+    "types": {
+      "import": "./dist/index.d.mts",
+      "require": "./dist/index.d.cts"
+    },
+    "import": "./dist/index.mjs",
+    "require": "./dist/index.cjs"
+  },
+  "engines": {
+    "node": ">=16.9.0"
+  }
+}
