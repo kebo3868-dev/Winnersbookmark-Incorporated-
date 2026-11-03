@@ -49,7 +49,7 @@ vi.mock('next/headers', () => ({ headers: async () => ({ get: (k: string) => k =
 
 function save(name: string, value: string | Buffer) {
   fs.writeFileSync(path.join(folder, name), value);
-  if (phase === 'after') expect(value, name).toEqual(fs.readFileSync(path.resolve('../reports/dependency-remediation/before', name), typeof value === 'string' ? 'utf8' : undefined));
+  if (phase === 'after' || process.env.REPORT_REFERENCE_PHASE) expect(value, name).toEqual(fs.readFileSync(path.resolve('../reports/dependency-remediation', process.env.REPORT_REFERENCE_PHASE ?? 'before', name), typeof value === 'string' ? 'utf8' : undefined));
 }
 
 it('captures real loaders, report and Sales Brief HTML, PDF text and every PDF page raster; preserves both stored audits', async () => {

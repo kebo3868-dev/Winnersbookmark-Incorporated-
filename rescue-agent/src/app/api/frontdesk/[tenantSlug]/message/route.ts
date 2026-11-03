@@ -4,7 +4,8 @@ import { z } from '@/lib/validation/zod';
 import { prisma } from '@/lib/db';
 import { SCOPES } from '@/lib/frontdesk/auth/apiKey';
 import { authFailureMessage, authenticateTenantRequest } from '@/lib/frontdesk/auth/authenticate';
-import { findKeyByHash, recordAudit, touchApiKey } from '@/lib/frontdesk/auth/store';
+import { findKeyByHash, recordAudit, recordMessageDenial, touchApiKey } from '@/lib/frontdesk/auth/store';
+import { sourceThrottle } from '@/lib/frontdesk/security/throttle';
 import { retractAlertClaim, runTurn } from '@/lib/frontdesk/engine';
 import { enqueueEscalationNotifications } from '@/lib/frontdesk/notify/escalation';
 import {
@@ -45,6 +46,8 @@ const bodySchema = z.object({
 });
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ tenantSlug: string }> }) {
+  const refused = await sourceThrottle(request, 'message');
+  if (refused) return refused;
   const { tenantSlug } = await params;
 
   let raw: unknown;
@@ -75,16 +78,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   });
 
   if (!auth.ok) {
-    // Denials are always audited. A run of WRONG_TENANT entries is the signal
-    // that one client is probing another restaurant's endpoint.
-    await recordAudit({
-      tenantId: tenant.id,
-      event: 'MESSAGE_AUTH',
-      actor: 'UNKNOWN',
-      outcome: 'DENIED',
-      detail: auth.failure.reason,
-      requestId,
-    });
+    await recordMessageDenial(tenant.id, auth.failure.reason);
     return NextResponse.json(
       { error: authFailureMessage(auth.failure) },
       { status: auth.failure.status },

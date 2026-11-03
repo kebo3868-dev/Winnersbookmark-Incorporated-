@@ -503,9 +503,23 @@ model FdAuditLog {
   /// Request correlation id, for tracing across logs.
   requestId String?
   createdAt DateTime  @default(now())
+  /// Only rejected public message requests coalesce; existing events remain.
+  dedupeKey String?   @unique
+  attempts  Int       @default(1)
 
   @@index([tenantId, createdAt])
   @@index([event, createdAt])
+}
+
+/// Bounded request-admission counters, reused across windows. No raw IP/email.
+/// There are at most 65,536 slots per code-defined namespace/existing tenant.
+model FdSecurityBucket {
+  namespace   String
+  slot        Int
+  windowStart BigInt
+  count       Int
+
+  @@id([namespace, slot])
 }
 
 // ---------------------------------------------------------------------------

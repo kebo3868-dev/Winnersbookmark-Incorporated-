@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { prisma } from '@/lib/db';
+import { sourceThrottle } from '@/lib/frontdesk/security/throttle';
 import { applyDeliveryStatus, recordFailure } from '@/lib/frontdesk/notify/store';
 import { noteRejection, presentedAnyCredential } from '@/lib/frontdesk/security/rejections';
 import {
@@ -41,8 +42,12 @@ export const dynamic = 'force-dynamic';
 export async function POST(request: NextRequest) {
   // The RAW body is what was signed. Parsing first and re-serialising would
   // verify a different string than the provider signed.
-  const rawBody = await request.text();
   const provider = (process.env.SMS_PROVIDER || '').toLowerCase().trim();
+  if (presentedAnyCredential(request.headers, [provider === 'twilio' ? TWILIO_SIGNATURE_HEADER : SIGNATURE_HEADER])) {
+    const refused = await sourceThrottle(request, 'message');
+    if (refused) return refused;
+  }
+  const rawBody = await request.text();
 
   const outcome =
     provider === 'twilio'

@@ -1,4 +1,4 @@
-import { z, integerSchema } from '@/lib/validation/zod';
+import { z, integerSchema, historicalDatetime } from '@/lib/validation/zod';
 
 /**
  * LAYER 2 — CLIENT CONFIGURATION
@@ -235,7 +235,7 @@ export const pilotSchema = z.object({
    */
   escalationRota: z.array(z.string().min(1)).default([]),
   /** ISO timestamp of the restaurant owner's sign-off on this configuration. */
-  ownerVerifiedAt: z.string().datetime().optional(),
+  ownerVerifiedAt: historicalDatetime().optional(),
   /** Who signed off, for the audit trail. A name, not an account. */
   ownerVerifiedBy: z.string().max(200).optional(),
   /**
@@ -269,7 +269,7 @@ export const pilotSchema = z.object({
    * The platform still makes NO claim that 10DLC was approved. It records who
    * said so and when.
    */
-  telecomAttestedAt: z.string().datetime().optional(),
+  telecomAttestedAt: historicalDatetime().optional(),
   /** The platform administrator who certified it. An identity, not a role. */
   telecomAttestedBy: z.string().min(1).max(200).optional(),
   /**
@@ -292,7 +292,7 @@ export const pilotSchema = z.object({
    * is an attestation too.
    */
   failureReviewOwner: z.string().min(1).max(200).optional(),
-  failureReviewAttestedAt: z.string().datetime().optional(),
+  failureReviewAttestedAt: historicalDatetime().optional(),
 });
 
 export const tenantConfigSchema = z.object({

@@ -206,7 +206,7 @@ vi.mock('@/lib/frontdesk/security/rejections', () => ({
 vi.mock('@/lib/frontdesk/notify/store', () => ({
   recordFailure: async () => { calls.push('recordFailure'); },
 }));
-vi.mock('@/lib/db', () => ({ prisma: {} }));
+vi.mock('@/lib/db', () => ({ prisma: { $queryRaw: async () => [{ count: 1 }] } }));
 
 async function post(url: string, params: URLSearchParams, opts: { signature?: string | null; slug?: string } = {}) {
   const which = url === URL_SMS

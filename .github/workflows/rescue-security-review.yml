@@ -1,0 +1,98 @@
+name: Rescue security remediation verification
+on:
+  push:
+    branches: ['remediation/rescue-security-blockers-2026-11-03']
+    paths-ignore: ['reports/**']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    defaults:
+      run:
+        shell: bash
+        working-directory: rescue-agent
+    services:
+      postgres:
+        image: postgres:16-bookworm
+        env:
+          POSTGRES_PASSWORD: disposable-rescue-test
+          POSTGRES_DB: rescue_remediation
+        ports: ['5432:5432']
+        options: --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://postgres:disposable-rescue-test@127.0.0.1:5432/rescue_remediation
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: rescue-agent/package-lock.json
+      - name: Verify baseline ancestry and isolated build storage
+        run: |
+          mkdir -p .review
+          git fetch --no-tags origin 969740c2655b064399e0cb4b8d514e9112145c8d
+          git merge-base --is-ancestor 969740c2655b064399e0cb4b8d514e9112145c8d HEAD
+          df -h | tee .review/storage.txt
+          test "$(df -Pk . | awk 'NR==2 {print $4}')" -ge 12582912
+          docker info > .review/docker-info.txt
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test -- --maxWorkers=2 --testTimeout=30000
+      - run: npm audit --json > .review/audit-all.json
+      - run: npm audit --omit=dev --json > .review/audit-production.json
+      - run: npm run db:deploy
+      - run: npx prisma migrate diff --from-url "$DATABASE_URL" --to-schema-datamodel prisma/schema.prisma --exit-code
+      - run: npx vitest run --config tests-integration/security.config.mts
+      - name: Reproduce original blockers and compare rendered reports to exact baseline
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y poppler-utils
+          mkdir -p /tmp/rescue-baseline
+          git archive 969740c2655b064399e0cb4b8d514e9112145c8d | tar -x -C /tmp/rescue-baseline
+          ln -s "$PWD/node_modules" /tmp/rescue-baseline/rescue-agent/node_modules
+          ln -s "$PWD/node_modules" /tmp/rescue-baseline/reports/node_modules
+          RESCUE_BASELINE_SOURCE=/tmp/rescue-baseline/rescue-agent npx vitest run --config tests-integration/baseline.config.mts
+          (cd /tmp/rescue-baseline/rescue-agent && REPORT_PHASE=security-baseline node_modules/.bin/vitest run --config ../reports/dependency-remediation/verify.config.mts ../reports/dependency-remediation/preservation.test.ts)
+          ln -s "$PWD/node_modules" ../reports/node_modules
+          npm install --prefix /tmp/rescue-oracle zod3@npm:zod@3.25.76
+          REPORT_PHASE=security-final REPORT_REFERENCE_PHASE=/tmp/rescue-baseline/reports/dependency-remediation/security-baseline ZOD3_REFERENCE=/tmp/rescue-oracle/node_modules/zod3 npx vitest run --config ../reports/dependency-remediation/verify.config.mts
+      - run: npm run build
+      - name: Browser E2E against disposable database
+        run: |
+          npm install --prefix /tmp/rescue-browser @playwright/test@1.64.1
+          ln -s /tmp/rescue-browser/node_modules/@playwright node_modules/@playwright
+          /tmp/rescue-browser/node_modules/.bin/playwright install --with-deps chromium
+          export BASIC_AUTH_USER=operator BASIC_AUTH_PASSWORD=local-verification-operator-password FRONTDESK_TRUSTED_SOURCE_HEADER=x-test-source FRONTDESK_THROTTLE_SECRET=stable-disposable-verification-key-not-for-production
+          npm start > .review/server.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid"' EXIT
+          for attempt in $(seq 1 60); do curl -fsS http://localhost:3000/api/health && break || sleep 1; done
+          PW_CHROMIUM="$(find /home/runner/.cache/ms-playwright -path '*/chrome-linux64/chrome' -o -path '*/chrome-linux/chrome' | head -1)" E2E_USER="$BASIC_AUTH_USER" E2E_PASS="$BASIC_AUTH_PASSWORD" npm run test:e2e
+      - name: Build actual application and locked migrator images
+        run: |
+          docker build --progress=plain -t rescue-remediation:final . 2>&1 | tee .review/docker-build.log
+          docker build --progress=plain --target migrator -t rescue-remediation:migrator . 2>&1 | tee .review/docker-migrator-build.log
+          docker image inspect rescue-remediation:final rescue-remediation:migrator > .review/images.json
+      - name: Audit installed image packages and exercise native Sharp/Next AVIF
+        run: |
+          docker run --rm -i --entrypoint node rescue-remediation:final - /app < scripts/audit-runtime.mjs > .review/audit-image-app.json 2> .review/image-app-inventory.json
+          docker run --rm -i --entrypoint node rescue-remediation:migrator - /app/migrator < scripts/audit-runtime.mjs > .review/audit-image-migrator.json 2> .review/image-migrator-inventory.json
+          docker run --rm -i --entrypoint node rescue-remediation:final - /app < scripts/verify-standalone.mjs > .review/image-sharp.json
+          docker run --rm --add-host host.docker.internal:host-gateway --entrypoint /app/migrator/node_modules/.bin/prisma -e DATABASE_URL=postgresql://postgres:disposable-rescue-test@host.docker.internal:5432/rescue_remediation rescue-remediation:final migrate deploy --schema=/app/prisma/schema.prisma > .review/image-migrations.log
+      - name: Scan final application and migrator images (all OS and package findings)
+        run: |
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$PWD/.review:/reports" aquasec/trivy:0.67.2 image --format json --output /reports/trivy-app.json rescue-remediation:final
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$PWD/.review:/reports" aquasec/trivy:0.67.2 image --format json --output /reports/trivy-migrator.json rescue-remediation:migrator
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: rescue-security-verification-${{ github.sha }}
+          path: rescue-agent/.review/
+          retention-days: 7

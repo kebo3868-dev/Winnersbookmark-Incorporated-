@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { prisma } from '@/lib/db';
+import { sourceThrottle } from '@/lib/frontdesk/security/throttle';
 import { handleInboundSms } from '@/lib/frontdesk/messaging/inbound';
 import { claimInboundEvent } from '@/lib/frontdesk/messaging/store';
 import { parseTwilioInboundSms } from '@/lib/frontdesk/notify/twilio';
@@ -38,6 +39,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (!twilioCredentialPresented(request)) {
     return NextResponse.json({ error: 'INVALID WEBHOOK REQUEST' }, { status: 401 });
   }
+
+  const refused = await sourceThrottle(request, 'message');
+  if (refused) return refused;
 
   const rawBody = await request.text();
   const tenant = await getTenantBySlug(tenantSlug);

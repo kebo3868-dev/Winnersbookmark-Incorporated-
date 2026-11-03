@@ -32,3 +32,8 @@ out/
 
 # Review evidence for a release check: large binaries, deliberately not in git.
 rescue-agent/.review/
+
+# Local report comparison payloads; retain only hashes and logs in Git.
+reports/dependency-remediation/security-baseline/
+reports/dependency-remediation/security-final/
+reports/node_modules

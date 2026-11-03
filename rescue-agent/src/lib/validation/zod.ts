@@ -46,6 +46,15 @@ if ('config' in z) z.config({
 
 export { z };
 
+/** Zod 3's default datetime accepted UTC minutes, seconds and fractional
+ * seconds, but never fractional minutes or timezone offsets. Zod 4 requires
+ * seconds by default. Validate both historical forms without changing data.
+ */
+export const historicalDatetime = () => z.string().refine(
+  value => z.iso.datetime().safeParse(value).success || z.iso.datetime({ precision: -1 }).safeParse(value).success,
+  'Invalid datetime',
+);
+
 /** Preserve Zod 3's integer domain and non-aborting error order, including
  * integer-valued JS numbers above MAX_SAFE_INTEGER. Each schema's existing
  * min/max limits remain. Zod 4's collection protections remain in force.

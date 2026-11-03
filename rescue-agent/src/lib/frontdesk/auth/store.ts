@@ -1,6 +1,7 @@
 import type { Prisma, PrismaClient } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { generateApiKey, type StoredKey } from './apiKey';
+import { rejectionKey } from '../security/rejections';
 
 /**
  * Persistence for tenant credentials and the audit trail.
@@ -130,6 +131,23 @@ export async function recordAudit(entry: AuditEntry, db: Db = prisma): Promise<v
     });
   } catch (error) {
     console.error('[frontdesk] audit write failed', { event: entry.event, error });
+  }
+}
+
+/** Preserve tenant/reason security coverage without one row per anonymous
+ * request. Only counters on NEW denial summaries change; historical rows are
+ * never rewritten or deleted. Caller-controlled request ids are not retained.
+ */
+export async function recordMessageDenial(tenantId: string, reason: string, db: Db = prisma): Promise<void> {
+  const dedupeKey = rejectionKey({ tenantId, operation: 'message.auth', reason, now: new Date() });
+  try {
+    await db.fdAuditLog.upsert({
+      where: { dedupeKey },
+      create: { tenantId, event: 'MESSAGE_AUTH', actor: 'UNKNOWN', outcome: 'DENIED', detail: reason, dedupeKey },
+      update: { attempts: { increment: 1 } },
+    });
+  } catch {
+    console.error('[frontdesk] message denial audit unavailable');
   }
 }
 

@@ -21,11 +21,17 @@ test('demo audit → executive report → PDF → leads', async ({ page, request
   // 3. Executive report renders with Phase 3 sections.
   await page.goto(`/audits/${auditId}/report`);
   await expect(page.getByRole('heading', { name: 'RESTAURANT RESCUE AUDIT' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Executive Revenue Snapshot' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'What This Could Be Costing You' })).toBeVisible();
-  await expect(page.getByText('ILLUSTRATIVE SCENARIO').first()).toBeVisible();
+  // The demo mixes evidence classifications. reportHeadlines() deliberately
+  // uses Executive Snapshot; the optional calculator waits for owner inputs.
+  // Both behaviours are present on the independently verified baseline.
+  await expect(page.getByRole('heading', { name: 'Executive Snapshot', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Optional Scenario Calculator', exact: true })).toBeVisible();
+  await page.getByText('Open the calculator', { exact: true }).click();
+  await expect(page.getByText('Optional · your figures').first()).toBeVisible();
+  await expect(page.getByText(/Enter all .* figures to see a what-if/).first()).toBeVisible();
+  await expect(page.getByText('What-if, per month', { exact: true })).toHaveCount(0);
   // Owner-reported review data is surfaced (Phase 3), never scraped.
-  await expect(page.getByText(/owner-reported/i).first()).toBeVisible();
+  await expect(page.getByText(/Review and reputation platforms are not analyzed in this audit scope/)).toBeVisible();
 
   // 4. Executive PDF downloads with the right content type.
   const pdf = await request.get(`/api/audits/${auditId}/report/pdf`);
@@ -35,5 +41,6 @@ test('demo audit → executive report → PDF → leads', async ({ page, request
   // 5. Leads view shows the captured demo lead.
   await page.goto('/leads');
   await expect(page.getByRole('heading', { name: 'Leads' })).toBeVisible();
-  await expect(page.getByText('Sample Prospect (DEMO)').first()).toBeVisible();
+  const leadRow = page.getByRole('row').filter({ has: page.locator(`a[href="/audits/${auditId}"]`) });
+  await expect(leadRow.getByRole('cell', { name: /^Sample Prospect \(DEMO\)/ })).toBeVisible();
 });

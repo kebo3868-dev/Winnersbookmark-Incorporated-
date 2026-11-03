@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { z } from '@/lib/validation/zod';
 import { prisma } from '@/lib/db';
+import { sourceThrottle } from '@/lib/frontdesk/security/throttle';
 import { handleInboundSms } from '@/lib/frontdesk/messaging/inbound';
 import { handleMissedCall } from '@/lib/frontdesk/messaging/missedCall';
 import { claimInboundEvent } from '@/lib/frontdesk/messaging/store';
@@ -54,6 +55,9 @@ export async function POST(request: NextRequest) {
   if (!presentedAnyCredential(request.headers, [SIGNATURE_HEADER])) {
     return NextResponse.json({ error: 'INVALID WEBHOOK REQUEST' }, { status: 401 });
   }
+
+  const refused = await sourceThrottle(request, 'message');
+  if (refused) return refused;
 
   const rawBody = await request.text();
 
