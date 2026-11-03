@@ -24,9 +24,15 @@ RUN --mount=type=bind,from=deps,source=/app/node_modules,target=/app/node_module
 FROM base AS migrator
 WORKDIR /app/migrator
 COPY docker/migrator/package.json docker/migrator/package-lock.json ./
+# Package managers are build tools; the locked Prisma CLI runs directly with
+# Node. Keep vulnerable global npm/Corepack/Yarn out of both runtime targets.
 RUN --mount=type=secret,id=proxy_ca \
   if [ -f /run/secrets/proxy_ca ]; then export NODE_EXTRA_CA_CERTS=/run/secrets/proxy_ca; fi; \
-  npm ci --omit=dev
+  npm ci --omit=dev \
+  && rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack /opt/yarn-* \
+  && rm -f /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack /usr/local/bin/yarn /usr/local/bin/yarnpkg /usr/local/bin/pnpm /usr/local/bin/pnpx \
+  && chown -R nextjs:nodejs /app/migrator
+USER nextjs
 
 FROM base AS runner
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0
@@ -45,7 +51,9 @@ RUN --mount=type=bind,from=builder,source=/app,target=/build \
     && cp -a /locked-migrator/. /app/migrator/ \
     && cp /build/docker-entrypoint.sh /app/docker-entrypoint.sh \
     && chmod 755 /app/docker-entrypoint.sh \
-    && chown -R nextjs:nodejs /app
+    && chown -R nextjs:nodejs /app \
+    && rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack /opt/yarn-* \
+    && rm -f /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack /usr/local/bin/yarn /usr/local/bin/yarnpkg /usr/local/bin/pnpm /usr/local/bin/pnpx
 
 USER nextjs
 EXPOSE 3000

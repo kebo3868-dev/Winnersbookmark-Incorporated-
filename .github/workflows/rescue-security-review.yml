@@ -82,8 +82,13 @@ jobs:
           docker image inspect rescue-remediation:final rescue-remediation:migrator > .review/images.json
       - name: Audit installed image packages and exercise native Sharp/Next AVIF
         run: |
-          docker run --rm -i --entrypoint node rescue-remediation:final - /app < scripts/audit-runtime.mjs > .review/audit-image-app.json 2> .review/image-app-inventory.json
-          docker run --rm -i --entrypoint node rescue-remediation:migrator - /app/migrator < scripts/audit-runtime.mjs > .review/audit-image-migrator.json 2> .review/image-migrator-inventory.json
+          docker run --rm -i -e RUNTIME_AUDIT_EXPORT=1 --entrypoint node rescue-remediation:final - /app < scripts/audit-runtime.mjs > .review/image-app-closure.json 2> .review/image-app-inventory.json
+          docker run --rm -i -e RUNTIME_AUDIT_EXPORT=1 --entrypoint node rescue-remediation:migrator - /app/migrator < scripts/audit-runtime.mjs > .review/image-migrator-closure.json 2> .review/image-migrator-inventory.json
+          RUNTIME_AUDIT_IMPORT=1 node scripts/audit-runtime.mjs < .review/image-app-closure.json > .review/audit-image-app.json
+          RUNTIME_AUDIT_IMPORT=1 node scripts/audit-runtime.mjs < .review/image-migrator-closure.json > .review/audit-image-migrator.json
+          docker run --rm --entrypoint sh rescue-remediation:final -c '! command -v npm && ! command -v yarn && ! command -v corepack'
+          docker run --rm --entrypoint sh rescue-remediation:migrator -c '! command -v npm && ! command -v yarn && ! command -v corepack'
+          docker run --rm --entrypoint dpkg-query rescue-remediation:final -W '-f=${Package}\t${Version}\n' > .review/image-os-packages.tsv
           docker run --rm -i --entrypoint node rescue-remediation:final - /app < scripts/verify-standalone.mjs > .review/image-sharp.json
           docker run --rm --add-host host.docker.internal:host-gateway --entrypoint /app/migrator/node_modules/.bin/prisma -e DATABASE_URL=postgresql://postgres:disposable-rescue-test@host.docker.internal:5432/rescue_remediation rescue-remediation:final migrate deploy --schema=/app/prisma/schema.prisma > .review/image-migrations.log
           docker run --rm --add-host host.docker.internal:host-gateway --mount "type=bind,src=$PWD/prisma,dst=/schema,readonly" --entrypoint node -e DATABASE_URL=postgresql://postgres:disposable-rescue-test@host.docker.internal:5432/rescue_remediation rescue-remediation:migrator node_modules/prisma/build/index.js migrate deploy --schema=/schema/schema.prisma > .review/migrator-image-migrations.log
