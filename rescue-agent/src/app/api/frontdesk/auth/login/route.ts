@@ -74,26 +74,24 @@ export async function POST(request: NextRequest) {
   const check = await verifyCredentials(tenantId, email, password, prisma);
 
   if (!check.ok) {
-    if (tenantId) {
-      // Keyed on the IMMUTABLE user id, never on the address the caller typed.
-      //
-      // Keying on the email fragmented the counter: the account lookup trims
-      // and lowercases, so " Owner@x " and "owner@x" authenticate as the same
-      // user, and an attacker could vary whitespace to get a fresh counter for
-      // each variant — bypassing the lockout and creating unbounded rows. An
-      // id cannot be varied.
-      //
-      // Failures against an address with NO account all fold onto one shared
-      // subject, so the table is bounded by how many accounts the restaurant
-      // actually has rather than by what a caller sends. An unknown address is
-      // still counted rather than skipped, so every failed sign-in performs
-      // exactly one upsert and the endpoint cannot be timed to discover which
-      // accounts exist.
-      //
-      // The upsert-with-increment is atomic in the database, so concurrent
-      // failures cannot lose a count or race.
-      await recordLoginAttempt(tenantId, check.userId ?? UNKNOWN_ACCOUNT_SUBJECT, now, prisma);
-    }
+    // Keyed on the IMMUTABLE user id, never on the address the caller typed.
+    //
+    // Keying on the email fragmented the counter: the account lookup trims
+    // and lowercases, so " Owner@x " and "owner@x" authenticate as the same
+    // user, and an attacker could vary whitespace to get a fresh counter for
+    // each variant — bypassing the lockout and creating unbounded rows. An
+    // id cannot be varied.
+    //
+    // Failures against an address with NO account all fold onto one shared
+    // subject, so the table is bounded by how many accounts the restaurant
+    // actually has rather than by what a caller sends. An unknown address is
+    // still counted rather than skipped, so every failed sign-in performs
+    // exactly one upsert and the endpoint cannot be timed to discover which
+    // accounts exist.
+    //
+    // The upsert-with-increment is atomic in the database, so concurrent
+    // failures cannot lose a count or race.
+    await recordLoginAttempt(tenantId, check.userId ?? UNKNOWN_ACCOUNT_SUBJECT, now, prisma);
 
     // Coalesced, NOT one audit row per attempt. This route is reachable
     // without the operator credential by design — a sign-in page cannot sit
@@ -122,20 +120,20 @@ export async function POST(request: NextRequest) {
   // minting a session and then refusing would leave an orphan FdSession row
   // for every rejected attempt — an unbounded write, and a side effect that
   // distinguishes the correct-password path from a wrong guess.
-  if (tenantId) {
-    const attempts = await countLoginAttempts(tenantId, check.userId, now, prisma);
-    if (attempts >= LOGIN_ATTEMPTS_PER_HOUR) {
-      await noteRejection({
-        tenantId,
-        category: 'FAILED_INTEGRATION',
-        operation: 'auth.login',
-        reason: 'RATE_LIMITED',
-        detail: 'Sign-in for an account is locked out by the hourly failure limit',
-        credentialPresented: true,
-        now,
-      });
-      return NextResponse.json(GENERIC_FAILURE, { status: 401 });
-    }
+  // This policy applies equally to tenant accounts and platform administrators.
+  // A null tenant uses its own durable, non-null-keyed counter namespace.
+  const attempts = await countLoginAttempts(tenantId, check.userId, now, prisma);
+  if (attempts >= LOGIN_ATTEMPTS_PER_HOUR) {
+    await noteRejection({
+      tenantId,
+      category: 'FAILED_INTEGRATION',
+      operation: 'auth.login',
+      reason: 'RATE_LIMITED',
+      detail: 'Sign-in for an account is locked out by the hourly failure limit',
+      credentialPresented: true,
+      now,
+    });
+    return NextResponse.json(GENERIC_FAILURE, { status: 401 });
   }
 
   // Every refusal is behind us. Only now is anything written.

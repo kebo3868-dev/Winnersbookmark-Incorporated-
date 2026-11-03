@@ -1,0 +1,10 @@
+{
+  "tag": "wbi-rescue:independent-review-20261103",
+  "id": "sha256:77e1c487e5f5f8cc3904cce820e75cbdd3f4554795f9ee88dbcfa5e7a92986ff",
+  "user": "nextjs",
+  "bytes": 471037714,
+  "pushed": false,
+  "initialFreeDisk": "30 GB",
+  "finalFreeDisk": "19 GB",
+  "unrelatedDataDeleted": false
+}

@@ -188,11 +188,20 @@ export async function listConsents(tenantId: string, take = 50, db: Db = prisma)
  * login route now passes an immutable user id, which cannot be varied at all.
  */
 export async function countLoginAttempts(
-  tenantId: string,
+  tenantId: string | null,
   subject: string,
   now: Date,
   db: Db = prisma,
 ): Promise<number> {
+  // Administrators have no tenant. Never attach them to a restaurant or use
+  // a nullable compound key (PostgreSQL treats NULL keys as distinct).
+  if (tenantId === null) {
+    const row = await db.fdAdminLoginCounter.findUnique({
+      where: { subject_windowStart: { subject, windowStart: windowStart(now) } },
+      select: { count: true },
+    });
+    return row?.count ?? 0;
+  }
   const row = await db.fdRateCounter.findUnique({
     where: {
       tenantId_scope_subject_windowStart: {
@@ -208,12 +217,20 @@ export async function countLoginAttempts(
 }
 
 export async function recordLoginAttempt(
-  tenantId: string,
+  tenantId: string | null,
   subject: string,
   now: Date,
   db: Db = prisma,
 ): Promise<void> {
   const start = windowStart(now);
+  if (tenantId === null) {
+    await db.fdAdminLoginCounter.upsert({
+      where: { subject_windowStart: { subject, windowStart: start } },
+      create: { subject, windowStart: start, count: 1 },
+      update: { count: { increment: 1 } },
+    });
+    return;
+  }
   await db.fdRateCounter.upsert({
     where: {
       tenantId_scope_subject_windowStart: { tenantId, scope: 'LOGIN', subject, windowStart: start },

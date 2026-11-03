@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import current from '../../rescue-agent/tests/fixtures/leverocks-stored-audit.json';
@@ -15,7 +16,8 @@ let selected = current;
 const auth = `Basic ${Buffer.from('trial:local-trial-password-0001').toString('base64')}`;
 const hash = (v: string | Buffer) => crypto.createHash('sha256').update(v).digest('hex');
 const phase = process.env.REPORT_PHASE ?? 'before';
-const folder = path.resolve('../reports/dependency-remediation', phase);
+const evidenceRoot = path.dirname(fileURLToPath(import.meta.url));
+const folder = path.join(evidenceRoot, phase);
 fs.mkdirSync(folder, { recursive: true });
 function audit() {
   const s = structuredClone(selected);
@@ -49,7 +51,7 @@ vi.mock('next/headers', () => ({ headers: async () => ({ get: (k: string) => k =
 
 function save(name: string, value: string | Buffer) {
   fs.writeFileSync(path.join(folder, name), value);
-  if (phase === 'after') expect(value, name).toEqual(fs.readFileSync(path.resolve('../reports/dependency-remediation/before', name), typeof value === 'string' ? 'utf8' : undefined));
+  if (phase === 'after' || process.env.REPORT_COMPARE === '1') expect(value, name).toEqual(fs.readFileSync(path.join(evidenceRoot, process.env.REPORT_BASELINE_PHASE ?? 'before', name), typeof value === 'string' ? 'utf8' : undefined));
 }
 
 it('captures real loaders, report and Sales Brief HTML, PDF text and every PDF page raster; preserves both stored audits', async () => {

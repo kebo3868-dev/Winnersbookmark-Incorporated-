@@ -1,0 +1,66 @@
+Applying database migrations (prisma migrate deploy)...
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "review_image", schema "public" at "wbi-review-db-20261103:5432"
+
+15 migrations found in prisma/migrations
+
+Applying migration `20260711161744_init`
+Applying migration `20260723021034_phase3_intake_reviews_leads`
+Applying migration `20260807000000_front_desk_multi_tenant`
+Applying migration `20260807020000_front_desk_api_keys_audit`
+Applying migration `20260807030000_front_desk_notifications_failures`
+Applying migration `20260807040000_notification_worker_lease`
+Applying migration `20260807050000_inbound_messaging_consent`
+Applying migration `20260807060000_tenant_users_roles_sessions`
+Applying migration `20260807070000_escalation_contact_verification`
+Applying migration `20260807080000_bounded_rejection_records`
+Applying migration `20260823210000_reservation_booking_attempts`
+Applying migration `20260823220000_review_requests`
+Applying migration `20260824210000_review_request_purpose`
+Applying migration `20260905120000_marketing_leads`
+Applying migration `20261103220000_administrator_login_counters`
+
+The following migration(s) have been applied:
+
+migrations/
+  └─ 20260711161744_init/
+    └─ migration.sql
+  └─ 20260723021034_phase3_intake_reviews_leads/
+    └─ migration.sql
+  └─ 20260807000000_front_desk_multi_tenant/
+    └─ migration.sql
+  └─ 20260807020000_front_desk_api_keys_audit/
+    └─ migration.sql
+  └─ 20260807030000_front_desk_notifications_failures/
+    └─ migration.sql
+  └─ 20260807040000_notification_worker_lease/
+    └─ migration.sql
+  └─ 20260807050000_inbound_messaging_consent/
+    └─ migration.sql
+  └─ 20260807060000_tenant_users_roles_sessions/
+    └─ migration.sql
+  └─ 20260807070000_escalation_contact_verification/
+    └─ migration.sql
+  └─ 20260807080000_bounded_rejection_records/
+    └─ migration.sql
+  └─ 20260823210000_reservation_booking_attempts/
+    └─ migration.sql
+  └─ 20260823220000_review_requests/
+    └─ migration.sql
+  └─ 20260824210000_review_request_purpose/
+    └─ migration.sql
+  └─ 20260905120000_marketing_leads/
+    └─ migration.sql
+  └─ 20261103220000_administrator_login_counters/
+    └─ migration.sql
+
+All migrations have been successfully applied.
+Starting Restaurant Rescue Agent on port 3000...
+   ▲ Next.js 15.5.28
+   - Local:        http://localhost:3000
+   - Network:      http://0.0.0.0:3000
+
+ ✓ Starting...
+ ✓ Ready in 90ms
+(node:1) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)

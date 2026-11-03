@@ -731,6 +731,19 @@ model FdInboundEvent {
 
 /// Fixed-window send counters. Deliberately simple and inspectable: an
 /// operator can read exactly why a message was throttled.
+/// Platform sign-in failures: one row per immutable admin id (or the single
+/// unknown-account subject) per hour. Separate from tenant counters so NULL
+/// cannot bypass uniqueness and no restaurant owns administrator state.
+model FdAdminLoginCounter {
+  id          String   @id @default(cuid())
+  subject     String
+  windowStart DateTime
+  count       Int      @default(0)
+
+  @@unique([subject, windowStart])
+  @@index([windowStart])
+}
+
 model FdRateCounter {
   id          String   @id @default(cuid())
   tenantId    String

@@ -1,0 +1,828 @@
+
+> wbi-restaurant-rescue-agent@0.1.0 test
+> vitest run --maxWorkers=2 --testTimeout=30000 tests/frontdesk-unauth-writes.test.ts tests/frontdesk-timestamp-compatibility.test.ts
+
+
+ RUN  v4.1.12 /workspace/winnersbookmark/rescue-agent
+
+stderr | tests/frontdesk-timestamp-compatibility.test.ts > loads stored tenants using 2026-11-03T12:34Z without mutation or a false 404
+[frontdesk] tenant config rejected {
+  slug: 'stored-restaurant',
+  error: 'pilot.ownerVerifiedAt: Invalid datetime'
+}
+
+ ❯ tests/frontdesk-timestamp-compatibility.test.ts (56 tests | 7 failed) 59ms
+     × accepts and preserves 2026-11-03T12:34Z 13ms
+     × accepts and preserves 2024-02-29T00:00Z 1ms
+     × accepts and preserves 2026-11-03T12:34Z 1ms
+     × accepts and preserves 2024-02-29T00:00Z 4ms
+     × accepts and preserves 2026-11-03T12:34Z 1ms
+     × accepts and preserves 2024-02-29T00:00Z 0ms
+   × loads stored tenants using 2026-11-03T12:34Z without mutation or a false 404 9ms
+ ❯ tests/frontdesk-unauth-writes.test.ts (68 tests | 5 failed) 9787ms
+     × performs no writes for a concurrent burst without credentials 528ms
+     × coalesces forged credentials regardless of token or request-id variation 14ms
+     × counts whitespace and case variants under the immutable administrator id 216ms
+     × uses one shared subject for concurrent unknown administrator addresses 584ms
+     × refuses even the correct password at the ceiling without minting a session 81ms
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 12 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/frontdesk-timestamp-compatibility.test.ts > ownerVerifiedAt timestamp compatibility > accepts and preserves 2026-11-03T12:34Z
+ FAIL  tests/frontdesk-timestamp-compatibility.test.ts > ownerVerifiedAt timestamp compatibility > accepts and preserves 2024-02-29T00:00Z
+ZodError: [
+  {
+    "origin": "string",
+    "code": "invalid_format",
+    "format": "datetime",
+    "pattern": "/^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$/",
+    "path": [
+      "ownerVerifiedAt"
+    ],
+    "message": "Invalid datetime"
+  }
+]
+ ❯ tests/frontdesk-timestamp-compatibility.test.ts:10:24
+      8|   it.each(['2026-11-03T12:34Z', '2026-11-03T12:34:56Z', '2026-11-03T12…
+      9|     '2024-02-29T00:00Z'])('accepts and preserves %s', timestamp => {
+     10|     expect(pilotSchema.parse({ [field]: timestamp })[field]).toBe(time…
+       |                        ^
+     11|   });
+     12|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/12]⎯
+
+ FAIL  tests/frontdesk-timestamp-compatibility.test.ts > telecomAttestedAt timestamp compatibility > accepts and preserves 2026-11-03T12:34Z
+ FAIL  tests/frontdesk-timestamp-compatibility.test.ts > telecomAttestedAt timestamp compatibility > accepts and preserves 2024-02-29T00:00Z
+ZodError: [
+  {
+    "origin": "string",
+    "code": "invalid_format",
+    "format": "datetime",
+    "pattern": "/^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$/",
+    "path": [
+      "telecomAttestedAt"
+    ],
+    "message": "Invalid datetime"
+  }
+]
+ ❯ tests/frontdesk-timestamp-compatibility.test.ts:10:24
+      8|   it.each(['2026-11-03T12:34Z', '2026-11-03T12:34:56Z', '2026-11-03T12…
+      9|     '2024-02-29T00:00Z'])('accepts and preserves %s', timestamp => {
+     10|     expect(pilotSchema.parse({ [field]: timestamp })[field]).toBe(time…
+       |                        ^
+     11|   });
+     12|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/12]⎯
+
+ FAIL  tests/frontdesk-timestamp-compatibility.test.ts > failureReviewAttestedAt timestamp compatibility > accepts and preserves 2026-11-03T12:34Z
+ FAIL  tests/frontdesk-timestamp-compatibility.test.ts > failureReviewAttestedAt timestamp compatibility > accepts and preserves 2024-02-29T00:00Z
+ZodError: [
+  {
+    "origin": "string",
+    "code": "invalid_format",
+    "format": "datetime",
+    "pattern": "/^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$/",
+    "path": [
+      "failureReviewAttestedAt"
+    ],
+    "message": "Invalid datetime"
+  }
+]
+ ❯ tests/frontdesk-timestamp-compatibility.test.ts:10:24
+      8|   it.each(['2026-11-03T12:34Z', '2026-11-03T12:34:56Z', '2026-11-03T12…
+      9|     '2024-02-29T00:00Z'])('accepts and preserves %s', timestamp => {
+     10|     expect(pilotSchema.parse({ [field]: timestamp })[field]).toBe(time…
+       |                        ^
+     11|   });
+     12|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/12]⎯
+
+ FAIL  tests/frontdesk-timestamp-compatibility.test.ts > loads stored tenants using 2026-11-03T12:34Z without mutation or a false 404
+AssertionError: expected undefined to be 'stored-tenant' // Object.is equality
+
+- Expected:
+"stored-tenant"
+
++ Received:
+undefined
+
+ ❯ tests/frontdesk-timestamp-compatibility.test.ts:31:22
+     29|   const db = { fdTenant: { findUnique: async () => row, findMany: asyn…
+     30|   const loaded = await getTenantBySlug(row.slug, db as never);
+     31|   expect(loaded?.id).toBe(row.id);
+       |                      ^
+     32|   for (const field of fields) expect(loaded?.config.pilot[field]).toBe…
+     33|   expect(await listTenants(db as never)).toMatchObject({ tenants: [{ i…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/12]⎯
+
+ FAIL  tests/frontdesk-unauth-writes.test.ts > message denials cannot append unbounded audit rows > performs no writes for a concurrent burst without credentials
+AssertionError: fdAuditLog.create, fdAuditLog.create, fdAuditLog.create, fdAuditLog.create, fdAuditLog.create, fdAuditLog.create, fdAuditLog.create, fdAuditLog.create, fdAuditLog.create, fdAuditLog.create, fdAuditLog.create, fdAuditLog.create, fdAuditLog.create, fdAuditLog.create, fdAuditLog.create, fdAuditLog.create, fdAuditLog.create, fdAuditLog.create, fdAuditLog.create, fdAuditLog.create, fdAuditLog.create, fdAuditLog.create, fdAuditLog.create, fdAuditLog.create, fdAuditLog.create, fdAuditLog.create, fdAuditLog.create, fdAuditLog.create, fdAuditLog.create, fdAuditLog.create, fdAuditLog.create, fdAuditLog.create, fdAuditLog.create, fdAuditLog.create, fdAuditLog.create, fdAuditLog.create, fdAuditLog.create, fdAuditLog.create, fdAuditLog.create, fdAuditLog.create: expected [ Array(40) ] to deeply equal []
+
+- Expected
++ Received
+
+- []
++ [
++   {
++     "args": {
++       "data": {
++         "actor": "UNKNOWN",
++         "detail": "NO_ADMIN_CREDENTIALS",
++         "event": "MESSAGE_AUTH",
++         "keyId": null,
++         "outcome": "DENIED",
++         "requestId": "caller-controlled",
++         "tenantId": "tenant-1",
++       },
++     },
++     "method": "create",
++     "model": "fdAuditLog",
++   },
++   {
++     "args": {
++       "data": {
++         "actor": "UNKNOWN",
++         "detail": "NO_ADMIN_CREDENTIALS",
++         "event": "MESSAGE_AUTH",
++         "keyId": null,
++         "outcome": "DENIED",
++         "requestId": "caller-controlled",
++         "tenantId": "tenant-1",
++       },
++     },
++     "method": "create",
++     "model": "fdAuditLog",
++   },
++   {
++     "args": {
++       "data": {
++         "actor": "UNKNOWN",
++         "detail": "NO_ADMIN_CREDENTIALS",
++         "event": "MESSAGE_AUTH",
++         "keyId": null,
++         "outcome": "DENIED",
++         "requestId": "caller-controlled",
++         "tenantId": "tenant-1",
++       },
++     },
++     "method": "create",
++     "model": "fdAuditLog",
++   },
++   {
++     "args": {
++       "data": {
++         "actor": "UNKNOWN",
++         "detail": "NO_ADMIN_CREDENTIALS",
++         "event": "MESSAGE_AUTH",
++         "keyId": null,
++         "outcome": "DENIED",
++         "requestId": "caller-controlled",
++         "tenantId": "tenant-1",
++       },
++     },
++     "method": "create",
++     "model": "fdAuditLog",
++   },
++   {
++     "args": {
++       "data": {
++         "actor": "UNKNOWN",
++         "detail": "NO_ADMIN_CREDENTIALS",
++         "event": "MESSAGE_AUTH",
++         "keyId": null,
++         "outcome": "DENIED",
++         "requestId": "caller-controlled",
++         "tenantId": "tenant-1",
++       },
++     },
++     "method": "create",
++     "model": "fdAuditLog",
++   },
++   {
++     "args": {
++       "data": {
++         "actor": "UNKNOWN",
++         "detail": "NO_ADMIN_CREDENTIALS",
++         "event": "MESSAGE_AUTH",
++         "keyId": null,
++         "outcome": "DENIED",
++         "requestId": "caller-controlled",
++         "tenantId": "tenant-1",
++       },
++     },
++     "method": "create",
++     "model": "fdAuditLog",
++   },
++   {
++     "args": {
++       "data": {
++         "actor": "UNKNOWN",
++         "detail": "NO_ADMIN_CREDENTIALS",
++         "event": "MESSAGE_AUTH",
++         "keyId": null,
++         "outcome": "DENIED",
++         "requestId": "caller-controlled",
++         "tenantId": "tenant-1",
++       },
++     },
++     "method": "create",
++     "model": "fdAuditLog",
++   },
++   {
++     "args": {
++       "data": {
++         "actor": "UNKNOWN",
++         "detail": "NO_ADMIN_CREDENTIALS",
++         "event": "MESSAGE_AUTH",
++         "keyId": null,
++         "outcome": "DENIED",
++         "requestId": "caller-controlled",
++         "tenantId": "tenant-1",
++       },
++     },
++     "method": "create",
++     "model": "fdAuditLog",
++   },
++   {
++     "args": {
++       "data": {
++         "actor": "UNKNOWN",
++         "detail": "NO_ADMIN_CREDENTIALS",
++         "event": "MESSAGE_AUTH",
++         "keyId": null,
++         "outcome": "DENIED",
++         "requestId": "caller-controlled",
++         "tenantId": "tenant-1",
++       },
++     },
++     "method": "create",
++     "model": "fdAuditLog",
++   },
++   {
++     "args": {
++       "data": {
++         "actor": "UNKNOWN",
++         "detail": "NO_ADMIN_CREDENTIALS",
++         "event": "MESSAGE_AUTH",
++         "keyId": null,
++         "outcome": "DENIED",
++         "requestId": "caller-controlled",
++         "tenantId": "tenant-1",
++       },
++     },
++     "method": "create",
++     "model": "fdAuditLog",
++   },
++   {
++     "args": {
++       "data": {
++         "actor": "UNKNOWN",
++         "detail": "NO_ADMIN_CREDENTIALS",
++         "event": "MESSAGE_AUTH",
++         "keyId": null,
++         "outcome": "DENIED",
++         "requestId": "caller-controlled",
++         "tenantId": "tenant-1",
++       },
++     },
++     "method": "create",
++     "model": "fdAuditLog",
++   },
++   {
++     "args": {
++       "data": {
++         "actor": "UNKNOWN",
++         "detail": "NO_ADMIN_CREDENTIALS",
++         "event": "MESSAGE_AUTH",
++         "keyId": null,
++         "outcome": "DENIED",
++         "requestId": "caller-controlled",
++         "tenantId": "tenant-1",
++       },
++     },
++     "method": "create",
++     "model": "fdAuditLog",
++   },
++   {
++     "args": {
++       "data": {
++         "actor": "UNKNOWN",
++         "detail": "NO_ADMIN_CREDENTIALS",
++         "event": "MESSAGE_AUTH",
++         "keyId": null,
++         "outcome": "DENIED",
++         "requestId": "caller-controlled",
++         "tenantId": "tenant-1",
++       },
++     },
++     "method": "create",
++     "model": "fdAuditLog",
++   },
++   {
++     "args": {
++       "data": {
++         "actor": "UNKNOWN",
++         "detail": "NO_ADMIN_CREDENTIALS",
++         "event": "MESSAGE_AUTH",
++         "keyId": null,
++         "outcome": "DENIED",
++         "requestId": "caller-controlled",
++         "tenantId": "tenant-1",
++       },
++     },
++     "method": "create",
++     "model": "fdAuditLog",
++   },
++   {
++     "args": {
++       "data": {
++         "actor": "UNKNOWN",
++         "detail": "NO_ADMIN_CREDENTIALS",
++         "event": "MESSAGE_AUTH",
++         "keyId": null,
++         "outcome": "DENIED",
++         "requestId": "caller-controlled",
++         "tenantId": "tenant-1",
++       },
++     },
++     "method": "create",
++     "model": "fdAuditLog",
++   },
++   {
++     "args": {
++       "data": {
++         "actor": "UNKNOWN",
++         "detail": "NO_ADMIN_CREDENTIALS",
++         "event": "MESSAGE_AUTH",
++         "keyId": null,
++         "outcome": "DENIED",
++         "requestId": "caller-controlled",
++         "tenantId": "tenant-1",
++       },
++     },
++     "method": "create",
++     "model": "fdAuditLog",
++   },
++   {
++     "args": {
++       "data": {
++         "actor": "UNKNOWN",
++         "detail": "NO_ADMIN_CREDENTIALS",
++         "event": "MESSAGE_AUTH",
++         "keyId": null,
++         "outcome": "DENIED",
++         "requestId": "caller-controlled",
++         "tenantId": "tenant-1",
++       },
++     },
++     "method": "create",
++     "model": "fdAuditLog",
++   },
++   {
++     "args": {
++       "data": {
++         "actor": "UNKNOWN",
++         "detail": "NO_ADMIN_CREDENTIALS",
++         "event": "MESSAGE_AUTH",
++         "keyId": null,
++         "outcome": "DENIED",
++         "requestId": "caller-controlled",
++         "tenantId": "tenant-1",
++       },
++     },
++     "method": "create",
++     "model": "fdAuditLog",
++   },
++   {
++     "args": {
++       "data": {
++         "actor": "UNKNOWN",
++         "detail": "NO_ADMIN_CREDENTIALS",
++         "event": "MESSAGE_AUTH",
++         "keyId": null,
++         "outcome": "DENIED",
++         "requestId": "caller-controlled",
++         "tenantId": "tenant-1",
++       },
++     },
++     "method": "create",
++     "model": "fdAuditLog",
++   },
++   {
++     "args": {
++       "data": {
++         "actor": "UNKNOWN",
++         "detail": "NO_ADMIN_CREDENTIALS",
++         "event": "MESSAGE_AUTH",
++         "keyId": null,
++         "outcome": "DENIED",
++         "requestId": "caller-controlled",
++         "tenantId": "tenant-1",
++       },
++     },
++     "method": "create",
++     "model": "fdAuditLog",
++   },
++   {
++     "args": {
++       "data": {
++         "actor": "UNKNOWN",
++         "detail": "NO_ADMIN_CREDENTIALS",
++         "event": "MESSAGE_AUTH",
++         "keyId": null,
++         "outcome": "DENIED",
++         "requestId": "caller-controlled",
++         "tenantId": "tenant-1",
++       },
++     },
++     "method": "create",
++     "model": "fdAuditLog",
++   },
++   {
++     "args": {
++       "data": {
++         "actor": "UNKNOWN",
++         "detail": "NO_ADMIN_CREDENTIALS",
++         "event": "MESSAGE_AUTH",
++         "keyId": null,
++         "outcome": "DENIED",
++         "requestId": "caller-controlled",
++         "tenantId": "tenant-1",
++       },
++     },
++     "method": "create",
++     "model": "fdAuditLog",
++   },
++   {
++     "args": {
++       "data": {
++         "actor": "UNKNOWN",
++         "detail": "NO_ADMIN_CREDENTIALS",
++         "event": "MESSAGE_AUTH",
++         "keyId": null,
++         "outcome": "DENIED",
++         "requestId": "caller-controlled",
++         "tenantId": "tenant-1",
++       },
++     },
++     "method": "create",
++     "model": "fdAuditLog",
++   },
++   {
++     "args": {
++       "data": {
++         "actor": "UNKNOWN",
++         "detail": "NO_ADMIN_CREDENTIALS",
++         "event": "MESSAGE_AUTH",
++         "keyId": null,
++         "outcome": "DENIED",
++         "requestId": "caller-controlled",
++         "tenantId": "tenant-1",
++       },
++     },
++     "method": "create",
++     "model": "fdAuditLog",
++   },
++   {
++     "args": {
++       "data": {
++         "actor": "UNKNOWN",
++         "detail": "NO_ADMIN_CREDENTIALS",
++         "event": "MESSAGE_AUTH",
++         "keyId": null,
++         "outcome": "DENIED",
++         "requestId": "caller-controlled",
++         "tenantId": "tenant-1",
++       },
++     },
++     "method": "create",
++     "model": "fdAuditLog",
++   },
++   {
++     "args": {
++       "data": {
++         "actor": "UNKNOWN",
++         "detail": "NO_ADMIN_CREDENTIALS",
++         "event": "MESSAGE_AUTH",
++         "keyId": null,
++         "outcome": "DENIED",
++         "requestId": "caller-controlled",
++         "tenantId": "tenant-1",
++       },
++     },
++     "method": "create",
++     "model": "fdAuditLog",
++   },
++   {
++     "args": {
++       "data": {
++         "actor": "UNKNOWN",
++         "detail": "NO_ADMIN_CREDENTIALS",
++         "event": "MESSAGE_AUTH",
++         "keyId": null,
++         "outcome": "DENIED",
++         "requestId": "caller-controlled",
++         "tenantId": "tenant-1",
++       },
++     },
++     "method": "create",
++     "model": "fdAuditLog",
++   },
++   {
++     "args": {
++       "data": {
++         "actor": "UNKNOWN",
++         "detail": "NO_ADMIN_CREDENTIALS",
++         "event": "MESSAGE_AUTH",
++         "keyId": null,
++         "outcome": "DENIED",
++         "requestId": "caller-controlled",
++         "tenantId": "tenant-1",
++       },
++     },
++     "method": "create",
++     "model": "fdAuditLog",
++   },
++   {
++     "args": {
++       "data": {
++         "actor": "UNKNOWN",
++         "detail": "NO_ADMIN_CREDENTIALS",
++         "event": "MESSAGE_AUTH",
++         "keyId": null,
++         "outcome": "DENIED",
++         "requestId": "caller-controlled",
++         "tenantId": "tenant-1",
++       },
++     },
++     "method": "create",
++     "model": "fdAuditLog",
++   },
++   {
++     "args": {
++       "data": {
++         "actor": "UNKNOWN",
++         "detail": "NO_ADMIN_CREDENTIALS",
++         "event": "MESSAGE_AUTH",
++         "keyId": null,
++         "outcome": "DENIED",
++         "requestId": "caller-controlled",
++         "tenantId": "tenant-1",
++       },
++     },
++     "method": "create",
++     "model": "fdAuditLog",
++   },
++   {
++     "args": {
++       "data": {
++         "actor": "UNKNOWN",
++         "detail": "NO_ADMIN_CREDENTIALS",
++         "event": "MESSAGE_AUTH",
++         "keyId": null,
++         "outcome": "DENIED",
++         "requestId": "caller-controlled",
++         "tenantId": "tenant-1",
++       },
++     },
++     "method": "create",
++     "model": "fdAuditLog",
++   },
++   {
++     "args": {
++       "data": {
++         "actor": "UNKNOWN",
++         "detail": "NO_ADMIN_CREDENTIALS",
++         "event": "MESSAGE_AUTH",
++         "keyId": null,
++         "outcome": "DENIED",
++         "requestId": "caller-controlled",
++         "tenantId": "tenant-1",
++       },
++     },
++     "method": "create",
++     "model": "fdAuditLog",
++   },
++   {
++     "args": {
++       "data": {
++         "actor": "UNKNOWN",
++         "detail": "NO_ADMIN_CREDENTIALS",
++         "event": "MESSAGE_AUTH",
++         "keyId": null,
++         "outcome": "DENIED",
++         "requestId": "caller-controlled",
++         "tenantId": "tenant-1",
++       },
++     },
++     "method": "create",
++     "model": "fdAuditLog",
++   },
++   {
++     "args": {
++       "data": {
++         "actor": "UNKNOWN",
++         "detail": "NO_ADMIN_CREDENTIALS",
++         "event": "MESSAGE_AUTH",
++         "keyId": null,
++         "outcome": "DENIED",
++         "requestId": "caller-controlled",
++         "tenantId": "tenant-1",
++       },
++     },
++     "method": "create",
++     "model": "fdAuditLog",
++   },
++   {
++     "args": {
++       "data": {
++         "actor": "UNKNOWN",
++         "detail": "NO_ADMIN_CREDENTIALS",
++         "event": "MESSAGE_AUTH",
++         "keyId": null,
++         "outcome": "DENIED",
++         "requestId": "caller-controlled",
++         "tenantId": "tenant-1",
++       },
++     },
++     "method": "create",
++     "model": "fdAuditLog",
++   },
++   {
++     "args": {
++       "data": {
++         "actor": "UNKNOWN",
++         "detail": "NO_ADMIN_CREDENTIALS",
++         "event": "MESSAGE_AUTH",
++         "keyId": null,
++         "outcome": "DENIED",
++         "requestId": "caller-controlled",
++         "tenantId": "tenant-1",
++       },
++     },
++     "method": "create",
++     "model": "fdAuditLog",
++   },
++   {
++     "args": {
++       "data": {
++         "actor": "UNKNOWN",
++         "detail": "NO_ADMIN_CREDENTIALS",
++         "event": "MESSAGE_AUTH",
++         "keyId": null,
++         "outcome": "DENIED",
++         "requestId": "caller-controlled",
++         "tenantId": "tenant-1",
++       },
++     },
++     "method": "create",
++     "model": "fdAuditLog",
++   },
++   {
++     "args": {
++       "data": {
++         "actor": "UNKNOWN",
++         "detail": "NO_ADMIN_CREDENTIALS",
++         "event": "MESSAGE_AUTH",
++         "keyId": null,
++         "outcome": "DENIED",
++         "requestId": "caller-controlled",
++         "tenantId": "tenant-1",
++       },
++     },
++     "method": "create",
++     "model": "fdAuditLog",
++   },
++   {
++     "args": {
++       "data": {
++         "actor": "UNKNOWN",
++         "detail": "NO_ADMIN_CREDENTIALS",
++         "event": "MESSAGE_AUTH",
++         "keyId": null,
++         "outcome": "DENIED",
++         "requestId": "caller-controlled",
++         "tenantId": "tenant-1",
++       },
++     },
++     "method": "create",
++     "model": "fdAuditLog",
++   },
++   {
++     "args": {
++       "data": {
++         "actor": "UNKNOWN",
++         "detail": "NO_ADMIN_CREDENTIALS",
++         "event": "MESSAGE_AUTH",
++         "keyId": null,
++         "outcome": "DENIED",
++         "requestId": "caller-controlled",
++         "tenantId": "tenant-1",
++       },
++     },
++     "method": "create",
++     "model": "fdAuditLog",
++   },
++ ]
+
+ ❯ tests/frontdesk-unauth-writes.test.ts:178:40
+    176|     const responses = await Promise.all(Array.from({ length: 40 }, () …
+    177|     expect(responses.every(r => r.status === 401)).toBe(true);
+    178|     expect(writes(), describeWrites()).toEqual([]);
+       |                                        ^
+    179|   });
+    180|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/12]⎯
+
+ FAIL  tests/frontdesk-unauth-writes.test.ts > message denials cannot append unbounded audit rows > coalesces forged credentials regardless of token or request-id variation
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/frontdesk-unauth-writes.test.ts:186:83
+    184|     expect(responses.every(r => r.status === 401)).toBe(true);
+    185|     expect(writes()).toHaveLength(40);
+    186|     expect(writes().every(c => c.model === 'fdFailure' && c.method ===…
+       |                                                                                   ^
+    187|     const args = writes().map(c => c.args as {
+    188|       where: { dedupeKey: string }; update: unknown; create: { tenantI…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/12]⎯
+
+ FAIL  tests/frontdesk-unauth-writes.test.ts > administrator login has the same account lockout as tenant login > counts whitespace and case variants under the immutable administrator id
+AssertionError: expected [] to have a length of 3 but got +0
+
+- Expected
++ Received
+
+- 3
++ 0
+
+ ❯ tests/frontdesk-unauth-writes.test.ts:217:22
+    215|     }
+    216|     const counters = calls.filter(c => c.model === 'fdAdminLoginCounte…
+    217|     expect(counters).toHaveLength(3);
+       |                      ^
+    218|     for (const call of counters) {
+    219|       expect(call.args).toMatchObject({
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/12]⎯
+
+ FAIL  tests/frontdesk-unauth-writes.test.ts > administrator login has the same account lockout as tenant login > uses one shared subject for concurrent unknown administrator addresses
+AssertionError: expected [] to have a length of 25 but got +0
+
+- Expected
++ Received
+
+- 25
++ 0
+
+ ❯ tests/frontdesk-unauth-writes.test.ts:230:22
+    228|     await Promise.all(Array.from({ length: 25 }, (_, i) => signIn(`unk…
+    229|     const counters = calls.filter(c => c.model === 'fdAdminLoginCounte…
+    230|     expect(counters).toHaveLength(25);
+       |                      ^
+    231|     expect(new Set(counters.map(c => JSON.stringify((c.args as { where…
+    232|     expect(counters[0].args).toMatchObject({ create: { subject: '__unk…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/12]⎯
+
+ FAIL  tests/frontdesk-unauth-writes.test.ts > administrator login has the same account lockout as tenant login > refuses even the correct password at the ceiling without minting a session
+AssertionError: expected 200 to be 401 // Object.is equality
+
+- Expected
++ Received
+
+- 401
++ 200
+
+ ❯ tests/frontdesk-unauth-writes.test.ts:240:29
+    238|     canned.set('fdAdminLoginCounter.findUnique', { count: 10 });
+    239|     const response = await signIn('admin@x.invalid', 'administrator-pa…
+    240|     expect(response.status).toBe(401);
+       |                             ^
+    241|     expect(await response.json()).toEqual({ error: 'INVALID EMAIL OR P…
+    242|     expect(response.headers.get('set-cookie')).toBeNull();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/12]⎯
+
+
+ Test Files  2 failed (2)
+      Tests  12 failed | 112 passed (124)
+   Start at  21:09:25
+   Duration  10.35s (transform 833ms, setup 0ms, import 579ms, tests 9.85s, environment 0ms)
+
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.1
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.1
+npm notice To update run: npm install -g npm@12.2.1
+npm notice

@@ -228,6 +228,17 @@ export const messagingSchema = z.object({
  * existence — an absent rota must read as "nobody decided yet", not as an
  * empty one that quietly passes.
  */
+// Zod 3 accepted minute precision; Zod 4's default datetime requires seconds.
+// Validate a seconds-expanded copy through the strict calendar/time validator,
+// while retaining the original stored value and UTC-only contract. Do not use
+// Date.parse: it normalizes invalid dates and accepts unrelated formats.
+const attestationTimestamp = z.string().refine(value => {
+  const expanded = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}Z$/.test(value)
+    ? value.slice(0, -1) + ':00Z'
+    : value;
+  return z.iso.datetime().safeParse(expanded).success;
+}, 'Invalid datetime');
+
 export const pilotSchema = z.object({
   /**
    * Escalation contact keys, in the order a CRITICAL alert tries them.
@@ -235,7 +246,7 @@ export const pilotSchema = z.object({
    */
   escalationRota: z.array(z.string().min(1)).default([]),
   /** ISO timestamp of the restaurant owner's sign-off on this configuration. */
-  ownerVerifiedAt: z.string().datetime().optional(),
+  ownerVerifiedAt: attestationTimestamp.optional(),
   /** Who signed off, for the audit trail. A name, not an account. */
   ownerVerifiedBy: z.string().max(200).optional(),
   /**
@@ -269,7 +280,7 @@ export const pilotSchema = z.object({
    * The platform still makes NO claim that 10DLC was approved. It records who
    * said so and when.
    */
-  telecomAttestedAt: z.string().datetime().optional(),
+  telecomAttestedAt: attestationTimestamp.optional(),
   /** The platform administrator who certified it. An identity, not a role. */
   telecomAttestedBy: z.string().min(1).max(200).optional(),
   /**
@@ -292,7 +303,7 @@ export const pilotSchema = z.object({
    * is an attestation too.
    */
   failureReviewOwner: z.string().min(1).max(200).optional(),
-  failureReviewAttestedAt: z.string().datetime().optional(),
+  failureReviewAttestedAt: attestationTimestamp.optional(),
 });
 
 export const tenantConfigSchema = z.object({

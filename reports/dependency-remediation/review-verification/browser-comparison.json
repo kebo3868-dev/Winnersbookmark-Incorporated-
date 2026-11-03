@@ -1,0 +1,132 @@
+[
+  {
+    "name": "current-report-1280.png",
+    "size": [
+      1280,
+      13434
+    ],
+    "beforeAfter": {
+      "paintedPixels": 0,
+      "bounds": null
+    },
+    "baselineRepeat": {
+      "paintedPixels": 0,
+      "bounds": null
+    }
+  },
+  {
+    "name": "current-report-360.png",
+    "size": [
+      360,
+      20998
+    ],
+    "beforeAfter": {
+      "paintedPixels": 0,
+      "bounds": null
+    },
+    "baselineRepeat": {
+      "paintedPixels": 0,
+      "bounds": null
+    }
+  },
+  {
+    "name": "current-sales-1280.png",
+    "size": [
+      1280,
+      2708
+    ],
+    "beforeAfter": {
+      "paintedPixels": 0,
+      "bounds": null
+    },
+    "baselineRepeat": {
+      "paintedPixels": 0,
+      "bounds": null
+    }
+  },
+  {
+    "name": "current-sales-360.png",
+    "size": [
+      360,
+      3900
+    ],
+    "beforeAfter": {
+      "paintedPixels": 0,
+      "bounds": null
+    },
+    "baselineRepeat": {
+      "paintedPixels": 0,
+      "bounds": null
+    }
+  },
+  {
+    "name": "historical-report-1280.png",
+    "size": [
+      1280,
+      12760
+    ],
+    "beforeAfter": {
+      "paintedPixels": 0,
+      "bounds": null
+    },
+    "baselineRepeat": {
+      "paintedPixels": 88,
+      "bounds": [
+        596,
+        11362,
+        683,
+        11365
+      ]
+    }
+  },
+  {
+    "name": "historical-report-360.png",
+    "size": [
+      360,
+      19813
+    ],
+    "beforeAfter": {
+      "paintedPixels": 0,
+      "bounds": null
+    },
+    "baselineRepeat": {
+      "paintedPixels": 0,
+      "bounds": null
+    }
+  },
+  {
+    "name": "historical-sales-1280.png",
+    "size": [
+      1280,
+      2609
+    ],
+    "beforeAfter": {
+      "paintedPixels": 0,
+      "bounds": null
+    },
+    "baselineRepeat": {
+      "paintedPixels": 0,
+      "bounds": null
+    }
+  },
+  {
+    "name": "historical-sales-360.png",
+    "size": [
+      360,
+      3599
+    ],
+    "beforeAfter": {
+      "paintedPixels": 16,
+      "bounds": [
+        358,
+        271,
+        360,
+        437
+      ]
+    },
+    "baselineRepeat": {
+      "paintedPixels": 0,
+      "bounds": null
+    }
+  }
+]

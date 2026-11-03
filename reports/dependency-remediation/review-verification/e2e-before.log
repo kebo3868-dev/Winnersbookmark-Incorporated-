@@ -1,0 +1,35 @@
+
+Running 1 test using 1 worker
+
+(node:3479) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  1 [chromium] › tests-e2e/audit-flow.spec.ts:10:5 › demo audit → executive report → PDF → leads (7.6s)
+
+
+  1) [chromium] › tests-e2e/audit-flow.spec.ts:10:5 › demo audit → executive report → PDF → leads ──
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByRole('heading', { name: 'Executive Revenue Snapshot' })
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" getByRole('heading', { name: 'Executive Revenue Snapshot' }) with timeout 5000ms
+      - waiting for getByRole('heading', { name: 'Executive Revenue Snapshot' })
+
+
+      22 |   await page.goto(`/audits/${auditId}/report`);
+      23 |   await expect(page.getByRole('heading', { name: 'RESTAURANT RESCUE AUDIT' })).toBeVisible();
+    > 24 |   await expect(page.getByRole('heading', { name: 'Executive Revenue Snapshot' })).toBeVisible();
+         |                                                                                   ^
+      25 |   await expect(page.getByRole('heading', { name: 'What This Could Be Costing You' })).toBeVisible();
+      26 |   await expect(page.getByText('ILLUSTRATIVE SCENARIO').first()).toBeVisible();
+      27 |   // Owner-reported review data is surfaced (Phase 3), never scraped.
+        at /workspace/winnersbookmark/rescue-agent/tests-e2e/audit-flow.spec.ts:24:83
+
+    Error Context: test-results/audit-flow-demo-audit-→-executive-report-→-PDF-→-leads-chromium/error-context.md
+
+  1 failed
+    [chromium] › tests-e2e/audit-flow.spec.ts:10:5 › demo audit → executive report → PDF → leads ───

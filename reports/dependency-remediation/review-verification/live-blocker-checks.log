@@ -1,0 +1,4 @@
+PASS: 40 unsigned requests write nothing; 40 concurrent varied forged keys produce one failure row with count 40, no audit rows. Minute-precision tenant resolves, without 404.
+PASS: authenticated message succeeds and remains audited; tenant key cannot reach another tenant.
+PASS: admin lockout at 10 failures, canonical account key, no refused session, unrelated admin unaffected; 25 concurrent unknown addresses share one durable counter.
+PASS: identical tenant lockout policy, no refused session, same email at another tenant remains isolated.

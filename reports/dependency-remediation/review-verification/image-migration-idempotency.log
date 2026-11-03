@@ -1,0 +1,7 @@
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "review_image", schema "public" at "wbi-review-db-20261103:5432"
+
+15 migrations found in prisma/migrations
+
+
+No pending migrations to apply.

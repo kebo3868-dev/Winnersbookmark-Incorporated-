@@ -156,6 +156,103 @@ afterEach(() => {
 const post = (url: string, body: string, headers: Record<string, string> = {}) =>
   new Request(url, { method: 'POST', body, headers: { 'content-type': 'application/json', ...headers } });
 
+describe('message denials cannot append unbounded audit rows', () => {
+  beforeEach(() => {
+    canned.set('fdTenant.findUnique', {
+      id: 'tenant-1', slug: 'a-restaurant', name: 'A Restaurant',
+      status: 'ACTIVE', demoMode: false, config: demoTenantConfig,
+    });
+  });
+
+  async function message(authorization?: string, requestId = 'caller-controlled') {
+    const { POST } = await import('@/app/api/frontdesk/[tenantSlug]/message/route');
+    return POST(post('https://x.invalid/api/frontdesk/a-restaurant/message',
+      JSON.stringify({ message: 'hello' }), {
+        ...(authorization ? { authorization } : {}), 'x-request-id': requestId,
+      }) as never, { params: Promise.resolve({ tenantSlug: 'a-restaurant' }) });
+  }
+
+  it('performs no writes for a concurrent burst without credentials', async () => {
+    const responses = await Promise.all(Array.from({ length: 40 }, () => message()));
+    expect(responses.every(r => r.status === 401)).toBe(true);
+    expect(writes(), describeWrites()).toEqual([]);
+  });
+
+  it('coalesces forged credentials regardless of token or request-id variation', async () => {
+    const responses = await Promise.all(Array.from({ length: 40 }, (_, i) =>
+      message(`Bearer forged-${i}`, `request-${i}`)));
+    expect(responses.every(r => r.status === 401)).toBe(true);
+    expect(writes()).toHaveLength(40);
+    expect(writes().every(c => c.model === 'fdFailure' && c.method === 'upsert')).toBe(true);
+    const args = writes().map(c => c.args as {
+      where: { dedupeKey: string }; update: unknown; create: { tenantId: string };
+    });
+    expect(new Set(args.map(a => a.where.dedupeKey)).size).toBe(1);
+    expect(args.every(a => a.create.tenantId === 'tenant-1')).toBe(true);
+    expect(args.every(a => JSON.stringify(a.update) === JSON.stringify({ attempts: { increment: 1 } }))).toBe(true);
+    expect(JSON.stringify(writes())).not.toMatch(/forged-|caller-controlled|request-\d/);
+  });
+});
+
+describe('administrator login has the same account lockout as tenant login', () => {
+  const signIn = async (email: string, password: string) => {
+    const { POST } = await import('@/app/api/frontdesk/auth/login/route');
+    return POST(post('https://x.invalid/api/frontdesk/auth/login', JSON.stringify({ email, password })) as never);
+  };
+
+  async function administrator() {
+    const { hashPassword } = await import('@/lib/frontdesk/auth/password');
+    canned.set('fdUser.findFirst', {
+      id: 'admin-1', tenantId: null, role: 'WBI_ADMIN', status: 'ACTIVE',
+      passwordHash: await hashPassword('administrator-password'),
+    });
+  }
+
+  it('counts whitespace and case variants under the immutable administrator id', async () => {
+    await administrator();
+    for (const email of ['admin@x.invalid', ' ADMIN@x.invalid ', 'admin@X.invalid']) {
+      expect((await signIn(email, 'wrong')).status).toBe(401);
+    }
+    const counters = calls.filter(c => c.model === 'fdAdminLoginCounter' && c.method === 'upsert');
+    expect(counters).toHaveLength(3);
+    for (const call of counters) {
+      expect(call.args).toMatchObject({
+        where: { subject_windowStart: { subject: 'admin-1' } },
+        update: { count: { increment: 1 } },
+      });
+    }
+    expect(calls.some(c => c.model === 'fdRateCounter')).toBe(false);
+  });
+
+  it('uses one shared subject for concurrent unknown administrator addresses', async () => {
+    await Promise.all(Array.from({ length: 25 }, (_, i) => signIn(`unknown${i}@x.invalid`, 'wrong')));
+    const counters = calls.filter(c => c.model === 'fdAdminLoginCounter' && c.method === 'upsert');
+    expect(counters).toHaveLength(25);
+    expect(new Set(counters.map(c => JSON.stringify((c.args as { where: unknown }).where))).size).toBe(1);
+    expect(counters[0].args).toMatchObject({ create: { subject: '__unknown_account__' } });
+    expect(calls.some(c => c.model === 'fdSession')).toBe(false);
+  });
+
+  it('refuses even the correct password at the ceiling without minting a session', async () => {
+    await administrator();
+    canned.set('fdAdminLoginCounter.findUnique', { count: 10 });
+    const response = await signIn('admin@x.invalid', 'administrator-password');
+    expect(response.status).toBe(401);
+    expect(await response.json()).toEqual({ error: 'INVALID EMAIL OR PASSWORD' });
+    expect(response.headers.get('set-cookie')).toBeNull();
+    expect(calls.some(c => c.model === 'fdSession' || (c.model === 'fdUser' && c.method === 'update'))).toBe(false);
+  });
+
+  it('permits a correct password below the ceiling and after the hourly window resets', async () => {
+    await administrator();
+    for (const count of [9, 0]) {
+      canned.set('fdAdminLoginCounter.findUnique', { count });
+      expect((await signIn('admin@x.invalid', 'administrator-password')).status).toBe(200);
+    }
+    expect(calls.filter(c => c.model === 'fdSession' && c.method === 'create')).toHaveLength(2);
+  });
+});
+
 // ===========================================================================
 // 1. THE VULNERABILITY, ROUTE BY ROUTE
 // ===========================================================================

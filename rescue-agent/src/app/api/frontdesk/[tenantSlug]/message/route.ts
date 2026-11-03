@@ -5,6 +5,7 @@ import { prisma } from '@/lib/db';
 import { SCOPES } from '@/lib/frontdesk/auth/apiKey';
 import { authFailureMessage, authenticateTenantRequest } from '@/lib/frontdesk/auth/authenticate';
 import { findKeyByHash, recordAudit, touchApiKey } from '@/lib/frontdesk/auth/store';
+import { noteRejection, presentedAnyCredential } from '@/lib/frontdesk/security/rejections';
 import { retractAlertClaim, runTurn } from '@/lib/frontdesk/engine';
 import { enqueueEscalationNotifications } from '@/lib/frontdesk/notify/escalation';
 import {
@@ -75,15 +76,17 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   });
 
   if (!auth.ok) {
-    // Denials are always audited. A run of WRONG_TENANT entries is the signal
-    // that one client is probing another restaurant's endpoint.
-    await recordAudit({
+    // A rejected public request must never append one row per attempt.
+    // Preserve the operator signal (including WRONG_TENANT probes) in one
+    // atomic counter per tenant/reason/hour. Caller-controlled tokens and
+    // request ids cannot fragment it. No credential means no write at all.
+    await noteRejection({
       tenantId: tenant.id,
-      event: 'MESSAGE_AUTH',
-      actor: 'UNKNOWN',
-      outcome: 'DENIED',
-      detail: auth.failure.reason,
-      requestId,
+      category: 'FAILED_INTEGRATION',
+      operation: 'message.auth',
+      reason: auth.failure.reason,
+      detail: 'Front Desk message authentication failed',
+      credentialPresented: presentedAnyCredential(request.headers, ['authorization']),
     });
     return NextResponse.json(
       { error: authFailureMessage(auth.failure) },

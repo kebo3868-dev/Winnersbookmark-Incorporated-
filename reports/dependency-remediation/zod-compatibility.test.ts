@@ -22,7 +22,9 @@ const normalize = (result: any) => result.success ? { success: true, data: resul
 it('compares defaults, acceptance, paths and exact messages against the original Zod 3 schemas', () => {
   const values: unknown[] = [undefined, null, true, false, [], {}, 0, -1, 1, 1.5, 2, 4, 100, 1e30,
     '', 'a', 'abc', 'x'.repeat(321), 'America/New_York', 'Not/AZone', '23:59', '25:00',
-    '2026-11-03', '2026-11-03T12:00:00Z', '2026-11-03T12:00:00+01:00',
+    '2026-11-03', '2026-11-03T12:00Z', '2026-11-03T12:00:00Z', '2026-11-03T12:00:00.123Z',
+    '2024-02-29T00:00Z', '2026-02-29T00:00Z', '2026-11-03T24:00Z', '2026-11-03T12:60Z',
+    '2026-11-03T12:00', '2026-11-03T12:00:00+01:00',
     'a@example.com', "a'b@example.com", 'a..b@example.com', 'a@b.c', 'https://example.com',
     'mailto:a@example.com', 'SMS', 'EMAIL', 'WARM_PROFESSIONAL', ['STOP'], { restaurantName: 'A' }];
   let comparisons = 0;
@@ -41,6 +43,8 @@ it('compares defaults, acceptance, paths and exact messages against the original
     check(name, before, after);
     if (before.shape) for (const field of Object.keys(before.shape)) check(`${name}.${field}`, before.shape[field], after.shape[field]);
   }
-  fs.writeFileSync('../reports/dependency-remediation/after/zod-compatibility.json', JSON.stringify({ comparisons, differences }, null, 2) + '\n');
+  const folder = new URL(`./${process.env.REPORT_PHASE ?? 'after'}/`, import.meta.url);
+  fs.mkdirSync(folder, { recursive: true });
+  fs.writeFileSync(new URL('zod-compatibility.json', folder), JSON.stringify({ comparisons, differences }, null, 2) + '\n');
   expect(differences).toEqual([]);
 });
