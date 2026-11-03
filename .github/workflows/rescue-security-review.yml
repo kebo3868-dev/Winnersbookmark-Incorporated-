@@ -55,7 +55,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y poppler-utils
           mkdir -p /tmp/rescue-baseline
-          git archive 969740c2655b064399e0cb4b8d514e9112145c8d | tar -x -C /tmp/rescue-baseline
+          git -C .. archive 969740c2655b064399e0cb4b8d514e9112145c8d | tar -x -C /tmp/rescue-baseline
           ln -s "$PWD/node_modules" /tmp/rescue-baseline/rescue-agent/node_modules
           ln -s "$PWD/node_modules" /tmp/rescue-baseline/reports/node_modules
           RESCUE_BASELINE_SOURCE=/tmp/rescue-baseline/rescue-agent npx vitest run --config tests-integration/baseline.config.mts
@@ -95,4 +95,5 @@ jobs:
         with:
           name: rescue-security-verification-${{ github.sha }}
           path: rescue-agent/.review/
+          include-hidden-files: true
           retention-days: 7

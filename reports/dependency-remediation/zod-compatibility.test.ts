@@ -43,6 +43,8 @@ it('compares defaults, acceptance, paths and exact messages against the original
     check(name, before, after);
     if (before.shape) for (const field of Object.keys(before.shape)) check(`${name}.${field}`, before.shape[field], after.shape[field]);
   }
-  fs.writeFileSync(`../reports/dependency-remediation/${process.env.REPORT_PHASE ?? 'after'}/zod-compatibility.json`, JSON.stringify({ comparisons, differences }, null, 2) + '\n');
+  const folder = `../reports/dependency-remediation/${process.env.REPORT_PHASE ?? 'after'}`;
+  fs.mkdirSync(folder, { recursive: true });
+  fs.writeFileSync(`${folder}/zod-compatibility.json`, JSON.stringify({ comparisons, differences }, null, 2) + '\n');
   expect(differences).toEqual([]);
 });
