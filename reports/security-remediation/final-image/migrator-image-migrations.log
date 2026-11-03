@@ -1,0 +1,7 @@
+Prisma schema loaded from ../../schema/schema.prisma
+Datasource "db": PostgreSQL database "rescue_remediation", schema "public" at "host.docker.internal:5432"
+
+15 migrations found in prisma/migrations
+
+
+No pending migrations to apply.

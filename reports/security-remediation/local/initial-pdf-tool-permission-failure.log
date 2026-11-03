@@ -1,0 +1,25 @@
+
+ RUN  v4.1.12 /workspace/winnersbookmark/rescue-agent
+
+ ❯ ../reports/dependency-remediation/preservation.test.ts (2 tests | 1 failed) 6590ms
+   × captures real loaders, report and Sales Brief HTML, PDF text and every PDF page raster; preserves both stored audits 6531ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  ../reports/dependency-remediation/preservation.test.ts > captures real loaders, report and Sales Brief HTML, PDF text and every PDF page raster; preserves both stored audits
+Error: spawnSync pdftotext EPERM
+ ❯ ../reports/dependency-remediation/preservation.test.ts:81:29
+     79|     const pdfFile = path.join(folder, `${name}.pdf`);
+     80|     fs.writeFileSync(pdfFile, pdf);
+     81|     save(`${name}-pdf.txt`, execFileSync('pdftotext', ['-layout', pdfF…
+       |                             ^
+     82|     const raster = fs.mkdtempSync('/tmp/wbi-pdf-raster-');
+     83|     execFileSync('pdftoppm', ['-r', '60', '-png', pdfFile, path.join(r…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 1 passed (2)
+   Start at  19:43:49
+   Duration  7.35s (transform 1.08s, setup 0ms, import 328ms, tests 6.59s, environment 0ms)

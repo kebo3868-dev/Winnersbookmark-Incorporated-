@@ -1,0 +1,35 @@
+
+ RUN  v4.1.12 /workspace/winnersbookmark/rescue-agent
+
+stderr | tests-integration/security.test.ts > bounds concurrent anonymous message writes and preserves reason/tenant coverage and legitimate messaging
+[frontdesk] request budget exhausted { namespace: 'source:message', slot: 32608, seconds: 60 }
+
+ ❯ tests-integration/security.test.ts (6 tests | 1 failed) 52095ms
+   × bounds concurrent anonymous message writes and preserves reason/tenant coverage and legitimate messaging 10007ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests-integration/security.test.ts > bounds concurrent anonymous message writes and preserves reason/tenant coverage and legitimate messaging
+AssertionError: expected 401 to be 403 // Object.is equality
+
+- Expected
++ Received
+
+- 403
++ 401
+
+ ❯ tests-integration/security.test.ts:75:93
+     73|   expect(await prisma.fdConversation.count()).toBe(0);
+     74|   const key = await createApiKey('protection-a', { name: 'verification…
+     75|   expect((await request('protection-b', '198.51.100.2', `Bearer ${key.…
+       |                                                                                             ^
+     76|   const wrongTenant = await prisma.fdAuditLog.findFirst({ where: { ten…
+     77|   expect(wrongTenant?.detail).toBe('WRONG_TENANT');
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 5 passed (6)
+   Start at  19:48:34
+   Duration  67.11s (transform 6.82s, setup 0ms, import 9.98s, tests 52.09s, environment 1ms)

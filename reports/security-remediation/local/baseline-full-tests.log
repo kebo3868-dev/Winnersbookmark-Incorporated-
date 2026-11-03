@@ -1,0 +1,54 @@
+
+> wbi-restaurant-rescue-agent@0.1.0 test
+> vitest run --maxWorkers=2 --testTimeout=30000
+
+
+ RUN  v4.1.12 /tmp/rescue-baseline/rescue-agent
+
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+ ❯ tests/frontdesk-verification.test.ts (24 tests | 2 failed) 324ms
+     × has no .env file tracked by git 49ms
+     × gitignores .env, so one cannot be added by accident 66ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/frontdesk-verification.test.ts > structural guard: no secrets committed to the repository > has no .env file tracked by git
+Error: Command failed: git ls-files -z
+fatal: not a git repository (or any of the parent directories): .git
+
+ ❯ tests/frontdesk-verification.test.ts:333:21
+    331|     // is done to the file afterwards. Scanning the working directory …
+    332|     // would fail on every machine that has ever run the app locally.
+    333|     const tracked = execFileSync('git', ['ls-files', '-z'], { cwd: pro…
+       |                     ^
+    334|       .split('\0')
+    335|       .filter(Boolean)
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/frontdesk-verification.test.ts > structural guard: no secrets committed to the repository > gitignores .env, so one cannot be added by accident
+Error: Command failed: git check-ignore .env
+fatal: not a git repository (or any of the parent directories): .git
+
+ ❯ tests/frontdesk-verification.test.ts:343:21
+    341|
+    342|   it('gitignores .env, so one cannot be added by accident', () => {
+    343|     const ignored = execFileSync('git', ['check-ignore', '.env'], {
+       |                     ^
+    344|       cwd: process.cwd(),
+    345|       encoding: 'utf8',
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed | 96 passed (97)
+      Tests  2 failed | 2432 passed (2434)
+   Start at  19:45:26
+   Duration  514.35s (transform 30.24s, setup 0ms, import 185.66s, tests 732.31s, environment 123ms)
+
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.1
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.1
+npm notice To update run: npm install -g npm@12.2.1
+npm notice

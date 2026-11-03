@@ -1,0 +1,82 @@
+
+> wbi-restaurant-rescue-agent@0.1.0 test
+> vitest run --maxWorkers=2 --testTimeout=30000 tests/request-protection.test.ts tests/frontdesk-unauth-writes.test.ts tests/pilot-enablement.test.ts
+
+
+ RUN  v4.1.12 /workspace/winnersbookmark/rescue-agent
+
+stderr | tests/request-protection.test.ts > historical tenant timestamps > loads all historical fields with 2026-08-07T10:00Z without an incorrect 404
+[frontdesk] turn failed {
+  tenantSlug: 'a',
+  channel: 'WEB',
+  error: TypeError: Cannot read properties of undefined (reading 'create')
+      at openConversation (/workspace/winnersbookmark/rescue-agent/src/lib/frontdesk/store.ts:120:28)
+      at POST (/workspace/winnersbookmark/rescue-agent/src/app/api/frontdesk/[tenantSlug]/message/route.ts:108:34)
+      at processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at /workspace/winnersbookmark/rescue-agent/tests/request-protection.test.ts:128:22
+      at file:///workspace/winnersbookmark/rescue-agent/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20
+}
+
+stderr | tests/request-protection.test.ts > historical tenant timestamps > loads all historical fields with 2026-08-07T10:00:00Z without an incorrect 404
+[frontdesk] turn failed {
+  tenantSlug: 'a',
+  channel: 'WEB',
+  error: TypeError: Cannot read properties of undefined (reading 'create')
+      at openConversation (/workspace/winnersbookmark/rescue-agent/src/lib/frontdesk/store.ts:120:28)
+      at POST (/workspace/winnersbookmark/rescue-agent/src/app/api/frontdesk/[tenantSlug]/message/route.ts:108:34)
+      at processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at /workspace/winnersbookmark/rescue-agent/tests/request-protection.test.ts:128:22
+      at file:///workspace/winnersbookmark/rescue-agent/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20
+}
+
+stderr | tests/request-protection.test.ts > historical tenant timestamps > loads all historical fields with 2026-08-07T10:00:00.123Z without an incorrect 404
+[frontdesk] turn failed {
+  tenantSlug: 'a',
+  channel: 'WEB',
+  error: TypeError: Cannot read properties of undefined (reading 'create')
+      at openConversation (/workspace/winnersbookmark/rescue-agent/src/lib/frontdesk/store.ts:120:28)
+      at POST (/workspace/winnersbookmark/rescue-agent/src/app/api/frontdesk/[tenantSlug]/message/route.ts:108:34)
+      at processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at /workspace/winnersbookmark/rescue-agent/tests/request-protection.test.ts:128:22
+      at file:///workspace/winnersbookmark/rescue-agent/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20
+}
+
+ ❯ tests/request-protection.test.ts (33 tests | 3 failed) 14515ms
+     × loads all historical fields with 2026-08-07T10:00Z without an incorrect 404 314ms
+     × loads all historical fields with 2026-08-07T10:00:00Z without an incorrect 404 3ms
+     × loads all historical fields with 2026-08-07T10:00:00.123Z without an incorrect 404 6ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/request-protection.test.ts > historical tenant timestamps > loads all historical fields with 2026-08-07T10:00Z without an incorrect 404
+ FAIL  tests/request-protection.test.ts > historical tenant timestamps > loads all historical fields with 2026-08-07T10:00:00Z without an incorrect 404
+ FAIL  tests/request-protection.test.ts > historical tenant timestamps > loads all historical fields with 2026-08-07T10:00:00.123Z without an incorrect 404
+AssertionError: expected 500 to be 401 // Object.is equality
+
+- Expected
++ Received
+
+- 401
++ 500
+
+ ❯ tests/request-protection.test.ts:130:29
+    128|     const response = await POST(new Request('http://x.invalid', { meth…
+    129|       { params: Promise.resolve({ tenantSlug: 'a' }) });
+    130|     expect(response.status).toBe(401);
+       |                             ^
+    131|     expect(mocks.denial).toHaveBeenCalledOnce();
+    132|     expect(mocks.audit).not.toHaveBeenCalled();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+
+ Test Files  1 failed | 2 passed (3)
+      Tests  3 failed | 119 passed (122)
+   Start at  19:47:25
+   Duration  40.98s (transform 15.45s, setup 0ms, import 12.95s, tests 44.10s, environment 41ms)
+
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.1
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.1
+npm notice To update run: npm install -g npm@12.2.1
+npm notice

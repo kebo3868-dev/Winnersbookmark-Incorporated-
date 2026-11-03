@@ -1,0 +1,5 @@
+Source: https://security-tracker.debian.org/tracker/CVE-2023-45853
+Retrieved: 2026-11-03 UTC
+Source HTML SHA-256: a1da07155fe03fdb07afa99689384eb34f2ad53fab5303d0c41142fd42b5a8e7
+
+Notes [bookworm] - zlib <ignored> (contrib/minizip not built and src:zlib not producing binary packages) [bullseye] - zlib <ignored> (contrib/minizip not built and src:zlib not producing binary packages) [buster] - zlib <ignored> (contrib/minizip not built and src:zlib not producing binary packages) https://github.com/madler/zlib/pull/843 https://github.com/madler/zlib/commit/73331a6a0481067628f065ffe87bb1d8f787d10c src:zlib only starts building minizip starting in 1:1.2.13.dfsg-2 For older suites due to this an update can be ignored as no binary package built by the vulnerable source is affected (i.e. contrib/minizip not built and provided in those versions).

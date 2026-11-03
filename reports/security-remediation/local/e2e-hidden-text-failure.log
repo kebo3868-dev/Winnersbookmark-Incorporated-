@@ -1,0 +1,37 @@
+
+Running 1 test using 1 worker
+
+(node:5377) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  1 [chromium] › tests-e2e/audit-flow.spec.ts:10:5 › demo audit → executive report → PDF → leads (7.5s)
+
+
+  1) [chromium] › tests-e2e/audit-flow.spec.ts:10:5 › demo audit → executive report → PDF → leads ──
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator:  getByText(/owner-reported/i).first()
+    Expected: visible
+    Received: hidden
+    Timeout:  5000ms
+
+    Call log:
+      - Expect "toBeVisible" getByText(/owner-reported/i).first() with timeout 5000ms
+      - waiting for getByText(/owner-reported/i).first()
+        12 × locator resolved to <dd class="text-ivory-faint inline">…</dd>
+           - unexpected value "hidden"
+
+
+      32 |   await expect(page.getByText('What-if, per month', { exact: true })).toHaveCount(0);
+      33 |   // Owner-reported review data is surfaced (Phase 3), never scraped.
+    > 34 |   await expect(page.getByText(/owner-reported/i).first()).toBeVisible();
+         |                                                           ^
+      35 |
+      36 |   // 4. Executive PDF downloads with the right content type.
+      37 |   const pdf = await request.get(`/api/audits/${auditId}/report/pdf`);
+        at /workspace/winnersbookmark/rescue-agent/tests-e2e/audit-flow.spec.ts:34:59
+
+    Error Context: test-results/audit-flow-demo-audit-→-executive-report-→-PDF-→-leads-chromium/error-context.md
+
+  1 failed
+    [chromium] › tests-e2e/audit-flow.spec.ts:10:5 › demo audit → executive report → PDF → leads ───

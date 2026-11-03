@@ -1,0 +1,16 @@
+Filesystem      Size  Used Avail Use% Mounted on
+overlay         7.9G  5.8G  1.7G  78% /
+tmpfs           4.9G     0  4.9G   0% /dev
+tmpfs           512M  136K  512M   1% /run
+tmpfs           1.0M  4.0K 1020K   1% /run/codex-runtime-secrets
+tmpfs            16M     0   16M   0% /run/lock
+tmpfs            64M     0   64M   0% /dev/tty
+tmpfs           4.9G     0  4.9G   0% /tmp/codex-daemon-1000
+tmpfs           4.9G     0  4.9G   0% /workspace/.git
+tmpfs           4.9G     0  4.9G   0% /workspace/.agents
+tmpfs           4.9G     0  4.9G   0% /workspace/.codex
+tmpfs           4.9G     0  4.9G   0% /workspace/.aws
+tmpfs           4.9G     0  4.9G   0% /tmp/.git
+tmpfs           4.9G     0  4.9G   0% /tmp/.agents
+tmpfs           4.9G     0  4.9G   0% /tmp/.codex
+tmpfs           4.9G     0  4.9G   0% /tmp/.aws

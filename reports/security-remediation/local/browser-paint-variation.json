@@ -1,0 +1,174 @@
+[
+  {
+    "name": "historical-report-360",
+    "a": "rescue-browser-baseline",
+    "b": "rescue-browser-final-current",
+    "pixels": 104,
+    "groups": [
+      {
+        "minY": 5,
+        "maxY": 7,
+        "minX": 358,
+        "maxX": 359,
+        "count": 5
+      },
+      {
+        "minY": 913,
+        "maxY": 915,
+        "minX": 358,
+        "maxX": 359,
+        "count": 5
+      },
+      {
+        "minY": 1131,
+        "maxY": 1133,
+        "minX": 358,
+        "maxX": 359,
+        "count": 6
+      },
+      {
+        "minY": 17762,
+        "maxY": 17762,
+        "minX": 136,
+        "maxX": 222,
+        "count": 44
+      },
+      {
+        "minY": 17764,
+        "maxY": 17764,
+        "minX": 136,
+        "maxX": 222,
+        "count": 44
+      }
+    ]
+  },
+  {
+    "name": "historical-report-360",
+    "a": "rescue-browser-baseline",
+    "b": "rescue-browser-baseline-repeat-final",
+    "pixels": 0,
+    "groups": []
+  },
+  {
+    "name": "historical-report-360",
+    "a": "rescue-browser-baseline-repeat-final",
+    "b": "rescue-browser-final-current",
+    "pixels": 104,
+    "groups": [
+      {
+        "minY": 5,
+        "maxY": 7,
+        "minX": 358,
+        "maxX": 359,
+        "count": 5
+      },
+      {
+        "minY": 913,
+        "maxY": 915,
+        "minX": 358,
+        "maxX": 359,
+        "count": 5
+      },
+      {
+        "minY": 1131,
+        "maxY": 1133,
+        "minX": 358,
+        "maxX": 359,
+        "count": 6
+      },
+      {
+        "minY": 17762,
+        "maxY": 17762,
+        "minX": 136,
+        "maxX": 222,
+        "count": 44
+      },
+      {
+        "minY": 17764,
+        "maxY": 17764,
+        "minX": 136,
+        "maxX": 222,
+        "count": 44
+      }
+    ]
+  },
+  {
+    "name": "historical-sales-360",
+    "a": "rescue-browser-baseline",
+    "b": "rescue-browser-final-current",
+    "pixels": 0,
+    "groups": []
+  },
+  {
+    "name": "historical-sales-360",
+    "a": "rescue-browser-baseline",
+    "b": "rescue-browser-baseline-repeat-final",
+    "pixels": 16,
+    "groups": [
+      {
+        "minY": 271,
+        "maxY": 273,
+        "minX": 358,
+        "maxX": 359,
+        "count": 6
+      },
+      {
+        "minY": 389,
+        "maxY": 389,
+        "minX": 358,
+        "maxX": 359,
+        "count": 2
+      },
+      {
+        "minY": 391,
+        "maxY": 391,
+        "minX": 358,
+        "maxX": 359,
+        "count": 2
+      },
+      {
+        "minY": 434,
+        "maxY": 436,
+        "minX": 358,
+        "maxX": 359,
+        "count": 6
+      }
+    ]
+  },
+  {
+    "name": "historical-sales-360",
+    "a": "rescue-browser-baseline-repeat-final",
+    "b": "rescue-browser-final-current",
+    "pixels": 16,
+    "groups": [
+      {
+        "minY": 271,
+        "maxY": 273,
+        "minX": 358,
+        "maxX": 359,
+        "count": 6
+      },
+      {
+        "minY": 389,
+        "maxY": 389,
+        "minX": 358,
+        "maxX": 359,
+        "count": 2
+      },
+      {
+        "minY": 391,
+        "maxY": 391,
+        "minX": 358,
+        "maxX": 359,
+        "count": 2
+      },
+      {
+        "minY": 434,
+        "maxY": 436,
+        "minX": 358,
+        "maxX": 359,
+        "count": 6
+      }
+    ]
+  }
+]

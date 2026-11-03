@@ -1,0 +1,18 @@
+Images space usage:
+
+REPOSITORY   TAG           IMAGE ID       CREATED      SIZE      SHARED SIZE   UNIQUE SIZE   CONTAINERS
+postgres     16-bookworm   6a35283e53fb   6 days ago   435MB     0B            435.4MB       1
+
+Containers space usage:
+
+CONTAINER ID   IMAGE                  COMMAND                  LOCAL VOLUMES   SIZE      CREATED         STATUS         NAMES
+d93078b10718   postgres:16-bookworm   "docker-entrypoint.s…"   1               63B       5 minutes ago   Up 5 minutes   rescue-remediation-db
+
+Local Volumes space usage:
+
+VOLUME NAME                                                        LINKS     SIZE
+d4aa64dfb7be1bc7b5406dc405eaaa0a1df6acb75ca5f1984426425e7dbb172a   1         50.08MB
+
+Build cache usage: 0B
+
+CACHE ID   CACHE TYPE   SIZE      CREATED   LAST USED   USAGE     SHARED

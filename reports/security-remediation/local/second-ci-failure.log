@@ -1,0 +1,223 @@
+verify	Browser E2E against disposable database	﻿2026-11-03T20:08:23.8430010Z ##[group]Run npm install --prefix /tmp/rescue-browser @playwright/test@1.64.1
+verify	Browser E2E against disposable database	2026-11-03T20:08:23.8430684Z [36;1mnpm install --prefix /tmp/rescue-browser @playwright/test@1.64.1[0m
+verify	Browser E2E against disposable database	2026-11-03T20:08:23.8431234Z [36;1mln -s /tmp/rescue-browser/node_modules/@playwright node_modules/@playwright[0m
+verify	Browser E2E against disposable database	2026-11-03T20:08:23.8431814Z [36;1m/tmp/rescue-browser/node_modules/.bin/playwright install --with-deps chromium[0m
+verify	Browser E2E against disposable database	2026-11-03T20:08:23.8433327Z [36;1mexport BASIC_AUTH_USER=operator BASIC_AUTH_PASSWORD=local-verification-operator-password FRONTDESK_TRUSTED_SOURCE_HEADER=x-test-source FRONTDESK_THROTTLE_SECRET=stable-disposable-verification-key-not-for-production[0m
+verify	Browser E2E against disposable database	2026-11-03T20:08:23.8434331Z [36;1mnpm start > .review/server.log 2>&1 &[0m
+verify	Browser E2E against disposable database	2026-11-03T20:08:23.8434635Z [36;1mserver_pid=$![0m
+verify	Browser E2E against disposable database	2026-11-03T20:08:23.8434871Z [36;1mtrap 'kill "$server_pid"' EXIT[0m
+verify	Browser E2E against disposable database	2026-11-03T20:08:23.8435355Z [36;1mfor attempt in $(seq 1 60); do curl -fsS http://localhost:3000/api/health && break || sleep 1; done[0m
+verify	Browser E2E against disposable database	2026-11-03T20:08:23.8436443Z [36;1mPW_CHROMIUM="$(find /home/runner/.cache/ms-playwright -path '*/chrome-linux64/chrome' -o -path '*/chrome-linux/chrome' | head -1)" E2E_USER="$BASIC_AUTH_USER" E2E_PASS="$BASIC_AUTH_PASSWORD" npm run test:e2e[0m
+verify	Browser E2E against disposable database	2026-11-03T20:08:23.8467672Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+verify	Browser E2E against disposable database	2026-11-03T20:08:23.8468015Z env:
+verify	Browser E2E against disposable database	2026-11-03T20:08:23.8468560Z   DATABASE_URL: ***127.0.0.1:5432/rescue_remediation
+verify	Browser E2E against disposable database	2026-11-03T20:08:23.8468877Z   NEXT_TELEMETRY_DISABLED: 1
+verify	Browser E2E against disposable database	2026-11-03T20:08:23.8469104Z ##[endgroup]
+verify	Browser E2E against disposable database	2026-11-03T20:08:25.9261020Z
+verify	Browser E2E against disposable database	2026-11-03T20:08:25.9262013Z added 3 packages in 2s
+verify	Browser E2E against disposable database	2026-11-03T20:08:26.4526375Z Installing dependencies...
+verify	Browser E2E against disposable database	2026-11-03T20:08:26.4636063Z Switching to root user to install dependencies...
+verify	Browser E2E against disposable database	2026-11-03T20:08:26.5592656Z Get:1 file:/etc/apt/apt-mirrors.txt Mirrorlist [144 B]
+verify	Browser E2E against disposable database	2026-11-03T20:08:26.5942679Z Hit:6 https://packages.microsoft.com/ubuntu/26.04/prod resolute InRelease
+verify	Browser E2E against disposable database	2026-11-03T20:08:26.5956970Z Hit:2 http://azure.archive.ubuntu.com/ubuntu resolute InRelease
+verify	Browser E2E against disposable database	2026-11-03T20:08:26.5958335Z Hit:3 http://azure.archive.ubuntu.com/ubuntu resolute-updates InRelease
+verify	Browser E2E against disposable database	2026-11-03T20:08:26.5962342Z Hit:4 http://azure.archive.ubuntu.com/ubuntu resolute-backports InRelease
+verify	Browser E2E against disposable database	2026-11-03T20:08:26.5967097Z Hit:5 http://azure.archive.ubuntu.com/ubuntu resolute-security InRelease
+verify	Browser E2E against disposable database	2026-11-03T20:08:27.4693795Z Reading package lists...
+verify	Browser E2E against disposable database	2026-11-03T20:08:27.4948055Z Reading package lists...
+verify	Browser E2E against disposable database	2026-11-03T20:08:27.6402229Z Building dependency tree...
+verify	Browser E2E against disposable database	2026-11-03T20:08:27.6409949Z Reading state information...
+verify	Browser E2E against disposable database	2026-11-03T20:08:27.6747042Z libasound2t64 is already the newest version (1.2.15.3-1ubuntu1.1).
+verify	Browser E2E against disposable database	2026-11-03T20:08:27.6747805Z libasound2t64 set to manually installed.
+verify	Browser E2E against disposable database	2026-11-03T20:08:27.6748501Z libatk-bridge2.0-0t64 is already the newest version (2.60.4-0ubuntu0.1).
+verify	Browser E2E against disposable database	2026-11-03T20:08:27.6749209Z libatk-bridge2.0-0t64 set to manually installed.
+verify	Browser E2E against disposable database	2026-11-03T20:08:27.6749870Z libatk1.0-0t64 is already the newest version (2.60.4-0ubuntu0.1).
+verify	Browser E2E against disposable database	2026-11-03T20:08:27.6750466Z libatk1.0-0t64 set to manually installed.
+verify	Browser E2E against disposable database	2026-11-03T20:08:27.6751803Z libatspi2.0-0t64 is already the newest version (2.60.4-0ubuntu0.1).
+verify	Browser E2E against disposable database	2026-11-03T20:08:27.6752699Z libatspi2.0-0t64 set to manually installed.
+verify	Browser E2E against disposable database	2026-11-03T20:08:27.6753284Z libcairo2 is already the newest version (1.18.4-3).
+verify	Browser E2E against disposable database	2026-11-03T20:08:27.6753821Z libcairo2 set to manually installed.
+verify	Browser E2E against disposable database	2026-11-03T20:08:27.6754430Z libcups2t64 is already the newest version (2.4.16-1ubuntu1.3).
+verify	Browser E2E against disposable database	2026-11-03T20:08:27.6755013Z libcups2t64 set to manually installed.
+verify	Browser E2E against disposable database	2026-11-03T20:08:27.6755590Z libdbus-1-3 is already the newest version (1.16.2-2ubuntu4).
+verify	Browser E2E against disposable database	2026-11-03T20:08:27.6756153Z libdbus-1-3 set to manually installed.
+verify	Browser E2E against disposable database	2026-11-03T20:08:27.6756707Z libdrm2 is already the newest version (2.4.131-1).
+verify	Browser E2E against disposable database	2026-11-03T20:08:27.6757215Z libdrm2 set to manually installed.
+verify	Browser E2E against disposable database	2026-11-03T20:08:27.6757765Z libgbm1 is already the newest version (26.0.8-1ubuntu0.3).
+verify	Browser E2E against disposable database	2026-11-03T20:08:27.6758298Z libgbm1 set to manually installed.
+verify	Browser E2E against disposable database	2026-11-03T20:08:27.6758896Z libglib2.0-0t64 is already the newest version (2.88.0-1ubuntu0.1).
+verify	Browser E2E against disposable database	2026-11-03T20:08:27.6759834Z libglib2.0-0t64 set to manually installed.
+verify	Browser E2E against disposable database	2026-11-03T20:08:27.6760460Z libnspr4 is already the newest version (2:4.38.2-1ubuntu1).
+verify	Browser E2E against disposable database	2026-11-03T20:08:27.6761025Z libnspr4 set to manually installed.
+verify	Browser E2E against disposable database	2026-11-03T20:08:27.6761590Z libnss3 is already the newest version (2:3.120-1ubuntu2.2).
+verify	Browser E2E against disposable database	2026-11-03T20:08:27.6762132Z libnss3 set to manually installed.
+verify	Browser E2E against disposable database	2026-11-03T20:08:27.6762888Z libpango-1.0-0 is already the newest version (1.57.0-1).
+verify	Browser E2E against disposable database	2026-11-03T20:08:27.6763448Z libpango-1.0-0 set to manually installed.
+verify	Browser E2E against disposable database	2026-11-03T20:08:27.6764049Z libx11-6 is already the newest version (2:1.8.13-1ubuntu0.1).
+verify	Browser E2E against disposable database	2026-11-03T20:08:27.6764608Z libx11-6 set to manually installed.
+verify	Browser E2E against disposable database	2026-11-03T20:08:27.6765147Z libxcb1 is already the newest version (1.17.0-2ubuntu1).
+verify	Browser E2E against disposable database	2026-11-03T20:08:27.6765674Z libxcb1 set to manually installed.
+verify	Browser E2E against disposable database	2026-11-03T20:08:27.6766266Z libxcomposite1 is already the newest version (1:0.4.6-1build1).
+verify	Browser E2E against disposable database	2026-11-03T20:08:27.6766916Z libxcomposite1 set to manually installed.
+verify	Browser E2E against disposable database	2026-11-03T20:08:27.6767515Z libxdamage1 is already the newest version (1:1.1.7-1).
+verify	Browser E2E against disposable database	2026-11-03T20:08:27.6768054Z libxdamage1 set to manually installed.
+verify	Browser E2E against disposable database	2026-11-03T20:08:27.6768617Z libxext6 is already the newest version (2:1.3.4-1build3).
+verify	Browser E2E against disposable database	2026-11-03T20:08:27.6769152Z libxext6 set to manually installed.
+verify	Browser E2E against disposable database	2026-11-03T20:08:27.6769719Z libxfixes3 is already the newest version (1:6.0.0-2build2).
+verify	Browser E2E against disposable database	2026-11-03T20:08:27.6770264Z libxfixes3 set to manually installed.
+verify	Browser E2E against disposable database	2026-11-03T20:08:27.6770818Z libxkbcommon0 is already the newest version (1.13.1-1).
+verify	Browser E2E against disposable database	2026-11-03T20:08:27.6771365Z libxkbcommon0 set to manually installed.
+verify	Browser E2E against disposable database	2026-11-03T20:08:27.6771956Z libxrandr2 is already the newest version (2:1.5.4-1build1).
+verify	Browser E2E against disposable database	2026-11-03T20:08:27.6772703Z libxrandr2 set to manually installed.
+verify	Browser E2E against disposable database	2026-11-03T20:08:27.6773271Z xvfb is already the newest version (2:21.1.22-1ubuntu1.3).
+verify	Browser E2E against disposable database	2026-11-03T20:08:27.6774000Z fonts-noto-color-emoji is already the newest version (2.051-1build1).
+verify	Browser E2E against disposable database	2026-11-03T20:08:27.6774764Z libfontconfig1 is already the newest version (2.17.1-3ubuntu1).
+verify	Browser E2E against disposable database	2026-11-03T20:08:27.6775381Z libfontconfig1 set to manually installed.
+verify	Browser E2E against disposable database	2026-11-03T20:08:27.6776029Z libfreetype6 is already the newest version (2.14.2+dfsg-1ubuntu0.2).
+verify	Browser E2E against disposable database	2026-11-03T20:08:27.6776651Z libfreetype6 set to manually installed.
+verify	Browser E2E against disposable database	2026-11-03T20:08:27.6777285Z fonts-liberation is already the newest version (1:2.1.5-3build1).
+verify	Browser E2E against disposable database	2026-11-03T20:08:27.6777910Z fonts-liberation set to manually installed.
+verify	Browser E2E against disposable database	2026-11-03T20:08:27.7279995Z Solving dependencies...
+verify	Browser E2E against disposable database	2026-11-03T20:08:27.8137860Z The following additional packages will be installed:
+verify	Browser E2E against disposable database	2026-11-03T20:08:27.8138632Z   xfonts-encodings xfonts-utils
+verify	Browser E2E against disposable database	2026-11-03T20:08:27.8143720Z Recommended packages:
+verify	Browser E2E against disposable database	2026-11-03T20:08:27.8144214Z   fonts-ipafont-mincho fonts-tlwg-loma
+verify	Browser E2E against disposable database	2026-11-03T20:08:27.8313832Z The following NEW packages will be installed:
+verify	Browser E2E against disposable database	2026-11-03T20:08:27.8314641Z   fonts-freefont-ttf fonts-ipafont-gothic fonts-tlwg-loma-otf fonts-unifont
+verify	Browser E2E against disposable database	2026-11-03T20:08:27.8318990Z   fonts-wqy-zenhei xfonts-cyrillic xfonts-encodings xfonts-scalable
+verify	Browser E2E against disposable database	2026-11-03T20:08:27.8319930Z   xfonts-utils
+verify	Browser E2E against disposable database	2026-11-03T20:08:27.8524098Z 0 upgraded, 9 newly installed, 0 to remove and 25 not upgraded.
+verify	Browser E2E against disposable database	2026-11-03T20:08:27.8524851Z Need to get 21.9 MB of archives.
+verify	Browser E2E against disposable database	2026-11-03T20:08:27.8525572Z After this operation, 80.2 MB of additional disk space will be used.
+verify	Browser E2E against disposable database	2026-11-03T20:08:27.8526404Z Get:1 file:/etc/apt/apt-mirrors.txt Mirrorlist [144 B]
+verify	Browser E2E against disposable database	2026-11-03T20:08:27.9276137Z Get:2 http://azure.archive.ubuntu.com/ubuntu resolute/universe amd64v3 fonts-ipafont-gothic all 00303-23ubuntu1 [3703 kB]
+verify	Browser E2E against disposable database	2026-11-03T20:08:30.7044118Z Get:3 http://azure.archive.ubuntu.com/ubuntu resolute/main amd64v3 fonts-freefont-ttf all 20211204+svn4273-4build1 [5656 kB]
+verify	Browser E2E against disposable database	2026-11-03T20:08:35.1987330Z Get:4 http://azure.archive.ubuntu.com/ubuntu resolute/universe amd64v3 fonts-tlwg-loma-otf all 1:0.7.3-1build1 [106 kB]
+verify	Browser E2E against disposable database	2026-11-03T20:08:35.2767879Z Get:5 http://azure.archive.ubuntu.com/ubuntu resolute/universe amd64v3 fonts-unifont all 1:16.0.04-1build1 [3169 kB]
+verify	Browser E2E against disposable database	2026-11-03T20:08:37.6435863Z Get:6 http://azure.archive.ubuntu.com/ubuntu resolute/universe amd64v3 fonts-wqy-zenhei all 0.9.45-8build1 [7863 kB]
+verify	Browser E2E against disposable database	2026-11-03T20:08:43.5764453Z Get:7 http://azure.archive.ubuntu.com/ubuntu resolute/main amd64v3 xfonts-encodings all 1:1.0.5-0ubuntu3 [576 kB]
+verify	Browser E2E against disposable database	2026-11-03T20:08:44.0099068Z Get:8 http://azure.archive.ubuntu.com/ubuntu resolute/main amd64v3 xfonts-utils amd64 1:7.7+7build1 [97.3 kB]
+verify	Browser E2E against disposable database	2026-11-03T20:08:44.0846911Z Get:9 http://azure.archive.ubuntu.com/ubuntu resolute/universe amd64v3 xfonts-cyrillic all 1:1.0.5+nmu1build1 [384 kB]
+verify	Browser E2E against disposable database	2026-11-03T20:08:44.3924371Z Get:10 http://azure.archive.ubuntu.com/ubuntu resolute/universe amd64v3 xfonts-scalable all 1:1.0.3-1.3build1 [304 kB]
+verify	Browser E2E against disposable database	2026-11-03T20:08:44.8433981Z Fetched 21.9 MB in 17s (1306 kB/s)
+verify	Browser E2E against disposable database	2026-11-03T20:08:44.8643473Z Selecting previously unselected package fonts-ipafont-gothic.
+verify	Browser E2E against disposable database	2026-11-03T20:08:44.8695136Z (Reading database ...
+verify	Browser E2E against disposable database	2026-11-03T20:08:44.8695739Z (Reading database ... 5%
+verify	Browser E2E against disposable database	2026-11-03T20:08:44.8696097Z (Reading database ... 10%
+verify	Browser E2E against disposable database	2026-11-03T20:08:44.8696501Z (Reading database ... 15%
+verify	Browser E2E against disposable database	2026-11-03T20:08:44.8696832Z (Reading database ... 20%
+verify	Browser E2E against disposable database	2026-11-03T20:08:44.8697096Z (Reading database ... 25%
+verify	Browser E2E against disposable database	2026-11-03T20:08:44.8697398Z (Reading database ... 30%
+verify	Browser E2E against disposable database	2026-11-03T20:08:44.8697653Z (Reading database ... 35%
+verify	Browser E2E against disposable database	2026-11-03T20:08:44.8697930Z (Reading database ... 40%
+verify	Browser E2E against disposable database	2026-11-03T20:08:44.8698206Z (Reading database ... 45%
+verify	Browser E2E against disposable database	2026-11-03T20:08:44.8698515Z (Reading database ... 50%
+verify	Browser E2E against disposable database	2026-11-03T20:08:44.8748643Z (Reading database ... 55%
+verify	Browser E2E against disposable database	2026-11-03T20:08:44.8776875Z (Reading database ... 60%
+verify	Browser E2E against disposable database	2026-11-03T20:08:44.8890749Z (Reading database ... 65%
+verify	Browser E2E against disposable database	2026-11-03T20:08:44.8913596Z (Reading database ... 70%
+verify	Browser E2E against disposable database	2026-11-03T20:08:44.8941924Z (Reading database ... 75%
+verify	Browser E2E against disposable database	2026-11-03T20:08:44.8977508Z (Reading database ... 80%
+verify	Browser E2E against disposable database	2026-11-03T20:08:44.9145023Z (Reading database ... 85%
+verify	Browser E2E against disposable database	2026-11-03T20:08:44.9357197Z (Reading database ... 90%
+verify	Browser E2E against disposable database	2026-11-03T20:08:44.9449042Z (Reading database ... 95%
+verify	Browser E2E against disposable database	2026-11-03T20:08:44.9449643Z (Reading database ... 100%
+verify	Browser E2E against disposable database	2026-11-03T20:08:44.9450438Z (Reading database ... 213291 files and directories currently installed.)
+verify	Browser E2E against disposable database	2026-11-03T20:08:44.9490970Z Preparing to unpack .../0-fonts-ipafont-gothic_00303-23ubuntu1_all.deb ...
+verify	Browser E2E against disposable database	2026-11-03T20:08:44.9580098Z Unpacking fonts-ipafont-gothic (00303-23ubuntu1) ...
+verify	Browser E2E against disposable database	2026-11-03T20:08:45.0252985Z Selecting previously unselected package fonts-freefont-ttf.
+verify	Browser E2E against disposable database	2026-11-03T20:08:45.0386827Z Preparing to unpack .../1-fonts-freefont-ttf_20211204+svn4273-4build1_all.deb ...
+verify	Browser E2E against disposable database	2026-11-03T20:08:45.0394213Z Unpacking fonts-freefont-ttf (20211204+svn4273-4build1) ...
+verify	Browser E2E against disposable database	2026-11-03T20:08:45.1250277Z Selecting previously unselected package fonts-tlwg-loma-otf.
+verify	Browser E2E against disposable database	2026-11-03T20:08:45.1389365Z Preparing to unpack .../2-fonts-tlwg-loma-otf_1%3a0.7.3-1build1_all.deb ...
+verify	Browser E2E against disposable database	2026-11-03T20:08:45.1397345Z Unpacking fonts-tlwg-loma-otf (1:0.7.3-1build1) ...
+verify	Browser E2E against disposable database	2026-11-03T20:08:45.1640715Z Selecting previously unselected package fonts-unifont.
+verify	Browser E2E against disposable database	2026-11-03T20:08:45.1784348Z Preparing to unpack .../3-fonts-unifont_1%3a16.0.04-1build1_all.deb ...
+verify	Browser E2E against disposable database	2026-11-03T20:08:45.1791529Z Unpacking fonts-unifont (1:16.0.04-1build1) ...
+verify	Browser E2E against disposable database	2026-11-03T20:08:45.2909680Z Selecting previously unselected package fonts-wqy-zenhei.
+verify	Browser E2E against disposable database	2026-11-03T20:08:45.3048538Z Preparing to unpack .../4-fonts-wqy-zenhei_0.9.45-8build1_all.deb ...
+verify	Browser E2E against disposable database	2026-11-03T20:08:45.3195480Z Unpacking fonts-wqy-zenhei (0.9.45-8build1) ...
+verify	Browser E2E against disposable database	2026-11-03T20:08:45.4099866Z Selecting previously unselected package xfonts-encodings.
+verify	Browser E2E against disposable database	2026-11-03T20:08:45.4238122Z Preparing to unpack .../5-xfonts-encodings_1%3a1.0.5-0ubuntu3_all.deb ...
+verify	Browser E2E against disposable database	2026-11-03T20:08:45.4244569Z Unpacking xfonts-encodings (1:1.0.5-0ubuntu3) ...
+verify	Browser E2E against disposable database	2026-11-03T20:08:45.4535175Z Selecting previously unselected package xfonts-utils.
+verify	Browser E2E against disposable database	2026-11-03T20:08:45.4673215Z Preparing to unpack .../6-xfonts-utils_1%3a7.7+7build1_amd64v3.deb ...
+verify	Browser E2E against disposable database	2026-11-03T20:08:45.4680866Z Unpacking xfonts-utils (1:7.7+7build1) ...
+verify	Browser E2E against disposable database	2026-11-03T20:08:45.5068219Z Selecting previously unselected package xfonts-cyrillic.
+verify	Browser E2E against disposable database	2026-11-03T20:08:45.5205925Z Preparing to unpack .../7-xfonts-cyrillic_1%3a1.0.5+nmu1build1_all.deb ...
+verify	Browser E2E against disposable database	2026-11-03T20:08:45.5214846Z Unpacking xfonts-cyrillic (1:1.0.5+nmu1build1) ...
+verify	Browser E2E against disposable database	2026-11-03T20:08:45.5573201Z Selecting previously unselected package xfonts-scalable.
+verify	Browser E2E against disposable database	2026-11-03T20:08:45.5708699Z Preparing to unpack .../8-xfonts-scalable_1%3a1.0.3-1.3build1_all.deb ...
+verify	Browser E2E against disposable database	2026-11-03T20:08:45.5716447Z Unpacking xfonts-scalable (1:1.0.3-1.3build1) ...
+verify	Browser E2E against disposable database	2026-11-03T20:08:45.6171877Z Setting up fonts-wqy-zenhei (0.9.45-8build1) ...
+verify	Browser E2E against disposable database	2026-11-03T20:08:45.6334558Z Setting up fonts-freefont-ttf (20211204+svn4273-4build1) ...
+verify	Browser E2E against disposable database	2026-11-03T20:08:45.6351262Z Setting up fonts-tlwg-loma-otf (1:0.7.3-1build1) ...
+verify	Browser E2E against disposable database	2026-11-03T20:08:45.6368291Z Setting up xfonts-encodings (1:1.0.5-0ubuntu3) ...
+verify	Browser E2E against disposable database	2026-11-03T20:08:45.6384650Z Setting up fonts-ipafont-gothic (00303-23ubuntu1) ...
+verify	Browser E2E against disposable database	2026-11-03T20:08:45.6444519Z update-alternatives: using /usr/share/fonts/opentype/ipafont-gothic/ipag.ttf to provide /usr/share/fonts/truetype/fonts-japanese-gothic.ttf (fonts-japanese-gothic.ttf) in auto mode
+verify	Browser E2E against disposable database	2026-11-03T20:08:45.6479183Z Setting up fonts-unifont (1:16.0.04-1build1) ...
+verify	Browser E2E against disposable database	2026-11-03T20:08:45.6497477Z Setting up xfonts-utils (1:7.7+7build1) ...
+verify	Browser E2E against disposable database	2026-11-03T20:08:45.6553838Z Setting up xfonts-cyrillic (1:1.0.5+nmu1build1) ...
+verify	Browser E2E against disposable database	2026-11-03T20:08:45.6972032Z Setting up xfonts-scalable (1:1.0.3-1.3build1) ...
+verify	Browser E2E against disposable database	2026-11-03T20:08:45.7380580Z Processing triggers for man-db (2.13.1-1build1) ...
+verify	Browser E2E against disposable database	2026-11-03T20:08:45.7397180Z Not building database; man-db/auto-update is not 'true'.
+verify	Browser E2E against disposable database	2026-11-03T20:08:45.7413496Z Processing triggers for fontconfig (2.17.1-3ubuntu1) ...
+verify	Browser E2E against disposable database	2026-11-03T20:08:46.3600586Z
+verify	Browser E2E against disposable database	2026-11-03T20:08:46.3601325Z Running kernel seems to be up-to-date.
+verify	Browser E2E against disposable database	2026-11-03T20:08:46.3601635Z
+verify	Browser E2E against disposable database	2026-11-03T20:08:46.3601777Z Restarting services...
+verify	Browser E2E against disposable database	2026-11-03T20:08:46.3688071Z
+verify	Browser E2E against disposable database	2026-11-03T20:08:46.3688614Z Service restarts being deferred:
+verify	Browser E2E against disposable database	2026-11-03T20:08:46.3689273Z  systemctl restart hosted-compute-agent.service
+verify	Browser E2E against disposable database	2026-11-03T20:08:46.3689706Z
+verify	Browser E2E against disposable database	2026-11-03T20:08:46.3689976Z No containers need to be restarted.
+verify	Browser E2E against disposable database	2026-11-03T20:08:46.3690279Z
+verify	Browser E2E against disposable database	2026-11-03T20:08:46.3690579Z No user sessions are running outdated binaries.
+verify	Browser E2E against disposable database	2026-11-03T20:08:46.3690979Z
+verify	Browser E2E against disposable database	2026-11-03T20:08:46.3694760Z No VM guests are running outdated hypervisor (qemu) binaries on this host.
+verify	Browser E2E against disposable database	2026-11-03T20:08:47.2483300Z Downloading Chrome for Testing 156.0.8078.4 (playwright chromium v1248) from https://cdn.playwright.dev/builds/cft/156.0.8078.4/linux64/chrome-linux64.zip
+verify	Browser E2E against disposable database	2026-11-03T20:08:47.7386225Z |                                                                                |   0% of 191.1 MiB
+verify	Browser E2E against disposable database	2026-11-03T20:08:47.9976254Z |■■■■■■■■                                                                        |  10% of 191.1 MiB
+verify	Browser E2E against disposable database	2026-11-03T20:08:48.0853884Z |■■■■■■■■■■■■■■■■                                                                |  20% of 191.1 MiB
+verify	Browser E2E against disposable database	2026-11-03T20:08:48.1543042Z |■■■■■■■■■■■■■■■■■■■■■■■■                                                        |  30% of 191.1 MiB
+verify	Browser E2E against disposable database	2026-11-03T20:08:48.2201999Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                                |  40% of 191.1 MiB
+verify	Browser E2E against disposable database	2026-11-03T20:08:48.2835841Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                        |  50% of 191.1 MiB
+verify	Browser E2E against disposable database	2026-11-03T20:08:48.3480644Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                |  60% of 191.1 MiB
+verify	Browser E2E against disposable database	2026-11-03T20:08:48.4146127Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                        |  70% of 191.1 MiB
+verify	Browser E2E against disposable database	2026-11-03T20:08:48.4833602Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                |  80% of 191.1 MiB
+verify	Browser E2E against disposable database	2026-11-03T20:08:48.5635582Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■        |  90% of 191.1 MiB
+verify	Browser E2E against disposable database	2026-11-03T20:08:48.6814567Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■| 100% of 191.1 MiB
+verify	Browser E2E against disposable database	2026-11-03T20:08:51.2293260Z Chrome for Testing 156.0.8078.4 (playwright chromium v1248) downloaded to /home/runner/.cache/ms-playwright/chromium-1248
+verify	Browser E2E against disposable database	2026-11-03T20:08:51.2296911Z Downloading FFmpeg (playwright ffmpeg v1013) from https://cdn.playwright.dev/dbazure/download/playwright/builds/ffmpeg/1013/ffmpeg-linux.zip
+verify	Browser E2E against disposable database	2026-11-03T20:08:51.6191161Z |                                                                                |   0% of 2.2 MiB
+verify	Browser E2E against disposable database	2026-11-03T20:08:51.6238840Z |■■■■■■■■                                                                        |  10% of 2.2 MiB
+verify	Browser E2E against disposable database	2026-11-03T20:08:51.6261168Z |■■■■■■■■■■■■■■■■                                                                |  20% of 2.2 MiB
+verify	Browser E2E against disposable database	2026-11-03T20:08:51.6281157Z |■■■■■■■■■■■■■■■■■■■■■■■■                                                        |  30% of 2.2 MiB
+verify	Browser E2E against disposable database	2026-11-03T20:08:51.6298717Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                                |  40% of 2.2 MiB
+verify	Browser E2E against disposable database	2026-11-03T20:08:51.6319070Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                        |  50% of 2.2 MiB
+verify	Browser E2E against disposable database	2026-11-03T20:08:51.6336989Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                |  60% of 2.2 MiB
+verify	Browser E2E against disposable database	2026-11-03T20:08:51.6358096Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                        |  70% of 2.2 MiB
+verify	Browser E2E against disposable database	2026-11-03T20:08:51.6371093Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                |  80% of 2.2 MiB
+verify	Browser E2E against disposable database	2026-11-03T20:08:51.6388613Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■        |  90% of 2.2 MiB
+verify	Browser E2E against disposable database	2026-11-03T20:08:51.6399837Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■| 100% of 2.2 MiB
+verify	Browser E2E against disposable database	2026-11-03T20:08:51.7038533Z FFmpeg (playwright ffmpeg v1013) downloaded to /home/runner/.cache/ms-playwright/ffmpeg-1013
+verify	Browser E2E against disposable database	2026-11-03T20:08:51.7041779Z Downloading Chrome Headless Shell 156.0.8078.4 (playwright chromium-headless-shell v1248) from https://cdn.playwright.dev/builds/cft/156.0.8078.4/linux64/chrome-headless-shell-linux64.zip
+verify	Browser E2E against disposable database	2026-11-03T20:08:52.2068388Z |                                                                                |   0% of 120 MiB
+verify	Browser E2E against disposable database	2026-11-03T20:08:52.4455883Z |■■■■■■■■                                                                        |  10% of 120 MiB
+verify	Browser E2E against disposable database	2026-11-03T20:08:52.5435310Z |■■■■■■■■■■■■■■■■                                                                |  20% of 120 MiB
+verify	Browser E2E against disposable database	2026-11-03T20:08:52.6320245Z |■■■■■■■■■■■■■■■■■■■■■■■■                                                        |  30% of 120 MiB
+verify	Browser E2E against disposable database	2026-11-03T20:08:52.6783185Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                                |  40% of 120 MiB
+verify	Browser E2E against disposable database	2026-11-03T20:08:52.7271107Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                        |  50% of 120 MiB
+verify	Browser E2E against disposable database	2026-11-03T20:08:52.7766261Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                |  60% of 120 MiB
+verify	Browser E2E against disposable database	2026-11-03T20:08:52.8228360Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                        |  70% of 120 MiB
+verify	Browser E2E against disposable database	2026-11-03T20:08:52.8743682Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                |  80% of 120 MiB
+verify	Browser E2E against disposable database	2026-11-03T20:08:52.9323541Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■        |  90% of 120 MiB
+verify	Browser E2E against disposable database	2026-11-03T20:08:52.9747708Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■| 100% of 120 MiB
+verify	Browser E2E against disposable database	2026-11-03T20:08:54.8238793Z Chrome Headless Shell 156.0.8078.4 (playwright chromium-headless-shell v1248) downloaded to /home/runner/.cache/ms-playwright/chromium_headless_shell-1248
+verify	Browser E2E against disposable database	2026-11-03T20:08:54.8507304Z curl: (7) Failed to connect to localhost port 3000 after 0 ms: Could not connect to server
+verify	Browser E2E against disposable database	2026-11-03T20:08:56.2024198Z {"status":"ok","database":"up"}
+verify	Browser E2E against disposable database	2026-11-03T20:08:56.2024696Z > wbi-restaurant-rescue-agent@0.1.0 test:e2e
+verify	Browser E2E against disposable database	2026-11-03T20:08:56.2025059Z > playwright test
+verify	Browser E2E against disposable database	2026-11-03T20:08:56.2025207Z
+verify	Browser E2E against disposable database	2026-11-03T20:08:56.2068663Z sh: 1: playwright: not found
+verify	Browser E2E against disposable database	2026-11-03T20:08:56.2149352Z ##[error]Process completed with exit code 127.

@@ -1,0 +1,18 @@
+
+> wbi-restaurant-rescue-agent@0.1.0 test
+> vitest run --maxWorkers=1 tests/frontdesk-verification.test.ts
+
+
+ RUN  v4.1.12 /tmp/rescue-baseline-tracked/rescue-agent
+
+
+ Test Files  1 passed (1)
+      Tests  24 passed (24)
+   Start at  19:54:12
+   Duration  3.36s (transform 821ms, setup 0ms, import 1.20s, tests 201ms, environment 0ms)
+
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.1
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.1
+npm notice To update run: npm install -g npm@12.2.1
+npm notice

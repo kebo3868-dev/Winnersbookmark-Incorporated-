@@ -1,0 +1,93 @@
+{
+  "baselineCommit": "969740c2655b064399e0cb4b8d514e9112145c8d",
+  "applicationTree": "7ed64fc8b6c04414bee2c0e0841c23bdb566c6dd",
+  "comparisons": [
+    {
+      "name": "current-executive.json",
+      "baselineSha256": "ee842aedc65735554aafa574527615c59782c515f12a3d228475bcfa771d61d9",
+      "finalSha256": "ee842aedc65735554aafa574527615c59782c515f12a3d228475bcfa771d61d9",
+      "equal": true
+    },
+    {
+      "name": "current-sales.json",
+      "baselineSha256": "fd1110e9ebc8e5642365da027f3ad1c3f7fdd6982843004e2b53828d4ebc25aa",
+      "finalSha256": "fd1110e9ebc8e5642365da027f3ad1c3f7fdd6982843004e2b53828d4ebc25aa",
+      "equal": true
+    },
+    {
+      "name": "current-report.html",
+      "baselineSha256": "0f745143cf1f650ac2a9a34e98bb9a870d01a70101d5327bf1b2c6766c91d79b",
+      "finalSha256": "0f745143cf1f650ac2a9a34e98bb9a870d01a70101d5327bf1b2c6766c91d79b",
+      "equal": true
+    },
+    {
+      "name": "current-sales.html",
+      "baselineSha256": "2cd2435ae99467c72bbfa20bd9d4eb9e543f5728dd964b577d9ec0f227ccbb30",
+      "finalSha256": "2cd2435ae99467c72bbfa20bd9d4eb9e543f5728dd964b577d9ec0f227ccbb30",
+      "equal": true
+    },
+    {
+      "name": "current-pdf.txt",
+      "baselineSha256": "1b618d1b638df05eff8a281d9dc90ccc1766a1e9ee823fd6b706692bbe124468",
+      "finalSha256": "1b618d1b638df05eff8a281d9dc90ccc1766a1e9ee823fd6b706692bbe124468",
+      "equal": true
+    },
+    {
+      "name": "current-pdf-pages.json",
+      "baselineSha256": "adde17bd584aa0bb1ca263c8ca4f869e642f4b8a179e6083fa8e6dca84466251",
+      "finalSha256": "adde17bd584aa0bb1ca263c8ca4f869e642f4b8a179e6083fa8e6dca84466251",
+      "equal": true
+    },
+    {
+      "name": "historical-executive.json",
+      "baselineSha256": "cc6f5ab3d3f4bee8e15889855aec81b8ff16c325e07c2069d0146be349b3fcd8",
+      "finalSha256": "cc6f5ab3d3f4bee8e15889855aec81b8ff16c325e07c2069d0146be349b3fcd8",
+      "equal": true
+    },
+    {
+      "name": "historical-sales.json",
+      "baselineSha256": "525cf3ef7a30b6b9fd346f618879621f2fa3b1948098a8b6ca18719030e51a3a",
+      "finalSha256": "525cf3ef7a30b6b9fd346f618879621f2fa3b1948098a8b6ca18719030e51a3a",
+      "equal": true
+    },
+    {
+      "name": "historical-report.html",
+      "baselineSha256": "30bf8e93a040c6d7fdce86d32acf812c57a4761c5ec33edc07ea83747a34b443",
+      "finalSha256": "30bf8e93a040c6d7fdce86d32acf812c57a4761c5ec33edc07ea83747a34b443",
+      "equal": true
+    },
+    {
+      "name": "historical-sales.html",
+      "baselineSha256": "e09979dd973a98bf74b24db6ed4a6508ca7b28f207edbfb87426a7160df4e5fe",
+      "finalSha256": "e09979dd973a98bf74b24db6ed4a6508ca7b28f207edbfb87426a7160df4e5fe",
+      "equal": true
+    },
+    {
+      "name": "historical-pdf.txt",
+      "baselineSha256": "70169c42999ae3587326c70e3df4228386eceddee26223cb46fed5e65fb558aa",
+      "finalSha256": "70169c42999ae3587326c70e3df4228386eceddee26223cb46fed5e65fb558aa",
+      "equal": true
+    },
+    {
+      "name": "historical-pdf-pages.json",
+      "baselineSha256": "089ce3f79fe64a73d82042b06628b5558d89ae119c95b4ebe7647030c47f8b00",
+      "finalSha256": "089ce3f79fe64a73d82042b06628b5558d89ae119c95b4ebe7647030c47f8b00",
+      "equal": true
+    }
+  ],
+  "fixtures": [
+    {
+      "name": "current",
+      "score": 84,
+      "coverage": 80,
+      "pdfPages": 15
+    },
+    {
+      "name": "historical",
+      "score": 73,
+      "coverage": 80,
+      "pdfPages": 14
+    }
+  ],
+  "finalSourceComparisonAlsoPassedInCI": 41713071822
+}

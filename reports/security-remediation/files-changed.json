@@ -1,0 +1,422 @@
+[
+  {
+    "path": ".github/workflows/rescue-security-review.yml",
+    "reason": "Isolated-storage CI verification of final source, browser flow, images, native Sharp, migrations and all security findings."
+  },
+  {
+    "path": ".gitignore",
+    "reason": "Exclude local rendered client payloads and the temporary reports dependency link."
+  },
+  {
+    "path": "reports/dependency-remediation/preservation.test.ts",
+    "reason": "Compare against the exact baseline capture and hash comparisons to avoid exposing client payloads in failures."
+  },
+  {
+    "path": "reports/dependency-remediation/zod-compatibility.test.ts",
+    "reason": "Extend the original Zod 3 schema oracle with historical timestamp forms and isolated output paths."
+  },
+  {
+    "path": "reports/security-remediation/README.md",
+    "reason": "Review evidence: reproduction/testing logs, raw before/final image findings, preservation hashes, provenance and release disposition."
+  },
+  {
+    "path": "reports/security-remediation/application-tree.txt",
+    "reason": "Review evidence: reproduction/testing logs, raw before/final image findings, preservation hashes, provenance and release disposition."
+  },
+  {
+    "path": "reports/security-remediation/artifact-sha256.txt",
+    "reason": "Review evidence: reproduction/testing logs, raw before/final image findings, preservation hashes, provenance and release disposition."
+  },
+  {
+    "path": "reports/security-remediation/debian-zlib-disposition.txt",
+    "reason": "Review evidence: reproduction/testing logs, raw before/final image findings, preservation hashes, provenance and release disposition."
+  },
+  {
+    "path": "reports/security-remediation/files-changed.json",
+    "reason": "Review evidence: reproduction/testing logs, raw before/final image findings, preservation hashes, provenance and release disposition."
+  },
+  {
+    "path": "reports/security-remediation/final-image/audit-all.json",
+    "reason": "Review evidence: reproduction/testing logs, raw before/final image findings, preservation hashes, provenance and release disposition."
+  },
+  {
+    "path": "reports/security-remediation/final-image/audit-image-app.json",
+    "reason": "Review evidence: reproduction/testing logs, raw before/final image findings, preservation hashes, provenance and release disposition."
+  },
+  {
+    "path": "reports/security-remediation/final-image/audit-image-migrator.json",
+    "reason": "Review evidence: reproduction/testing logs, raw before/final image findings, preservation hashes, provenance and release disposition."
+  },
+  {
+    "path": "reports/security-remediation/final-image/audit-production.json",
+    "reason": "Review evidence: reproduction/testing logs, raw before/final image findings, preservation hashes, provenance and release disposition."
+  },
+  {
+    "path": "reports/security-remediation/final-image/docker-build.log",
+    "reason": "Review evidence: reproduction/testing logs, raw before/final image findings, preservation hashes, provenance and release disposition."
+  },
+  {
+    "path": "reports/security-remediation/final-image/docker-info.txt",
+    "reason": "Review evidence: reproduction/testing logs, raw before/final image findings, preservation hashes, provenance and release disposition."
+  },
+  {
+    "path": "reports/security-remediation/final-image/docker-migrator-build.log",
+    "reason": "Review evidence: reproduction/testing logs, raw before/final image findings, preservation hashes, provenance and release disposition."
+  },
+  {
+    "path": "reports/security-remediation/final-image/image-app-closure.json",
+    "reason": "Review evidence: reproduction/testing logs, raw before/final image findings, preservation hashes, provenance and release disposition."
+  },
+  {
+    "path": "reports/security-remediation/final-image/image-app-inventory.json",
+    "reason": "Review evidence: reproduction/testing logs, raw before/final image findings, preservation hashes, provenance and release disposition."
+  },
+  {
+    "path": "reports/security-remediation/final-image/image-client-schema.json",
+    "reason": "Review evidence: reproduction/testing logs, raw before/final image findings, preservation hashes, provenance and release disposition."
+  },
+  {
+    "path": "reports/security-remediation/final-image/image-health.json",
+    "reason": "Review evidence: reproduction/testing logs, raw before/final image findings, preservation hashes, provenance and release disposition."
+  },
+  {
+    "path": "reports/security-remediation/final-image/image-login.json",
+    "reason": "Review evidence: reproduction/testing logs, raw before/final image findings, preservation hashes, provenance and release disposition."
+  },
+  {
+    "path": "reports/security-remediation/final-image/image-migrations.log",
+    "reason": "Review evidence: reproduction/testing logs, raw before/final image findings, preservation hashes, provenance and release disposition."
+  },
+  {
+    "path": "reports/security-remediation/final-image/image-migrator-closure.json",
+    "reason": "Review evidence: reproduction/testing logs, raw before/final image findings, preservation hashes, provenance and release disposition."
+  },
+  {
+    "path": "reports/security-remediation/final-image/image-migrator-inventory.json",
+    "reason": "Review evidence: reproduction/testing logs, raw before/final image findings, preservation hashes, provenance and release disposition."
+  },
+  {
+    "path": "reports/security-remediation/final-image/image-os-packages.tsv",
+    "reason": "Review evidence: reproduction/testing logs, raw before/final image findings, preservation hashes, provenance and release disposition."
+  },
+  {
+    "path": "reports/security-remediation/final-image/image-server.log",
+    "reason": "Review evidence: reproduction/testing logs, raw before/final image findings, preservation hashes, provenance and release disposition."
+  },
+  {
+    "path": "reports/security-remediation/final-image/image-sharp.json",
+    "reason": "Review evidence: reproduction/testing logs, raw before/final image findings, preservation hashes, provenance and release disposition."
+  },
+  {
+    "path": "reports/security-remediation/final-image/images.json",
+    "reason": "Review evidence: reproduction/testing logs, raw before/final image findings, preservation hashes, provenance and release disposition."
+  },
+  {
+    "path": "reports/security-remediation/final-image/migrator-image-migrations.log",
+    "reason": "Review evidence: reproduction/testing logs, raw before/final image findings, preservation hashes, provenance and release disposition."
+  },
+  {
+    "path": "reports/security-remediation/final-image/server.log",
+    "reason": "Review evidence: reproduction/testing logs, raw before/final image findings, preservation hashes, provenance and release disposition."
+  },
+  {
+    "path": "reports/security-remediation/final-image/storage.txt",
+    "reason": "Review evidence: reproduction/testing logs, raw before/final image findings, preservation hashes, provenance and release disposition."
+  },
+  {
+    "path": "reports/security-remediation/final-image/trivy-app.json",
+    "reason": "Review evidence: reproduction/testing logs, raw before/final image findings, preservation hashes, provenance and release disposition."
+  },
+  {
+    "path": "reports/security-remediation/final-image/trivy-migrator.json",
+    "reason": "Review evidence: reproduction/testing logs, raw before/final image findings, preservation hashes, provenance and release disposition."
+  },
+  {
+    "path": "reports/security-remediation/image-tooling-before/images.json",
+    "reason": "Review evidence: reproduction/testing logs, raw before/final image findings, preservation hashes, provenance and release disposition."
+  },
+  {
+    "path": "reports/security-remediation/image-tooling-before/summary.json",
+    "reason": "Review evidence: reproduction/testing logs, raw before/final image findings, preservation hashes, provenance and release disposition."
+  },
+  {
+    "path": "reports/security-remediation/image-tooling-before/trivy-app.json",
+    "reason": "Review evidence: reproduction/testing logs, raw before/final image findings, preservation hashes, provenance and release disposition."
+  },
+  {
+    "path": "reports/security-remediation/image-tooling-before/trivy-migrator.json",
+    "reason": "Review evidence: reproduction/testing logs, raw before/final image findings, preservation hashes, provenance and release disposition."
+  },
+  {
+    "path": "reports/security-remediation/local/audit-all.json",
+    "reason": "Review evidence: reproduction/testing logs, raw before/final image findings, preservation hashes, provenance and release disposition."
+  },
+  {
+    "path": "reports/security-remediation/local/audit-export-import.json",
+    "reason": "Review evidence: reproduction/testing logs, raw before/final image findings, preservation hashes, provenance and release disposition."
+  },
+  {
+    "path": "reports/security-remediation/local/audit-migrator.json",
+    "reason": "Review evidence: reproduction/testing logs, raw before/final image findings, preservation hashes, provenance and release disposition."
+  },
+  {
+    "path": "reports/security-remediation/local/audit-production.json",
+    "reason": "Review evidence: reproduction/testing logs, raw before/final image findings, preservation hashes, provenance and release disposition."
+  },
+  {
+    "path": "reports/security-remediation/local/baseline-full-tests.log",
+    "reason": "Review evidence: reproduction/testing logs, raw before/final image findings, preservation hashes, provenance and release disposition."
+  },
+  {
+    "path": "reports/security-remediation/local/baseline-git-guard-repeat.log",
+    "reason": "Review evidence: reproduction/testing logs, raw before/final image findings, preservation hashes, provenance and release disposition."
+  },
+  {
+    "path": "reports/security-remediation/local/baseline-preservation.log",
+    "reason": "Review evidence: reproduction/testing logs, raw before/final image findings, preservation hashes, provenance and release disposition."
+  },
+  {
+    "path": "reports/security-remediation/local/baseline-production-build.log",
+    "reason": "Review evidence: reproduction/testing logs, raw before/final image findings, preservation hashes, provenance and release disposition."
+  },
+  {
+    "path": "reports/security-remediation/local/baseline-three-blockers.log",
+    "reason": "Review evidence: reproduction/testing logs, raw before/final image findings, preservation hashes, provenance and release disposition."
+  },
+  {
+    "path": "reports/security-remediation/local/browser-comparisons.json",
+    "reason": "Review evidence: reproduction/testing logs, raw before/final image findings, preservation hashes, provenance and release disposition."
+  },
+  {
+    "path": "reports/security-remediation/local/browser-paint-variation.json",
+    "reason": "Review evidence: reproduction/testing logs, raw before/final image findings, preservation hashes, provenance and release disposition."
+  },
+  {
+    "path": "reports/security-remediation/local/ci-final-complete.log",
+    "reason": "Review evidence: reproduction/testing logs, raw before/final image findings, preservation hashes, provenance and release disposition."
+  },
+  {
+    "path": "reports/security-remediation/local/current-pdf-pages.json",
+    "reason": "Review evidence: reproduction/testing logs, raw before/final image findings, preservation hashes, provenance and release disposition."
+  },
+  {
+    "path": "reports/security-remediation/local/docker-storage.log",
+    "reason": "Review evidence: reproduction/testing logs, raw before/final image findings, preservation hashes, provenance and release disposition."
+  },
+  {
+    "path": "reports/security-remediation/local/e2e-calculator-disclosure-failure.log",
+    "reason": "Review evidence: reproduction/testing logs, raw before/final image findings, preservation hashes, provenance and release disposition."
+  },
+  {
+    "path": "reports/security-remediation/local/e2e-hidden-mobile-lead-failure.log",
+    "reason": "Review evidence: reproduction/testing logs, raw before/final image findings, preservation hashes, provenance and release disposition."
+  },
+  {
+    "path": "reports/security-remediation/local/e2e-hidden-text-failure.log",
+    "reason": "Review evidence: reproduction/testing logs, raw before/final image findings, preservation hashes, provenance and release disposition."
+  },
+  {
+    "path": "reports/security-remediation/local/e2e-original-failure.log",
+    "reason": "Review evidence: reproduction/testing logs, raw before/final image findings, preservation hashes, provenance and release disposition."
+  },
+  {
+    "path": "reports/security-remediation/local/e2e-pass.log",
+    "reason": "Review evidence: reproduction/testing logs, raw before/final image findings, preservation hashes, provenance and release disposition."
+  },
+  {
+    "path": "reports/security-remediation/local/filesystems.log",
+    "reason": "Review evidence: reproduction/testing logs, raw before/final image findings, preservation hashes, provenance and release disposition."
+  },
+  {
+    "path": "reports/security-remediation/local/final-preservation.log",
+    "reason": "Review evidence: reproduction/testing logs, raw before/final image findings, preservation hashes, provenance and release disposition."
+  },
+  {
+    "path": "reports/security-remediation/local/full-tests-final.log",
+    "reason": "Review evidence: reproduction/testing logs, raw before/final image findings, preservation hashes, provenance and release disposition."
+  },
+  {
+    "path": "reports/security-remediation/local/full-tests.log",
+    "reason": "Review evidence: reproduction/testing logs, raw before/final image findings, preservation hashes, provenance and release disposition."
+  },
+  {
+    "path": "reports/security-remediation/local/historical-pdf-pages.json",
+    "reason": "Review evidence: reproduction/testing logs, raw before/final image findings, preservation hashes, provenance and release disposition."
+  },
+  {
+    "path": "reports/security-remediation/local/initial-ci-failure.log",
+    "reason": "Review evidence: reproduction/testing logs, raw before/final image findings, preservation hashes, provenance and release disposition."
+  },
+  {
+    "path": "reports/security-remediation/local/initial-install-cache-failure.log",
+    "reason": "Review evidence: reproduction/testing logs, raw before/final image findings, preservation hashes, provenance and release disposition."
+  },
+  {
+    "path": "reports/security-remediation/local/initial-pdf-tool-permission-failure.log",
+    "reason": "Review evidence: reproduction/testing logs, raw before/final image findings, preservation hashes, provenance and release disposition."
+  },
+  {
+    "path": "reports/security-remediation/local/initial-postgres-failure.log",
+    "reason": "Review evidence: reproduction/testing logs, raw before/final image findings, preservation hashes, provenance and release disposition."
+  },
+  {
+    "path": "reports/security-remediation/local/initial-unit-failures.log",
+    "reason": "Review evidence: reproduction/testing logs, raw before/final image findings, preservation hashes, provenance and release disposition."
+  },
+  {
+    "path": "reports/security-remediation/local/npm-ci.log",
+    "reason": "Review evidence: reproduction/testing logs, raw before/final image findings, preservation hashes, provenance and release disposition."
+  },
+  {
+    "path": "reports/security-remediation/local/output-comparisons.json",
+    "reason": "Review evidence: reproduction/testing logs, raw before/final image findings, preservation hashes, provenance and release disposition."
+  },
+  {
+    "path": "reports/security-remediation/local/output-regressions-final.log",
+    "reason": "Review evidence: reproduction/testing logs, raw before/final image findings, preservation hashes, provenance and release disposition."
+  },
+  {
+    "path": "reports/security-remediation/local/postgres-security.log",
+    "reason": "Review evidence: reproduction/testing logs, raw before/final image findings, preservation hashes, provenance and release disposition."
+  },
+  {
+    "path": "reports/security-remediation/local/production-build-final.log",
+    "reason": "Review evidence: reproduction/testing logs, raw before/final image findings, preservation hashes, provenance and release disposition."
+  },
+  {
+    "path": "reports/security-remediation/local/production-build.log",
+    "reason": "Review evidence: reproduction/testing logs, raw before/final image findings, preservation hashes, provenance and release disposition."
+  },
+  {
+    "path": "reports/security-remediation/local/rejected-npm12-tooling-trial.json",
+    "reason": "Review evidence: reproduction/testing logs, raw before/final image findings, preservation hashes, provenance and release disposition."
+  },
+  {
+    "path": "reports/security-remediation/local/second-ci-failure.log",
+    "reason": "Review evidence: reproduction/testing logs, raw before/final image findings, preservation hashes, provenance and release disposition."
+  },
+  {
+    "path": "reports/security-remediation/local/security-regressions-final.log",
+    "reason": "Review evidence: reproduction/testing logs, raw before/final image findings, preservation hashes, provenance and release disposition."
+  },
+  {
+    "path": "reports/security-remediation/local/security-regressions.log",
+    "reason": "Review evidence: reproduction/testing logs, raw before/final image findings, preservation hashes, provenance and release disposition."
+  },
+  {
+    "path": "reports/security-remediation/local/source-address-regressions.log",
+    "reason": "Review evidence: reproduction/testing logs, raw before/final image findings, preservation hashes, provenance and release disposition."
+  },
+  {
+    "path": "reports/security-remediation/local/standalone-sharp.json",
+    "reason": "Review evidence: reproduction/testing logs, raw before/final image findings, preservation hashes, provenance and release disposition."
+  },
+  {
+    "path": "reports/security-remediation/local/typecheck.log",
+    "reason": "Review evidence: reproduction/testing logs, raw before/final image findings, preservation hashes, provenance and release disposition."
+  },
+  {
+    "path": "reports/security-remediation/local/zod-compatibility.json",
+    "reason": "Review evidence: reproduction/testing logs, raw before/final image findings, preservation hashes, provenance and release disposition."
+  },
+  {
+    "path": "reports/security-remediation/local/zod-oracle.log",
+    "reason": "Review evidence: reproduction/testing logs, raw before/final image findings, preservation hashes, provenance and release disposition."
+  },
+  {
+    "path": "reports/security-remediation/verification-summary.json",
+    "reason": "Review evidence: reproduction/testing logs, raw before/final image findings, preservation hashes, provenance and release disposition."
+  },
+  {
+    "path": "rescue-agent/.env.example",
+    "reason": "Document required production trusted-source header and stable shared secret."
+  },
+  {
+    "path": "rescue-agent/Dockerfile",
+    "reason": "Remove unused vulnerable global package managers from both runtime targets; run the migrator as non-root."
+  },
+  {
+    "path": "rescue-agent/prisma/migrations/20261103194500_request_protection/migration.sql",
+    "reason": "Add bounded reusable security buckets and denial-summary keys/counters without deleting historical records."
+  },
+  {
+    "path": "rescue-agent/prisma/schema.prisma",
+    "reason": "Add bounded reusable security buckets and denial-summary keys/counters without deleting historical records."
+  },
+  {
+    "path": "rescue-agent/scripts/audit-runtime.mjs",
+    "reason": "Audit actual exported image inventories on the verification host while preserving direct audit mode."
+  },
+  {
+    "path": "rescue-agent/src/app/api/frontdesk/[tenantSlug]/message/route.ts",
+    "reason": "Throttle public messaging/callback requests and bound unauthenticated audit generation; preserve authenticated pipelines."
+  },
+  {
+    "path": "rescue-agent/src/app/api/frontdesk/[tenantSlug]/sms/twilio/route.ts",
+    "reason": "Throttle public messaging/callback requests and bound unauthenticated audit generation; preserve authenticated pipelines."
+  },
+  {
+    "path": "rescue-agent/src/app/api/frontdesk/[tenantSlug]/voice/twilio-status/route.ts",
+    "reason": "Throttle public messaging/callback requests and bound unauthenticated audit generation; preserve authenticated pipelines."
+  },
+  {
+    "path": "rescue-agent/src/app/api/frontdesk/auth/login/route.ts",
+    "reason": "Apply source and account/source admission to administrator and tenant login before password verification."
+  },
+  {
+    "path": "rescue-agent/src/app/api/frontdesk/notifications/webhook/route.ts",
+    "reason": "Throttle public messaging/callback requests and bound unauthenticated audit generation; preserve authenticated pipelines."
+  },
+  {
+    "path": "rescue-agent/src/app/api/frontdesk/sms/inbound/route.ts",
+    "reason": "Throttle public messaging/callback requests and bound unauthenticated audit generation; preserve authenticated pipelines."
+  },
+  {
+    "path": "rescue-agent/src/lib/frontdesk/auth/store.ts",
+    "reason": "Coalesce new anonymous message denials while preserving individual authorized audits."
+  },
+  {
+    "path": "rescue-agent/src/lib/frontdesk/config/schema.ts",
+    "reason": "Restore verified historical minute timestamp acceptance while preserving malformed-input rejection."
+  },
+  {
+    "path": "rescue-agent/src/lib/frontdesk/security/throttle.ts",
+    "reason": "Apply atomic bounded source and tenant/account admission, with canonical source identities and secret-keyed slots."
+  },
+  {
+    "path": "rescue-agent/src/lib/validation/zod.ts",
+    "reason": "Restore verified historical minute timestamp acceptance while preserving malformed-input rejection."
+  },
+  {
+    "path": "rescue-agent/tests-e2e/audit-flow.spec.ts",
+    "reason": "Use independently verified report/disclosure labels and visible audit-specific lead assertions."
+  },
+  {
+    "path": "rescue-agent/tests-integration/baseline-reproduction.test.ts",
+    "reason": "Reproduce baseline vulnerabilities and verify real PostgreSQL concurrency, boundaries, storage and tenant isolation."
+  },
+  {
+    "path": "rescue-agent/tests-integration/baseline.config.mts",
+    "reason": "Reproduce baseline vulnerabilities and verify real PostgreSQL concurrency, boundaries, storage and tenant isolation."
+  },
+  {
+    "path": "rescue-agent/tests-integration/security.config.mts",
+    "reason": "Reproduce baseline vulnerabilities and verify real PostgreSQL concurrency, boundaries, storage and tenant isolation."
+  },
+  {
+    "path": "rescue-agent/tests-integration/security.test.ts",
+    "reason": "Reproduce baseline vulnerabilities and verify real PostgreSQL concurrency, boundaries, storage and tenant isolation."
+  },
+  {
+    "path": "rescue-agent/tests/frontdesk-unauth-writes.test.ts",
+    "reason": "Replace obsolete failure-counter/global-lockout expectations and adapt SQL admission doubles."
+  },
+  {
+    "path": "rescue-agent/tests/pilot-enablement.test.ts",
+    "reason": "Keep provider-signature regression tests reaching their intended boundary after source admission."
+  },
+  {
+    "path": "rescue-agent/tests/request-protection.test.ts",
+    "reason": "Test source trust, administrator/tenant protection, session side effects, namespace isolation and historical timestamps."
+  }
+]

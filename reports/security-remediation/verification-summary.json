@@ -1,0 +1,93 @@
+{
+  "sourceCommit": "f7d93167a91b83e1cf62c403086ddfffb11b0f45",
+  "applicationTree": "7ed64fc8b6c04414bee2c0e0841c23bdb566c6dd",
+  "workflowRun": 41713071822,
+  "workflowConclusion": "success",
+  "releaseRecommendation": "HOLD",
+  "images": {
+    "app": {
+      "os-pkgs": {
+        "severityCounts": {
+          "LOW": 150,
+          "HIGH": 43,
+          "MEDIUM": 130,
+          "UNKNOWN": 1,
+          "CRITICAL": 1
+        },
+        "uniqueHighCves": [
+          "CVE-2023-2953",
+          "CVE-2025-69720",
+          "CVE-2026-12064",
+          "CVE-2026-16742",
+          "CVE-2026-41992",
+          "CVE-2026-53613",
+          "CVE-2026-53615",
+          "CVE-2026-54369",
+          "CVE-2026-6276",
+          "CVE-2026-78410",
+          "CVE-2026-8286",
+          "CVE-2026-8458",
+          "CVE-2026-8927",
+          "CVE-2026-9538"
+        ],
+        "highStatuses": {
+          "affected": 30,
+          "fix_deferred": 13
+        },
+        "fixableHigh": 0
+      },
+      "lang-pkgs": {
+        "severityCounts": {},
+        "uniqueHighCves": [],
+        "highStatuses": {},
+        "fixableHigh": 0
+      }
+    },
+    "migrator": {
+      "os-pkgs": {
+        "severityCounts": {
+          "LOW": 150,
+          "HIGH": 43,
+          "MEDIUM": 130,
+          "UNKNOWN": 1,
+          "CRITICAL": 1
+        },
+        "uniqueHighCves": [
+          "CVE-2023-2953",
+          "CVE-2025-69720",
+          "CVE-2026-12064",
+          "CVE-2026-16742",
+          "CVE-2026-41992",
+          "CVE-2026-53613",
+          "CVE-2026-53615",
+          "CVE-2026-54369",
+          "CVE-2026-6276",
+          "CVE-2026-78410",
+          "CVE-2026-8286",
+          "CVE-2026-8458",
+          "CVE-2026-8927",
+          "CVE-2026-9538"
+        ],
+        "highStatuses": {
+          "affected": 30,
+          "fix_deferred": 13
+        },
+        "fixableHigh": 0
+      },
+      "lang-pkgs": {
+        "severityCounts": {},
+        "uniqueHighCves": [],
+        "highStatuses": {},
+        "fixableHigh": 0
+      }
+    }
+  },
+  "criticalDisposition": {
+    "id": "CVE-2023-45853",
+    "status": "not_affected_per_distribution_vendor",
+    "vendor": "https://security-tracker.debian.org/tracker/CVE-2023-45853",
+    "reason": "Bookworm zlib binaries do not build/provide the vulnerable contrib/minizip code. No minizip package is installed in the final image.",
+    "rawFindingRetained": true
+  },
+  "releaseBlocker": "14 unique high-severity Debian CVEs (43 package/advisory entries per image), affected/fix_deferred, no fixed version listed; no independent risk acceptance."
+}

@@ -1,0 +1,18 @@
+
+> wbi-restaurant-rescue-agent@0.1.0 test
+> vitest run --maxWorkers=2 --testTimeout=30000 tests/request-protection.test.ts tests/frontdesk-auth.test.ts tests/frontdesk-tenant-isolation.test.ts tests/frontdesk-isolation-guard.test.ts tests/pilot-enablement.test.ts tests/ai-summary-authorization.test.ts tests/frontdesk-authorization.test.ts tests/operator-authorization.test.ts tests/auth.test.ts tests/frontdesk-webhook.test.ts tests/operator-surface-structure.test.ts tests/frontdesk-unauth-writes.test.ts
+
+
+ RUN  v4.1.12 /workspace/winnersbookmark/rescue-agent
+
+
+ Test Files  12 passed (12)
+      Tests  402 passed (402)
+   Start at  20:30:27
+   Duration  20.28s (transform 8.29s, setup 0ms, import 6.42s, tests 24.47s, environment 6ms)
+
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.1
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.1
+npm notice To update run: npm install -g npm@12.2.1
+npm notice

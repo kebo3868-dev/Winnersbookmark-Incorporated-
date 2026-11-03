@@ -1,0 +1,37 @@
+
+Running 1 test using 1 worker
+
+(node:5177) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  1 [chromium] › tests-e2e/audit-flow.spec.ts:10:5 › demo audit → executive report → PDF → leads (7.5s)
+
+
+  1) [chromium] › tests-e2e/audit-flow.spec.ts:10:5 › demo audit → executive report → PDF → leads ──
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator:  getByText('Optional · your figures').first()
+    Expected: visible
+    Received: hidden
+    Timeout:  5000ms
+
+    Call log:
+      - Expect "toBeVisible" getByText('Optional · your figures').first() with timeout 5000ms
+      - waiting for getByText('Optional · your figures').first()
+        12 × locator resolved to <span class="text-[10px] uppercase tracking-widest border rounded px-2.5 py-1 text-gold border-gold/40">Optional · your figures</span>
+           - unexpected value "hidden"
+
+
+      27 |   await expect(page.getByRole('heading', { name: 'Executive Snapshot', exact: true })).toBeVisible();
+      28 |   await expect(page.getByRole('heading', { name: 'Optional Scenario Calculator', exact: true })).toBeVisible();
+    > 29 |   await expect(page.getByText('Optional · your figures').first()).toBeVisible();
+         |                                                                   ^
+      30 |   await expect(page.getByText(/Enter all .* figures to see a what-if/).first()).toBeVisible();
+      31 |   await expect(page.getByText('What-if, per month', { exact: true })).toHaveCount(0);
+      32 |   // Owner-reported review data is surfaced (Phase 3), never scraped.
+        at /workspace/winnersbookmark/rescue-agent/tests-e2e/audit-flow.spec.ts:29:67
+
+    Error Context: test-results/audit-flow-demo-audit-→-executive-report-→-PDF-→-leads-chromium/error-context.md
+
+  1 failed
+    [chromium] › tests-e2e/audit-flow.spec.ts:10:5 › demo audit → executive report → PDF → leads ───

@@ -1,0 +1,117 @@
+verify	Reproduce original blockers and compare rendered reports to exact baseline	﻿2026-11-03T20:03:01.8939908Z ##[group]Run sudo apt-get update
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:01.8940211Z [36;1msudo apt-get update[0m
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:01.8940482Z [36;1msudo apt-get install -y poppler-utils[0m
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:01.8940738Z [36;1mmkdir -p /tmp/rescue-baseline[0m
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:01.8941102Z [36;1mgit archive 969740c2655b064399e0cb4b8d514e9112145c8d | tar -x -C /tmp/rescue-baseline[0m
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:01.8941569Z [36;1mln -s "$PWD/node_modules" /tmp/rescue-baseline/rescue-agent/node_modules[0m
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:01.8941950Z [36;1mln -s "$PWD/node_modules" /tmp/rescue-baseline/reports/node_modules[0m
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:01.8942467Z [36;1mRESCUE_BASELINE_SOURCE=/tmp/rescue-baseline/rescue-agent npx vitest run --config tests-integration/baseline.config.mts[0m
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:01.8943363Z [36;1m(cd /tmp/rescue-baseline/rescue-agent && REPORT_PHASE=security-baseline node_modules/.bin/vitest run --config ../reports/dependency-remediation/verify.config.mts ../reports/dependency-remediation/preservation.test.ts)[0m
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:01.8944134Z [36;1mln -s "$PWD/node_modules" ../reports/node_modules[0m
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:01.8944632Z [36;1mnpm install --prefix /tmp/rescue-oracle zod3@npm:zod@3.25.76[0m
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:01.8945469Z [36;1mREPORT_PHASE=security-final REPORT_REFERENCE_PHASE=/tmp/rescue-baseline/reports/dependency-remediation/security-baseline ZOD3_REFERENCE=/tmp/rescue-oracle/node_modules/zod3 npx vitest run --config ../reports/dependency-remediation/verify.config.mts[0m
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:01.8973200Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:01.8973466Z env:
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:01.8973948Z   DATABASE_URL: ***127.0.0.1:5432/rescue_remediation
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:01.8974206Z   NEXT_TELEMETRY_DISABLED: 1
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:01.8974400Z ##[endgroup]
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:01.9790139Z Get:1 file:/etc/apt/apt-mirrors.txt Mirrorlist [144 B]
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:02.0053596Z Hit:2 http://azure.archive.ubuntu.com/ubuntu resolute InRelease
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:02.0054789Z Get:6 https://packages.microsoft.com/ubuntu/26.04/prod resolute InRelease [3964 B]
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:02.0137944Z Get:3 http://azure.archive.ubuntu.com/ubuntu resolute-updates InRelease [137 kB]
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:02.0150608Z Get:4 http://azure.archive.ubuntu.com/ubuntu resolute-backports InRelease [137 kB]
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:02.0160939Z Get:5 http://azure.archive.ubuntu.com/ubuntu resolute-security InRelease [137 kB]
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:02.0327368Z Get:7 https://packages.microsoft.com/ubuntu/26.04/prod resolute/main amd64 Packages [131 kB]
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:02.0507181Z Get:8 http://azure.archive.ubuntu.com/ubuntu resolute-updates/main amd64v3 Packages [804 kB]
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:02.0571542Z Get:14 https://packages.microsoft.com/ubuntu/26.04/prod resolute/main arm64 Packages [120 kB]
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:02.0628778Z Get:9 http://azure.archive.ubuntu.com/ubuntu resolute-updates/main Translation-en [184 kB]
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:02.0640144Z Get:10 http://azure.archive.ubuntu.com/ubuntu resolute-updates/universe amd64v3 Packages [375 kB]
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:02.0666320Z Get:11 http://azure.archive.ubuntu.com/ubuntu resolute-updates/universe Translation-en [118 kB]
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:02.0694955Z Get:12 http://azure.archive.ubuntu.com/ubuntu resolute-updates/restricted amd64v3 Packages [543 kB]
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:02.0700081Z Get:13 http://azure.archive.ubuntu.com/ubuntu resolute-updates/restricted Translation-en [112 kB]
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:02.0846812Z Get:15 http://azure.archive.ubuntu.com/ubuntu resolute-security/main amd64v3 Packages [654 kB]
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:02.0895715Z Get:16 http://azure.archive.ubuntu.com/ubuntu resolute-security/main Translation-en [147 kB]
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:02.0907473Z Get:17 http://azure.archive.ubuntu.com/ubuntu resolute-security/universe amd64v3 Packages [207 kB]
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:02.0920395Z Get:18 http://azure.archive.ubuntu.com/ubuntu resolute-security/universe Translation-en [68.2 kB]
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:02.1381699Z Get:19 http://azure.archive.ubuntu.com/ubuntu resolute-security/restricted amd64v3 Packages [529 kB]
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:02.1406289Z Get:20 http://azure.archive.ubuntu.com/ubuntu resolute-security/restricted Translation-en [108 kB]
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:05.2588215Z Fetched 4515 kB in 0s (14.3 MB/s)
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:05.8579872Z Reading package lists...
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:05.8882668Z Reading package lists...
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:06.0599575Z Building dependency tree...
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:06.0606172Z Reading state information...
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:06.1560608Z Solving dependencies...
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:06.2425256Z The following additional packages will be installed:
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:06.2430896Z   libgpgmepp7 libpoppler156 poppler-data
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:06.2436201Z Suggested packages:
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:06.2436638Z   ghostscript fonts-japanese-mincho | fonts-ipafont-mincho
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:06.2437248Z   fonts-japanese-gothic | fonts-ipafont-gothic fonts-arphic-ukai
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:06.2437760Z   fonts-arphic-uming fonts-nanum
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:06.2723531Z The following NEW packages will be installed:
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:06.2728219Z   libgpgmepp7 libpoppler156 poppler-data poppler-utils
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:06.2921368Z 0 upgraded, 4 newly installed, 0 to remove and 25 not upgraded.
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:06.2922328Z Need to get 3607 kB of archives.
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:06.2922839Z After this operation, 18.8 MB of additional disk space will be used.
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:06.2923424Z Get:1 file:/etc/apt/apt-mirrors.txt Mirrorlist [144 B]
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:06.5496912Z Get:2 http://azure.archive.ubuntu.com/ubuntu resolute/main amd64v3 poppler-data all 0.4.12-1build1 [2000 kB]
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:07.6391779Z Get:3 http://azure.archive.ubuntu.com/ubuntu resolute/main amd64v3 libgpgmepp7 amd64 2.0.0-2 [132 kB]
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:07.6989167Z Get:4 http://azure.archive.ubuntu.com/ubuntu resolute-updates/main amd64v3 libpoppler156 amd64 26.01.0-2ubuntu0.3 [1243 kB]
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:08.3422012Z Get:5 http://azure.archive.ubuntu.com/ubuntu resolute-updates/main amd64v3 poppler-utils amd64 26.01.0-2ubuntu0.3 [231 kB]
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:08.7376449Z Fetched 3607 kB in 2s (1698 kB/s)
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:08.7768760Z Selecting previously unselected package poppler-data.
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:08.8050798Z (Reading database ...
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:08.8051170Z (Reading database ... 5%
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:08.8051384Z (Reading database ... 10%
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:08.8051590Z (Reading database ... 15%
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:08.8051792Z (Reading database ... 20%
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:08.8052319Z (Reading database ... 25%
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:08.8052577Z (Reading database ... 30%
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:08.8052845Z (Reading database ... 35%
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:08.8053133Z (Reading database ... 40%
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:08.8053420Z (Reading database ... 45%
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:08.8053711Z (Reading database ... 50%
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:08.9041340Z (Reading database ... 55%
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:09.0646651Z (Reading database ... 60%
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:09.2461918Z (Reading database ... 65%
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:09.6184231Z (Reading database ... 70%
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:09.7561643Z (Reading database ... 75%
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:09.9425615Z (Reading database ... 80%
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:10.1566143Z (Reading database ... 85%
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:10.3882284Z (Reading database ... 90%
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:10.5223320Z (Reading database ... 95%
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:10.5223801Z (Reading database ... 100%
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:10.5224324Z (Reading database ... 212715 files and directories currently installed.)
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:10.5267566Z Preparing to unpack .../poppler-data_0.4.12-1build1_all.deb ...
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:10.5461374Z Unpacking poppler-data (0.4.12-1build1) ...
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:10.7389105Z Selecting previously unselected package libgpgmepp7:amd64.
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:10.7512163Z Preparing to unpack .../libgpgmepp7_2.0.0-2_amd64v3.deb ...
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:10.7524300Z Unpacking libgpgmepp7:amd64 (2.0.0-2) ...
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:10.7846672Z Selecting previously unselected package libpoppler156:amd64.
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:10.7968915Z Preparing to unpack .../libpoppler156_26.01.0-2ubuntu0.3_amd64v3.deb ...
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:10.7974913Z Unpacking libpoppler156:amd64 (26.01.0-2ubuntu0.3) ...
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:10.8469321Z Selecting previously unselected package poppler-utils.
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:10.8592822Z Preparing to unpack .../poppler-utils_26.01.0-2ubuntu0.3_amd64v3.deb ...
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:10.8598123Z Unpacking poppler-utils (26.01.0-2ubuntu0.3) ...
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:10.9111840Z Setting up libgpgmepp7:amd64 (2.0.0-2) ...
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:10.9161048Z Setting up poppler-data (0.4.12-1build1) ...
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:10.9208962Z Setting up libpoppler156:amd64 (26.01.0-2ubuntu0.3) ...
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:10.9222506Z Setting up poppler-utils (26.01.0-2ubuntu0.3) ...
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:10.9238375Z Processing triggers for libc-bin (2.43-2ubuntu2.4) ...
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:11.1998527Z Processing triggers for man-db (2.13.1-1build1) ...
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:11.2063007Z Not building database; man-db/auto-update is not 'true'.
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:11.2073355Z Processing triggers for fontconfig (2.17.1-3ubuntu1) ...
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:11.8297831Z
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:11.8298550Z Running kernel seems to be up-to-date.
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:11.8298856Z
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:11.8298988Z Restarting services...
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:11.8383113Z
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:11.8383632Z Service restarts being deferred:
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:11.8385671Z  systemctl restart hosted-compute-agent.service
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:11.8385956Z
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:11.8386895Z No containers need to be restarted.
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:11.8387121Z
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:11.8387288Z No user sessions are running outdated binaries.
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:11.8387465Z
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:11.8390208Z No VM guests are running outdated hypervisor (qemu) binaries on this host.
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:12.7997234Z ln: failed to create symbolic link '/tmp/rescue-baseline/rescue-agent/node_modules': No such file or directory
+verify	Reproduce original blockers and compare rendered reports to exact baseline	2026-11-03T20:03:12.8012631Z ##[error]Process completed with exit code 1.

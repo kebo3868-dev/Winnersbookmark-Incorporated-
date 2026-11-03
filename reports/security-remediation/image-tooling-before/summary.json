@@ -1,0 +1,106 @@
+{
+  "app": {
+    "os-pkgs": {
+      "severityCounts": {
+        "LOW": 150,
+        "HIGH": 43,
+        "MEDIUM": 130,
+        "UNKNOWN": 1,
+        "CRITICAL": 1
+      },
+      "uniqueHighIds": [
+        "CVE-2023-2953",
+        "CVE-2025-69720",
+        "CVE-2026-12064",
+        "CVE-2026-16742",
+        "CVE-2026-41992",
+        "CVE-2026-53613",
+        "CVE-2026-53615",
+        "CVE-2026-54369",
+        "CVE-2026-6276",
+        "CVE-2026-78410",
+        "CVE-2026-8286",
+        "CVE-2026-8458",
+        "CVE-2026-8927",
+        "CVE-2026-9538"
+      ],
+      "statusHigh": {
+        "affected": 30,
+        "fix_deferred": 13
+      }
+    },
+    "lang-pkgs": {
+      "severityCounts": {
+        "MEDIUM": 12,
+        "HIGH": 10,
+        "LOW": 1
+      },
+      "uniqueHighIds": [
+        "CVE-2026-102276",
+        "CVE-2026-102278",
+        "CVE-2026-13149",
+        "CVE-2026-14257",
+        "CVE-2026-33671",
+        "CVE-2026-48815",
+        "CVE-2026-69152",
+        "CVE-2026-69192",
+        "CVE-2026-9496"
+      ],
+      "statusHigh": {
+        "fixed": 10
+      }
+    }
+  },
+  "migrator": {
+    "os-pkgs": {
+      "severityCounts": {
+        "LOW": 150,
+        "HIGH": 43,
+        "MEDIUM": 130,
+        "UNKNOWN": 1,
+        "CRITICAL": 1
+      },
+      "uniqueHighIds": [
+        "CVE-2023-2953",
+        "CVE-2025-69720",
+        "CVE-2026-12064",
+        "CVE-2026-16742",
+        "CVE-2026-41992",
+        "CVE-2026-53613",
+        "CVE-2026-53615",
+        "CVE-2026-54369",
+        "CVE-2026-6276",
+        "CVE-2026-78410",
+        "CVE-2026-8286",
+        "CVE-2026-8458",
+        "CVE-2026-8927",
+        "CVE-2026-9538"
+      ],
+      "statusHigh": {
+        "affected": 30,
+        "fix_deferred": 13
+      }
+    },
+    "lang-pkgs": {
+      "severityCounts": {
+        "MEDIUM": 12,
+        "HIGH": 10,
+        "LOW": 1
+      },
+      "uniqueHighIds": [
+        "CVE-2026-102276",
+        "CVE-2026-102278",
+        "CVE-2026-13149",
+        "CVE-2026-14257",
+        "CVE-2026-33671",
+        "CVE-2026-48815",
+        "CVE-2026-69152",
+        "CVE-2026-69192",
+        "CVE-2026-9496"
+      ],
+      "statusHigh": {
+        "fixed": 10
+      }
+    }
+  }
+}

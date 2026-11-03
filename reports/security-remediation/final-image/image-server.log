@@ -1,0 +1,17 @@
+Applying database migrations (prisma migrate deploy)...
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "rescue_remediation", schema "public" at "host.docker.internal:5432"
+
+15 migrations found in prisma/migrations
+
+
+No pending migrations to apply.
+Starting Restaurant Rescue Agent on port 3000...
+   ▲ Next.js 15.5.28
+   - Local:        http://localhost:3000
+   - Network:      http://0.0.0.0:3000
+
+ ✓ Starting...
+ ✓ Ready in 70ms
+(node:1) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
