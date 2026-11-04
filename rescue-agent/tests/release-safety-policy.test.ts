@@ -487,7 +487,14 @@ describe('scores, statuses, classifications and confidence labels are unchanged 
     expect(poisoned.score).toEqual(clean.score);
     expect(poisoned.findings.map((f) => [f.category, f.classification, f.labels, f.internalScores]))
       .toEqual(clean.findings.map((f) => [f.category, f.classification, f.labels, f.internalScores]));
-    expect(poisoned.thirtyDayPlan.map((p) => [p.phase, p.actions.length])).toEqual(clean.thirtyDayPlan.map((p) => [p.phase, p.actions.length]));
+    // Poisoned evidence leaves every finding's wording untraceable, so the plan
+    // keeps its phases but drops the category steps those findings drove; it
+    // adds nothing but the step to check them (final review of d7f5fd2).
+    expect(poisoned.thirtyDayPlan.map((p) => p.phase)).toEqual(clean.thirtyDayPlan.map((p) => p.phase));
+    const cleanActions = new Set(clean.thirtyDayPlan.flatMap((p) => p.actions));
+    for (const a of poisoned.thirtyDayPlan.flatMap((p) => p.actions)) {
+      expect(cleanActions.has(a) || /could not be traced to the audit evidence|No website fix is confirmed|No automation change is authorized|No automation is proposed|^(Review|If |Track:)/.test(a), a).toBe(true);
+    }
     expect(poisoned.appendix.map((e) => [e.evidenceType, e.confidence, e.confidenceLabel])).toEqual(clean.appendix.map((e) => [e.evidenceType, e.confidence, e.confidenceLabel]));
     expect(writes).toEqual([]);
   });
@@ -726,4 +733,49 @@ describe('follow-up review of 07198e3: the loader, the web report and the PDF', 
     expect(dto.findings.map((f) => f.title)).toContain(ORDER_TITLE);
     expect(JSON.stringify(dto)).not.toContain('The stored description of this finding could not be traced');
   });
+});
+
+// ── Final review of d7f5fd2 (S1–S4): unverified findings on the real surfaces ──
+
+describe('final review of d7f5fd2: a finding with untraceable wording on the loader, web report and PDF', () => {
+  const BROKEN_ADVICE = 'Fix the broken link(s) immediately. This is a direct website repair, not an AI project.';
+  it('S1: a broken-pathway finding with unrelated evidence prints no fix, no plan entry and no "verified" diagnosis anywhere', async () => {
+    poison = {
+      edit: (s) => s.opportunities.push({
+        ...s.opportunities[0], category: 'BROKEN CUSTOMER PATHWAY', title: 'x', problem: 'x', businessImpact: 'x', customerJourneyStage: 'WEBSITE',
+        evidenceIds: [FAQ_FACT_ID], recommendedSolution: BROKEN_ADVICE, manualValidationRequired: false, confidenceScore: 95, aiFitScore: 20, rescuePriorityScore: 99,
+      }),
+    };
+    const dto = await loadDto();
+    const surfaces = { dto: squash(JSON.stringify(dto)), web: squash(await webText()), pdf: squash(await pdfText()) };
+    for (const [name, text] of Object.entries(surfaces)) {
+      expect(text, name).not.toContain(squash('Fix the broken link(s) immediately'));
+      expect(text, name).not.toContain(squash('Highest-priority verified finding: Broken customer pathway'));
+      expect(text, name).toContain(squash('Check this finding against its evidence in the appendix before acting on it'));
+    }
+  }, 180_000);
+
+  it('S3: an order-button finding with no evidence prints no evidence statement and no button fix anywhere', async () => {
+    poison = {
+      edit: (s) => {
+        const order = s.opportunities.find((o) => o.category === 'ORDER BUTTON LABEL MISMATCH')!;
+        const ids = new Set(order.evidenceIds);
+        s.evidence = s.evidence.filter((e) => !ids.has(e.id));
+        s.opportunities = s.opportunities.filter((o) => o !== order);
+        s.opportunities.push({ ...order, evidenceIds: [], title: 'x', problem: 'x', rescuePriorityScore: 99 });
+      },
+    };
+    const surfaces = { dto: squash(JSON.stringify(await loadDto())), web: squash(await webText()), pdf: squash(await pdfText()) };
+    for (const [name, text] of Object.entries(surfaces)) {
+      for (const claim of ['Read from the page markup', 'Decide which experience is intended', 'Tap the online ordering button']) {
+        expect(text, `${name}: ${claim}`).not.toContain(squash(claim));
+      }
+    }
+  }, 180_000);
+
+  it('the unaltered audit still prints its order-button evidence statement and fix', async () => {
+    const web = squash(await webText());
+    expect(web).toContain(squash('Read from the page markup'));
+    expect(web).toContain(squash('Decide which experience is intended'));
+  }, 120_000);
 });

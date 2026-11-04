@@ -364,3 +364,37 @@ describe('follow-up review of 07198e3: the internal Sales Brief', () => {
     expect(await page()).not.toContain('No phone number was detected');
   });
 });
+
+describe('final review of d7f5fd2: the Sales Brief and a finding with untraceable wording', () => {
+  const BROKEN_ADVICE = 'Fix the broken link(s) immediately. This is a direct website repair, not an AI project.';
+  it('S1: a broken-pathway finding ranked first is not the lead, not called verified, and its unrelated evidence is not quoted', async () => {
+    const faq = storedFixture.evidence.find((e) => e.evidenceType === 'FAQ_SIGNAL')!.id;
+    storedBrief = storedRecord('AI DISCOVERY AUDIT', null, {
+      opportunities: (o, i) => (i === 0 ? { ...o, category: 'BROKEN CUSTOMER PATHWAY', title: 'x', problem: 'x', customerJourneyStage: 'WEBSITE', evidenceIds: [faq], recommendedSolution: BROKEN_ADVICE, manualValidationRequired: false, confidenceScore: 95 } : o),
+    });
+    const shown = await load();
+    const html = await page();
+    expect(textOf(shown.bestSalesAngle)).not.toMatch(/broken customer pathway/i);
+    expect(textOf(shown.callOpener)).not.toMatch(/broken customer pathway/i);
+    expect(textOf(shown.emailOpener)).not.toContain('No public FAQ pathway was detected');
+    expect(html).not.toMatch(/"Broken customer pathway" — VERIFIED/);
+  });
+
+  it('S3: with no ordering evidence, the brief never says the ordering button is a phone link', async () => {
+    const order = storedFixture.opportunities.find((o) => o.category === 'ORDER BUTTON LABEL MISMATCH')!;
+    storedBrief = storedRecord('AI DISCOVERY AUDIT', null, { opportunities: (o, i) => (i === 0 ? { ...order, evidenceIds: [], title: 'x', problem: 'x' } : o) });
+    (storedBrief!.audit as { evidence: { id: string }[] }).evidence = storedFixture.evidence.filter((e) => !order.evidenceIds.includes(e.id));
+    const shown = await load();
+    const html = await page();
+    for (const claim of ['set up as a phone link', 'uses a phone link', 'page markup was read automatically']) {
+      expect(JSON.stringify(shown), claim).not.toContain(claim);
+      expect(html, claim).not.toContain(claim);
+    }
+  });
+
+  it('the unaltered audit still leads with its verified-in-markup ordering finding', async () => {
+    storedBrief = storedRecord('AI DISCOVERY AUDIT', null);
+    const shown = await load();
+    expect(textOf(shown.callOpener)).toContain('set up as a phone link rather than an online checkout');
+  });
+});

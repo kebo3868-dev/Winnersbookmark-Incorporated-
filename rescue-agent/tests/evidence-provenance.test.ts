@@ -129,7 +129,9 @@ describe('publication is deterministic and changes only text', () => {
     expect(out.evidence.every((e) => e.fact === NEUTRAL_FACT)).toBe(true);
     const strip = <T extends object>(xs: T[], text: (keyof T)[]) => xs.map((x) => Object.fromEntries(Object.entries(x).filter(([k]) => !text.includes(k as keyof T))));
     expect(strip(out.journey, ['finding'])).toEqual(strip(stored.journey, ['finding']));
-    expect(strip(out.opportunities, ['title', 'problem', 'businessImpact', 'recommendedSolution'])).toEqual(strip(stored.opportunities, ['title', 'problem', 'businessImpact', 'recommendedSolution']));
+    expect(strip(out.opportunities, ['title', 'problem', 'businessImpact', 'recommendedSolution', 'evidenceBound'])).toEqual(strip(stored.opportunities, ['title', 'problem', 'businessImpact', 'recommendedSolution']));
+    // With every fact untraceable, no finding's wording is bound to its evidence.
+    expect(out.opportunities.map((o) => o.evidenceBound)).toEqual(stored.opportunities.map(() => false));
     expect(strip(out.scores, ['explanation'])).toEqual(strip(stored.scores, ['explanation']));
     expect(JSON.stringify(stored)).toBe(before);
   });

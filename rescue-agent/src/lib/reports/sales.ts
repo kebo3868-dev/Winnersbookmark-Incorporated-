@@ -87,7 +87,7 @@ export function generateSalesBrief(input: {
   // tested, what was not measured — they ARE the status. "Strongly indicated,
   // not yet confirmed" said less than the audit knew, about a button whose
   // markup was read straight off the page.
-  const basis = topLeak && !canAssert ? evidenceBasisFor(topLeak.category) : null;
+  const basis = topLeak && !canAssert && topLeak.evidenceBound !== false ? evidenceBasisFor(topLeak.category) : null;
 
   // Lead quality: more confirmed, high-priority pain = better-qualified lead.
   const avgPriority = topLeaks.length ? topLeaks.reduce((s, l) => s + l.rescuePriorityScore, 0) / topLeaks.length : 0;
@@ -214,11 +214,22 @@ export function generateSalesBrief(input: {
  * technical failing every time — and it was the one claim the rep could not
  * stand behind.
  */
+/**
+ * The evidence state a brief may use for a finding. A finding whose wording
+ * could not be traced to its evidence (evidenceBound: false) is insufficient
+ * data, whatever its stored flags: the rep never hears it called verified,
+ * never leads with it while a bound finding exists, and never gets its
+ * category's evidence statement.
+ */
+export function briefStateFor(leak: RankedOpportunity): EvidenceState {
+  return leak.evidenceBound === false ? 'INSUFFICIENT_DATA' : stateForOpportunity(leak);
+}
+
 export function selectLeadFinding(
   leaks: RankedOpportunity[],
 ): { leak: RankedOpportunity; state: EvidenceState } | null {
   if (leaks.length === 0) return null;
-  const scored = leaks.map((leak) => ({ leak, state: stateForOpportunity(leak) }));
+  const scored = leaks.map((leak) => ({ leak, state: briefStateFor(leak) }));
   scored.sort((a, b) => {
     const byStrength = stateRank(b.state) - stateRank(a.state);
     if (byStrength !== 0) return byStrength;
@@ -292,7 +303,8 @@ function buildDiscoveryQuestions(topLeaks: RankedOpportunity[], journey: Journey
   const followUp = journey.find((s) => s.stage === 'FOLLOW_UP');
   const hasCatering = topLeaks.some((l) => /CATERING/i.test(l.category));
   const hasOrdering = topLeaks.some((l) => /ORDERING/i.test(l.category));
-  const orderButtonMismatch = topLeaks.some((l) => /ORDER BUTTON/i.test(l.category));
+  // States what the website does, so only a finding bound to its evidence may raise it.
+  const orderButtonMismatch = topLeaks.some((l) => /ORDER BUTTON/i.test(l.category) && l.evidenceBound !== false);
 
   if (phone && phone.status !== 'HEALTHY') {
     questions.push('During your busiest service periods, what happens when your team cannot immediately answer the phone?');
@@ -339,9 +351,9 @@ function buildTalkTrack(
     // together with "ask about it, do not assert it" after every one, the list
     // was a paragraph a rep could not find their place in.
     const labelled = topLeaks.map((l) => {
-      const state = stateForOpportunity(l);
+      const state = briefStateFor(l);
       if (mayStateDefinitively(state)) return `• "${l.title}" — VERIFIED, state it plainly`;
-      const layers = evidenceBasisFor(l.category);
+      const layers = l.evidenceBound === false ? null : evidenceBasisFor(l.category);
       return `• "${stripDefinitive(l.title)}" — ${layers ? layers.summary : STATE_PLAIN[state]}`;
     });
     lines.push(
@@ -355,9 +367,9 @@ function buildTalkTrack(
     // open "the strongest claim this brief supports overall is: not
     // confirmed", which read as a verdict on findings whose evidence was
     // verified.
-    const open = topLeaks.filter((l) => !mayStateDefinitively(stateForOpportunity(l))).length;
+    const open = topLeaks.filter((l) => !mayStateDefinitively(briefStateFor(l))).length;
     if (open > 0) {
-      const combined = inheritState(...topLeaks.map(stateForOpportunity));
+      const combined = inheritState(...topLeaks.map(briefStateFor));
       const which =
         open === topLeaks.length
           ? topLeaks.length === 1

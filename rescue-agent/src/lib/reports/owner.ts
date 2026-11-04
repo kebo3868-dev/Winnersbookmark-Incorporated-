@@ -18,6 +18,8 @@ export interface RankedOpportunity {
   rescuePriorityScore: number;
   recommendedSolution: string;
   manualValidationRequired: boolean;
+  /** false: published with fallback wording (observationPublication.ts) — treated as unverified. Absent: engine output. */
+  evidenceBound?: boolean;
 }
 
 export interface OwnerReportContent {

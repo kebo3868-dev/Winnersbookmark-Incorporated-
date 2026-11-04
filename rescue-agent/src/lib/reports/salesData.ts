@@ -95,6 +95,7 @@ export async function loadSalesBrief(operator: OperatorAuthorization, auditId: s
     rescuePriorityScore: o.rescuePriorityScore,
     recommendedSolution: '',
     manualValidationRequired: o.manualValidationRequired,
+    evidenceBound: o.evidenceBound,
   }));
   const journey: JourneyStageResult[] = published.journey.map((j) => ({
     stage: j.stage as JourneyStageResult['stage'],

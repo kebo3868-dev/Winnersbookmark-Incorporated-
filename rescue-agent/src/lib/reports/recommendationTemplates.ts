@@ -126,10 +126,19 @@ export function auditedSolutionsFor(category: string): string[] {
  * the report itself just computed the text from the finding's evidence
  * (deterministic code, not stored text).
  */
+/**
+ * The only next step for a finding whose wording could not be traced to its
+ * evidence (evidenceBound: false). Its category's advice ("Fix the broken
+ * link(s) immediately") would assert a problem the evidence does not show.
+ */
+export const UNVERIFIED_FINDING_ACTION =
+  'Check this finding against its evidence in the appendix before acting on it. Its stored description could not be traced to the audit evidence, so no fix is recommended from it.';
+
 export function presentFindingRecommendation(
-  opp: { category: string; aiFitScore: number; recommendedSolution: string },
+  opp: { category: string; aiFitScore: number; recommendedSolution: string; evidenceBound?: boolean },
   computedFromEvidence = false,
 ): string {
+  if (opp.evidenceBound === false) return UNVERIFIED_FINDING_ACTION;
   if (isExploratoryOpportunity(opp)) return presentOpportunitySolution(opp);
   if (computedFromEvidence) return presentRecommendedSolution(opp.category, opp.recommendedSolution);
   const template = CATEGORY_TEMPLATES.find((t) => t.category.test(opp.category));

@@ -268,7 +268,14 @@ export function publishAuditObservations<
 >(stored: { evidence: E[]; journey: J[]; opportunities: O[]; scores: S[]; context?: PublicationContext }): {
   evidence: (E & PublishedEvidence)[];
   journey: J[];
-  opportunities: O[];
+  /**
+   * evidenceBound: true only when the finding's wording was regenerated from
+   * exactly its own evidence. A finding with fallback wording is false, and
+   * every surface treats it as unverified: no category recommendation, no
+   * category evidence statement, no plan entry, no automation entry, never
+   * "verified" in prose (executive.ts, sales.ts).
+   */
+  opportunities: (O & { evidenceBound: boolean })[];
   scores: S[];
   report: PublicationReport;
 } {
@@ -338,13 +345,13 @@ export function publishAuditObservations<
     if (index >= 0) {
       usedLeaks.add(index);
       const r = leaksR[index];
-      return { ...o, ...ident, title: r.title, problem: r.problem, businessImpact: r.businessImpact, recommendedSolution: r.recommendedSolution };
+      return { ...o, ...ident, title: r.title, problem: r.problem, businessImpact: r.businessImpact, recommendedSolution: r.recommendedSolution, evidenceBound: true };
     }
     oppFallbacks++;
     if ((['title', 'problem', 'businessImpact'] as const).some((field) => isHistoricalWording(COMPILED_OPPORTUNITY.filter((t) => t.field === field && t.categories.includes(category)), o[field]))) {
       oppHistoricalWithheld++;
     }
-    return { ...o, ...ident, title: neutralFindingTitle(category), problem: NEUTRAL_PROBLEM, businessImpact: NEUTRAL_IMPACT };
+    return { ...o, ...ident, title: neutralFindingTitle(category), problem: NEUTRAL_PROBLEM, businessImpact: NEUTRAL_IMPACT, evidenceBound: false };
   });
 
   // A score explanation the current engine no longer gives for this score may

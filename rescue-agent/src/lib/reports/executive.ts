@@ -18,6 +18,10 @@ import {
   presentTierRecommendation,
 } from './automationWording';
 import { auditedTierRecommendation, presentFindingRecommendation } from './recommendationTemplates';
+
+/** What is not known about a finding whose wording could not be traced to its evidence. */
+const UNVERIFIED_FINDING_UNKNOWN =
+  'Whether this finding holds at all: its stored description could not be traced to the audit evidence. Check it against the evidence in the appendix.';
 import { NO_PILOT_RECORDS, authorisePilotImplementation, type PilotAuthorisation, type PilotRecords } from './pilotAuthorization';
 
 export { isAutomationCandidate, isExploratoryOpportunity };
@@ -208,6 +212,15 @@ export interface ExecutiveReportInput {
     rescuePriorityScore: number;
     recommendedSolution: string;
     manualValidationRequired: boolean;
+    /**
+     * false: the finding's stored wording could not be traced to its evidence
+     * and was published with neutral wording (observationPublication.ts). Such a
+     * finding is shown, with its stored classification and scores, but nothing
+     * is derived from its category: no category recommendation or evidence
+     * statement, no plan or automation entry, never "verified" in prose.
+     * Absent: engine output, built from its own evidence.
+     */
+    evidenceBound?: boolean;
   }[];
   journey: { stage: string; status: string; finding: string; manualValidationRequired: boolean }[];
   categoryScores: { category: string; score: number | null; insufficientData: boolean; explanation: string }[];
@@ -227,6 +240,8 @@ export interface ExecutiveReportInput {
 
 export interface ExecutiveFinding {
   number: number;
+  /** false when the finding's wording could not be traced to its evidence (see ExecutiveReportInput). */
+  evidenceBound: boolean;
   title: string;
   category: string;
   classification: EvidenceClassification;
@@ -622,35 +637,45 @@ export function buildExecutiveReport(rawInput: ExecutiveReportInput): ExecutiveR
     .map((opp) => {
       // Order-button copy is computed here from the finding's own evidence;
       // every other recommendation comes from the audited templates.
-      const copied = withOrderButtonCopy(opp, attachedTo(opp));
+      const copied = opp.evidenceBound === false ? opp : withOrderButtonCopy(opp, attachedTo(opp));
       return { ...copied, recommendedSolution: presentFindingRecommendation(copied, copied !== opp) };
     })
     .sort((a, b) => b.rescuePriorityScore - a.rescuePriorityScore);
   const top = ranked.slice(0, MAX_REPORT_FINDINGS);
 
+  // Findings whose wording is bound to their evidence. Only these drive
+  // anything derived from a category: the plan, the automation section, the
+  // diagnosis and the verified-findings prose.
+  const boundTop = top.filter((o) => o.evidenceBound !== false);
   const findings: ExecutiveFinding[] = top.map((opp, i) => {
     const attached = attachedTo(opp);
     const classification = classifyFinding(opp);
-    const scenarioKind = scenarioKindFor({ category: opp.category, classification });
+    const bound = opp.evidenceBound !== false;
+    const scenarioKind = bound ? scenarioKindFor({ category: opp.category, classification }) : null;
     // The order-button card adds only what it has not already said; the
     // generic first-three-records list repeated its own observation twice.
-    const orderButtonFacts = opp.category === ORDER_BUTTON_CATEGORY ? orderButtonFindingCopy(attached)?.facts : undefined;
+    const orderButtonFacts = bound && opp.category === ORDER_BUTTON_CATEGORY ? orderButtonFindingCopy(attached)?.facts : undefined;
+    const unknowns = bound ? unknownsFor(opp.category) : UNVERIFIED_FINDING_UNKNOWN;
     return {
       number: i + 1,
+      evidenceBound: bound,
       title: opp.title,
       category: opp.category,
       classification,
       problem: opp.problem,
       whyItMatters: opp.businessImpact,
-      commercialEffect: commercialEffectFor(opp.category, opp.businessImpact),
+      // Empty is omitted by the renderers.
+      commercialEffect: bound ? commercialEffectFor(opp.category, opp.businessImpact) : '',
       whatWeKnow: orderButtonFacts ?? attached.slice(0, 3).map((e) => presentEvidenceRecord(e).fact),
-      whatWeDoNotKnow: unknownsFor(opp.category),
+      whatWeDoNotKnow: unknowns,
       potentialEffect: opp.businessImpact,
       recommendedAction: opp.recommendedSolution,
       automationOpportunity: automationLabel(opp.aiFitScore),
-      validationRequired: unknownsFor(opp.category),
+      validationRequired: unknowns,
       journeyStage: journeyLabel(opp.customerJourneyStage),
-      evidenceBasis: evidenceBasisFor(opp.category),
+      // The category's evidence statement ("Read from the page markup: …")
+      // describes the evidence the engine writes for it, not this finding's.
+      evidenceBasis: bound ? evidenceBasisFor(opp.category) : null,
       labels: {
         businessImpact: levelLabel(opp.impactScore),
         urgency: levelLabel(opp.urgencyScore),
@@ -701,7 +726,7 @@ export function buildExecutiveReport(rawInput: ExecutiveReportInput): ExecutiveR
   // The same rules everywhere: isAutomationCandidate (pilot decision) and
   // isExploratoryOpportunity (visible, no pilot) — here, in Section 06, in the
   // Decision box and in Days 15–21.
-  const aiOpportunities = top
+  const aiOpportunities = boundTop
     .filter(inSection06)
     .map((opp) => ({
       opportunity: opp.title,
@@ -732,7 +757,7 @@ export function buildExecutiveReport(rawInput: ExecutiveReportInput): ExecutiveR
       prefill: prefillFromAverageTicket(f.scenarioKind, input.avgTicket),
     });
   }
-  const rankedAiOpportunities = buildRankedAiOpportunities(top, { restaurantId: input.restaurantId ?? null, records: input.pilotRecords ?? NO_PILOT_RECORDS });
+  const rankedAiOpportunities = buildRankedAiOpportunities(boundTop, { restaurantId: input.restaurantId ?? null, records: input.pilotRecords ?? NO_PILOT_RECORDS });
   const journeyMap = buildJourneyMap(input.journey);
   const usedStatuses = new Set(journeyMap.map((s) => s.status));
   const snapshot = buildSnapshot(input, findings, rankedAiOpportunities);
@@ -754,7 +779,8 @@ export function buildExecutiveReport(rawInput: ExecutiveReportInput): ExecutiveR
       demoMode: input.demoMode,
       auditStatus: input.auditStatus,
     },
-    headlines: reportHeadlines(findings.map((f) => f.classification)),
+    // A finding with untraceable wording is never counted toward a "revenue leaks" heading.
+    headlines: reportHeadlines(findings.map((f) => (f.evidenceBound ? f.classification : 'MANUAL VALIDATION REQUIRED'))),
     snapshot,
     scenarioCalculators,
     journeyMap,
@@ -804,7 +830,7 @@ export function buildExecutiveReport(rawInput: ExecutiveReportInput): ExecutiveR
     findings,
     journeyScorecard,
     aiOpportunities,
-    thirtyDayPlan: buildThirtyDayPlan(top, input),
+    thirtyDayPlan: buildThirtyDayPlan(boundTop, input, top.length - boundTop.length),
     recommendation: {
       headline: 'OUR RECOMMENDATION',
       body: input.storedRecommendation
@@ -1021,7 +1047,9 @@ function problemAddressedBy(opp: OppInput): string {
 }
 
 function buildPrescription(input: ExecutiveReportInput, findings: ExecutiveFinding[]): Prescription {
-  const primary = findings[0];
+  // The diagnosis names the highest-priority finding bound to its evidence; a
+  // finding with untraceable wording is never named as the diagnosis.
+  const primary = findings.find((f) => f.evidenceBound);
   const tier = input.storedRecommendation?.tier ?? 'AI DISCOVERY AUDIT';
   const frictionStages = input.journey.filter((s) => s.status === 'FRICTION' || s.status === 'RISK').map((s) => journeyLabel(s.stage));
   // OBSERVED FRICTION AND OPEN QUESTIONS ARE SEPARATE SENTENCES.
@@ -1052,7 +1080,9 @@ function buildPrescription(input: ExecutiveReportInput, findings: ExecutiveFindi
       : basis
         ? ` Highest-priority finding: ${title}.`
         : ` Highest-priority opportunity requiring validation: ${title}.`
-    : ' The open questions sit in areas a public audit cannot observe.';
+    : findings.length > 0
+      ? ' The highest-priority findings could not be traced to the audit evidence; check them against the evidence in the appendix before acting on them.'
+      : ' The open questions sit in areas a public audit cannot observe.';
   const diagnosis = `${observed}${lead}`;
   const strength = primary?.labels.observedEvidence;
   const diagnosisBasis = basis && primary
@@ -1303,17 +1333,27 @@ function buildSummary(input: ExecutiveReportInput, findings: ExecutiveFinding[])
   }
   if (healthy.length > 0) parts.push(`The strongest areas of the current digital operation are: ${healthy.join(', ')}.`);
   if (friction.length > 0) parts.push(`Public evidence suggests guest friction concentrated in: ${friction.join(', ')}.`);
-  if (findings.length > 0) {
+  const bound = findings.filter((f) => f.evidenceBound);
+  const unbound = findings.filter((f) => !f.evidenceBound);
+  if (bound.length > 0) {
     // Only verified findings may be called revenue leaks; see reportHeadlines.
-    const verified = findings.filter((f) => f.classification === 'VERIFIED FINDING').length;
+    const verified = bound.filter((f) => f.classification === 'VERIFIED FINDING').length;
     const lead =
-      verified === findings.length
+      verified === bound.length
         ? 'The verified revenue leaks identified are'
         : verified > 0
           ? 'The priority findings, verified and to be validated, are'
           : 'No revenue loss was verified from public evidence. The priority opportunities to validate are';
-    parts.push(`${lead}: ${findings.map((f) => f.title.toLowerCase()).join('; ')}.`);
-    const manual = findings.filter((f) => f.classification === 'MANUAL VALIDATION REQUIRED').length;
+    parts.push(`${lead}: ${bound.map((f) => f.title.toLowerCase()).join('; ')}.`);
+  }
+  if (unbound.length > 0) {
+    // Named apart, never among the verified findings or the leaks.
+    parts.push(
+      `${unbound.length === 1 ? 'One further finding' : `${unbound.length} further findings`} could not be traced to the audit evidence and should be checked against it before being acted on: ${unbound.map((f) => f.title.toLowerCase()).join('; ')}.`,
+    );
+  }
+  if (findings.length > 0) {
+    const manual = bound.filter((f) => f.classification === 'MANUAL VALIDATION REQUIRED').length;
     if (manual > 0) parts.push(`${manual} of these should be validated against internal call, booking, or sales data before being treated as confirmed.`);
     parts.push(`Ownership should prioritize the first finding in this report; the 30-day plan sequences validation, fixes, and then a decision on automation.`);
   } else {
@@ -1323,8 +1363,11 @@ function buildSummary(input: ExecutiveReportInput, findings: ExecutiveFinding[])
 }
 
 function buildThirtyDayPlan(
+  // Only findings bound to their evidence: the plan's category-specific steps,
+  // fixes and decisions are never derived from a finding with untraceable wording.
   top: ExecutiveReportInput['opportunities'],
   input: ExecutiveReportInput,
+  unverifiedFindings = 0,
 ): { phase: string; heading: string; actions: string[] }[] {
   const has = (pattern: RegExp) => top.some((o) => pattern.test(o.category));
 
@@ -1336,6 +1379,9 @@ function buildThirtyDayPlan(
   if (has(/RETENTION/i)) validate.push('Check whether the POS or reservation system already holds a guest contact database, and its size.');
   if (input.journey.some((s) => s.stage === 'RESERVATION' && s.status !== 'HEALTHY')) validate.push('Review reservation patterns: how bookings arrive, and whether any requests go unanswered.');
   validate.push('Walk each finding marked "manual validation required" against your own operating data.');
+  if (unverifiedFindings > 0) {
+    validate.push('Check each finding whose description could not be traced to the audit evidence against the evidence in the appendix; act on none of them until it is confirmed.');
+  }
 
   // DAYS 8–14 IS FOR VERIFIED WEBSITE FIXES ONLY.
   //
