@@ -261,6 +261,29 @@ describe('Executive PDF generation', () => {
     expect(tail).toContain('%%EOF');
   }, 30_000);
 
+  // Score-weight rows share their term ("15%" for three categories, "10%" for
+  // five). Keyed by term alone, React logged "Encountered two children with the
+  // same key" on every render, and non-unique keys may drop or duplicate rows.
+  it('renders without duplicate React keys (score-weight rows share their percentage)', async () => {
+    const { scoringMethodology } = await import('@/lib/scoring/methodology');
+    for (const section of scoringMethodology()) {
+      const keys = (section.rows ?? []).map(([term, definition]) => `${term} ${definition}`);
+      expect(new Set(keys).size, section.heading).toBe(keys.length);
+    }
+    const { ExecutivePdf } = await import('@/lib/pdf/ExecutivePdf');
+    const { renderToBuffer } = await import('@react-pdf/renderer');
+    type PdfElement = Parameters<typeof renderToBuffer>[0];
+    const logged: string[] = [];
+    const original = console.error;
+    console.error = (...args: unknown[]) => { logged.push(args.map(String).join(' ')); };
+    try {
+      await renderToBuffer(React.createElement(ExecutivePdf, { dto: buildExecutiveReport(input) }) as unknown as PdfElement);
+    } finally {
+      console.error = original;
+    }
+    expect(logged.filter((m) => /same key/i.test(m))).toEqual([]);
+  }, 30_000);
+
   it('PDF content does not contain secrets or internal markers', async () => {
     process.env.FAKE_PDF_SECRET = 'pdf-secret-marker-999';
     const { ExecutivePdf } = await import('@/lib/pdf/ExecutivePdf');

@@ -2,6 +2,7 @@ import type { CategoryScoreInput, EvidenceRecordLike, JourneyStageResult } from 
 import { scoreBand } from '@/lib/scoring/rescueScore';
 import { safeDisplayName } from '@/lib/audit/restaurantName';
 import { COMPANY } from '@/lib/config';
+import { UNRECOGNISED_SCORE_LABEL } from './canonicalIdentifiers';
 
 export interface RankedOpportunity {
   category: string;
@@ -121,7 +122,7 @@ export function generateOwnerReport(input: {
   const assumptions = [
     'This audit analyzed publicly accessible website pages only. No private operating, financial, or customer data was used unless provided.',
     `Audit coverage: ${input.coverageScore}% of intended audit categories had sufficient public evidence. ${input.scoreExplanation}`,
-    ...input.categories.filter((c) => c.insufficientData).map((c) => `${CATEGORY_LABELS[c.category] ?? c.category}: ${c.explanation}`),
+    ...input.categories.filter((c) => c.insufficientData).map((c) => `${CATEGORY_LABELS[c.category] ?? UNRECOGNISED_SCORE_LABEL}: ${c.explanation}`),
     ...input.topLeaks.filter((l) => l.manualValidationRequired).map((l) => `"${l.title}" requires manual validation before being treated as confirmed.`),
     'No revenue figures are stated in this audit. Where impact is discussed, it describes exposure and opportunity, not verified losses.',
   ];
@@ -144,7 +145,7 @@ export function generateOwnerReport(input: {
     biggestOpportunity,
     scorecard: input.categories.map((c) => ({
       category: c.category,
-      label: CATEGORY_LABELS[c.category] ?? c.category,
+      label: CATEGORY_LABELS[c.category] ?? UNRECOGNISED_SCORE_LABEL,
       weight: c.weight,
       score: c.insufficientData ? null : c.score,
       insufficientData: c.insufficientData,

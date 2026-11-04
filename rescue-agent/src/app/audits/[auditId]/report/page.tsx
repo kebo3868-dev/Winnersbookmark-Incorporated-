@@ -190,8 +190,9 @@ export default async function ExecutiveReportPage({ params }: { params: Promise<
                 <p className="text-ivory-faint text-[13px] leading-relaxed mt-1">{section.body}</p>
                 {section.rows && (
                   <dl className="mt-2.5 space-y-1.5">
+                    {/* Keyed by term AND definition: weight rows share terms ("15%" for three categories). */}
                     {section.rows.map(([term, definition]) => (
-                      <div key={term} className="text-[13px] leading-relaxed">
+                      <div key={`${term} ${definition}`} className="text-[13px] leading-relaxed">
                         <dt className="text-gold-dim inline">{term}</dt>
                         <dd className="text-ivory-faint inline"> — {definition}</dd>
                       </div>
@@ -274,7 +275,7 @@ export default async function ExecutiveReportPage({ params }: { params: Promise<
               <div key={opp.rank} className="card p-6 text-sm">
                 <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
                   <p className="font-display text-lg text-gold">#{opp.rank} · {opp.solutionCategory}</p>
-                  <span className="text-[10px] uppercase tracking-widest border border-gold/40 text-gold rounded px-2.5 py-1">Automation fit: {opp.fit}</span>
+                  <span className="text-[10px] uppercase tracking-widest border border-gold/40 text-gold rounded px-2.5 py-1">{opp.exploratory ? `Exploratory · ${opp.fit.toLowerCase()} fit` : `Automation fit: ${opp.fit}`}</span>
                 </div>
                 <p className={`text-xs mb-3 ${opp.requiresValidation ? 'text-amber-400' : 'text-ivory-faint'}`}>{opp.basis}</p>
                 <Field label="Problem addressed">{opp.problemAddressed}</Field>
@@ -283,7 +284,7 @@ export default async function ExecutiveReportPage({ params }: { params: Promise<
                   <p className="label mb-1">What it can do</p>
                   <ul className="list-disc list-inside text-ivory-dim space-y-0.5">{opp.capabilities.map((c, i) => <li key={i}>{c}</li>)}</ul>
                 </div>
-                <div className="mt-3"><Field label="Validation before implementation">{opp.validationBeforeImplementation}</Field></div>
+                <div className="mt-3"><Field label={opp.exploratory ? 'What to check first' : 'Validation before implementation'}>{opp.validationBeforeImplementation}</Field></div>
                 <div className="flex flex-wrap gap-6 mt-3 pt-3 border-t border-obsidian-line">
                   <div><p className="label">Complexity</p><p className="text-ivory text-sm">{opp.implementationComplexity}</p></div>
                   <div className="flex-1 min-w-[200px]"><p className="label">Measurement</p><p className="text-ivory-dim text-xs">{opp.measurement.join(' · ')}</p></div>
@@ -297,7 +298,12 @@ export default async function ExecutiveReportPage({ params }: { params: Promise<
       {/* WINNERS BOOKMARK PRESCRIPTION */}
       <Section kicker="Section 07" title="Winnersbookmark Prescription">
         <div className="space-y-4">
-          <PrescriptionBlock label="Diagnosis">{dto.prescription.diagnosis}</PrescriptionBlock>
+          <PrescriptionBlock label="Diagnosis">
+            {dto.prescription.diagnosis}
+            {dto.prescription.diagnosisBasis.map((row) => (
+              <span key={row.label} className="block mt-2"><span className="label">{row.label}:</span> {row.text}</span>
+            ))}
+          </PrescriptionBlock>
           <PrescriptionBlock label="Validation">{dto.prescription.validation}</PrescriptionBlock>
           <PrescriptionBlock label="Prescription" highlight>{dto.prescription.prescription}</PrescriptionBlock>
           <div className="card p-6">
@@ -359,7 +365,10 @@ export default async function ExecutiveReportPage({ params }: { params: Promise<
         )}
         <div className="border-t border-obsidian-line pt-5 mt-2">
           <p className="text-ivory">{dto.cta.consultantName} · {dto.cta.company}</p>
-          <p className="text-ivory-dim text-sm">{dto.cta.phone}{dto.cta.email ? ` · ${dto.cta.email}` : ''}</p>
+          <p className="text-ivory-dim text-sm">
+            {dto.cta.phoneHref ? <a href={dto.cta.phoneHref} className="underline decoration-dotted underline-offset-2">{dto.cta.phone}</a> : dto.cta.phone}
+            {dto.cta.email ? ` · ${dto.cta.email}` : ''}
+          </p>
         </div>
       </section>
 

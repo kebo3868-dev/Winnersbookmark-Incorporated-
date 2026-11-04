@@ -1,4 +1,5 @@
 import type { EvidenceRecordLike, JourneyStageResult } from '@/types/audit';
+import { SALES_AUTOMATION_OBJECTION, salesAutomationObjectionStrategy, salesNextStepFor, salesOfferFor } from './salesWording';
 import type { RankedOpportunity } from './owner';
 import { COMPANY } from '@/lib/config';
 import {
@@ -124,13 +125,14 @@ export function generateSalesBrief(input: {
     : 'Lead with the clean audit: their public presence is solid, so the open question is what happens off-line (calls, follow-up, repeat visits) — which only they can answer.';
 
   const likelyObjection = aiFitLeaks.length > 0
-    ? '"We\'re too busy to set up new systems, and AI sounds complicated / impersonal for a restaurant."'
+    ? SALES_AUTOMATION_OBJECTION
     : '"Our website is fine and business is okay — why would we pay for an audit or a system?"';
 
   const objectionStrategy = aiFitLeaks.length > 0
-    // No invented share of calls: what fraction is repetitive is exactly what
-    // their call records would show, and the rep may not supply a number.
-    ? `Agree — being too busy is exactly the problem the system is built for. Reframe: the AI is designed to take the repetitive questions (hours, directions, FAQs, after-hours inquiries) so staff keep the conversations that need a person — and their own call records will show how much of the load that is before anything is installed. Offer the ${COMPANY.reviewMinutes}-minute review as zero-commitment proof, walking through their own audit evidence.`
+    // No invented share of calls, and no "exactly the problem the system is
+    // built for": the system is explained, and proposed only under its
+    // conditions (salesWording.ts).
+    ? salesAutomationObjectionStrategy()
     : 'Do not argue with "fine." Show the specific evidence from the audit and ask one discovery question about what the audit could not see. Position the discovery audit as a way to verify — not a sales pitch.';
 
   // WHAT A PROSPECT IS SHOWN IS CHOSEN BY MEANING, NOT BY POSITION.
@@ -171,7 +173,7 @@ export function generateSalesBrief(input: {
     discoveryQuestions,
     likelyObjection,
     objectionStrategy,
-    recommendedOffer: recommendedTier,
+    recommendedOffer: salesOfferFor(recommendedTier),
     outreachAngle: topLeak
       ? `Reference the specific finding (${(leadTitle ?? topLeak.title).toLowerCase()}) with its evidence, offer the full audit free, and anchor the ask to a ${COMPANY.reviewMinutes}-minute review. Evidence first, product second.${canAssert ? '' : ' Ask about it rather than asserting it.'}`
       : `Compliment what the audit confirmed they do well, then raise the unverifiable areas as open questions worth a ${COMPANY.reviewMinutes}-minute review.`,
@@ -371,6 +373,7 @@ function buildTalkTrack(
     lines.push(`${findingsBlock} — Findings: public presence is solid; pivot to the three areas public data cannot see (calls, follow-up, reactivation) and ask the discovery questions.`);
   }
   lines.push(`${verify} — Verify: ask the top discovery questions. Their answers confirm or kill the assumptions — say so out loud, it builds trust.`);
-  lines.push(`${nextStep} — Next step: recommend ${tier} and explain exactly why the evidence points there. If their answers changed the picture, say that instead. Book the follow-up before hanging up.`);
+  // A product tier is never an unconditional recommendation; see salesWording.ts.
+  lines.push(`${nextStep} — ${salesNextStepFor(tier)}`);
   return lines.join('\n');
 }
