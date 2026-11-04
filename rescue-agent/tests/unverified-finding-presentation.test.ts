@@ -16,12 +16,20 @@
  *
  * Now publication marks such a finding evidenceBound: false and every surface
  * treats it as unverified (executive.ts, sales.ts, recommendationTemplates.ts).
- * Its stored classification, scores and evidence are unchanged.
+ *
+ * Its badge is VALIDATION REQUIRED, whatever its stored classification: it was
+ * shown "VERIFIED FINDING" over a card saying its description could not be
+ * traced. The counters, headlines and summary count it by that badge. Its
+ * stored record, classification (classifyFinding), confidence and scores are
+ * unchanged, and nothing is written.
+ *
+ * Days 15–21 and the Decision box mention "the website fixes" only when Days
+ * 8–14 lists one.
  */
 import { describe, expect, it } from 'vitest';
 import lev from './fixtures/leverocks-stored-audit.json';
 import { publishAuditObservations } from '@/lib/reports/observationPublication';
-import { buildExecutiveReport, type ExecutiveReportInput } from '@/lib/reports/executive';
+import { buildExecutiveReport, classificationCounters, classifyFinding, VALIDATION_REQUIRED_COUNTER_LABEL, type ExecutiveReportInput } from '@/lib/reports/executive';
 import { UNVERIFIED_FINDING_ACTION } from '@/lib/reports/recommendationTemplates';
 import { generateSalesBrief } from '@/lib/reports/sales';
 import type { RankedOpportunity } from '@/lib/reports/owner';
@@ -93,12 +101,23 @@ describe('baseline: findings bound to their evidence are unchanged', () => {
     expect(dto.prescription.diagnosis).toMatch(/Highest-priority finding: The online ordering button uses a telephone link/);
     expect(dto.rankedAiOpportunities.map((o) => o.solutionCategory)).toContain('AI Front Desk & Missed-Call Text Back');
   });
+
+  it('no card is badged VALIDATION REQUIRED, and the counters are the four they were', () => {
+    const { s, dto } = build();
+    expect(dto.findings.map((f) => f.classification)).toEqual(
+      [...s.opportunities].sort((a, b) => b.rescuePriorityScore - a.rescuePriorityScore).slice(0, dto.findings.length).map(classifyFinding),
+    );
+    expect(dto.score.validationRequiredCount).toBe(0);
+    expect(classificationCounters(dto.score).map(([, label]) => label)).toEqual([
+      'Verified findings', 'Strong evidence, not tested end to end', 'Inferred opportunities', 'Need your data to confirm',
+    ]);
+  });
 });
 
 describe('S1 / S2: a broken-pathway finding with unrelated or no evidence', () => {
   for (const name of ['S1', 'S2']) {
-    it(`${name}: no category fix on the card or in the plan, never "verified" in prose; classification unchanged`, () => {
-      const { dto, text, brief, briefText } = build(scenarios[name]);
+    it(`${name}: no category fix on the card or in the plan, never "verified" in prose; badged VALIDATION REQUIRED`, () => {
+      const { s, dto, text, brief, briefText } = build(scenarios[name]);
       const card = dto.findings.find((f) => f.category === 'BROKEN CUSTOMER PATHWAY')!;
       expect(card.evidenceBound).toBe(false);
       expect(card.recommendedAction).toBe(UNVERIFIED_FINDING_ACTION);
@@ -106,8 +125,19 @@ describe('S1 / S2: a broken-pathway finding with unrelated or no evidence', () =
       expect(card.commercialEffect).toBe('');
       expect(card.scenarioKind).toBeNull();
       expect(card.whatWeDoNotKnow).toMatch(/could not be traced to the audit evidence/);
-      // The stored classification is preserved exactly.
-      expect(card.classification).toBe('VERIFIED FINDING');
+      // Badged VALIDATION REQUIRED; the stored record still classifies as
+      // VERIFIED FINDING and its confidence is shown unchanged.
+      expect(card.classification).toBe('VALIDATION REQUIRED');
+      const stored = s.opportunities.find((o) => o.category === 'BROKEN CUSTOMER PATHWAY')!;
+      expect(classifyFinding(stored)).toBe('VERIFIED FINDING');
+      expect(card.internalScores.confidence).toBe(stored.confidenceScore);
+      expect(card.labels.findingConfidence).toBe('Strong');
+      // Counted by its badge: not verified, under its own counter.
+      expect(dto.score.verifiedCount).toBe(0);
+      expect(dto.score.validationRequiredCount).toBe(1);
+      expect(classificationCounters(dto.score)).toContainEqual([1, VALIDATION_REQUIRED_COUNTER_LABEL]);
+      expect(classificationCounters(dto.score)).toContainEqual([0, 'Verified findings']);
+      expect(dto.headlines).toEqual({ snapshot: 'Executive Snapshot', findings: 'Priority Opportunities to Validate' });
       expect(text).not.toContain('Fix the broken link');
       expect(planPhase(dto, 'DAYS 8')).not.toContain('broken link');
       expect(planPhase(dto, 'DAYS 1')).toMatch(/could not be traced to the audit evidence/);
@@ -118,20 +148,23 @@ describe('S1 / S2: a broken-pathway finding with unrelated or no evidence', () =
       expect(brief.bestSalesAngle).not.toMatch(/Broken customer pathway/i);
       expect(briefText).not.toMatch(/"Broken customer pathway" — VERIFIED/);
       expect(briefText).not.toMatch(/found something[^"]*broken customer pathway/i);
+      expect(brief.talkTrack).toMatch(/Broken customer pathway[^"]*" — VALIDATION REQUIRED: its description could not be traced to the audit evidence/i);
     });
   }
 });
 
 describe('S3: an order-button finding with no evidence, in an audit with no ordering evidence', () => {
   it('no evidence statement, no category fix, no order-button validation, KPI or question', () => {
-    const { dto, text, briefText } = build(scenarios.S3);
+    const { s, dto, text, briefText } = build(scenarios.S3);
     const card = dto.findings.find((f) => f.category === ORDER)!;
     expect(card.evidenceBound).toBe(false);
     expect(card.evidenceBasis).toBeNull();
     expect(card.recommendedAction).toBe(UNVERIFIED_FINDING_ACTION);
     expect(card.whatWeKnow).toEqual([]);
     expect(card.labels.observedEvidence).toBe('Not recorded');
-    expect(card.classification).toBe('STRONG EVIDENCE');
+    expect(card.classification).toBe('VALIDATION REQUIRED');
+    expect(classifyFinding(s.opportunities.find((o) => o.category === ORDER)!)).toBe('STRONG EVIDENCE');
+    expect([dto.score.strongCount, dto.score.validationRequiredCount]).toEqual([0, 1]);
     for (const claim of ['Read from the page markup', 'Decide which experience is intended', 'Tap the online ordering button', 'Orders arriving online versus by phone', 'telephone (tel:) link']) {
       expect(text, claim).not.toContain(claim);
     }
@@ -165,4 +198,72 @@ describe('scores, classifications and evidence are unchanged by the presentation
       }
     });
   }
+});
+
+describe('the counters, headlines and summary follow the badges shown', () => {
+  const allUnbound = (s: Audit) => { for (const o of s.opportunities) o.evidenceIds = []; };
+  for (const [name, edit] of [...Object.entries(scenarios), ['ALL', allUnbound]] as [string, (s: Audit) => void][]) {
+    it(`${name}: each counter counts the cards with its badge, and together they count every card`, () => {
+      const { dto } = build(edit);
+      const shown = (c: string) => dto.findings.filter((f) => f.classification === c).length;
+      expect([dto.score.verifiedCount, dto.score.strongCount, dto.score.inferredCount, dto.score.manualValidationCount, dto.score.validationRequiredCount])
+        .toEqual(['VERIFIED FINDING', 'STRONG EVIDENCE', 'INFERRED OPPORTUNITY', 'MANUAL VALIDATION REQUIRED', 'VALIDATION REQUIRED'].map(shown));
+      expect(classificationCounters(dto.score).reduce((n, [c]) => n + c, 0)).toBe(dto.score.findingsCount);
+      for (const f of dto.findings) expect(f.classification === 'VALIDATION REQUIRED', f.category).toBe(!f.evidenceBound);
+      // No VALIDATION REQUIRED finding is named in the summary's verified or leaks sentence.
+      for (const f of dto.findings.filter((x) => !x.evidenceBound)) {
+        const cat = f.category.toLowerCase();
+        expect(dto.executiveSummary).not.toMatch(new RegExp(`(verified|leaks)[^.]*: [^.]*${cat}`, 'i'));
+      }
+    });
+  }
+
+  it('with every finding untraceable: no verified count, a "to validate" headline, and a summary that names them as untraceable', () => {
+    const { dto } = build(allUnbound);
+    expect(dto.findings.every((f) => f.classification === 'VALIDATION REQUIRED')).toBe(true);
+    expect(dto.score.validationRequiredCount).toBe(dto.score.findingsCount);
+    expect(dto.headlines.findings).toBe('Priority Opportunities to Validate');
+    expect(dto.executiveSummary).toMatch(/could not be traced to the audit evidence and should be checked against it before being acted on/);
+    expect(dto.prescription.diagnosis).toMatch(/could not be traced to the audit evidence/);
+  });
+});
+
+describe('Days 15–21 and the Decision box mention the website fixes only when Days 8–14 lists one', () => {
+  const allUnbound = (s: Audit) => { for (const o of s.opportunities) o.evidenceIds = []; };
+  // Only the bound order-button finding: a website fix, no automation candidate.
+  const fixOnly = (s: Audit) => { s.opportunities = s.opportunities.filter((o) => o.category === ORDER); };
+  // Only the order-button finding, untraceable: no fix and no automation.
+  const nothingBound = (s: Audit) => { fixOnly(s); s.opportunities[0].evidenceIds = []; };
+  const cases: [string, ((s: Audit) => void) | undefined][] = [
+    ['baseline', undefined], ...Object.entries(scenarios), ['ALL', allUnbound], ['fixOnly', fixOnly], ['nothingBound', nothingBound],
+  ];
+  for (const [name, edit] of cases) {
+    it(`${name}: "website fixes" is printed after Days 8–14 only if Days 8–14 lists a fix`, () => {
+      const { dto } = build(edit);
+      const days8 = dto.thirtyDayPlan.find((x) => x.phase.startsWith('DAYS 8'))!;
+      const hasFix = days8.heading === 'FIX THE HIGHEST-PRIORITY DIGITAL ISSUE';
+      expect(hasFix).toBe(!days8.actions[0].startsWith('No website fix is confirmed'));
+      const later = [planPhase(dto, 'DAYS 15'), dto.decisionBox.implement.benefit, dto.decisionBox.implement.detail].join('\n');
+      if (hasFix) {
+        expect(later).not.toMatch(/continue with the validated findings/);
+      } else {
+        expect(later).not.toMatch(/website fix/i);
+      }
+    });
+  }
+
+  it('with no fix and no automation, Days 15–21 and the Decision box point to the validation', () => {
+    for (const edit of [allUnbound, nothingBound]) {
+      const { dto } = build(edit);
+      expect(planPhase(dto, 'DAYS 15')).toBe('No automation is proposed: no finding in this audit is one an automation would address. Make no automation change — continue with the validated findings.');
+      expect(dto.decisionBox.implement).toMatchObject({ heading: 'NO AUTOMATION PROPOSED', benefit: 'Effort stays on the validation steps.' });
+    }
+  });
+
+  it('with a fix and no automation, both still point to the website fixes', () => {
+    const { dto } = build(fixOnly);
+    expect(planPhase(dto, 'DAYS 8')).toMatch(/Decide which experience is intended/);
+    expect(planPhase(dto, 'DAYS 15')).toMatch(/put the time into the website fixes above\.$/);
+    expect(dto.decisionBox.implement.benefit).toBe('Effort stays on the website fixes and the validation steps.');
+  });
 });

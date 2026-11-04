@@ -484,10 +484,25 @@ describe('scores, statuses, classifications and confidence labels are unchanged 
     const clean = await loadDto();
     poison = everywhere(REPORTED_9B4329E[1]);
     const poisoned = await loadDto();
-    expect(poisoned.score).toEqual(clean.score);
-    expect(poisoned.findings.map((f) => [f.category, f.classification, f.labels, f.internalScores]))
-      .toEqual(clean.findings.map((f) => [f.category, f.classification, f.labels, f.internalScores]));
-    // Poisoned evidence leaves every finding's wording untraceable, so the plan
+    // A finding whose wording poisoned evidence leaves untraceable is badged
+    // VALIDATION REQUIRED and counted under that counter alone; every other
+    // finding keeps its badge. The score, findings count, labels and internal
+    // scores are unchanged.
+    expect(clean.findings.every((f) => f.evidenceBound)).toBe(true);
+    expect(poisoned.findings.some((f) => !f.evidenceBound)).toBe(true);
+    expect(poisoned.findings.map((f) => f.classification))
+      .toEqual(clean.findings.map((f, i) => (poisoned.findings[i].evidenceBound ? f.classification : 'VALIDATION REQUIRED')));
+    const count = (c: string) => poisoned.findings.filter((f) => f.classification === c).length;
+    const { verifiedCount: _v, strongCount: _s, inferredCount: _i, manualValidationCount: _m, validationRequiredCount: _r, ...stored } = clean.score;
+    expect(poisoned.score).toEqual({
+      ...stored,
+      verifiedCount: count('VERIFIED FINDING'), strongCount: count('STRONG EVIDENCE'), inferredCount: count('INFERRED OPPORTUNITY'),
+      manualValidationCount: count('MANUAL VALIDATION REQUIRED'), validationRequiredCount: count('VALIDATION REQUIRED'),
+    });
+    expect(clean.score.validationRequiredCount).toBe(0);
+    expect(poisoned.findings.map((f) => [f.category, f.labels, f.internalScores]))
+      .toEqual(clean.findings.map((f) => [f.category, f.labels, f.internalScores]));
+    // Poisoned evidence leaves findings' wording untraceable, so the plan
     // keeps its phases but drops the category steps those findings drove; it
     // adds nothing but the step to check them (final review of d7f5fd2).
     expect(poisoned.thirtyDayPlan.map((p) => p.phase)).toEqual(clean.thirtyDayPlan.map((p) => p.phase));
@@ -753,6 +768,18 @@ describe('final review of d7f5fd2: a finding with untraceable wording on the loa
       expect(text, name).not.toContain(squash('Highest-priority verified finding: Broken customer pathway'));
       expect(text, name).toContain(squash('Check this finding against its evidence in the appendix before acting on it'));
     }
+    // The badge and the counter it is counted under, on the web report and the
+    // PDF alike. The unaltered audit has no VERIFIED FINDING, so with the
+    // untraceable finding badged VALIDATION REQUIRED neither prints that badge.
+    const card = dto.findings.find((f) => f.category === 'BROKEN CUSTOMER PATHWAY')!;
+    expect(card.classification).toBe('VALIDATION REQUIRED');
+    expect([dto.score.verifiedCount, dto.score.validationRequiredCount]).toEqual([0, 1]);
+    for (const [name, text] of [['web', await webText()], ['pdf', await pdfText()]]) {
+      expect(text, name).toMatch(/(?<!MANUAL\s)VALIDATION REQUIRED/);
+      // The badge; the PDF also prints the counter label in capitals ("0 VERIFIED FINDINGS").
+      expect(text, name).not.toMatch(/VERIFIED FINDING(?!S)/);
+      expect(squash(text), name).toContain(squash('Validation required: not yet traced to the evidence'));
+    }
   }, 180_000);
 
   it('S3: an order-button finding with no evidence prints no evidence statement and no button fix anywhere', async () => {
@@ -773,9 +800,40 @@ describe('final review of d7f5fd2: a finding with untraceable wording on the loa
     }
   }, 180_000);
 
+  it('the internal audit page badges the untraceable finding as the client report does, and prints no evidence statement for it', async () => {
+    const internalText = async () => {
+      const Page = (await import('@/app/audits/[auditId]/page')).default;
+      return renderToStaticMarkup((await Page({ params: Promise.resolve({ auditId: AUDIT_ID }) })) as React.ReactElement)
+        .replace(/<[^>]+>/g, ' ').replace(/&#x27;|&#39;/g, "'").replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/\s+/g, ' ');
+    };
+    const clean = await internalText();
+    expect(clean).not.toMatch(/(?<!MANUAL\s)VALIDATION REQUIRED/);
+    expect(clean).toContain('Read from the page markup');
+    // The page lists stored findings in database (priority) order; the mock
+    // returns stored order, so the untraceable finding is put first.
+    poison = {
+      edit: (s) => {
+        const order = s.opportunities.find((o) => o.category === 'ORDER BUTTON LABEL MISMATCH')!;
+        const ids = new Set(order.evidenceIds);
+        s.evidence = s.evidence.filter((e) => !ids.has(e.id));
+        s.opportunities = [{ ...order, evidenceIds: [], rescuePriorityScore: 99 }, ...s.opportunities.filter((o) => o !== order)];
+      },
+    };
+    const text = await internalText();
+    expect(text).toMatch(/VALIDATION REQUIRED · Finding confidence/);
+    expect(text).not.toContain('STRONG EVIDENCE · Finding confidence');
+    expect(text).not.toContain('Read from the page markup');
+    expect(writes).toEqual([]);
+  }, 120_000);
+
   it('the unaltered audit still prints its order-button evidence statement and fix', async () => {
     const web = squash(await webText());
     expect(web).toContain(squash('Read from the page markup'));
     expect(web).toContain(squash('Decide which experience is intended'));
-  }, 120_000);
+    // No finding is untraceable, so no badge or counter for one is printed.
+    for (const [name, text] of [['web', await webText()], ['pdf', await pdfText()]]) {
+      expect(text, name).not.toMatch(/(?<!MANUAL\s)VALIDATION REQUIRED/);
+      expect(squash(text), name).not.toContain(squash('not yet traced to the evidence'));
+    }
+  }, 180_000);
 });

@@ -18,6 +18,8 @@ const CLASSIFICATION_STYLES: Record<string, string> = {
   'INFERRED OPPORTUNITY': 'text-gold border-gold/40',
   'MANUAL VALIDATION REQUIRED': 'text-amber-400 border-amber-400/40',
   'INSUFFICIENT DATA': 'text-ivory-faint border-obsidian-line',
+  // A finding whose wording could not be traced to its evidence (executive.ts).
+  'VALIDATION REQUIRED': 'text-amber-400 border-amber-400/40',
 };
 
 const STATUS_STYLES: Record<string, string> = {

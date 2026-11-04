@@ -10,7 +10,6 @@ import { presentFailure, shortRunId } from '@/lib/audit/failurePresentation';
 // showing "85%" beside a client page showing "Strong" for the same fact is how
 // two readings of the same evidence get into the same conversation.
 import {
-  classifyFinding,
   confidenceLabel,
   CUSTOMER_OUTCOME_LABEL,
   evidenceDiagnosticCodes,
@@ -18,7 +17,9 @@ import {
   journeyStatusLabel,
   presentEvidenceText,
   reportHeadlines,
+  displayedClassification,
 } from '@/lib/reports/executive';
+import { publishAuditObservations } from '@/lib/reports/observationPublication';
 import { evidenceBasisFor, evidenceBasisRows } from '@/lib/audit/evidenceBasis';
 import { ORDER_BUTTON_CATEGORY, orderButtonFindingCopy } from '@/lib/audit/orderButtonFinding';
 import { presentOrderingText } from '@/lib/audit/orderingChannel';
@@ -53,6 +54,26 @@ export default async function AuditDetailPage({ params }: { params: Promise<{ au
   if (!audit) notFound();
 
   const running = audit.status === 'PENDING' || audit.status === 'RUNNING';
+  // Which stored findings have wording bound to their evidence: the same
+  // publication the client report and the Sales Brief use, so this page badges
+  // a finding as they do (VALIDATION REQUIRED when not bound). Only the flag is
+  // read; the stored records are shown and nothing is written.
+  const top = audit.opportunities.slice(0, 3);
+  const bound = publishAuditObservations({
+    evidence: audit.evidence.map((e) => ({
+      id: e.id, evidenceType: e.evidenceType, fact: e.fact, supportingContext: e.supportingContext, confidence: e.confidence,
+      auditSourceId: e.auditSourceId, sourceUrl: null,
+    })),
+    journey: audit.journeyStages,
+    opportunities: top,
+    scores: [],
+    context: {
+      sources: audit.sources,
+      restaurant: audit.restaurant,
+      suppliedUrls: [audit.orderingUrlInput, audit.reservationUrlInput, audit.socialUrlInput, audit.googleBusinessUrl],
+    },
+  }).opportunities.map((o) => o.evidenceBound);
+  const badge = top.map((opp, i) => displayedClassification({ ...opp, evidenceBound: bound[i] }));
 
   return (
     <div className="space-y-10">
@@ -132,7 +153,7 @@ export default async function AuditDetailPage({ params }: { params: Promise<{ au
           </div>
 
           <section>
-            <h2 className="label mb-4">{reportHeadlines(audit.opportunities.slice(0, 3).map(classifyFinding)).findings}</h2>
+            <h2 className="label mb-4">{reportHeadlines(badge).findings}</h2>
             {audit.opportunities.length === 0 ? (
               <div className="card p-8 text-ivory-dim text-sm">
                 No revenue leaks were confirmed from public evidence. This is a legitimate outcome — remaining risk sits in areas public analysis cannot see.
@@ -154,7 +175,7 @@ export default async function AuditDetailPage({ params }: { params: Promise<{ au
                     {(() => {
                       // The same three layers the client report and the PDF print
                       // for this finding — see evidenceBasis.ts.
-                      const basis = evidenceBasisFor(opp.category);
+                      const basis = bound[i] ? evidenceBasisFor(opp.category) : null;
                       return basis ? (
                         <dl className="border border-obsidian-line rounded px-4 py-3 mb-3 space-y-2 text-sm">
                           {evidenceBasisRows(basis).map(([label, text]) => (
@@ -175,7 +196,7 @@ export default async function AuditDetailPage({ params }: { params: Promise<{ au
                     <div className="flex flex-wrap gap-4 text-xs text-ivory-faint">
                       <span>Impact {opp.impactScore}</span>
                       <span>Urgency {opp.urgencyScore}</span>
-                      <span>{classifyFinding(opp)} · Finding confidence {confidenceLabel(opp.confidenceScore)}</span>
+                      <span>{badge[i]} · Finding confidence {confidenceLabel(opp.confidenceScore)}</span>
                       {/* As on the client report: the observation and the customer outcome are rated separately. */}
                       {(() => {
                         const primary = audit.evidence.find((e) => e.id === opp.evidenceIds[0]);

@@ -218,7 +218,7 @@ export function findingMaySpanPages(finding: ExecutiveReportDTO['findings'][numb
 function classificationColor(classification: string): string {
   if (classification === 'VERIFIED FINDING') return C.green;
   if (classification === 'STRONG EVIDENCE') return C.green;
-  if (classification === 'MANUAL VALIDATION REQUIRED') return C.amber;
+  if (classification === 'MANUAL VALIDATION REQUIRED' || classification === 'VALIDATION REQUIRED') return C.amber;
   if (classification === 'INSUFFICIENT DATA') return C.muted;
   return C.goldDim;
 }

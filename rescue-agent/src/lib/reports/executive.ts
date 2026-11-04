@@ -61,7 +61,25 @@ export type EvidenceClassification =
   | 'STRONG EVIDENCE'
   | 'INFERRED OPPORTUNITY'
   | 'MANUAL VALIDATION REQUIRED'
-  | 'INSUFFICIENT DATA';
+  | 'INSUFFICIENT DATA'
+  | typeof VALIDATION_REQUIRED;
+
+/**
+ * THE BADGE SHOWN FOR A FINDING WHOSE WORDING IS NOT BOUND TO ITS EVIDENCE.
+ *
+ * Such a finding (evidenceBound: false; see observationPublication.ts) kept
+ * its stored badge — "VERIFIED FINDING" over a card that says its description
+ * could not be traced to the evidence. The badge, the counters and the
+ * headlines now show this label for it instead. It is a presentation label
+ * only: classifyFinding, the stored record, its confidence and every score are
+ * unchanged, and nothing is written.
+ */
+export const VALIDATION_REQUIRED = 'VALIDATION REQUIRED' as const;
+
+/** The badge a finding is shown with: its stored classification, or VALIDATION_REQUIRED when its wording is not bound to its evidence. */
+export function displayedClassification(opp: { manualValidationRequired: boolean; confidenceScore: number; evidenceBound?: boolean }): EvidenceClassification {
+  return opp.evidenceBound === false ? VALIDATION_REQUIRED : classifyFinding(opp);
+}
 
 /**
  * Classification preserves the engine's own uncertainty flags — it can only ever
@@ -118,14 +136,23 @@ export function classificationCounters(score: {
   strongCount: number;
   inferredCount: number;
   manualValidationCount: number;
+  validationRequiredCount?: number;
 }): [number, string][] {
-  return [
+  const counters: [number, string][] = [
     [score.verifiedCount, 'Verified findings'],
     [score.strongCount, 'Strong evidence, not tested end to end'],
     [score.inferredCount, 'Inferred opportunities'],
     [score.manualValidationCount, 'Need your data to confirm'],
   ];
+  // Shown only when such a finding is printed, so a report without one is unchanged.
+  if ((score.validationRequiredCount ?? 0) > 0) {
+    counters.push([score.validationRequiredCount!, VALIDATION_REQUIRED_COUNTER_LABEL]);
+  }
+  return counters;
 }
+
+/** The counter label for findings shown as VALIDATION REQUIRED. */
+export const VALIDATION_REQUIRED_COUNTER_LABEL = 'Validation required: not yet traced to the evidence';
 
 /** The sentence introducing the counters, shared by the web report and the PDF. */
 export function classificationIntro(findingsCount: number, evidenceCount: number): string {
@@ -479,6 +506,12 @@ export interface ExecutiveReportDTO {
     /** INFERRED OPPORTUNITY only. */
     inferredCount: number;
     manualValidationCount: number;
+    /**
+     * Findings shown as VALIDATION REQUIRED (wording not bound to their
+     * evidence). Counted here and in no other counter, so the counters still
+     * sum to the findings printed.
+     */
+    validationRequiredCount: number;
   };
   findings: ExecutiveFinding[];
   journeyScorecard: { stage: string; label: string; status: string; explanation: string }[];
@@ -649,8 +682,11 @@ export function buildExecutiveReport(rawInput: ExecutiveReportInput): ExecutiveR
   const boundTop = top.filter((o) => o.evidenceBound !== false);
   const findings: ExecutiveFinding[] = top.map((opp, i) => {
     const attached = attachedTo(opp);
-    const classification = classifyFinding(opp);
     const bound = opp.evidenceBound !== false;
+    // The badge: VALIDATION REQUIRED when the wording is not bound to its
+    // evidence; the stored classification otherwise. The stored record,
+    // confidence and scores are unchanged either way.
+    const classification = displayedClassification(opp);
     const scenarioKind = bound ? scenarioKindFor({ category: opp.category, classification }) : null;
     // The order-button card adds only what it has not already said; the
     // generic first-three-records list repeated its own observation twice.
@@ -712,6 +748,8 @@ export function buildExecutiveReport(rawInput: ExecutiveReportInput): ExecutiveR
   const strongCount = findings.filter((f) => f.classification === 'STRONG EVIDENCE').length;
   const inferredCount = findings.filter((f) => f.classification === 'INFERRED OPPORTUNITY').length;
   const manualCount = findings.filter((f) => f.classification === 'MANUAL VALIDATION REQUIRED').length;
+  // Counted from the badge shown, so the counters match the cards.
+  const validationRequiredCount = findings.filter((f) => f.classification === VALIDATION_REQUIRED).length;
 
   const stageOrder = Object.keys(JOURNEY_LABELS);
   const journeyScorecard = [...input.journey]
@@ -779,8 +817,8 @@ export function buildExecutiveReport(rawInput: ExecutiveReportInput): ExecutiveR
       demoMode: input.demoMode,
       auditStatus: input.auditStatus,
     },
-    // A finding with untraceable wording is never counted toward a "revenue leaks" heading.
-    headlines: reportHeadlines(findings.map((f) => (f.evidenceBound ? f.classification : 'MANUAL VALIDATION REQUIRED'))),
+    // From the badges shown: a VALIDATION REQUIRED finding is never counted toward a "revenue leaks" heading.
+    headlines: reportHeadlines(findings.map((f) => f.classification)),
     snapshot,
     scenarioCalculators,
     journeyMap,
@@ -788,7 +826,8 @@ export function buildExecutiveReport(rawInput: ExecutiveReportInput): ExecutiveR
     rankedAiOpportunities,
     aiOpportunitiesIntro: AI_OPPORTUNITIES_INTRO,
     prescription: buildPrescription(input, findings),
-    decisionBox: buildDecisionBox(findings, rankedAiOpportunities),
+    // Days 8–14 lists fixes only from these (buildThirtyDayPlan); the box points to fixes only when it does.
+    decisionBox: buildDecisionBox(findings, rankedAiOpportunities, directFixesFor(boundTop).length > 0),
     cta: {
       headline: COMPANY.ctaHeadline,
       subtext: COMPANY.ctaSubtext,
@@ -826,6 +865,7 @@ export function buildExecutiveReport(rawInput: ExecutiveReportInput): ExecutiveR
       strongCount,
       inferredCount,
       manualValidationCount: manualCount,
+      validationRequiredCount,
     },
     findings,
     journeyScorecard,
@@ -1115,7 +1155,7 @@ function buildPrescription(input: ExecutiveReportInput, findings: ExecutiveFindi
   };
 }
 
-function buildDecisionBox(findings: ExecutiveFinding[], ranked: RankedAiOpportunity[]): DecisionBox {
+function buildDecisionBox(findings: ExecutiveFinding[], ranked: RankedAiOpportunity[], hasWebsiteFixes: boolean): DecisionBox {
   // The Section 06 proposals, every one — the same list Days 15–21 decides.
   const proposals = ranked.filter((o) => !o.exploratory).map((o) => o.solutionCategory);
   const exploratory = ranked.filter((o) => o.exploratory).map((o) => o.solutionCategory);
@@ -1157,7 +1197,9 @@ function buildDecisionBox(findings: ExecutiveFinding[], ranked: RankedAiOpportun
           detail: exploratory.length > 0
             ? `No automation change is currently proposed. ${joinAnd(exploratory)} stays exploratory until your own records show demand.`
             : 'No automation change is currently proposed: no finding in this audit is one an automation would address.',
-          benefit: 'Effort stays on the website fixes and the validation steps.',
+          // "the website fixes" only when Days 8–14 lists one: with none, there
+          // are no fixes for the effort to stay on.
+          benefit: hasWebsiteFixes ? 'Effort stays on the website fixes and the validation steps.' : 'Effort stays on the validation steps.',
         },
   };
 }
@@ -1427,6 +1469,8 @@ function buildThirtyDayPlan(
   // have to be true before they could even be proposed.
   const exploratoryLines = top.filter(isExploratoryOpportunity).map((o) =>
     `${solutionCategoryFor(o.category)} stays exploratory — no pilot is proposed: public evidence alone does not show demand for it. Only if ${demandConditionFor(o.category)} could it be assessed as a proposal, under the same conditions as any automation.`);
+  // "the website fixes above" only when Days 8–14 lists one (the same
+  // directFixes); with none, the time goes to the validation.
   const otherwise = directFixes.length > 0 ? 'put the time into the website fixes above' : 'continue with the validated findings';
   const decide = automation.length > 0
     ? [

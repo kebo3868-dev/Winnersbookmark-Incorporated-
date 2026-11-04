@@ -351,9 +351,11 @@ function buildTalkTrack(
     // together with "ask about it, do not assert it" after every one, the list
     // was a paragraph a rep could not find their place in.
     const labelled = topLeaks.map((l) => {
+      // The same badge the client report shows for it (executive.ts).
+      if (l.evidenceBound === false) return `• "${stripDefinitive(l.title)}" — VALIDATION REQUIRED: its description could not be traced to the audit evidence; check it against the evidence before raising it`;
       const state = briefStateFor(l);
       if (mayStateDefinitively(state)) return `• "${l.title}" — VERIFIED, state it plainly`;
-      const layers = l.evidenceBound === false ? null : evidenceBasisFor(l.category);
+      const layers = evidenceBasisFor(l.category);
       return `• "${stripDefinitive(l.title)}" — ${layers ? layers.summary : STATE_PLAIN[state]}`;
     });
     lines.push(
