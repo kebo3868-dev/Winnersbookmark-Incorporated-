@@ -333,3 +333,34 @@ describe('review of 5bfac83: the brief carries no unverified stored strings', ()
     expect((await page()).toLowerCase()).not.toContain(injected.toLowerCase());
   });
 });
+
+describe('follow-up review of 07198e3: the internal Sales Brief', () => {
+  it('A1/A3: a same-category finding with no evidence, or one shared fact, does not lend the brief the real finding\'s wording', async () => {
+    const order = storedFixture.opportunities.find((o) => o.category === 'ORDER BUTTON LABEL MISMATCH')!;
+    const ordering = storedFixture.evidence.find((e) => e.evidenceType === 'ORDERING_PATH')!.id;
+    const faq = storedFixture.evidence.find((e) => e.evidenceType === 'FAQ_SIGNAL')!.id;
+    for (const ids of [[] as string[], [ordering, faq]]) {
+      // The duplicate is ranked first, so the brief would lead with it.
+      storedBrief = storedRecord('AI FRONT DESK SYSTEM', null, {
+        opportunities: (o, i) => (i === 0 ? { ...order, title: 'Invented', problem: 'Invented.', evidenceIds: ids } : o),
+      });
+      const shown = await load();
+      const html = await page();
+      expect(textOf(shown.bestSalesAngle), JSON.stringify(ids)).not.toContain('The online ordering button uses a telephone link instead of an online checkout');
+      expect(html).not.toContain('Invented');
+      expect(JSON.stringify(shown)).not.toContain('Invented');
+    }
+  });
+
+  it('B1: contradictory historical stage wording does not reach the brief', async () => {
+    storedBrief = storedRecord('AI FRONT DESK SYSTEM', null, {});
+    (storedBrief!.audit as { journeyStages: { stage: string; status: string; finding: string; manualValidationRequired: boolean }[] }).journeyStages = storedFixture.journeyStages.map((j) =>
+      j.stage === 'PHONE'
+        ? { ...j, status: 'RISK', finding: 'No phone number was detected on the analyzed pages — phone-intent customers have no visible path to call.' }
+        : j,
+    );
+    const shown = await load();
+    expect(JSON.stringify(shown)).not.toContain('No phone number was detected');
+    expect(await page()).not.toContain('No phone number was detected');
+  });
+});

@@ -202,8 +202,8 @@ describe('the unaltered Leverock’s audit publishes every observation with prov
     });
     expect(p.report).toEqual({
       evidence: { total: 26, factFallbacks: 0, factsRedacted: 0, contextOmitted: 1, linksRemoved: 0 },
-      journey: { total: 10, fallbacks: 0, historical: 0 },
-      opportunities: { total: 4, fallbacks: 0, historicalFields: 0 },
+      journey: { total: 10, fallbacks: 0, historicalWithheld: 0 },
+      opportunities: { total: 4, fallbacks: 0, historicalWithheld: 0 },
       scores: { total: 9, fallbacks: 0, derived: 0 },
       identifiers: { unrecognised: 0 },
     });
@@ -624,27 +624,27 @@ describe('review of 5bfac83 (6, Low): evidence links are bound to collected sour
   });
 });
 
-describe('review of 5bfac83 (7, Low): authentic historical findings are kept where they can be verified', () => {
+describe('legacy audits: historical wording is withheld until it can be verified; derived score explanations are kept', () => {
+  // Superseded by the follow-up review of 07198e3 (B0/B1/B5): wording an earlier
+  // engine version wrote is not shown as authentic, because a matching sentence
+  // can be untrue of this audit's evidence and verifying it needs a replay of
+  // that engine version. See tests/publication-evidence-binding.test.ts.
   const legacy = legacyFixture as unknown as Stored;
-  it("the earlier Leverock's audit shows its own PHONE, FOLLOW_UP and RETURN findings, verified against the engine version that wrote them", async () => {
+  it("the earlier Leverock's audit shows neutral wording for its PHONE, FOLLOW_UP and RETURN stages, with its stored statuses", async () => {
     poison = { fixture: legacy };
     const dto = await loadDto();
-    const text = JSON.stringify(dto);
-    // The scorecard prints a finding's first sentence.
     for (const stage of ['PHONE', 'FOLLOW_UP', 'RETURN']) {
       const stored = legacy.journeyStages.find((j) => j.stage === stage)!;
-      const shown = dto.journeyScorecard.find((j) => j.stage === stage)!.explanation;
-      expect(stored.finding.startsWith(shown.replace(/\.$/, '')), `${stage}: ${shown}`).toBe(true);
+      const shown = dto.journeyScorecard.find((j) => j.stage === stage)!;
+      expect(shown.explanation, stage).toBe('Friction was recorded at this stage; see the evidence in the appendix.');
+      expect(shown.status).toBe(journeyStatusLabel(stored.status));
+      expect(JSON.stringify(dto)).not.toContain(stored.finding.slice(0, 40));
     }
-    expect(text).not.toMatch(/recorded at this stage; see the evidence in the appendix/);
     const p = publishAuditObservations({
       evidence: legacy.evidence.map((e) => ({ ...e, sourceUrl: null })), journey: legacy.journeyStages, opportunities: legacy.opportunities, scores: legacy.scores,
       context: { sources: legacy.sources, restaurant: legacy.restaurant },
     });
-    for (const stage of ['PHONE', 'FOLLOW_UP', 'RETURN']) {
-      expect(p.journey.find((j) => j.stage === stage)!.finding).toBe(legacy.journeyStages.find((j) => j.stage === stage)!.finding);
-    }
-    expect(p.report.journey).toEqual({ total: 10, fallbacks: 0, historical: 3 });
+    expect(p.report.journey).toEqual({ total: 10, fallbacks: 3, historicalWithheld: 3 });
   });
 
   it('its score explanations are derived from its own stored statuses and match its stored scores', () => {
@@ -673,5 +673,57 @@ describe('review of 5bfac83 (7, Low): authentic historical findings are kept whe
     const dto = JSON.stringify(await loadDto());
     expect(dto).not.toContain('boon');
     expect(dto).toContain('Friction was recorded at this stage; see the evidence in the appendix.');
+  });
+});
+
+// ── Follow-up review of 07198e3: wording is bound to the evidence beside it ──
+
+describe('follow-up review of 07198e3: the loader, the web report and the PDF', () => {
+  const ORDER_TITLE = 'The online ordering button uses a telephone link instead of an online checkout';
+  const count = (text: string, needle: string) => text.split(squash(needle)).length - 1;
+
+  it('A1/A3: a second same-category finding with no evidence, or one shared fact, never repeats the real finding\'s wording', async () => {
+    for (const ids of [[] as string[], [storedFixture.evidence.find((e) => e.evidenceType === 'ORDERING_PATH')!.id, FAQ_FACT_ID]]) {
+      poison = {
+        edit: (s) => {
+          const order = s.opportunities.find((o) => o.category === 'ORDER BUTTON LABEL MISMATCH')!;
+          s.opportunities.push({ ...order, title: 'Invented', problem: 'Invented.', evidenceIds: ids });
+        },
+      };
+      const dto = await loadDto();
+      expect(dto.findings.filter((f) => f.title === ORDER_TITLE), JSON.stringify(ids)).toHaveLength(1);
+      const web = squash(await webText());
+      const pdf = squash(await pdfText());
+      expect(count(web, ORDER_TITLE), 'web').toBe(count(squash(await (async () => { poison = {}; return webText(); })()), ORDER_TITLE));
+      expect(pdf).not.toContain(squash('Invented'));
+    }
+  }, 180_000);
+
+  it('B1/B6: contradictory or altered historical wording reaches no surface', async () => {
+    const legacy = legacyFixture as unknown as Stored;
+    const broken = legacy.evidence.find((e) => e.evidenceType === 'BROKEN_LINK')!;
+    poison = {
+      fixture: legacy,
+      edit: (s) => {
+        s.journeyStages.find((j) => j.stage === 'PHONE')!.finding =
+          'Observed on the public site: mobile visitors cannot tap to call. How much phone demand this creates, and whether calls go unanswered, requires call records — not assessed here.';
+        s.opportunities.push({
+          ...s.opportunities[0], category: 'BROKEN CUSTOMER PATHWAY', title: 'A linked customer pathway is failing',
+          problem: '7 linked destination(s) failed when tested. Customers who click these links reach a dead end at the exact moment they are trying to spend money or get information.',
+          businessImpact: 'x', evidenceIds: [broken.id], manualValidationRequired: true,
+        });
+      },
+    };
+    const surfaces = { dto: squash(JSON.stringify(await loadDto())), web: squash(await webText()), pdf: squash(await pdfText()) };
+    for (const [name, text] of Object.entries(surfaces)) {
+      expect(text, name).not.toContain(squash('mobile visitors cannot tap to call'));
+      expect(text, name).not.toContain(squash('7 linked destination(s) failed'));
+    }
+  }, 180_000);
+
+  it('the unaltered Leverock\'s audit is unchanged: every finding keeps its regenerated wording', async () => {
+    const dto = await loadDto();
+    expect(dto.findings.map((f) => f.title)).toContain(ORDER_TITLE);
+    expect(JSON.stringify(dto)).not.toContain('The stored description of this finding could not be traced');
   });
 });

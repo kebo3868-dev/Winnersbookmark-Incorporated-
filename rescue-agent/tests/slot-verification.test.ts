@@ -7,7 +7,10 @@
  *     (src/lib/reports/canonicalIdentifiers.ts).
  * (6) Evidence links and quoted URLs are bound to collected sources.
  * (7) Historical journey and finding wording is generated from every engine
- *     version, so it can be verified (src/lib/reports/generated/observationTemplates.ts).
+ *     version (src/lib/reports/generated/observationTemplates.ts). It is used
+ *     to RECOGNISE stored historical wording, which is then withheld: verifying
+ *     it against an audit's evidence would need a replay of the engine version
+ *     that wrote it (tests/publication-evidence-binding.test.ts).
  */
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
