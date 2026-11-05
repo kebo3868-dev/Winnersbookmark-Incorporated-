@@ -1,7 +1,12 @@
 #!/usr/bin/env node
 /**
- * Vercel build entrypoint: prisma generate → prisma migrate deploy → next build.
- * Vercel runs this automatically via the `vercel-build` npm script.
+ * Vercel build entrypoint. Vercel runs this automatically via the
+ * `vercel-build` npm script.
+ *
+ * Production: prisma generate → prisma migrate deploy → next build.
+ * Preview / development: prisma generate → next build, and never a database.
+ * What runs is decided by planVercelBuild (scripts/vercel-build-plan.mjs);
+ * this file only executes the plan.
  *
  * Migrations and runtime need DIFFERENT connection strings on Neon:
  * - `prisma migrate deploy` must use the UNPOOLED (direct) endpoint — running
@@ -11,64 +16,17 @@
  * - The runtime client uses the pooled endpoint (resolved in src/lib/db.ts).
  */
 import { execSync } from 'node:child_process';
+import { planVercelBuild } from './vercel-build-plan.mjs';
 
-const env = process.env;
-
-// Migration URL: this app's own override first, then unpooled/direct names,
-// then pooled names as fallback.
-//
-// RESCUE_DIRECT_URL exists because a managed integration (Neon's Vercel
-// integration) owns DATABASE_URL_UNPOOLED and locks it to the database it
-// provisioned. This app has its own database, separate from the other
-// application sharing that Neon project, so overriding it needs a name the
-// integration does not manage. Set it to the UNPOOLED/direct endpoint —
-// running DDL through PgBouncer is unreliable.
-const MIGRATION_URL_SOURCES = ['RESCUE_DIRECT_URL', 'DATABASE_URL_UNPOOLED', 'POSTGRES_URL_NON_POOLING', 'DIRECT_DATABASE_URL', 'DATABASE_URL', 'POSTGRES_URL', 'PRISMA_DATABASE_URL'];
-const migrationSource = MIGRATION_URL_SOURCES.find((name) => env[name]);
-const migrationUrl = migrationSource ? env[migrationSource] : undefined;
-
-// Runtime URL (only validated here; the client resolves it again at runtime).
-// Mirrors RUNTIME_URL_SOURCES in src/lib/db.ts — keep the two in step.
-const RUNTIME_URL_SOURCES = ['RESCUE_DATABASE_URL', 'POSTGRES_PRISMA_URL', 'DATABASE_URL', 'POSTGRES_URL', 'PRISMA_DATABASE_URL'];
-const runtimeSource = RUNTIME_URL_SOURCES.find((name) => env[name]);
-const runtimeUrl = runtimeSource ? env[runtimeSource] : undefined;
-
-if (!migrationUrl || !runtimeUrl) {
-  console.error(
-    'FATAL: no database URL found. Connect the Neon (or another Postgres) integration to this Vercel project, ' +
-      'or set DATABASE_URL in the project environment. Expected one of: ' +
-      MIGRATION_URL_SOURCES.join(', ') + '.',
-  );
+const plan = planVercelBuild(process.env);
+if (!plan.ok) {
+  console.error(plan.error);
   process.exit(1);
 }
-for (const [label, url] of [['migration', migrationUrl], ['runtime', runtimeUrl]]) {
-  if (url.startsWith('prisma+postgres://')) {
-    console.error(
-      `FATAL: the ${label} database URL is a prisma+postgres:// (Accelerate) URL. This app uses the standard Prisma ` +
-        'client and migrations, which need a direct postgres:// connection string. With the Neon integration this is ' +
-        'injected automatically; otherwise copy the direct URL from your database dashboard into DATABASE_URL.',
-    );
-    process.exit(1);
-  }
+for (const note of plan.notes) {
+  (note.startsWith('WARNING') ? console.warn : console.log)(note);
 }
-
-// RESCUE_DIRECT_URL is this app's override and is documented as the direct
-// (unpooled) endpoint, so it belongs here — otherwise every build warns.
-const UNPOOLED_SOURCES = ['RESCUE_DIRECT_URL', 'DATABASE_URL_UNPOOLED', 'POSTGRES_URL_NON_POOLING', 'DIRECT_DATABASE_URL'];
-if (!UNPOOLED_SOURCES.includes(migrationSource)) {
-  console.warn(
-    `WARNING: migrations will run over ${migrationSource}, which may be a pooled (PgBouncer) endpoint. ` +
-      'If `prisma migrate deploy` fails or hangs, expose the unpooled URL as DATABASE_URL_UNPOOLED.',
-  );
-} else {
-  console.log(`Using ${migrationSource} for migrations (unpooled) and ${runtimeSource} for runtime.`);
+for (const step of plan.steps) {
+  console.log(`\n> ${step.cmd}`);
+  execSync(step.cmd, { stdio: 'inherit', env: { ...process.env, ...(step.env ?? {}) } });
 }
-
-const run = (cmd, extraEnv = {}) => {
-  console.log(`\n> ${cmd}`);
-  execSync(cmd, { stdio: 'inherit', env: { ...env, ...extraEnv } });
-};
-
-run('prisma generate');
-run('prisma migrate deploy', { DATABASE_URL: migrationUrl });
-run('next build');
