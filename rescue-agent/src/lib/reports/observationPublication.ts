@@ -255,6 +255,54 @@ export interface PublicationReport {
   identifiers: { unrecognised: number };
 }
 
+/** Most alternative evidence sets checked for one audit; beyond it nothing regenerated is published. */
+export const MAX_UNKNOWN_ALTERNATIVES = 400;
+const SLOT_PATTERN = /\(\[\^\\n\]\{0,600\}\?\)/g;
+const factVariantsByType = new Map<string, string[]>();
+
+/** Every fact the engine can write for an evidence type, from the audited templates (slots filled). */
+function engineFactVariants(evidenceType: string): string[] {
+  let variants = factVariantsByType.get(evidenceType);
+  if (!variants) {
+    variants = [
+      ...new Set(
+        EVIDENCE_TEMPLATES.filter((t) => t.field === 'fact' && t.types?.includes(evidenceType)).map((t) =>
+          t.pattern.replace(SLOT_PATTERN, 'x').replace(/\\(.)/g, '$1'),
+        ),
+      ),
+    ];
+    factVariantsByType.set(evidenceType, variants);
+  }
+  return variants;
+}
+
+/**
+ * The evidence sets the engine might have seen, one withheld record varied at
+ * a time: absent is the published set itself; present, it carries its stored
+ * fact or any fact the engine can write for its type, at its original
+ * position. Null when there are more than MAX_UNKNOWN_ALTERNATIVES.
+ */
+function unknownEvidenceAlternatives(published: PublishedEvidence[], stored: StoredEvidence[]): EvidenceRecordLike[][] | null {
+  const record = (e: { id: string; evidenceType: string; fact: string; supportingContext: string | null; confidence: number; sourceUrl: string | null }): EvidenceRecordLike => ({
+    id: e.id, evidenceType: e.evidenceType, fact: e.fact, supportingContext: e.supportingContext, confidence: e.confidence, sourceUrl: e.sourceUrl,
+  });
+  const out: EvidenceRecordLike[][] = [];
+  for (let w = 0; w < published.length; w++) {
+    const unknown = published[w];
+    if (unknown.provenance.fact !== 'FALLBACK') continue;
+    const facts = new Set([stored[w].fact, ...engineFactVariants(unknown.evidenceType)]);
+    if (out.length + facts.size > MAX_UNKNOWN_ALTERNATIVES) return null;
+    for (const fact of facts) {
+      out.push(
+        published.flatMap((e, i) =>
+          i === w ? [record({ ...e, fact, supportingContext: stored[w].supportingContext ?? null })] : e.provenance.fact === 'FALLBACK' ? [] : [record(e)],
+        ),
+      );
+    }
+  }
+  return out;
+}
+
 /**
  * A stored audit's observations as they may be published. Every input record
  * is returned in the same order with only its text and identifiers replaced;
@@ -298,16 +346,36 @@ export function publishAuditObservations<
     .map((e) => ({ id: e.id, evidenceType: e.evidenceType, fact: e.fact, supportingContext: e.supportingContext, confidence: e.confidence, sourceUrl: e.sourceUrl }));
   const ids = new Set(engineEvidence.map((e) => e.id));
 
-  let journeyR: JourneyStageResult[] = [];
-  let leaksR: ReturnType<typeof detectRevenueLeaks> = [];
-  let scoresR: ReturnType<typeof calculateCategoryScores> = [];
-  try {
-    journeyR = analyzeJourney(engineEvidence);
-    leaksR = detectRevenueLeaks({ evidence: engineEvidence, journey: journeyR });
-    scoresR = calculateCategoryScores(journeyR, engineEvidence);
-  } catch {
-    // Regeneration failed: every regenerated item falls back below.
-  }
+  // WITHHELD IS UNKNOWN, NOT ABSENT. Evidence whose fact cannot be published
+  // is left out of the evidence the engine re-reads, and the engine reads a
+  // missing record as a missing feature: an unrecognised hours fact became
+  // "Not found on the analyzed pages: opening hours" and turned the phone
+  // finding into "Common visit questions are not answered on the website"
+  // (Codex review of d7f5fd2, P2). Including the record as stored does not
+  // help: its wording is exactly what the engine could not recognise.
+  //
+  // So a withheld record is treated as UNKNOWN: it might be absent, or it
+  // might say anything the engine can write for its evidence type (the
+  // audited templates). Regeneration runs once per such possibility, and a
+  // regenerated conclusion is published only when every possibility yields
+  // it word for word, i.e. it does not depend on what was withheld. Otherwise
+  // the item takes its neutral wording. The alternative runs are used only
+  // for this comparison: nothing from them is published or quoted.
+  const regenerate = (input: EvidenceRecordLike[]) => {
+    try {
+      const journeyR = analyzeJourney(input);
+      const leaksR = detectRevenueLeaks({ evidence: input, journey: journeyR });
+      return { journeyR, leaksR, scoresR: calculateCategoryScores(journeyR, input) };
+    } catch {
+      // Regeneration failed: every regenerated item falls back below.
+      return { journeyR: [] as JourneyStageResult[], leaksR: [] as ReturnType<typeof detectRevenueLeaks>, scoresR: [] as ReturnType<typeof calculateCategoryScores> };
+    }
+  };
+  const { journeyR, leaksR, scoresR } = regenerate(engineEvidence);
+  const alternatives = unknownEvidenceAlternatives(evidence, stored.evidence);
+  // Too many possibilities to check: no regenerated conclusion is published.
+  const tooUncertain = alternatives === null;
+  const worlds = (alternatives ?? []).map(regenerate);
 
   let journeyFallbacks = 0;
   let journeyHistoricalWithheld = 0;
@@ -315,7 +383,10 @@ export function publishAuditObservations<
     const stage = canon(j.stage, canonicalStage(j.stage));
     const status = canon(j.status, canonicalStatus(j.status));
     const r = journeyR.find((x) => x.stage === stage && x.status === status && x.manualValidationRequired === j.manualValidationRequired);
-    if (r) return { ...j, stage, status, finding: r.finding };
+    const independent = (finding: string) =>
+      !tooUncertain &&
+      worlds.every((w) => w.journeyR.some((x) => x.stage === stage && x.status === status && x.manualValidationRequired === j.manualValidationRequired && x.finding === finding));
+    if (r && independent(r.finding)) return { ...j, stage, status, finding: r.finding };
     if (isHistoricalWording(COMPILED_JOURNEY.filter((t) => t.stages.includes(stage) && t.statuses.includes(status)), j.finding)) journeyHistoricalWithheld++;
     journeyFallbacks++;
     return { ...j, stage, status, finding: NEUTRAL_STAGE[status] ?? NEUTRAL_STAGE_OTHER };
@@ -342,7 +413,19 @@ export function publishAuditObservations<
         x.evidenceIds.every((id) => ids.has(id)) &&
         sameEvidence(o.evidenceIds, x.evidenceIds),
     );
-    if (index >= 0) {
+    const independent = (r: (typeof leaksR)[number]) =>
+      !tooUncertain &&
+      worlds.every((w) => w.leaksR.some(
+        (x) =>
+          x.category === category &&
+          x.manualValidationRequired === o.manualValidationRequired &&
+          sameEvidence(o.evidenceIds, x.evidenceIds) &&
+          x.title === r.title &&
+          x.problem === r.problem &&
+          x.businessImpact === r.businessImpact &&
+          x.recommendedSolution === r.recommendedSolution,
+      ));
+    if (index >= 0 && independent(leaksR[index])) {
       usedLeaks.add(index);
       const r = leaksR[index];
       return { ...o, ...ident, title: r.title, problem: r.problem, businessImpact: r.businessImpact, recommendedSolution: r.recommendedSolution, evidenceBound: true };
@@ -357,32 +440,37 @@ export function publishAuditObservations<
   // A score explanation the current engine no longer gives for this score may
   // still be the one the scoring code derives from the audit's own STORED stage
   // statuses — the statuses the stored score was computed from.
-  let storedDerived: ReturnType<typeof calculateCategoryScores> = [];
-  try {
-    storedDerived = calculateCategoryScores(
-      journey.map((j) => ({
-        stage: j.stage as JourneyStageResult['stage'],
-        status: j.status as JourneyStageResult['status'],
-        finding: j.finding,
-        confidence: j.confidence ?? 0,
-        manualValidationRequired: j.manualValidationRequired,
-        evidenceIds: j.evidenceIds ?? [],
-      })),
-      engineEvidence,
-    );
-  } catch {
-    storedDerived = [];
-  }
+  const storedStages = journey.map((j) => ({
+    stage: j.stage as JourneyStageResult['stage'],
+    status: j.status as JourneyStageResult['status'],
+    finding: j.finding,
+    confidence: j.confidence ?? 0,
+    manualValidationRequired: j.manualValidationRequired,
+    evidenceIds: j.evidenceIds ?? [],
+  }));
+  const derive = (input: EvidenceRecordLike[]) => {
+    try {
+      return calculateCategoryScores(storedStages, input);
+    } catch {
+      return [] as ReturnType<typeof calculateCategoryScores>;
+    }
+  };
+  const storedDerived = derive(engineEvidence);
+  const derivedWorlds = (alternatives ?? []).map(derive);
   let scoreFallbacks = 0;
   let scoreDerived = 0;
   const sameScore = (x: { insufficientData: boolean; score: number | null }, s: StoredScore) =>
     x.insufficientData === s.insufficientData && (x.insufficientData ? true : x.score === s.score);
   const scores = stored.scores.map((s) => {
     const category = canon(s.category, canonicalScoreCategory(s.category));
+    // An explanation counts the evidence it saw ("2/2 signals present"): it is
+    // published only when the withheld evidence would not change it.
+    const independentOf = (alternatives: ReturnType<typeof calculateCategoryScores>[], explanation: string) =>
+      !tooUncertain && alternatives.every((w) => w.some((x) => x.category === category && sameScore(x, s) && x.explanation === explanation));
     const r = scoresR.find((x) => x.category === category && sameScore(x, s));
-    if (r) return { ...s, category, explanation: r.explanation };
+    if (r && independentOf(worlds.map((w) => w.scoresR), r.explanation)) return { ...s, category, explanation: r.explanation };
     const d = storedDerived.find((x) => x.category === category && sameScore(x, s));
-    if (d) {
+    if (d && independentOf(derivedWorlds, d.explanation)) {
       scoreDerived++;
       return { ...s, category, explanation: d.explanation };
     }
