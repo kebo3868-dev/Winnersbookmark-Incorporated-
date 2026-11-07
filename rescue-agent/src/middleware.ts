@@ -1,5 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { checkBasicAuth, resolveAuthMode } from '@/lib/auth';
+import { resolveAuthMode } from '@/lib/auth';
+import { authenticateOperator } from '@/lib/operatorGate';
+import { operatorThrottleStore } from '@/lib/operatorThrottleStore';
 
 /**
  * App-wide access control. This application exposes confidential internal
@@ -93,7 +95,7 @@ function isSelfAuthenticatingRoute(pathname: string, request: NextRequest): bool
   return PER_TENANT_AUTH_ROUTES.some((pattern) => pattern.test(pathname));
 }
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   if (isSelfAuthenticatingRoute(request.nextUrl.pathname, request)) {
     return NextResponse.next();
   }
@@ -113,19 +115,13 @@ export function middleware(request: NextRequest) {
     );
   }
 
-  const ok = checkBasicAuth(
-    request.headers.get('authorization'),
-    process.env.BASIC_AUTH_USER as string,
-    process.env.BASIC_AUTH_PASSWORD as string,
-  );
-  if (ok) return NextResponse.next();
-  return new NextResponse('Authentication required.', {
-    status: 401,
-    headers: { 'www-authenticate': 'Basic realm="Winnersbookmark Rescue Agent", charset="UTF-8"' },
-  });
+  return authenticateOperator(request, operatorThrottleStore);
 }
 
 export const config = {
+  // Node.js, not the edge: the attempt counters live in Postgres so every
+  // instance shares them, and the edge runtime cannot reach the database.
+  runtime: 'nodejs',
   // Two entries, and the first one is load-bearing.
   //
   // Matcher strings compile through path-to-regexp, where `(...)` is an

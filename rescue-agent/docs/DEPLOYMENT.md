@@ -73,11 +73,43 @@ This brings up the app plus a persistent PostgreSQL with migrations applied.
 | `RESCUE_DATABASE_URL` | see below | **Overrides every other runtime URL.** Pooled endpoint. Use when a managed integration locks `DATABASE_URL` to the wrong database |
 | `RESCUE_DIRECT_URL` | see below | **Overrides every other migration URL.** Unpooled/direct endpoint — DDL through PgBouncer is unreliable |
 | `BASIC_AUTH_USER` / `BASIC_AUTH_PASSWORD` | yes in production | App-wide HTTP Basic Auth; production fails closed without them |
+| `OPERATOR_DEVICE_SECRET` | recommended | 32+ random characters. Signs the trusted-device cookie that keeps the operator's own browser signed in through a global sign-in lockdown. Unset = no cookie, and a lockdown applies to everyone |
+| `OPERATOR_TRUSTED_SOURCE_HEADER` | self-hosted only | Header your reverse proxy overwrites with the client IP (e.g. `x-real-ip`). On Vercel, `x-real-ip` is used automatically. Unset off Vercel = only the global sign-in limit applies |
 | `AUDIT_BUDGET_MS` | no | Collection time budget (default 45000, clamped 5000–280000). Past the deadline remaining targets are skipped and the audit completes as `PARTIALLY_COMPLETED` rather than being killed by the platform |
 | `LEAD_RETENTION_DAYS` | no | Days after which lead contact details are redacted. **Unset = retention disabled and personal data is kept indefinitely** |
 | `POSTGRES_PASSWORD` | compose only | Provisions the bundled Postgres |
 | `AI_PROVIDER` / `AI_MODEL` / `ANTHROPIC_API_KEY` | no | Optional AI narrative layer; deterministic fallback when unset |
 | `RESCUE_AGENT_ALLOW_PRIVATE_TARGETS` | never in production | Test-only fixture hook; hard-disabled when `NODE_ENV=production` |
+
+### Operator sign-in limit (issue #73)
+
+Every wrong operator password is counted in the `OperatorLoginThrottle` table,
+shared by every instance (`src/lib/operatorThrottle.ts`):
+
+| Counter | Limit | Lock |
+| --- | --- | --- |
+| Per client address | 10 wrong passwords in 15 minutes | that address, 15 minutes |
+| All addresses together | 100 wrong passwords in 15 minutes | every browser without a trusted-device cookie, 15 minutes |
+
+- While locked, the right password is refused too (HTTP 429 with `Retry-After`),
+  so a lock cannot reveal a correct guess.
+- Requests without credentials, and requests with the right password, never
+  count. A correct sign-in clears its address's count.
+- A browser that has signed in successfully keeps working through a global
+  lockdown when `OPERATOR_DEVICE_SECRET` is set. Rotating
+  `BASIC_AUTH_PASSWORD` revokes every trusted device.
+- Preview deployments have no database, so they count per instance in memory.
+  If the production database is unreachable, counting falls back to the same
+  per-instance limit; the password is always checked.
+
+**Locked out?** Wait 15 minutes, or clear the lock (this changes production
+data — authorised operators only):
+
+```bash
+node scripts/operator-unlock.mjs --status
+node scripts/operator-unlock.mjs --source 203.0.113.7   # one address
+node scripts/operator-unlock.mjs --global               # a global lockdown
+```
 
 ### Preview deployments have no database
 
@@ -144,6 +176,7 @@ Node >= 20.9 (pinned in `package.json` engines; image uses Node 22).
 
 - [ ] `DATABASE_URL` points at a managed PostgreSQL with backups enabled
 - [ ] `BASIC_AUTH_USER` / `BASIC_AUTH_PASSWORD` set to strong values (503 until they are)
+- [ ] `OPERATOR_DEVICE_SECRET` set (32+ random characters) so the operator keeps working through a global sign-in lockdown
 - [ ] TLS termination in front of the app (platform default or reverse proxy) — Basic Auth must never cross plain HTTP
 - [ ] Health check wired to `/api/health`
 - [ ] Outbound HTTPS egress unrestricted (collector requirement)

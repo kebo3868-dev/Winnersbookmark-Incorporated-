@@ -996,3 +996,15 @@ model MarketingLead {
   @@index([status, createdAt])
   @@index([createdAt])
 }
+
+/// Shared operator sign-in attempt counters (issue #73; src/lib/operatorThrottle.ts).
+/// key is "global" or "source:<sha256 of the client address>" — never the address itself.
+model OperatorLoginThrottle {
+  key         String    @id
+  failures    Int       @default(0)
+  windowStart DateTime  @default(now()) @db.Timestamptz(3)
+  lockedUntil DateTime? @db.Timestamptz(3)
+  updatedAt   DateTime  @default(now()) @db.Timestamptz(3)
+
+  @@index([updatedAt])
+}
