@@ -247,7 +247,7 @@ describe('the middleware is still the outer layer', () => {
     '%s → 401 without the credential',
     async (pathname) => {
       const { middleware } = await import('@/middleware');
-      const response = middleware(new NextRequest(`https://rescue.example${pathname}`));
+      const response = await middleware(new NextRequest(`https://rescue.example${pathname}`));
       expect(response.status).toBe(401);
     },
   );

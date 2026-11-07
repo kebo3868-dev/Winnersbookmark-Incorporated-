@@ -6,3 +6,4 @@ export type VercelBuildPlan =
   | { ok: false; error: string }
   | { ok: true; target: string; migrate: boolean; steps: { cmd: string; env?: Record<string, string> }[]; notes: string[] };
 export declare function planVercelBuild(env: Record<string, string | undefined>): VercelBuildPlan;
+export declare function sameDatabase(a: string, b: string): boolean;

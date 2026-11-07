@@ -29,7 +29,14 @@ const fake = (name: string) => `postgresql://user:pass@${name.toLowerCase()}.fak
 /** Every database variable the guard knows about, each set to a distinct fake. */
 const ALL_DB_VARS = Object.fromEntries(DATABASE_VARIABLES.map((n) => [n, fake(n)]));
 /** The three variables Vercel's inspection found scoped to Preview as well. */
-const SHARED = { DATABASE_URL: fake('DATABASE_URL'), DATABASE_URL_UNPOOLED: fake('DATABASE_URL_UNPOOLED'), POSTGRES_PRISMA_URL: fake('POSTGRES_PRISMA_URL') };
+/**
+ * A production configuration: every variable names the SAME database (the
+ * build refuses one whose migration and runtime databases differ), each with
+ * its own credentials so a test can tell which variable was chosen.
+ */
+const prod = (name: string, pooled = true) =>
+  `postgresql://${name.toLowerCase()}:pass@ep-app-1${pooled ? '-pooler' : ''}.fake.invalid:5432/db`;
+const SHARED = { DATABASE_URL: prod('DATABASE_URL'), DATABASE_URL_UNPOOLED: prod('DATABASE_URL_UNPOOLED', false), POSTGRES_PRISMA_URL: prod('POSTGRES_PRISMA_URL') };
 
 describe('build plan — production is unchanged', () => {
   it('generates, migrates over the unpooled URL, then builds', () => {
@@ -43,8 +50,30 @@ describe('build plan — production is unchanged', () => {
   });
 
   it('keeps the same precedence: RESCUE_DIRECT_URL first for migrations', () => {
-    const plan = planVercelBuild({ VERCEL_ENV: 'production', ...SHARED, RESCUE_DIRECT_URL: fake('RESCUE_DIRECT_URL'), RESCUE_DATABASE_URL: fake('RESCUE_DATABASE_URL') });
-    expect(plan.ok && plan.steps[1].env).toEqual({ DATABASE_URL: fake('RESCUE_DIRECT_URL') });
+    const plan = planVercelBuild({ VERCEL_ENV: 'production', ...SHARED, RESCUE_DIRECT_URL: prod('RESCUE_DIRECT_URL', false), RESCUE_DATABASE_URL: prod('RESCUE_DATABASE_URL') });
+    expect(plan.ok && plan.steps[1].env).toEqual({ DATABASE_URL: prod('RESCUE_DIRECT_URL', false) });
+  });
+
+  it('refuses when migrations and the runtime would use different databases, naming the variables only', () => {
+    // RESCUE_DATABASE_URL wins for runtime; without RESCUE_DIRECT_URL, migrations
+    // would run on the integration's DATABASE_URL_UNPOOLED: another database.
+    const other = 'postgresql://integration:secret-value@ep-integration-9.fake.invalid:5432/db';
+    const plan = planVercelBuild({ VERCEL_ENV: 'production', ...SHARED, DATABASE_URL_UNPOOLED: other, RESCUE_DATABASE_URL: prod('RESCUE_DATABASE_URL') });
+    expect(plan).toMatchObject({ ok: false, error: expect.stringMatching(/^FATAL: migrations would run on DATABASE_URL_UNPOOLED but the app reads RESCUE_DATABASE_URL/) });
+    expect(!plan.ok && plan.error).not.toContain('secret-value');
+    // Different database name on the same host is refused too.
+    expect(planVercelBuild({ VERCEL_ENV: 'production', DATABASE_URL_UNPOOLED: prod('U', false), POSTGRES_PRISMA_URL: prod('P').replace('/db', '/other') }).ok).toBe(false);
+  });
+
+  it('treats a different Prisma schema or search_path as a different database (independent re-review)', async () => {
+    const { sameDatabase } = await import('../scripts/vercel-build-plan.mjs');
+    const u = 'postgresql://u:p@ep-app-1-pooler.fake.invalid:5432/neondb';
+    const d = 'postgresql://d:q@ep-app-1.fake.invalid/neondb';
+    expect(sameDatabase(`${u}?sslmode=require&pgbouncer=true`, `${d}?sslmode=require`)).toBe(true);
+    expect(sameDatabase(`${u}?schema=public`, d)).toBe(true);
+    expect(sameDatabase(`${u}?schema=public`, `${d}?schema=rescue`)).toBe(false);
+    expect(sameDatabase(`${u}?options=-c%20search_path%3Drescue`, d)).toBe(false);
+    expect(sameDatabase(u.replace('postgresql:', 'postgres:'), d)).toBe(true);
   });
 
   it('warns when only a pooled URL is available, and still migrates', () => {
