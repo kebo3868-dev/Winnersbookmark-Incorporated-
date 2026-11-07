@@ -95,16 +95,29 @@ function isSelfAuthenticatingRoute(pathname: string, request: NextRequest): bool
   return PER_TENANT_AUTH_ROUTES.some((pattern) => pattern.test(pathname));
 }
 
-export async function middleware(request: NextRequest) {
-  if (isSelfAuthenticatingRoute(request.nextUrl.pathname, request)) {
-    return NextResponse.next();
-  }
+function presentsBasicCredential(request: NextRequest): boolean {
+  return /^\s*basic\s/i.test(request.headers.get('authorization') ?? '');
+}
 
+export async function middleware(request: NextRequest) {
   const mode = resolveAuthMode({
     BASIC_AUTH_USER: process.env.BASIC_AUTH_USER,
     BASIC_AUTH_PASSWORD: process.env.BASIC_AUTH_PASSWORD,
     NODE_ENV: process.env.NODE_ENV,
   });
+
+  if (isSelfAuthenticatingRoute(request.nextUrl.pathname, request)) {
+    // An exempt route must never become an unthrottled place to test the
+    // operator password. Several of them (Front Desk surfaces reached with a
+    // session-shaped cookie, sign-out, the tenant message endpoint) fall back
+    // to the operator credential when no session or key is valid, so a
+    // request that PRESENTS a Basic credential goes through the same counted
+    // gate as everywhere else (independent review of PR #80). Requests
+    // without one — sessions, webhook signatures, bearer secrets — pass
+    // exactly as before.
+    if (mode !== 'required' || !presentsBasicCredential(request)) return NextResponse.next();
+    return authenticateOperator(request, operatorThrottleStore);
+  }
 
   if (mode === 'open') return NextResponse.next();
 

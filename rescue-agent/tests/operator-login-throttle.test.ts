@@ -149,8 +149,9 @@ describe('legitimate use is never locked out', () => {
     expect((await attempt(store, '192.0.2.10', RIGHT, cookie)).status).toBe(200); // the operator's browser
     // The operator moving networks (phone off Wi-Fi) keeps working too.
     expect((await attempt(store, '198.51.100.200', RIGHT, cookie)).status).toBe(200);
-    // The cookie is not a credential.
-    expect((await attempt(store, '192.0.2.10', WRONG, cookie)).status).toBe(401);
+    // The cookie is not a credential, and it helps only the RIGHT password:
+    // a wrong guess from that browser during the lockdown is refused too.
+    expect((await attempt(store, '192.0.2.10', WRONG, cookie)).status).toBe(429);
     expect((await attempt(store, '192.0.2.10', undefined, cookie)).status).toBe(401);
   });
 

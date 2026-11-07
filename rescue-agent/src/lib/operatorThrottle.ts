@@ -34,9 +34,13 @@
  * - a correct attempt reads the counters with FOR SHARE, so it waits for
  *   in-flight failures and is ordered after them.
  *
- * Addresses are stored only as a SHA-256 digest. Rows are bounded: during a
- * global lockdown no per-address row is created, and stale rows are deleted
- * whenever a new lock is set.
+ * - an address that is already locked counts toward nothing, so a single
+ *   address can never trip the global lockdown;
+ * - the trusted-device cookie only ever helps a request carrying the RIGHT
+ *   password; wrong guesses count and lock the same with or without it.
+ *
+ * Addresses are stored only as a SHA-256 digest: one row per address seen,
+ * swept once untouched for a day (whenever a new lock is set).
  */
 import { createHash } from 'node:crypto';
 import { isIP } from 'node:net';
@@ -56,8 +60,11 @@ export interface CounterState {
 export interface ThrottleStore {
   /** Current counters for the keys. Ordered after any in-flight `fail` on them. */
   read(keys: string[]): Promise<Map<string, CounterState>>;
-  /** Count one failure; lock when it reaches `limit`. Never counts while locked. */
-  fail(key: string, limit: number): Promise<CounterState>;
+  /**
+   * Count one failure; lock when it reaches `limit`. Never counts while
+   * locked: `counted` is false when the key was already locked.
+   */
+  fail(key: string, limit: number): Promise<CounterState & { counted: boolean }>;
   /** Clear a key's failures, unless it is locked. */
   clear(key: string): Promise<void>;
 }
@@ -129,13 +136,21 @@ export async function decide(
     return { outcome: 'allow' };
   }
 
+  // A wrong password. The trusted-device cookie exempts nothing here: it only
+  // ever helps a request that also carries the RIGHT password.
+  if (key) {
+    const own = await store.fail(key, SOURCE_LIMIT);
+    // An address that was already locked is refused without counting toward
+    // the global limit, so one address cannot trip the global lockdown and
+    // lock the operator out everywhere (independent review of PR #80).
+    if (!own.counted) return { outcome: 'locked', retryAfter: own.lockedFor, scope: 'source' };
+    const global = await store.fail(GLOBAL_KEY, GLOBAL_LIMIT);
+    if (global.lockedFor > 0) return { outcome: 'locked', retryAfter: global.lockedFor, scope: 'global' };
+    if (own.lockedFor > 0) return { outcome: 'locked', retryAfter: own.lockedFor, scope: 'source' };
+    return { outcome: 'wrong' };
+  }
   const global = await store.fail(GLOBAL_KEY, GLOBAL_LIMIT);
-  // During a global lockdown an untrusted browser is refused without creating
-  // a per-address row, which bounds the table under a distributed attack.
-  if (global.lockedFor > 0 && !trustedDevice) return { outcome: 'locked', retryAfter: global.lockedFor, scope: 'global' };
-  if (!key) return { outcome: 'wrong' };
-  const own = await store.fail(key, SOURCE_LIMIT);
-  if (own.lockedFor > 0) return { outcome: 'locked', retryAfter: own.lockedFor, scope: 'source' };
+  if (global.lockedFor > 0) return { outcome: 'locked', retryAfter: global.lockedFor, scope: 'global' };
   return { outcome: 'wrong' };
 }
 
@@ -151,17 +166,27 @@ export function postgresStore(db: RawDb): ThrottleStore {
   const LOCKED = `t."lockedUntil" IS NOT NULL AND t."lockedUntil" > now()`;
   const FRESH = `(t."windowStart" <= now() - make_interval(secs => ${WINDOW_SECONDS}) OR t."lockedUntil" IS NOT NULL)`;
   const NEXT = `(CASE WHEN ${FRESH} THEN 1 ELSE t."failures" + 1 END)`;
+  const LOCKED_FOR = `GREATEST(0, CEIL(EXTRACT(EPOCH FROM ("lockedUntil" - now()))))::int`;
+  // The update runs only on a row that is NOT locked (the ON CONFLICT ... WHERE
+  // is evaluated on the row-locked, latest version), so a row coming back from
+  // `up` means exactly "this failure was counted". A locked row is left
+  // untouched and read back as not counted.
   const FAIL = `
-    INSERT INTO "OperatorLoginThrottle" AS t ("key", "failures", "windowStart", "lockedUntil", "updatedAt")
-    VALUES ($1, 1, now(), CASE WHEN 1 >= $2 THEN now() + make_interval(secs => ${LOCK_SECONDS}) END, now())
-    ON CONFLICT ("key") DO UPDATE SET
-      "failures"    = CASE WHEN ${LOCKED} THEN t."failures" ELSE ${NEXT} END,
-      "windowStart" = CASE WHEN ${LOCKED} THEN t."windowStart" WHEN ${FRESH} THEN now() ELSE t."windowStart" END,
-      "lockedUntil" = CASE WHEN ${LOCKED} THEN t."lockedUntil"
-                           WHEN ${NEXT} >= $2 THEN now() + make_interval(secs => ${LOCK_SECONDS}) ELSE NULL END,
-      "updatedAt"   = now()
-    RETURNING "failures",
-      GREATEST(0, CEIL(EXTRACT(EPOCH FROM ("lockedUntil" - now()))))::int AS "lockedFor"`;
+    WITH up AS (
+      INSERT INTO "OperatorLoginThrottle" AS t ("key", "failures", "windowStart", "lockedUntil", "updatedAt")
+      VALUES ($1, 1, now(), CASE WHEN 1 >= $2 THEN now() + make_interval(secs => ${LOCK_SECONDS}) END, now())
+      ON CONFLICT ("key") DO UPDATE SET
+        "failures"    = ${NEXT},
+        "windowStart" = CASE WHEN ${FRESH} THEN now() ELSE t."windowStart" END,
+        "lockedUntil" = CASE WHEN ${NEXT} >= $2 THEN now() + make_interval(secs => ${LOCK_SECONDS}) ELSE NULL END,
+        "updatedAt"   = now()
+      WHERE NOT (${LOCKED})
+      RETURNING "failures", "lockedUntil"
+    )
+    SELECT "failures", ${LOCKED_FOR} AS "lockedFor", true AS "counted" FROM up
+    UNION ALL
+    SELECT "failures", ${LOCKED_FOR}, false FROM "OperatorLoginThrottle"
+     WHERE "key" = $1 AND NOT EXISTS (SELECT 1 FROM up)`;
 
   return {
     async read(keys) {
@@ -180,9 +205,14 @@ export function postgresStore(db: RawDb): ThrottleStore {
       );
     },
     async fail(key, limit) {
-      const [row] = await db.$queryRawUnsafe<Array<{ failures: number; lockedFor: number }>>(FAIL, key, limit);
-      const state = { failures: Number(row.failures), lockedFor: Number(row.lockedFor) };
-      if (state.lockedFor > 0 && state.failures === limit) {
+      const [row] = await db.$queryRawUnsafe<Array<{ failures: number; lockedFor: number; counted: boolean }>>(FAIL, key, limit);
+      // Not counted means locked. The read-back uses the statement's snapshot, so
+      // under a race it can lag the lock that refused the update: never report a
+      // locked key as unlocked.
+      const state = row?.counted === true
+        ? { failures: Number(row.failures), lockedFor: Number(row.lockedFor), counted: true }
+        : { failures: Number(row?.failures ?? limit), lockedFor: Number(row?.lockedFor) || LOCK_SECONDS, counted: false };
+      if (state.counted && state.lockedFor > 0) {
         // A lock was just set (rare): sweep rows nobody has touched for a day.
         await db
           .$queryRawUnsafe(
@@ -229,13 +259,13 @@ export function memoryStore(now: () => number = Date.now): ThrottleStore {
     async fail(key, limit) {
       const t = now();
       const r = rows.get(key);
-      if (r && r.lockedUntil > t) return state(r);
+      if (r && r.lockedUntil > t) return { ...state(r), counted: false };
       const fresh = !r || r.windowStart <= t - WINDOW_SECONDS * 1000 || r.lockedUntil > 0;
       const failures = fresh ? 1 : r.failures + 1;
       const next = { failures, windowStart: fresh ? t : r!.windowStart, lockedUntil: failures >= limit ? t + LOCK_SECONDS * 1000 : 0 };
       rows.set(key, next);
       if (rows.size > 10_000) for (const [k, v] of rows) if (v.lockedUntil <= t && v.windowStart <= t - WINDOW_SECONDS * 1000) rows.delete(k);
-      return state(next);
+      return { ...state(next), counted: true };
     },
     async clear(key) {
       const r = rows.get(key);

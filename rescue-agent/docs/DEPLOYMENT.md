@@ -15,7 +15,7 @@ The app is adapted for this target:
   instructions on `prisma+postgres://` (Accelerate) URLs.
 - The audit API route sets `maxDuration = 300` so the background pipeline (which continues via `after()` once the response is sent) can finish; worst case is ~3–4 minutes. **Fluid Compute must be enabled** (default for new Vercel projects) — without it, Hobby caps functions at 60s and long audits are cut off.
 - Audits interrupted anyway (platform limits, redeploys) are detected by a stale-job sweep and marked FAILED with an honest explanation — they never hang in RUNNING.
-- **`/api/health` is the diagnostic endpoint** (no auth needed). It reports DB reachability, which env var supplied the runtime connection, whether an unpooled migration URL exists, and whether basic auth is configured — names and states only, never secret values.
+- **`/api/health` is public liveness only** (`status`, `database`); it never reads a credential. **`/api/diagnostics` is the diagnostic endpoint** (operator credential required, behind the sign-in limit). It reports DB reachability, which env var supplied the runtime connection, whether an unpooled migration URL exists, and whether basic auth is configured — names and states only, never secret values.
 
 ### Exact steps (Neon database already created and connected)
 
@@ -24,7 +24,7 @@ The app is adapted for this target:
 3. **Set the auth env vars** (Production): `BASIC_AUTH_USER`, `BASIC_AUTH_PASSWORD`. **Until these exist, every route returns 503 "ACCESS NOT CONFIGURED" by design** — if the previous deploy showed that message, this is the cause and the fix. Optionally add `AI_PROVIDER=anthropic`, `AI_MODEL`, `ANTHROPIC_API_KEY`.
 4. **Check Fluid Compute is on** (Settings → Functions) and **redeploy** (Deployments → ⋯ → Redeploy, or push to main).
 5. Post-deploy verification, in order:
-   - `https://<app>/api/health` → expect `{"status":"ok","database":"up","config":{"auth":"configured",...}}`. If `auth` says MISSING, set the vars from step 3. If `database` is down, check the Neon integration's env vars are attached to Production.
+   - `https://<app>/api/health` → expect `{"status":"ok","database":"up"}`; then, signed in as the operator, `https://<app>/api/diagnostics` → expect `"config":{"auth":"configured",...}`. Until the auth vars exist every route but `/api/health` returns 503: set the vars from step 3. If `database` is down, check the Neon integration's env vars are attached to Production.
    - Open the app → browser prompts for the basic-auth credentials → Command Center loads.
    - Run the Demo audit, then a real restaurant audit.
 
@@ -105,7 +105,11 @@ shared by every instance (`src/lib/operatorThrottle.ts`):
   limit is never silently weakened to a per-instance count. This also means
   the migration must be applied before this code serves traffic: the
   production build does that automatically (`prisma migrate deploy` runs
-  before `next build`).
+  before `next build`), and it **refuses to run** when the migration and runtime
+  variables name different databases (e.g. `RESCUE_DATABASE_URL` set without a
+  matching `RESCUE_DIRECT_URL`), so the table can never land in the wrong one.
+- Every exempt route (Front Desk sessions, sign-out, webhooks) that receives a
+  Basic credential checks it through the same counted limit.
 
 **Locked out?** Wait 15 minutes, or clear the lock (this changes production
 data — authorised operators only):
@@ -128,8 +132,8 @@ enforces the same rule:
   "Automatically expose System Environment Variables" enabled.
 - **Runtime** (`src/lib/db.ts`): a preview or development deployment connects to
   an unreachable `.invalid` address whatever is configured. Its database-backed
-  pages fail, and `/api/health` reports the database down with source
-  "DISABLED — non-production deployment".
+  pages fail, `/api/health` reports the database down, and `/api/diagnostics`
+  reports the source "DISABLED — non-production deployment".
 
 Production, local development, Docker and CI are unchanged.
 
@@ -144,7 +148,7 @@ points the app at its own database without fighting the integration, and without
 disconnecting it. Leave them unset and resolution falls back to the standard
 names unchanged.
 
-Confirm which one is in effect from `/api/health` → `config.databaseSource`.
+Confirm which one is in effect from `/api/diagnostics` → `config.databaseSource`.
 
 ### Personal data retention
 
@@ -162,7 +166,7 @@ your customer. Two controls:
 
 Retention is **off unless configured** — deleting personal data on a default the
 operator never chose would be the wrong trade-off. Decide a window and set it.
-`/api/health` → `config.leadRetention` reports the deployed policy.
+`/api/diagnostics` → `config.leadRetention` reports the deployed policy.
 
 ## Build / run reference
 
@@ -187,7 +191,7 @@ Node >= 20.9 (pinned in `package.json` engines; image uses Node 22).
 - [ ] Outbound HTTPS egress unrestricted (collector requirement)
 - [ ] Optional: `ANTHROPIC_API_KEY` set if AI narrative is wanted
 - [ ] `LEAD_RETENTION_DAYS` decided and set — leads hold third-party personal data, and it is kept indefinitely while this is unset
-- [ ] Confirm `/api/health` reports the expected `databaseSource` and `leadRetention`
+- [ ] Confirm `/api/diagnostics` (as the operator) reports the expected `databaseSource` and `leadRetention`
 - [ ] Demo data removed before showing the pipeline to a client (**Remove demo data** on `/leads`)
 - [ ] Run one Demo audit and one real audit post-deploy
 

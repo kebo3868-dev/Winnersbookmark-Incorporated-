@@ -58,8 +58,8 @@ describe.skipIf(!LOCAL)('shared Postgres store', () => {
     const statuses = await Promise.all(Array.from({ length: 300 }, (_, i) => statusOf(i % 2 ? a : b, `203.0.${i >> 8}.${i & 255}`, WRONG)));
     expect(tally(statuses)).toEqual({ 401: GLOBAL_LIMIT - 1, 429: 300 - (GLOBAL_LIMIT - 1) });
     expect(await row(GLOBAL_KEY)).toEqual({ failures: GLOBAL_LIMIT, locked: true });
-    // Refused requests during the lockdown create no per-address rows.
-    expect(await count()).toBeLessThanOrEqual(GLOBAL_LIMIT + 1);
+    // One row per address seen (each counts toward its own limit), plus the global row.
+    expect(await count()).toBe(300 + 1);
     expect(await statusOf(a, '192.0.2.10', RIGHT)).toBe(429);
   });
 
@@ -138,6 +138,24 @@ describe.skipIf(!LOCAL)('shared Postgres store', () => {
       await down.$disconnect();
       await noTable.$disconnect();
     }
+  });
+
+  it('one locked address cannot feed the global counter (independent review of PR #80)', async () => {
+    const statuses = await Promise.all(Array.from({ length: GLOBAL_LIMIT * 2 }, (_, i) => statusOf(i % 2 ? a : b, '198.51.100.66', WRONG)));
+    expect(tally(statuses)).toEqual({ 401: SOURCE_LIMIT - 1, 429: GLOBAL_LIMIT * 2 - (SOURCE_LIMIT - 1) });
+    expect(await row(GLOBAL_KEY)).toMatchObject({ failures: SOURCE_LIMIT });
+    expect((await row(GLOBAL_KEY)).locked).toBeFalsy();
+    expect(await statusOf(a, '192.0.2.10', RIGHT)).toBe(200);
+  });
+
+  it('refused attempts while locked write nothing and never run the sweep', async () => {
+    for (let i = 0; i < SOURCE_LIMIT; i++) await statusOf(a, '198.51.100.9', WRONG);
+    const before = await a.$queryRawUnsafe<Array<{ xmin: string }>>(`SELECT xmin::text FROM "OperatorLoginThrottle" WHERE "key" = $1`, sourceKey('198.51.100.9'));
+    await a.$executeRawUnsafe(`INSERT INTO "OperatorLoginThrottle" ("key","failures","updatedAt") VALUES ('source:stale', 1, now() - interval '2 days')`);
+    for (let i = 0; i < 20; i++) expect(await statusOf(a, '198.51.100.9', WRONG)).toBe(429);
+    const after = await a.$queryRawUnsafe<Array<{ xmin: string }>>(`SELECT xmin::text FROM "OperatorLoginThrottle" WHERE "key" = $1`, sourceKey('198.51.100.9'));
+    expect(after[0].xmin).toBe(before[0].xmin); // the locked row was not rewritten
+    expect(await count()).toBe(3); // the stale row survives: no sweep ran (address, global, stale)
   });
 
   it('setting a new lock sweeps rows untouched for a day', async () => {

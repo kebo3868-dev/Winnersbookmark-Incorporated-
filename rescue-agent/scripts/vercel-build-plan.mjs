@@ -108,6 +108,21 @@ export function planVercelBuild(env) {
       };
     }
   }
+  // Migrations must reach the database the app reads. They are chosen from
+  // different variable lists (an override such as RESCUE_DATABASE_URL can win
+  // for runtime while DATABASE_URL_UNPOOLED wins for migrations), and a
+  // mismatch used to deploy silently: the runtime database then lacks the
+  // latest tables, and since operator sign-in fails closed without its counter
+  // table, the operator would be locked out (independent review of PR #80).
+  if (!sameDatabase(migrationUrl, runtimeUrl)) {
+    return {
+      ok: false,
+      error:
+        `FATAL: migrations would run on ${migrationSource} but the app reads ${runtimeSource}, and they name different ` +
+        'databases. Point both at the same database (with RESCUE_DATABASE_URL set, also set RESCUE_DIRECT_URL to its ' +
+        'unpooled endpoint). No database was contacted.',
+    };
+  }
   const notes = UNPOOLED_SOURCES.includes(migrationSource)
     ? [`Using ${migrationSource} for migrations (unpooled) and ${runtimeSource} for runtime.`]
     : [
@@ -121,4 +136,24 @@ export function planVercelBuild(env) {
     steps: [{ cmd: 'prisma generate' }, { cmd: 'prisma migrate deploy', env: { DATABASE_URL: migrationUrl } }, { cmd: 'next build' }],
     notes,
   };
+}
+
+/**
+ * Whether two connection strings name the same database: same host (a Neon
+ * pooled endpoint `ep-…-pooler.` equals its direct `ep-….`), same port and same
+ * database name. Credentials and query parameters are ignored. A URL that
+ * cannot be parsed is treated as different.
+ */
+export function sameDatabase(a, b) {
+  const key = (raw) => {
+    try {
+      const u = new URL(raw);
+      const host = u.hostname.toLowerCase().replace(/^([^.]+)-pooler\./, '$1.');
+      return `${host}:${u.port || '5432'}/${decodeURIComponent(u.pathname.replace(/^\//, '')) || 'postgres'}`;
+    } catch {
+      return null;
+    }
+  };
+  const ka = key(a);
+  return ka !== null && ka === key(b);
 }

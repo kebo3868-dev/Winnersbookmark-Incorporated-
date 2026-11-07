@@ -22,7 +22,7 @@ const APP = path.join(ROOT, 'src/app');
 
 /** Reachable without the operator credential on purpose, each with its own authentication. */
 const PUBLIC_BY_DESIGN: Record<string, string> = {
-  'src/app/api/health/route.ts': 'Liveness for the orchestrator; configuration detail only with the operator credential.',
+  'src/app/api/health/route.ts': 'Liveness for the orchestrator only; never reads a credential (diagnostics live at /api/diagnostics).',
   'src/app/api/marketing/leads/route.ts': 'Server-to-server ingest; constant-time shared secret, fails closed without one.',
   'src/app/api/retention/sweep/route.ts': 'Scheduled PII sweep; scheduler secret, fails closed without one.',
 };
