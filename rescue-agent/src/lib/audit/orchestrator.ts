@@ -13,6 +13,7 @@ import { generateOwnerReport, type RankedOpportunity } from '@/lib/reports/owner
 import { AI_SUMMARY_AUTOMATION_RULE, screenAiSummary } from '@/lib/reports/automationWording';
 import { presentFindingRecommendation } from '@/lib/reports/recommendationTemplates';
 import { generateSalesBrief } from '@/lib/reports/sales';
+import { isPublishableRestaurantName } from '@/lib/reports/clientName';
 import { getAiProvider } from '@/lib/ai/provider';
 import { analyzeOwnerReviews, reviewEvidence, socialEvidence } from '@/lib/audit/reviews';
 import { createAuditBudget, resolveAuditBudgetMs } from '@/lib/audit/budget';
@@ -261,7 +262,19 @@ export async function runAudit(auditId: string): Promise<void> {
       hostname: validation.url.hostname,
     });
     let restaurantName = audit.restaurant.name;
-    if (shouldReplaceStoredName(audit.restaurant.name, resolvedName)) {
+    // A name the site states about itself is used only if it makes no claim
+    // (clientName.ts): otherwise the site under audit would write the cover of
+    // its own report. The operator's name, or the domain, is kept instead.
+    const publishable = isPublishableRestaurantName(resolvedName.name);
+    if (!publishable && shouldReplaceStoredName(audit.restaurant.name, resolvedName)) {
+      await log(
+        auditId,
+        'WARN',
+        'Restaurant name stated by the website was not used: it carries a claim or an automation.',
+        `Source: ${resolvedName.source}. Kept: "${audit.restaurant.name ?? '(none — the domain is shown)'}".`,
+      );
+    }
+    if (publishable && shouldReplaceStoredName(audit.restaurant.name, resolvedName)) {
       await prisma.restaurant.update({ where: { id: audit.restaurantId }, data: { name: resolvedName.name } });
       await log(
         auditId,

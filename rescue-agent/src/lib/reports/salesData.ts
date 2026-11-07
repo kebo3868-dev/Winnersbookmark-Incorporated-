@@ -1,7 +1,7 @@
 import { prisma } from '@/lib/db';
 import { assertOperator, type OperatorAuthorization } from '@/lib/operatorAuth';
 import { presentOrderingText } from '@/lib/audit/orderingChannel';
-import { safeDisplayName } from '@/lib/audit/restaurantName';
+import { clientRestaurantName } from './clientName';
 import type { JourneyStageResult } from '@/types/audit';
 import { generateSalesBrief, type SalesBriefContent } from './sales';
 import type { OwnerReportContent, RankedOpportunity } from './owner';
@@ -109,7 +109,7 @@ export async function loadSalesBrief(operator: OperatorAuthorization, auditId: s
   const owner = (audit.reports?.[0]?.content ?? null) as unknown as OwnerReportContent | null;
 
   const regenerated = generateSalesBrief({
-    restaurantName: safeDisplayName(audit.restaurant.name, audit.restaurant.websiteUrl),
+    restaurantName: clientRestaurantName(audit.restaurant.name, audit.restaurant.websiteUrl),
     overallScore: audit.overallScore,
     coverageScore: audit.coverageScore ?? 0,
     topLeaks,
@@ -124,7 +124,7 @@ export async function loadSalesBrief(operator: OperatorAuthorization, auditId: s
   const { audit: _audit, ...record } = brief;
   const shown: Record<string, unknown> = {
     ...record,
-    audit: { demoMode: audit.demoMode, restaurant: { name: safeDisplayName(audit.restaurant.name, audit.restaurant.websiteUrl) } },
+    audit: { demoMode: audit.demoMode, restaurant: { name: clientRestaurantName(audit.restaurant.name, audit.restaurant.websiteUrl) } },
   };
   for (const field of NARRATIVE_FIELDS) {
     const value = regenerated[field];

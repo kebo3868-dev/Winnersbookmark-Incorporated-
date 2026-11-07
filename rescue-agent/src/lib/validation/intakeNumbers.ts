@@ -11,7 +11,9 @@
  * - empty, missing or null is "not provided" — never 0;
  * - a comma followed by one or two digits is a decimal comma ("4,5" → 4.5,
  *   "45,50" → 45.5); commas grouping thousands are accepted ("1,200" → 1200);
- * - a leading "$" is accepted for the average ticket only;
+ * - a leading "$" is accepted for the average ticket only, and an average
+ *   ticket with exactly three digits after a dot ("1.250") is refused as
+ *   ambiguous rather than read as $1.25;
  * - anything else ("4.5 stars", "N/A", "4,5,6") is refused with a message that
  *   names the field, so the operator corrects it instead of a wrong number
  *   being stored.
@@ -59,7 +61,9 @@ export function parseIntakeNumber(raw: unknown, field: IntakeNumberField): Intak
     let text = raw.trim();
     if (text === '') return { ok: true, value: undefined };
     if (rule.currency) text = text.replace(/^\$\s*/, '');
-    value = readNumberText(text);
+    // "1.250" is $1,250 written with a dot for thousands far more often than a
+    // ticket of $1.25 with three decimals. Neither reading is safe to guess.
+    value = rule.currency && /^\d+\.\d{3}$/.test(text) ? null : readNumberText(text);
   } else {
     value = null;
   }

@@ -3,6 +3,7 @@ import { ENGINE_FINDING_CATEGORIES, ENGINE_NOTE_TEMPLATES } from './generated/ob
 import { JOURNEY_STAGES, JOURNEY_STATUSES, SCORE_CATEGORIES, EVIDENCE_TYPES } from './canonicalIdentifiers';
 import { assessNarrative, isClaimFree } from './narrativePolicy';
 import { mentionsAutomation } from './automationWording';
+import { isPublishableRestaurantName } from './clientName';
 
 /**
  * A TEMPLATE FRAME DOES NOT VERIFY WHAT WAS INTERPOLATED INTO IT.
@@ -167,7 +168,10 @@ function isOwnAddress(v: string, ctx: PublicationContext | undefined): boolean {
 /** The vocabulary for one audit: the base vocabulary plus the restaurant's own name and location. */
 function vocabularyFor(ctx: PublicationContext | undefined): Set<string> {
   if (!ctx) return new Set(BASE_VOCABULARY);
-  const own = words([ctx.restaurant.name, ctx.restaurant.city ?? '', ctx.restaurant.state ?? ''].join(' '));
+  // The name is often read from the audited site, so its words widen the
+  // allowlist only when the name itself passes the client-name screen.
+  const name = isPublishableRestaurantName(ctx.restaurant.name) ? ctx.restaurant.name : '';
+  const own = words([name, ctx.restaurant.city ?? '', ctx.restaurant.state ?? ''].join(' '));
   const v = new Set(BASE_VOCABULARY);
   for (const w of own) {
     v.add(w);

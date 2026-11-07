@@ -8,7 +8,7 @@ import { ORDERING_CHANNEL_FLAG, ORDERING_CHANNEL_HEAD, parseOrderingChannelFact,
 import { ORDER_BUTTON_CATEGORY, ORDER_BUTTON_TITLE, orderButtonFindingCopy } from '@/lib/audit/orderButtonFinding';
 import { presentReputationText } from '@/lib/audit/reputationWording';
 import { evidenceBasisFor, type EvidenceBasis } from '@/lib/audit/evidenceBasis';
-import { safeDisplayName } from '@/lib/audit/restaurantName';
+import { clientRestaurantName } from './clientName';
 import {
   AUTOMATION_CARD_REQUIREMENTS,
   AUTOMATION_PROPOSAL_GATE,
@@ -805,10 +805,11 @@ export function buildExecutiveReport(rawInput: ExecutiveReportInput): ExecutiveR
       company: COMPANY.name,
       productName: COMPANY.productName,
       subtitle: COMPANY.reportSubtitle,
-      // Never renders a null, empty or serialised-junk name to a client. The
-      // resolver runs at audit time; this report may be built from a row written
-      // by an older build, so the guard lives here too.
-      restaurantName: safeDisplayName(input.restaurantName, input.websiteUrl),
+      // Never renders a null, empty, serialised-junk or claim-carrying name to a
+      // client (see clientName.ts). The name is often read from the audited
+      // site itself, and this report may be built from a row written by an
+      // older build, so the guard lives here.
+      restaurantName: clientRestaurantName(input.restaurantName, input.websiteUrl),
       websiteUrl: input.websiteUrl,
       location: input.location,
       auditDate: input.auditDate,
@@ -843,7 +844,7 @@ export function buildExecutiveReport(rawInput: ExecutiveReportInput): ExecutiveR
     valueSignals: {
       auditId: input.auditId,
       auditDate: input.auditDate,
-      preparedFor: input.restaurantName,
+      preparedFor: clientRestaurantName(input.restaurantName, input.websiteUrl),
       preparedBy: COMPANY.name,
       pagesAnalyzed: input.sourcesCollected,
       evidenceItems: input.evidence.length,
@@ -1366,7 +1367,7 @@ function buildSummary(input: ExecutiveReportInput, findings: ExecutiveFinding[])
   const parts: string[] = [];
 
   parts.push(
-    `Our audit analyzed ${input.sourcesCollected} public page(s) of the ${input.restaurantName} digital presence and collected ${input.evidence.length} evidence items across the guest journey.`,
+    `Our audit analyzed ${input.sourcesCollected} public page(s) of the ${clientRestaurantName(input.restaurantName, input.websiteUrl)} digital presence and collected ${input.evidence.length} evidence items across the guest journey.`,
   );
   if (input.overallScore !== null) {
     parts.push(`The restaurant scored ${input.overallScore}/100 on the Restaurant Rescue Score${input.coverageScore !== null ? `, with ${input.coverageScore}% of the intended audit scope covered by sufficient public evidence` : ''}.`);
