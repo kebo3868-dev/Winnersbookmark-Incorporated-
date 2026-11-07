@@ -62,6 +62,15 @@ describe('the name screen holds against lookalikes, hidden characters and promot
     '50% Off Tonight',
     'Best Prices in Town',
     'Order Online | Joe’s',
+    // Second round of the independent review:
+    'R\u034Fevenue R\u034Fecovered', // combining grapheme joiner
+    'Rev\uFE00enue Recovered', // variation selector
+    'ʀevenue ʀecovered', // Latin small capital
+    'Guarantéed Rëvenue Rëcovered', // accents on claim words
+    'R e v e n u e R e c o v e r e d', // spaced letters
+    'Your Site Loses 40 Grand A Month',
+    'We Fill 30 More Tables Nightly',
+    'Losing Thousands Every Month',
   ])('%j prints the domain', (name) => expect(clientRestaurantName(name, `https://${DOMAIN}`)).toBe(DOMAIN));
 
   it.each([
@@ -72,7 +81,7 @@ describe('the name screen holds against lookalikes, hidden characters and promot
     ["Joe's Crab Shack - Tampa", "Joe's Crab Shack"],
   ])('%j keeps only the business name: %j', (name, kept) => expect(clientRestaurantName(name, `https://${DOMAIN}`)).toBe(kept));
 
-  it.each(['Joe’s Stone Crab', 'Côte Brasserie', 'Señor Frog’s', 'Crêpes & Co', 'Five Star Pizza', '24/7 Diner', '21 Club', 'Order Up Diner', 'The Lost Kitchen'])(
+  it.each(['Joe’s Stone Crab', 'Côte Brasserie', 'Señor Frog’s', 'Crêpes & Co', 'Five Star Pizza', '24/7 Diner', '21 Club', 'Order Up Diner', 'The Lost Kitchen', 'Grand Lux Cafe', 'Grand Central Oyster Bar', 'A&W Restaurant', 'Häagen-Dazs', 'Søren’s Smørrebrød', 'Łódź Pierogi', "Applebee's Grill + Bar", 'Cafe Du Monde'])(
     'keeps the real name %j',
     (name) => expect(isPublishableRestaurantName(name)).toBe(true),
   );

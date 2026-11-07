@@ -28,8 +28,21 @@ const PROMOTION =
 const NUMBER_CLAIM = /\d{3}[\s.)-]*\d{3}[\s.-]*\d{4}|\d{5,}/;
 /** Characters that do not display as themselves: zero-width, bidirectional controls, private use, unassigned. */
 const HIDDEN = /[\p{Cf}\p{Co}\p{Cn}\p{Cc}]/u;
-/** A letter outside the Latin script (Cyrillic "е" posing as "e"). */
-const NON_LATIN_LETTER = /(?=\p{L})\P{Script=Latin}/u;
+/**
+ * A letter outside the ordinary Latin alphabet: other scripts (Cyrillic "е"
+ * posing as "e") and unusual Latin forms (small capital "ʀ"). Basic Latin and
+ * the accented letters of Latin-1 and Latin Extended-A/B are allowed.
+ */
+const NON_LATIN_LETTER = /(?![A-Za-z\u00C0-\u00D6\u00D8-\u00F6\u00F8-\u024F])\p{L}/u;
+/** A combining mark left after NFC (a joiner or variation selector riding on a letter). */
+const COMBINING_MARK = /\p{M}/u;
+/** Letters spelled out with spaces ("R e v e n u e"). */
+const SPACED_LETTERS = /(?:^|\s)(?:\p{L}\s+){3,}\p{L}(?=\s|$)/u;
+/** A slogan speaks to or for someone; a name does not. */
+const PERSONAL = /\b(?:we|our|ours|us|you|your|yours)\b/i;
+/** Losses, gains and frequencies ("Losing Thousands Every Month", "40 Grand", "30 More Tables Nightly"). */
+const LOSS_OR_GAIN =
+  /\b(?:los(?:e|es|ing)|thousands|millions)\b|\d+\s*(?:grand|thousand|million|k)\b|\d+\s+more\b|\b(?:every|per|a)\s+(?:day|night|week|month|year)\b|\b(?:nightly|monthly|weekly)\b/i;
 /** Title-style separators: "Joe's - #1 rated", "Order Online | Joe's". */
 const SEPARATOR = /\s+[|•·–—-]\s+|\s*\|\s*|\s*[•·]\s*|:\s+/;
 const MAX_LENGTH = 80;
@@ -40,11 +53,16 @@ export function isPublishableRestaurantName(name: string | null | undefined): bo
   if (!n || n.length > MAX_LENGTH) return false;
   // Lookalike and invisible characters are refused, not cleaned: a name that
   // needs them is not a name to print (independent review of PR #79).
-  if (HIDDEN.test(n) || NON_LATIN_LETTER.test(n) || n.normalize('NFKC') !== n.normalize('NFC')) return false;
-  if (SEPARATOR.test(n)) return false;
-  if (MONEY_OR_RATE.test(n) || PERFORMANCE_CLAIM.test(n) || PROMOTION.test(n) || NUMBER_CLAIM.test(n)) return false;
-  if (mentionsAutomation(n)) return false;
-  return isClaimFree(n);
+  const nfc = n.normalize('NFC');
+  if (HIDDEN.test(nfc) || COMBINING_MARK.test(nfc) || NON_LATIN_LETTER.test(nfc) || n.normalize('NFKC') !== nfc) return false;
+  if (SEPARATOR.test(nfc) || SPACED_LETTERS.test(nfc)) return false;
+  // Claim words are matched with accents removed: "Guarantéed" is "Guaranteed".
+  const folded = nfc.normalize('NFD').replace(/\p{M}/gu, '');
+  for (const pattern of [MONEY_OR_RATE, PERFORMANCE_CLAIM, PROMOTION, NUMBER_CLAIM, PERSONAL, LOSS_OR_GAIN]) {
+    if (pattern.test(folded)) return false;
+  }
+  if (mentionsAutomation(folded)) return false;
+  return isClaimFree(folded);
 }
 
 /**
