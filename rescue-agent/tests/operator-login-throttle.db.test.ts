@@ -124,6 +124,22 @@ describe.skipIf(!LOCAL)('shared Postgres store', () => {
     expect(unlock('--source', 'not-an-ip').status).toBe(2);
   });
 
+  it('a real database failure fails closed: unreachable server, or the table missing', async () => {
+    const down = new PrismaClient({ datasourceUrl: 'postgresql://postgres@127.0.0.1:1/none?connect_timeout=2' });
+    const noTable = new PrismaClient({ datasourceUrl: URL_!.replace(/\/[^/?]+(\?|$)/, '/postgres$1') });
+    try {
+      for (const db of [down, noTable]) {
+        for (const auth of [RIGHT, WRONG]) {
+          const r = await authenticateOperator(new NextRequest('https://rescue.example/', { headers: { 'x-real-ip': '192.0.2.10', authorization: auth } }), postgresStore(db), ENV);
+          expect(r.status).toBe(503);
+        }
+      }
+    } finally {
+      await down.$disconnect();
+      await noTable.$disconnect();
+    }
+  });
+
   it('setting a new lock sweeps rows untouched for a day', async () => {
     await a.$executeRawUnsafe(
       `INSERT INTO "OperatorLoginThrottle" ("key","failures","updatedAt") SELECT 'source:old' || g, 3, now() - interval '2 days' FROM generate_series(1, 50) g`);

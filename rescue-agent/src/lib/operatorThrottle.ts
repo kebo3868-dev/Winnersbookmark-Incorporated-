@@ -203,13 +203,15 @@ export function postgresStore(db: RawDb): ThrottleStore {
   };
 }
 
-// ── In-memory store (preview, local, and database outages) ──────────────────
+// ── In-memory store (preview deployments and local development only) ────────
 
 /**
- * The same rules, per server instance. Used where there is no database — a
- * preview deployment never has one by design — and as the fallback when the
- * database cannot be reached, so an outage weakens the limit to per-instance
- * instead of removing it. The credential itself is always still checked.
+ * The same rules, per server instance. Used ONLY where there is no production
+ * database by design: Vercel preview/development deployments and local
+ * development (see operatorThrottleStore.ts). Production never uses it — not
+ * even when the database fails: a production outage refuses sign-in (503)
+ * instead of silently weakening the limit to a per-instance count that an
+ * attacker could multiply by spreading guesses across instances.
  */
 export function memoryStore(now: () => number = Date.now): ThrottleStore {
   const rows = new Map<string, { failures: number; windowStart: number; lockedUntil: number }>();
@@ -240,18 +242,4 @@ export function memoryStore(now: () => number = Date.now): ThrottleStore {
       if (r && r.lockedUntil <= now()) rows.delete(key);
     },
   };
-}
-
-/** A Postgres store that falls back to the in-memory one when the database fails. */
-export function resilientStore(primary: ThrottleStore, fallback: ThrottleStore, onError: (e: unknown) => void): ThrottleStore {
-  const guard = <A extends unknown[], R>(op: (s: ThrottleStore) => (...a: A) => Promise<R>) =>
-    async (...a: A): Promise<R> => {
-      try {
-        return await op(primary)(...a);
-      } catch (error) {
-        onError(error);
-        return op(fallback)(...a);
-      }
-    };
-  return { read: guard((s) => s.read), fail: guard((s) => s.fail), clear: guard((s) => s.clear) };
 }

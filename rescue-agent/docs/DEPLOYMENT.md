@@ -99,8 +99,13 @@ shared by every instance (`src/lib/operatorThrottle.ts`):
   lockdown when `OPERATOR_DEVICE_SECRET` is set. Rotating
   `BASIC_AUTH_PASSWORD` revokes every trusted device.
 - Preview deployments have no database, so they count per instance in memory.
-  If the production database is unreachable, counting falls back to the same
-  per-instance limit; the password is always checked.
+- **Production fails closed.** If the database or the `OperatorLoginThrottle`
+  table is unavailable, every request presenting credentials — right or wrong
+  — gets HTTP 503 "Sign-in is temporarily unavailable" until it is back. The
+  limit is never silently weakened to a per-instance count. This also means
+  the migration must be applied before this code serves traffic: the
+  production build does that automatically (`prisma migrate deploy` runs
+  before `next build`).
 
 **Locked out?** Wait 15 minutes, or clear the lock (this changes production
 data — authorised operators only):

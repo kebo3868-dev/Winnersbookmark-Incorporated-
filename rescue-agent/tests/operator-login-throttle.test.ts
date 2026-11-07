@@ -17,12 +17,12 @@ import {
   SOURCE_LIMIT,
   WINDOW_SECONDS,
   memoryStore,
-  resilientStore,
   sourceAddress,
   sourceKey,
   type ThrottleStore,
 } from '@/lib/operatorThrottle';
 import { DEVICE_COOKIE, DEVICE_DAYS, deviceCookieToSet, deviceValidFor } from '@/lib/operatorDevice';
+import { throttleBackend } from '@/lib/operatorThrottleStore';
 
 const ENV = {
   NODE_ENV: 'production',
@@ -259,19 +259,45 @@ describe('source address', () => {
   });
 });
 
-describe('database outage', () => {
-  it('falls back to per-instance limits instead of dropping the limit, and still checks the password', async () => {
-    const broken: ThrottleStore = {
-      read: () => Promise.reject(new Error('connection refused postgresql://secret@host')),
-      fail: () => Promise.reject(new Error('down')),
-      clear: () => Promise.reject(new Error('down')),
-    };
-    const errors: unknown[] = [];
-    const store = resilientStore(broken, memoryStore(clock().now), (e) => errors.push(e));
-    expect((await attempt(store, '192.0.2.10', RIGHT)).status).toBe(200);
-    for (let i = 1; i < SOURCE_LIMIT; i++) expect((await attempt(store, '198.51.100.9', WRONG)).status).toBe(401);
-    expect((await attempt(store, '198.51.100.9', WRONG)).status).toBe(429);
-    expect(errors.length).toBeGreaterThan(0);
+describe('a production database failure fails closed', () => {
+  const broken: ThrottleStore = {
+    read: () => Promise.reject(new Error('connection refused postgresql://secret@host')),
+    fail: () => Promise.reject(new Error('relation "OperatorLoginThrottle" does not exist')),
+    clear: () => Promise.reject(new Error('down')),
+  };
+
+  it('refuses the right password and a wrong one with 503 — never admits, never downgrades', async () => {
+    for (const auth of [RIGHT, WRONG]) {
+      const r = await attempt(broken, '192.0.2.10', auth);
+      expect(r.status).toBe(503);
+      expect(r.response.headers.get('x-middleware-next')).toBeNull();
+      expect(r.response.headers.get('cache-control')).toBe('no-store');
+      expect(await r.response.text()).not.toMatch(/postgres|relation|secret/i);
+    }
+    // A request presenting no credentials is still just challenged.
+    expect((await attempt(broken, '192.0.2.10')).status).toBe(401);
+  });
+
+  it('a store that fails only when counting a failure also fails closed', async () => {
+    const half: ThrottleStore = { ...memoryStore(clock().now), fail: broken.fail };
+    expect((await attempt(half, '192.0.2.10', WRONG)).status).toBe(503);
+  });
+
+  it('production always uses the shared store; memory only for previews and local development', () => {
+    expect(throttleBackend({ NODE_ENV: 'production', VERCEL: '1', VERCEL_ENV: 'production' })).toBe('shared-postgres');
+    expect(throttleBackend({ NODE_ENV: 'production' })).toBe('shared-postgres'); // Docker / self-hosted
+    expect(throttleBackend({ NODE_ENV: 'production', VERCEL: '1', VERCEL_ENV: 'production', DATABASE_URL: undefined })).toBe('shared-postgres');
+    expect(throttleBackend({ NODE_ENV: 'production', VERCEL: '1', VERCEL_ENV: 'preview' })).toBe('per-instance-memory');
+    expect(throttleBackend({ NODE_ENV: 'production', VERCEL: '1' })).toBe('per-instance-memory'); // unknown Vercel target: no database
+    expect(throttleBackend({ NODE_ENV: 'development' })).toBe('per-instance-memory');
+  });
+
+  it('there is no fallback path from the shared store to memory', () => {
+    const src = (p: string) => fs.readFileSync(path.join(__dirname, '..', p), 'utf8');
+    expect(src('src/lib/operatorThrottle.ts')).not.toMatch(/resilientStore|fallback\(/);
+    const selector = src('src/lib/operatorThrottleStore.ts');
+    expect(selector.match(/memoryStore\(\)/g)).toHaveLength(1);
+    expect(selector).toMatch(/if \(throttleBackend\(\) === 'per-instance-memory'\) \{\s*chosen = memoryStore\(\);\s*\} else \{\s*const \{ prisma \} = await import\('@\/lib\/db'\);\s*chosen = postgresStore\(prisma\);/);
   });
 });
 
@@ -284,8 +310,4 @@ describe('wiring', () => {
     expect(mw).not.toMatch(/checkBasicAuth\(/);
   });
 
-  it('preview and keyless deployments use memory, never a database', () => {
-    const store = src('src/lib/operatorThrottleStore.ts');
-    expect(store).toMatch(/if \(isNonProductionDeployment\(\) \|\| !resolveDatabaseUrl\(\)\)/);
-  });
 });

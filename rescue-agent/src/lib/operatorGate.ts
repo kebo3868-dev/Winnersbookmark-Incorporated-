@@ -21,11 +21,25 @@ export async function authenticateOperator(
 
   const credentialsOk = checkBasicAuth(header, env.BASIC_AUTH_USER as string, env.BASIC_AUTH_PASSWORD as string);
   const deviceCookie = request.cookies.get(DEVICE_COOKIE)?.value;
-  const decision = await decide(typeof store === 'function' ? await store() : store, {
-    source: sourceAddress(request.headers, env),
-    credentialsOk,
-    trustedDevice: deviceValidFor(deviceCookie, env) > 0,
-  });
+  let decision;
+  try {
+    decision = await decide(typeof store === 'function' ? await store() : store, {
+      source: sourceAddress(request.headers, env),
+      credentialsOk,
+      trustedDevice: deviceValidFor(deviceCookie, env) > 0,
+    });
+  } catch {
+    // FAIL CLOSED. The counters could not be read or written (database down,
+    // table missing). Admitting the request would make the attempt limit
+    // disappear exactly when it cannot be observed, so every credentialed
+    // request — right password or wrong — is refused until they are back.
+    // Never the error text: it can carry connection details.
+    console.error('[operator-auth] sign-in protection unavailable; refusing credentialed requests');
+    return new NextResponse('Sign-in is temporarily unavailable. Please try again shortly.', {
+      status: 503,
+      headers: { 'retry-after': '30', 'content-type': 'text/plain', 'cache-control': 'no-store' },
+    });
+  }
 
   if (decision.outcome === 'allow') {
     const response = NextResponse.next();
