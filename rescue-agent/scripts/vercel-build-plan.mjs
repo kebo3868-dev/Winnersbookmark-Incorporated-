@@ -140,8 +140,9 @@ export function planVercelBuild(env) {
 
 /**
  * Whether two connection strings name the same database: same host (a Neon
- * pooled endpoint `ep-…-pooler.` equals its direct `ep-….`), same port and same
- * database name. Credentials and query parameters are ignored. A URL that
+ * pooled endpoint `ep-…-pooler.` equals its direct `ep-….`), same port, same
+ * database name, and the same Prisma `schema` and `options` (search_path).
+ * Credentials and other query parameters (sslmode, pgbouncer) are ignored. A URL that
  * cannot be parsed is treated as different.
  */
 export function sameDatabase(a, b) {
@@ -149,7 +150,11 @@ export function sameDatabase(a, b) {
     try {
       const u = new URL(raw);
       const host = u.hostname.toLowerCase().replace(/^([^.]+)-pooler\./, '$1.');
-      return `${host}:${u.port || '5432'}/${decodeURIComponent(u.pathname.replace(/^\//, '')) || 'postgres'}`;
+      // Prisma's ?schema= and a search_path in ?options= choose WHICH tables the
+      // connection sees, so they are part of "the same database".
+      const schema = u.searchParams.get('schema') || 'public';
+      const options = (u.searchParams.get('options') || '').replace(/\s+/g, ' ').trim();
+      return `${host}:${u.port || '5432'}/${decodeURIComponent(u.pathname.replace(/^\//, '')) || 'postgres'}?schema=${schema}&options=${options}`;
     } catch {
       return null;
     }

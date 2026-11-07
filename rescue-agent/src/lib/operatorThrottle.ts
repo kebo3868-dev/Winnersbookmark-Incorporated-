@@ -39,8 +39,10 @@
  * - the trusted-device cookie only ever helps a request carrying the RIGHT
  *   password; wrong guesses count and lock the same with or without it.
  *
- * Addresses are stored only as a SHA-256 digest: one row per address seen,
- * swept once untouched for a day (whenever a new lock is set).
+ * Addresses are stored only as a SHA-256 digest. A refused request writes
+ * nothing, so rows grow only while no lock applies (at most one per address
+ * until the global limit trips), and are swept once untouched for a day
+ * (whenever a new lock is set).
  */
 import { createHash } from 'node:crypto';
 import { isIP } from 'node:net';
@@ -138,11 +140,22 @@ export async function decide(
 
   // A wrong password. The trusted-device cookie exempts nothing here: it only
   // ever helps a request that also carries the RIGHT password.
+  //
+  // Read first, write only when neither lock applies: a locked address, or any
+  // address during a global lockdown, is refused without writing a row. That
+  // keeps the table bounded under a distributed attack (one row per address
+  // only until the global limit trips), and makes a refused wrong password cost
+  // the same single read as a refused right one, so latency reveals nothing.
+  const state = await store.read(key ? [GLOBAL_KEY, key] : [GLOBAL_KEY]);
+  const ownState = key ? state.get(key) ?? EMPTY : EMPTY;
+  const globalState = state.get(GLOBAL_KEY) ?? EMPTY;
+  if (ownState.lockedFor > 0) return { outcome: 'locked', retryAfter: ownState.lockedFor, scope: 'source' };
+  if (globalState.lockedFor > 0) return { outcome: 'locked', retryAfter: globalState.lockedFor, scope: 'global' };
   if (key) {
     const own = await store.fail(key, SOURCE_LIMIT);
-    // An address that was already locked is refused without counting toward
-    // the global limit, so one address cannot trip the global lockdown and
-    // lock the operator out everywhere (independent review of PR #80).
+    // Locked between the read and this write by a concurrent request: refused
+    // without counting toward the global limit, so one address cannot trip
+    // the global lockdown (independent review of PR #80).
     if (!own.counted) return { outcome: 'locked', retryAfter: own.lockedFor, scope: 'source' };
     const global = await store.fail(GLOBAL_KEY, GLOBAL_LIMIT);
     if (global.lockedFor > 0) return { outcome: 'locked', retryAfter: global.lockedFor, scope: 'global' };

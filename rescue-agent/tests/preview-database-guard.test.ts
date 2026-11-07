@@ -65,6 +65,17 @@ describe('build plan — production is unchanged', () => {
     expect(planVercelBuild({ VERCEL_ENV: 'production', DATABASE_URL_UNPOOLED: prod('U', false), POSTGRES_PRISMA_URL: prod('P').replace('/db', '/other') }).ok).toBe(false);
   });
 
+  it('treats a different Prisma schema or search_path as a different database (independent re-review)', async () => {
+    const { sameDatabase } = await import('../scripts/vercel-build-plan.mjs');
+    const u = 'postgresql://u:p@ep-app-1-pooler.fake.invalid:5432/neondb';
+    const d = 'postgresql://d:q@ep-app-1.fake.invalid/neondb';
+    expect(sameDatabase(`${u}?sslmode=require&pgbouncer=true`, `${d}?sslmode=require`)).toBe(true);
+    expect(sameDatabase(`${u}?schema=public`, d)).toBe(true);
+    expect(sameDatabase(`${u}?schema=public`, `${d}?schema=rescue`)).toBe(false);
+    expect(sameDatabase(`${u}?options=-c%20search_path%3Drescue`, d)).toBe(false);
+    expect(sameDatabase(u.replace('postgresql:', 'postgres:'), d)).toBe(true);
+  });
+
   it('warns when only a pooled URL is available, and still migrates', () => {
     const plan = planVercelBuild({ VERCEL_ENV: 'production', DATABASE_URL: fake('DATABASE_URL') });
     expect(plan.ok && plan.migrate).toBe(true);

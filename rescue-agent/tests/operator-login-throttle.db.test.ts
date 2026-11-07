@@ -58,8 +58,12 @@ describe.skipIf(!LOCAL)('shared Postgres store', () => {
     const statuses = await Promise.all(Array.from({ length: 300 }, (_, i) => statusOf(i % 2 ? a : b, `203.0.${i >> 8}.${i & 255}`, WRONG)));
     expect(tally(statuses)).toEqual({ 401: GLOBAL_LIMIT - 1, 429: 300 - (GLOBAL_LIMIT - 1) });
     expect(await row(GLOBAL_KEY)).toEqual({ failures: GLOBAL_LIMIT, locked: true });
-    // One row per address seen (each counts toward its own limit), plus the global row.
-    expect(await count()).toBe(300 + 1);
+    // Requests already in flight when the lock lands may each have written a
+    // row (all 300 read before it existed); once the lock is visible, refusals
+    // write nothing, so the table is bounded by concurrency, not by attempts.
+    const before = await count();
+    await Promise.all(Array.from({ length: 300 }, (_, i) => statusOf(i % 2 ? a : b, `198.18.${i >> 8}.${i & 255}`, WRONG)));
+    expect(await count()).toBe(before);
     expect(await statusOf(a, '192.0.2.10', RIGHT)).toBe(429);
   });
 

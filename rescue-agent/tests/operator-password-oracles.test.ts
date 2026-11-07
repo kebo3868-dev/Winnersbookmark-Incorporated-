@@ -110,3 +110,37 @@ describe('3. one address cannot trip the global lockdown', () => {
     expect(passedThrough(await middleware(operator))).toBe(true);
   });
 });
+
+describe('4. the table stays bounded and refusals reveal nothing (independent re-review)', () => {
+  it('during a global lockdown, wrong passwords from thousands of new addresses write no rows', async () => {
+    const store = memoryStore();
+    let n = 0;
+    while ((await store.read(['global'])).get('global')?.lockedFor === undefined || (await store.read(['global'])).get('global')!.lockedFor === 0) {
+      await decide(store, { source: `203.0.${n >> 8}.${n & 255}`, credentialsOk: false, trustedDevice: false });
+      n++;
+    }
+    const writes = { n: 0 };
+    const counting = { ...store, fail: (k: string, l: number) => { writes.n++; return store.fail(k, l); } };
+    for (let i = 0; i < 5000; i++) {
+      const d = await decide(counting, { source: `2001:db8:${i.toString(16)}::1`, credentialsOk: false, trustedDevice: false });
+      expect(d).toMatchObject({ outcome: 'locked', scope: 'global' });
+    }
+    expect(writes.n).toBe(0);
+  });
+
+  it('a refused right password and a refused wrong password cost the same: one read, no writes', async () => {
+    for (const lock of ['source', 'global'] as const) {
+      const store = memoryStore();
+      if (lock === 'source') for (let i = 0; i < SOURCE_LIMIT; i++) await decide(store, { source: '198.51.100.7', credentialsOk: false, trustedDevice: false });
+      else for (let i = 0; i < GLOBAL_LIMIT; i++) await decide(store, { source: `203.0.113.${i}`, credentialsOk: false, trustedDevice: false });
+      const calls: string[] = [];
+      const spy = { read: (k: string[]) => { calls.push('read'); return store.read(k); }, fail: (k: string, l: number) => { calls.push('fail'); return store.fail(k, l); }, clear: (k: string) => { calls.push('clear'); return store.clear(k); } };
+      for (const credentialsOk of [true, false]) {
+        calls.length = 0;
+        expect(await decide(spy, { source: '198.51.100.7', credentialsOk, trustedDevice: false })).toMatchObject({ outcome: 'locked', scope: lock });
+        expect(calls, `${lock}, right=${credentialsOk}`).toEqual(['read']);
+      }
+    }
+  });
+});
+
