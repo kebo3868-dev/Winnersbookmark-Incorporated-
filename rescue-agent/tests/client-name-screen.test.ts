@@ -48,6 +48,36 @@ describe('the name screen', () => {
   });
 });
 
+describe('the name screen holds against lookalikes, hidden characters and promotional phrasing (independent review)', () => {
+  const DOMAIN = 'site.example';
+  it.each([
+    'Ｇuaranteed ＄40000 Lost Rеvenue Rеcovered', // fullwidth letters, Cyrillic е
+    'Rev​enue Recov​ered 40000 USD', // zero-width spaces
+    '‮dercover euneveR', // right-to-left override
+    'Your Website Costs You 40000 Dollars',
+    'Call 727-555-0100 For Your Refund',
+    'Never miss a call again',
+    'Proven results for restaurants',
+    'Award-Winning Pizza',
+    '50% Off Tonight',
+    'Best Prices in Town',
+    'Order Online | Joe’s',
+  ])('%j prints the domain', (name) => expect(clientRestaurantName(name, `https://${DOMAIN}`)).toBe(DOMAIN));
+
+  it.each([
+    ["Joe's - #1 rated in Texas", "Joe's"],
+    ["Joe's: We never miss an order", "Joe's"],
+    ["Joe's Diner - Top Rated - 5 Stars", "Joe's Diner"],
+    ["Joe's | Order Online | Free Delivery", "Joe's"],
+    ["Joe's Crab Shack - Tampa", "Joe's Crab Shack"],
+  ])('%j keeps only the business name: %j', (name, kept) => expect(clientRestaurantName(name, `https://${DOMAIN}`)).toBe(kept));
+
+  it.each(['Joe’s Stone Crab', 'Côte Brasserie', 'Señor Frog’s', 'Crêpes & Co', 'Five Star Pizza', '24/7 Diner', '21 Club', 'Order Up Diner', 'The Lost Kitchen'])(
+    'keeps the real name %j',
+    (name) => expect(isPublishableRestaurantName(name)).toBe(true),
+  );
+});
+
 describe('client report and PDF data', () => {
   it('a claim-carrying name appears nowhere in the report; the domain is used on the cover, summary and Prepared for', () => {
     const dto = buildExecutiveReport(baseInput({ restaurantName: HOSTILE[0] }));
