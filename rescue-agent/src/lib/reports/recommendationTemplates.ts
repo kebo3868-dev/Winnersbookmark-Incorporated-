@@ -177,12 +177,22 @@ const TIERS: Record<string, { audited: string[]; fallback: string }> = {
 export const KNOWN_TIERS = Object.keys(TIERS);
 
 /**
+ * The entry for a known tier, by own property only. A stored tier such as
+ * "constructor", "toString" or "__proto__" would otherwise find an inherited
+ * Object property, and the report and PDF would throw instead of taking the
+ * validation-step fallback (Codex review of d7f5fd2, P2).
+ */
+function knownTier(tier: string): (typeof TIERS)[keyof typeof TIERS] | undefined {
+  return Object.prototype.hasOwnProperty.call(TIERS, tier) ? TIERS[tier as keyof typeof TIERS] : undefined;
+}
+
+/**
  * The stored package recommendation, reduced to a known tier and an audited
  * rationale. The caller presents it (presentTierRecommendation) as before.
  */
 export function auditedTierRecommendation(stored: { tier: string; rationale: string } | null): { tier: string; rationale: string } | null {
   if (!stored) return null;
-  const known = TIERS[stored.tier.trim()];
+  const known = knownTier(stored.tier.trim());
   if (!known) return { tier: 'AI DISCOVERY AUDIT', rationale: DISCOVERY_DEFAULT };
   const rationale = known.audited.find((a) => ws(a) === ws(stored.rationale)) ?? known.fallback;
   return { tier: stored.tier.trim(), rationale };
@@ -190,5 +200,5 @@ export function auditedTierRecommendation(stored: { tier: string; rationale: str
 
 /** A stored tier, or the validation step when it is not one this release knows. */
 export function auditedTier(tier: string | null | undefined): string {
-  return tier && TIERS[tier.trim()] ? tier.trim() : 'AI DISCOVERY AUDIT';
+  return tier && knownTier(tier.trim()) ? tier.trim() : 'AI DISCOVERY AUDIT';
 }
