@@ -951,59 +951,64 @@ describe('a forged session cookie reaches the surface but changes nothing', () =
 // ===========================================================================
 
 describe('health endpoint', () => {
+  const basic = (pass: string) => `Basic ${Buffer.from(`operator:${pass}`).toString('base64')}`;
+
   it('serves liveness to anyone', async () => {
     const { GET } = await import('@/app/api/health/route');
     const body = await (await GET(new Request('https://x.invalid/api/health') as never)).json();
-    expect(body.status).toBe('ok');
-    expect(body.database).toBe('up');
+    expect(body).toEqual({ status: 'ok', database: 'up' });
   });
 
-  it('does NOT disclose configuration to an unauthenticated caller', async () => {
-    // "auth: MISSING" told an anonymous caller that every route was currently
-    // unprotected — a signal an attacker could poll for.
+  it('never looks at the operator credential: right and wrong passwords get the same answer', async () => {
+    // /api/health is outside the middleware, so it is outside the sign-in
+    // limit. It used to answer the right password with a configuration block,
+    // an unthrottled oracle for guessing it (independent review of PR #80).
     const { GET } = await import('@/app/api/health/route');
-    const body = await (await GET(new Request('https://x.invalid/api/health') as never)).json();
+    const answers = [];
+    for (const authorization of [basic('a-long-enough-operator-password'), basic('wrong-guess'), '']) {
+      const response = await GET(new Request('https://x.invalid/api/health', { headers: authorization ? { authorization } : {} }) as never);
+      answers.push({ status: response.status, body: await response.json() });
+    }
+    expect(answers[0]).toEqual(answers[1]);
+    expect(answers[0]).toEqual(answers[2]);
+    const serialised = JSON.stringify(answers);
+    expect(serialised).not.toMatch(/config|DATABASE_URL|BASIC_AUTH|MISSING|configured/);
+    expect(readFileSync(join(process.cwd(), 'src/app/api/health/route.ts'), 'utf8')).not.toMatch(/checkBasicAuth|checkOperator|authorization/i);
+  });
+});
 
-    expect(body.config).toBeUndefined();
-    const serialised = JSON.stringify(body);
-    expect(serialised).not.toContain('DATABASE_URL');
-    expect(serialised).not.toContain('BASIC_AUTH');
-    expect(serialised).not.toMatch(/MISSING|configured|open \(non-production\)/);
+describe('diagnostics endpoint (operator only)', () => {
+  const basic = (pass: string) => `Basic ${Buffer.from(`operator:${pass}`).toString('base64')}`;
+  const call = async (authorization?: string) => {
+    const { GET } = await import('@/app/api/diagnostics/route');
+    return GET(new Request('https://x.invalid/api/diagnostics', { headers: authorization ? { authorization } : {} }));
+  };
+
+  it('refuses a caller without the operator credential, or with a wrong one', async () => {
+    expect((await call()).status).toBe(401);
+    expect((await call(basic('wrong-guess'))).status).toBe(401);
   });
 
-  it('discloses configuration to an operator', async () => {
-    const { GET } = await import('@/app/api/health/route');
-    const authorization = `Basic ${Buffer.from('operator:a-long-enough-operator-password').toString('base64')}`;
-    const body = await (
-      await GET(new Request('https://x.invalid/api/health', { headers: { authorization } }) as never)
-    ).json();
-
-    expect(body.config).toBeDefined();
+  it('discloses configuration names and states to the operator', async () => {
+    const body = await (await call(basic('a-long-enough-operator-password'))).json();
     expect(body.config.databaseSource).toBe('DATABASE_URL');
+    expect(body.config.auth).toBe('configured');
   });
 
-  it('withholds configuration from EVERYONE when no credential is configured', async () => {
-    // Strictest in the state it would be most damaging to disclose.
+  it('refuses everyone in production when no credential is configured', async () => {
     delete process.env.BASIC_AUTH_USER;
     delete process.env.BASIC_AUTH_PASSWORD;
-    const { GET } = await import('@/app/api/health/route');
-    const authorization = `Basic ${Buffer.from('operator:a-long-enough-operator-password').toString('base64')}`;
-    const body = await (
-      await GET(new Request('https://x.invalid/api/health', { headers: { authorization } }) as never)
-    ).json();
-
-    expect(body.config).toBeUndefined();
+    vi.stubEnv('NODE_ENV', 'production');
+    try {
+      expect((await call(basic('a-long-enough-operator-password'))).status).toBe(503);
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 
   it('never returns a secret value', async () => {
     process.env.CRON_SECRET = 'super-secret-cron-value-here';
-    const { GET } = await import('@/app/api/health/route');
-    const authorization = `Basic ${Buffer.from('operator:a-long-enough-operator-password').toString('base64')}`;
-    const body = await (
-      await GET(new Request('https://x.invalid/api/health', { headers: { authorization } }) as never)
-    ).json();
-
-    const serialised = JSON.stringify(body);
+    const serialised = JSON.stringify(await (await call(basic('a-long-enough-operator-password'))).json());
     expect(serialised).not.toContain('super-secret-cron-value-here');
     expect(serialised).not.toContain('a-long-enough-operator-password');
   });
