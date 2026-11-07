@@ -83,7 +83,7 @@ export default async function AuditDetailPage({ params }: { params: Promise<{ au
           <h1 className="font-display text-3xl">{audit.restaurant.name}</h1>
           <p className="text-ivory-dim text-sm mt-1">{audit.restaurant.websiteUrl}</p>
           {audit.demoMode && (
-            <p className="mt-3 inline-block border border-gold-dim/60 text-gold-dim rounded px-3 py-1 text-xs uppercase tracking-widest">
+            <p className="mt-3 inline-block border border-gold-dim/60 text-gold-muted rounded px-3 py-1 text-xs uppercase tracking-widest">
               Demonstration Data — fictional restaurant, not a real business
             </p>
           )}
