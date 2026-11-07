@@ -52,6 +52,10 @@ export default function SiteNav({ items }: { items: NavItem[] }) {
 
   const isCurrent = (href: string) => (href === '/' ? pathname === '/' : pathname.startsWith(href));
 
+  // The public login layout must not prefetch operator pages and trigger
+  // their Basic Auth challenges in a fresh restaurant browser.
+  if (pathname === '/frontdesk/login') return null;
+
   return (
     <>
       {/* Desktop — unchanged behaviour, no wrapping needed at this width. */}

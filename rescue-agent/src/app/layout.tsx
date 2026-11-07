@@ -26,7 +26,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               it is not a row at all — SiteNav swaps it for a drawer, which is
               what stopped FRONT DESK falling onto a second line on a phone. */}
           <div className="max-w-6xl mx-auto px-5 sm:px-6 py-4 flex items-center justify-between gap-x-6">
-            <Link href="/" className="flex items-baseline gap-3 min-w-0">
+            <Link href="/" prefetch={false} className="flex items-baseline gap-3 min-w-0">
               <span className="font-display text-gold text-base sm:text-lg tracking-wide truncate">Winnersbookmark</span>
               <span className="label hidden sm:inline">Restaurant Rescue Agent</span>
             </Link>

@@ -87,10 +87,17 @@ function hasSessionCookie(request: NextRequest): boolean {
 }
 
 function isSelfAuthenticatingRoute(pathname: string, request: NextRequest): boolean {
+  // Only the browser login document (including Next's GET RSC/prefetch).
+  // No descendants, APIs, or write methods gain an exemption here.
+  if (pathname === '/frontdesk/login' && isBrowserRead(request)) return true;
   if (SIGNED_WEBHOOK_ROUTES.some((pattern) => pattern.test(pathname))) return true;
   if (SELF_AUTHORIZING_AREA.test(pathname) && hasSessionCookie(request)) return true;
   if (process.env.FRONTDESK_PUBLIC_ENDPOINT_ENABLED !== 'true') return false;
   return PER_TENANT_AUTH_ROUTES.some((pattern) => pattern.test(pathname));
+}
+
+function isBrowserRead(request: NextRequest): boolean {
+  return request.method === 'GET' || request.method === 'HEAD';
 }
 
 export function middleware(request: NextRequest) {
@@ -106,6 +113,23 @@ export function middleware(request: NextRequest) {
 
   if (mode === 'open') return NextResponse.next();
 
+  const ok = mode === 'required' && checkBasicAuth(
+    request.headers.get('authorization'),
+    process.env.BASIC_AUTH_USER as string,
+    process.env.BASIC_AUTH_PASSWORD as string,
+  );
+  if (ok) return NextResponse.next();
+
+  // Navigation only: this grants no access to a protected surface. Requests
+  // with a plausible session still reach the existing server-side checks;
+  // those checks, never this cookie shape test, decide whether data is read.
+  if (/^\/frontdesk(\/|$)/.test(request.nextUrl.pathname) && isBrowserRead(request)) {
+    const login = request.nextUrl.clone();
+    login.pathname = '/frontdesk/login';
+    login.search = '';
+    return NextResponse.redirect(login);
+  }
+
   if (mode === 'misconfigured') {
     return new NextResponse(
       'ACCESS NOT CONFIGURED: set BASIC_AUTH_USER and BASIC_AUTH_PASSWORD to enable this deployment.',
@@ -113,12 +137,6 @@ export function middleware(request: NextRequest) {
     );
   }
 
-  const ok = checkBasicAuth(
-    request.headers.get('authorization'),
-    process.env.BASIC_AUTH_USER as string,
-    process.env.BASIC_AUTH_PASSWORD as string,
-  );
-  if (ok) return NextResponse.next();
   return new NextResponse('Authentication required.', {
     status: 401,
     headers: { 'www-authenticate': 'Basic realm="Winnersbookmark Rescue Agent", charset="UTF-8"' },
