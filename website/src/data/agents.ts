@@ -154,11 +154,11 @@ export const agents: Agent[] = [
   {
     slug: 'restaurant-rescue-agent',
     name: 'Restaurant Rescue Agent',
-    tagline: 'Find the revenue your restaurant is losing before a customer ever calls.',
+    tagline: 'Find friction in the digital journey before a customer gives up.',
     status: 'LIVE',
-    statusLabel: 'Live — running real audits today',
+    statusLabel: 'Audit system built — available by request',
     statusNote:
-      'This system is built, tested and in service. It analyses a real restaurant website and produces a real audit.',
+      'The audit system is built to analyze public restaurant websites and generate evidence-based findings. Scope and access are confirmed for each engagement.',
     description:
       'A revenue intelligence system that examines a restaurant the way a first-time customer does — the website, the menu, the ordering path, the booking path, the phone — and reports exactly where that journey breaks. Every finding is tied to a specific page it was found on, so the report is evidence, not opinion.',
     problem: {
@@ -299,11 +299,11 @@ export const agents: Agent[] = [
   {
     slug: 'ai-front-desk',
     name: 'AI Front Desk',
-    tagline: 'Every missed call answered. Every question handled. Nothing falls through.',
+    tagline: 'A pilot system for missed-call response and customer inquiry capture.',
     status: 'PILOT',
-    statusLabel: 'Private pilot — onboarding a limited number of businesses',
+    statusLabel: 'Private pilot — available by consultation',
     statusNote:
-      'The system is built and running with pilot businesses. We are deliberately onboarding a small number at a time so each one is set up properly. Some capabilities listed below are still in development and are marked as such.',
+      'The pilot build supports missed-call text-back and inquiry handling. Deployment requires business-specific configuration, phone integration, testing, and agreed operating rules. Some capabilities are still in development and are marked below.',
     description:
       'An AI front desk that picks up what your staff cannot. When a call is missed, it texts the customer back within seconds. It answers the questions it can answer, captures the details of the ones it cannot, and escalates to a real person when something needs one.',
     problem: {

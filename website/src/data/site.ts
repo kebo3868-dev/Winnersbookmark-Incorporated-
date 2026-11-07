@@ -91,9 +91,11 @@ export const contact = {
  * consultancy.
  */
 export const primaryNav = [
-  { href: '/solutions', label: 'AI Agents' },
-  { href: '/consulting', label: 'Consulting' },
-  { href: '/restaurants', label: 'For Restaurants' },
+  { href: '/solutions', label: 'Solutions' },
+  { href: '/restaurants', label: 'Restaurants' },
+  { href: '/diagnostic', label: 'Diagnostic' },
+  { href: '/audit', label: 'AI Audit' },
+  { href: '/proof', label: 'Proof' },
   { href: '/about', label: 'About' },
 ] as const;
 
@@ -114,6 +116,8 @@ export const footerNav = [
       { href: '/consulting', label: 'AI Consulting' },
       { href: '/restaurants', label: 'Restaurant AI' },
       { href: '/audit', label: 'AI Business Audit' },
+      { href: '/diagnostic', label: 'Free Diagnostic' },
+      { href: '/proof', label: 'Proof & Method' },
     ],
   },
   {
@@ -122,6 +126,8 @@ export const footerNav = [
       { href: '/about', label: 'About Winners Bookmark' },
       { href: '/about/founder', label: 'About the Founder' },
       { href: '/contact', label: 'Contact' },
+      { href: '/privacy', label: 'Privacy Policy' },
+      { href: '/terms', label: 'Terms & AI Disclosure' },
     ],
   },
 ] as const;

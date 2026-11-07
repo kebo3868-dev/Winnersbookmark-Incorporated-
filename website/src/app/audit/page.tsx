@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { pricing } from '@/data/pricing';
 import { Section, SectionHeading } from '@/components/Section';
 
 export const metadata: Metadata = {
@@ -50,6 +51,7 @@ export default function AuditPage() {
                 Request an AI Business Audit
               </Link>
             </div>
+            <p className="mt-5 text-sm text-snow-dim">Starting at {pricing[0].display.replace('From ', '')}. Exact scope is confirmed in a proposal.</p>
           </div>
         </div>
       </section>
@@ -109,6 +111,8 @@ export default function AuditPage() {
           ))}
         </ol>
       </Section>
+
+      <Section><div className="card grid gap-6 p-7 sm:p-10 lg:grid-cols-[1fr_auto] lg:items-center"><div><p className="eyebrow">NOT READY TO REQUEST AN AUDIT?</p><h2 className="mt-4 text-display-sm font-bold text-snow">Start with a free opportunity profile.</h2><p className="lede mt-3">Ten questions identify which part of your customer journey may need attention. Your answers stay in your browser.</p></div><Link href="/diagnostic" className="btn-secondary">Take the diagnostic ↗</Link></div></Section>
 
       <Section>
         <div className="card p-8 text-center sm:p-12">

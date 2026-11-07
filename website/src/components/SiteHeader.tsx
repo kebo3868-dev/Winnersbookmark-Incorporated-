@@ -92,8 +92,8 @@ export default function SiteHeader() {
         </nav>
 
         <div className="flex items-center gap-3">
-          <Link href="/contact" className="btn-primary hidden !min-h-[44px] !px-5 !py-2.5 sm:inline-flex">
-            Book a Strategy Call
+          <Link href="/audit" className="btn-primary hidden !min-h-[44px] !px-5 !py-2.5 sm:inline-flex">
+            Request Audit
           </Link>
 
           <button
@@ -135,8 +135,8 @@ export default function SiteHeader() {
               {item.label}
             </Link>
           ))}
-          <Link href="/contact" onClick={() => setOpen(false)} className="btn-primary mt-3 w-full">
-            Book a Strategy Call
+          <Link href="/audit" onClick={() => setOpen(false)} className="btn-primary mt-3 w-full">
+            Request Audit
           </Link>
         </nav>
       </div>

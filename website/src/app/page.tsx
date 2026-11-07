@@ -1,332 +1,76 @@
 import Link from 'next/link';
-import { Section, SectionHeading } from '@/components/Section';
-import AgentCard from '@/components/AgentCard';
-import { featuredAgents, agentsByOrder, availableAgents } from '@/data/agents';
-import { company, SITE_URL, contact } from '@/data/site';
+import { agents } from '@/data/agents';
+import { pricing } from '@/data/pricing';
+import { company } from '@/data/site';
+import { StatusBadge } from '@/components/StatusBadge';
 
-/**
- * HOMEPAGE
- *
- * The job of this page, in order: say what the company does in language a
- * restaurant owner understands, name the problem they already feel, show the
- * systems that address it with their real availability attached, and give one
- * obvious next action.
- *
- * Note what the hero does NOT do: it does not open with "AI-powered" anything.
- * The visitor is an owner losing orders, not a buyer of AI. Business outcome
- * first, technology second — that ordering is the whole positioning.
- */
+const leaks = [
+  ['01', 'The unanswered call', 'A guest calls during the rush. The team is busy. No one knows what the caller needed.', 'cyan'],
+  ['02', 'The broken path', 'A menu, reservation, or order link adds friction right when someone is ready to act.', 'violet'],
+  ['03', 'The forgotten inquiry', 'Catering and event requests arrive in different places without a reliable next step.', 'coral'],
+  ['04', 'The missing follow-up', 'A useful conversation ends, but the customer never hears from the business again.', 'lime'],
+] as const;
 
-const PAINS = [
-  {
-    title: 'The phone rings and nobody can answer it',
-    body: 'Mid-rush, after hours, on a day off. That caller does not leave a voicemail — they call the next business on the list.',
-  },
-  {
-    title: 'Customers give up before they order',
-    body: 'A menu that only opens as a PDF, an ordering button that goes nowhere, a phone number you cannot tap. Small friction, repeated all day.',
-  },
-  {
-    title: 'Staff answer the same questions all day',
-    body: 'Hours, parking, whether you deliver. Every one of those interruptions costs attention that should be going to customers in the room.',
-  },
-  {
-    title: 'Enquiries arrive everywhere and get lost',
-    body: 'Texts, voicemails, emails, form submissions. Nothing joins them up, so follow-up depends on whoever happens to remember.',
-  },
-];
-
-const OUTCOMES = [
-  { title: 'Recover missed revenue', body: 'Find and close the gaps where interested customers are dropping out.' },
-  { title: 'Answer every enquiry', body: 'Missed calls, after-hours messages and repeat questions get a response instead of silence.' },
-  { title: 'Capture every lead', body: 'Enquiries land in one place with the customer’s details and what they actually wanted.' },
-  { title: 'Free your staff', body: 'Routine questions stop interrupting service so your team can do the work customers came for.' },
-  { title: 'See what is really happening', body: 'Evidence about your customer journey, not guesses about it.' },
-  { title: 'Fix the right thing first', body: 'Findings ranked by what actually stands between a customer and an order.' },
-];
-
-const INDUSTRIES = [
-  'Restaurants and cafés',
-  'Bars and breweries',
-  'Salons and barbershops',
-  'Home and trade services',
-  'Clinics and practices',
-  'Local service businesses',
-];
-
-const PRINCIPLES = [
-  {
-    title: 'Evidence, not opinion',
-    body: 'Every finding we report is tied to something we can show you — the page it came from and the context around it. If we cannot evidence it, we do not claim it.',
-  },
-  {
-    title: 'We say what is not built yet',
-    body: 'Every system on this site carries its real status. Live means live. In development means in development. You will never discover after signing that a capability was aspirational.',
-  },
-  {
-    title: 'No invented numbers',
-    body: 'You will not find a revenue guarantee or a recovery percentage anywhere on this site, because we have no data that would make one honest.',
-  },
-];
+const process = [
+  ['Investigate', 'Map the customer journey and the systems behind it.'],
+  ['Verify', 'Record what we can observe; label what needs internal data.'],
+  ['Prioritize', 'Choose the friction worth fixing first.'],
+  ['Build', 'Configure the simplest practical workflow for the business.'],
+  ['Measure', 'Review response, capture, and handoff performance.'],
+] as const;
 
 export default function HomePage() {
-  /**
-   * Organisation structured data. Deliberately minimal: name, description,
-   * founder, contact route. No aggregateRating, no review markup, no employee
-   * count — every one of those would be an unverifiable claim, and search
-   * engines penalise exactly that.
-   */
-  const organisationLd = {
-    '@context': 'https://schema.org',
-    '@type': 'Organization',
-    name: company.legalName,
-    alternateName: company.shortName,
-    url: SITE_URL,
-    description: company.positioning,
-    founder: { '@type': 'Person', name: company.founder },
-    contactPoint: {
-      '@type': 'ContactPoint',
-      contactType: 'sales',
-      email: contact.email,
-      url: `${SITE_URL}/contact`,
-    },
-  };
-
-  return (
-    <>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(organisationLd) }}
-      />
-      {/* ── HERO ──────────────────────────────────────────────────────────── */}
-      <section className="relative overflow-hidden border-b border-night-line">
-        <div className="shell py-20 sm:py-28 lg:py-32">
-          <div className="max-w-3xl animate-rise">
-            <p className="eyebrow">AI Consulting &amp; Automation</p>
-
-            <h1 className="mt-5 text-display-xl font-bold text-snow">
-              Stop losing customers you already earned.
-            </h1>
-
-            <p className="lede mt-6 max-w-2xl text-lg sm:text-xl">
-              {company.legalName} builds AI systems that answer the calls you miss, find the
-              revenue leaking out of your website, and capture the enquiries that would otherwise
-              disappear — for restaurants and local service businesses.
-            </p>
-
-            {/* Exactly two actions. The brief was explicit about not putting
-                five competing choices in a hero, and a primary CTA only reads
-                as primary when it is the only solid blue thing here. */}
-            <div className="mt-9 flex flex-col gap-3 sm:flex-row">
-              <Link href="/contact" className="btn-primary">
-                Book a Strategy Call
-              </Link>
-              <Link href="/solutions" className="btn-secondary">
-                Explore the AI Agents
-              </Link>
-            </div>
-
-            <p className="mt-6 text-sm text-snow-faint">
-              No cost, no obligation. We will tell you plainly whether AI is the right answer to
-              your problem — including when it is not.
-            </p>
+  const featuredSystems = [agents[0], agents[1], agents[3], agents[2]];
+  return <>
+    <section className="wbi-hero">
+      <div className="shell hero-grid">
+        <div className="hero-copy">
+          <div className="hero-kicker"><span className="spark" /> AI SYSTEMS FOR THE REAL WORLD <span className="kicker-line" /></div>
+          <h1>Smart systems.<br /><span>Real results.</span></h1>
+          <p className="hero-summary">Find the gaps. Fix the friction. Build a business that responds when customers are ready.</p>
+          <p className="hero-detail">{company.legalName} helps restaurants and local businesses investigate customer journeys, capture inquiries, and put practical AI workflows to work.</p>
+          <div className="hero-actions">
+            <Link className="btn-primary" href="/audit">Request an AI Business Audit <span aria-hidden="true">↗</span></Link>
+            <Link className="btn-secondary" href="#systems">Explore our systems <span aria-hidden="true">↓</span></Link>
           </div>
+          <p className="hero-footnote">Evidence first. Human oversight. No invented results.</p>
         </div>
-      </section>
-
-      {/* ── THE PROBLEM ───────────────────────────────────────────────────── */}
-      <Section>
-        <SectionHeading
-          eyebrow="The problem"
-          title="The revenue you lose is the revenue you never see."
-          body="Nobody sends you a report about the customer who called and got no answer, or the one who could not read your menu on a phone. These losses are invisible from inside the business — which is exactly why they persist."
-        />
-
-        <div className="mt-12 grid gap-4 sm:grid-cols-2">
-          {PAINS.map((pain) => (
-            <div key={pain.title} className="card p-6 sm:p-7">
-              <h3 className="text-base font-semibold text-snow">{pain.title}</h3>
-              <p className="mt-2.5 text-sm leading-relaxed text-snow-dim">{pain.body}</p>
+        <div className="command-visual" role="img" aria-label="WBI system map connecting customer journey discovery, evidence, and customer communication">
+          <div className="visual-header"><span className="visual-mark">W<span>BI</span></span><span>INTELLIGENCE / OPERATIONS</span><span className="visual-live">● SYSTEM MAP</span></div>
+          <div className="visual-main">
+            <div className="visual-timeline"><span>01 / DISCOVER</span><span>02 / RESPOND</span><span>03 / LEARN</span></div>
+            <div className="visual-title">From signal to<br /><em>smarter action.</em></div>
+            <div className="visual-map">
+              <div className="map-node node-a"><small>PUBLIC JOURNEY</small><strong>Discover friction</strong><span>Restaurant Rescue</span></div>
+              <div className="map-node node-b"><small>INTELLIGENCE</small><strong>Prioritize evidence</strong><span>GIGI</span></div>
+              <div className="map-node node-c"><small>COMMUNICATION</small><strong>Capture the inquiry</strong><span>AI Front Desk</span></div>
             </div>
-          ))}
-        </div>
-      </Section>
-
-      {/* ── THE ECOSYSTEM ─────────────────────────────────────────────────── */}
-      <Section className="border-y border-night-line bg-night-soft/30">
-        <SectionHeading
-          eyebrow="The WBI AI ecosystem"
-          title="Specialised agents, built to work together."
-          body="Each agent solves one problem properly rather than solving many badly. Every one carries its real availability — so you always know what you can use today."
-        />
-
-        <div className="mt-12 grid gap-5 lg:grid-cols-2">
-          {featuredAgents.map((agent) => (
-            <AgentCard key={agent.slug} agent={agent} />
-          ))}
-        </div>
-
-        {/* The non-featured agents get an honest, low-key listing rather than
-            equal billing — they are not purchasable and should not compete
-            visually with the two that are. */}
-        <div className="mt-10 rounded-xl border border-night-line bg-night-card/50 p-6 sm:p-7">
-          <h3 className="text-sm font-semibold text-snow">Also in the ecosystem</h3>
-          <p className="mt-1.5 text-sm text-snow-faint">
-            In development and not yet available. Listed so you can see where this is going.
-          </p>
-          <ul className="mt-5 grid gap-3 sm:grid-cols-2">
-            {agentsByOrder
-              .filter((a) => !a.featured)
-              .map((agent) => (
-                <li key={agent.slug}>
-                  <Link
-                    href={`/solutions/${agent.slug}`}
-                    className="flex items-baseline gap-2 text-sm text-snow-dim transition-colors hover:text-white"
-                  >
-                    <span className="font-semibold">{agent.name}</span>
-                    <span className="text-xs text-snow-faint">— {agent.statusLabel.split('—')[0].trim()}</span>
-                  </Link>
-                </li>
-              ))}
-          </ul>
-        </div>
-
-        <div className="mt-9">
-          <Link href="/solutions" className="btn-secondary">
-            See all AI agents
-          </Link>
-        </div>
-      </Section>
-
-      {/* ── HOW IT WORKS ──────────────────────────────────────────────────── */}
-      <Section id="how-it-works">
-        <SectionHeading
-          eyebrow="How we work"
-          title="Find the problem. Prove it. Then fix it."
-          body="We do not start by selling you software. We start by establishing what is actually costing you money — and sometimes the honest answer is that you do not need us."
-        />
-
-        <ol className="mt-12 grid gap-5 md:grid-cols-3">
-          {[
-            {
-              step: '01',
-              title: 'We audit what you have',
-              body: 'We examine your business the way a customer experiences it and produce evidence of where that experience breaks down. You get the findings whether or not you work with us further.',
-            },
-            {
-              step: '02',
-              title: 'We agree what is worth fixing',
-              body: 'Findings ranked by impact, in plain English. You decide what matters. If the fix is a cheap change to your website rather than an AI system, we will say so.',
-            },
-            {
-              step: '03',
-              title: 'We build and run the system',
-              body: 'We deploy the agent that addresses the problem, configure it around how your business actually works, and stay responsible for it running properly.',
-            },
-          ].map((item) => (
-            <li key={item.step} className="card p-6 sm:p-7">
-              <span className="font-mono text-xs font-bold tracking-wider text-electric-light">
-                {item.step}
-              </span>
-              <h3 className="mt-4 text-lg font-semibold text-snow">{item.title}</h3>
-              <p className="mt-2.5 text-sm leading-relaxed text-snow-dim">{item.body}</p>
-            </li>
-          ))}
-        </ol>
-      </Section>
-
-      {/* ── OUTCOMES ──────────────────────────────────────────────────────── */}
-      <Section className="border-y border-night-line bg-night-soft/30">
-        <SectionHeading
-          eyebrow="What you get"
-          title="Business outcomes, not a technology project."
-          body="You do not need to understand how any of this works. You need the phone answered and the orders completed."
-        />
-
-        <div className="mt-12 grid gap-x-8 gap-y-7 sm:grid-cols-2 lg:grid-cols-3">
-          {OUTCOMES.map((outcome) => (
-            <div key={outcome.title} className="border-l-2 border-electric/50 pl-5">
-              <h3 className="text-base font-semibold text-snow">{outcome.title}</h3>
-              <p className="mt-1.5 text-sm leading-relaxed text-snow-dim">{outcome.body}</p>
-            </div>
-          ))}
-        </div>
-      </Section>
-
-      {/* ── HOW WE OPERATE (trust, in place of fabricated proof) ──────────── */}
-      <Section>
-        <div className="grid gap-12 lg:grid-cols-[1fr_1.1fr] lg:gap-16">
-          <div>
-            <SectionHeading
-              eyebrow="Why trust us"
-              title="We would rather lose the sale than overstate the product."
-              body="Winners Bookmark is a young company. We do not have a wall of client logos, and we are not going to invent one. What we can show you is how we work."
-            />
-            <Link href="/about" className="btn-secondary mt-8">
-              About the company
-            </Link>
           </div>
-
-          <div className="space-y-4">
-            {PRINCIPLES.map((p) => (
-              <div key={p.title} className="card p-6">
-                <h3 className="text-base font-semibold text-snow">{p.title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-snow-dim">{p.body}</p>
-              </div>
-            ))}
-          </div>
+          <div className="visual-bottom"><span>INVESTIGATE <b>→</b> VERIFY <b>→</b> BUILD</span><span>WBI / 2026</span></div>
         </div>
-      </Section>
+      </div>
+      <div className="shell hero-strip"><span>RESTAURANT INTELLIGENCE</span><span>AI COMMUNICATION</span><span>WORKFLOW AUTOMATION</span><span>MEASURABLE OPERATIONS</span></div>
+    </section>
 
-      {/* ── INDUSTRIES ────────────────────────────────────────────────────── */}
-      <Section className="border-y border-night-line bg-night-soft/30">
-        <SectionHeading
-          eyebrow="Who we work with"
-          title="Businesses where a missed call is a lost customer."
-          body="Our systems are built for businesses that run on local demand and where the phone still matters. Restaurants are where we started and where we are deepest."
-        />
-        <ul className="mt-10 flex flex-wrap gap-2.5">
-          {INDUSTRIES.map((industry) => (
-            <li
-              key={industry}
-              className="rounded-full border border-night-line bg-night-card px-4 py-2 text-sm text-snow-dim"
-            >
-              {industry}
-            </li>
-          ))}
-        </ul>
-      </Section>
+    <section className="wbi-section" id="challenge"><div className="shell">
+      <div className="section-intro"><div><p className="eyebrow">THE OPPORTUNITY</p><h2>Where business slips<br /><span className="muted-heading">through the cracks.</span></h2></div><p>Most customer experience problems are small in isolation. Together they create a journey full of missed moments. We make those moments visible.</p></div>
+      <div className="leak-grid">{leaks.map(([n, title, detail, color]) => <article className={"leak-card accent-" + color} key={n}><span className="leak-index">{n} / CUSTOMER FRICTION</span><div className="leak-symbol" aria-hidden="true">{n === '01' ? '⌁' : n === '02' ? '↗' : n === '03' ? '◈' : '↻'}</div><h3>{title}</h3><p>{detail}</p></article>)}</div>
+      <Link className="text-link" href="/diagnostic">Explore your opportunity profile <span aria-hidden="true">↗</span></Link>
+    </div></section>
 
-      {/* ── FINAL CTA ─────────────────────────────────────────────────────── */}
-      <Section>
-        <div className="card relative overflow-hidden p-8 text-center sm:p-14">
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-[radial-gradient(ellipse_60%_100%_at_50%_0%,rgba(37,99,235,0.18),transparent_70%)]"
-          />
-          <div className="relative">
-            <h2 className="text-display-md font-bold text-snow">
-              Find out what your business is losing.
-            </h2>
-            <p className="lede mx-auto mt-4 max-w-xl">
-              Tell us about your business and we will tell you, honestly, whether we can help —
-              and what we would do first.
-            </p>
-            <div className="mt-9 flex flex-col justify-center gap-3 sm:flex-row">
-              <Link href="/contact" className="btn-primary">
-                Book a Strategy Call
-              </Link>
-              <Link href="/audit" className="btn-secondary">
-                Request an AI Business Audit
-              </Link>
-            </div>
-            <p className="mt-6 text-xs text-snow-faint">
-              {availableAgents.length} of our AI agents are available today. The rest are labelled
-              honestly.
-            </p>
-          </div>
-        </div>
-      </Section>
-    </>
-  );
+    <section className="wbi-section systems-section" id="systems"><div className="shell">
+      <div className="section-intro"><div><p className="eyebrow">THE WBI ECOSYSTEM</p><h2>One problem at a time.<br /><span className="muted-heading">One connected strategy.</span></h2></div><p>Each system has a specific job. Availability is shown openly, so you can distinguish today’s offers from what is still being developed.</p></div>
+      <div className="systems-grid">{featuredSystems.map((agent, index) => <article className={"system-card system-" + index} key={agent.slug}><div className="system-card-top"><span className="system-number">SYSTEM / 0{index + 1}</span><StatusBadge status={agent.status} /></div><div className="system-glyph" aria-hidden="true">{['◎','✳','↗','◉'][index]}</div><h3>{agent.name === 'Gigi' ? 'GIGI' : agent.name}</h3><p>{agent.tagline}</p><Link href={"/solutions/" + agent.slug} className="system-link">Explore system <span aria-hidden="true">↗</span></Link></article>)}<article className="system-card system-4"><div className="system-card-top"><span className="system-number">SERVICE / 05</span><span className="text-xs font-semibold text-emerald-300">Available by consultation</span></div><div className="system-glyph" aria-hidden="true">⟲</div><h3>Automation Systems</h3><p>Design follow-up and handoff workflows around the tools your business already uses.</p><Link href="/consulting" className="system-link">Explore service ↗</Link></article><article className="system-card system-5"><div className="system-card-top"><span className="system-number">SERVICE / 06</span><span className="text-xs font-semibold text-emerald-300">Available by request</span></div><div className="system-glyph" aria-hidden="true">⌕</div><h3>AI Business Audits</h3><p>Find customer journey friction and decide which changes deserve attention first.</p><Link href="/audit" className="system-link">Explore audit ↗</Link></article></div>
+      <div className="ecosystem-note"><div><span className="note-tag">HOW THEY CONNECT</span><strong>Discover <span>→</span> diagnose <span>→</span> respond <span>→</span> measure</strong></div><p>GIGI investigates opportunities. Restaurant Rescue examines the public journey. AI Front Desk supports customer communication. WBI reviews what the workflow actually does.</p></div>
+    </div></section>
+
+    <section className="wbi-section method-section"><div className="shell"><div className="section-intro"><div><p className="eyebrow">OUR METHOD</p><h2>Clarity before<br /><span className="muted-heading">complexity.</span></h2></div><p>Every engagement starts with the business problem. Technology follows the evidence.</p></div><ol className="method-grid">{process.map(([title, detail], i) => <li key={title}><span>0{i + 1}</span><h3>{title}</h3><p>{detail}</p></li>)}</ol></div></section>
+
+    <section className="wbi-section diagnostic-band"><div className="shell diagnostic-inner"><div><p className="eyebrow">START WITH A SIGNAL CHECK</p><h2>Where should your business<br />look first?</h2><p>Answer ten practical questions. Get an on-screen opportunity profile and a sensible next step. No revenue guesswork.</p><Link href="/diagnostic" className="btn-primary">Start the free diagnostic <span aria-hidden="true">↗</span></Link></div><div className="diagnostic-preview" aria-hidden="true"><span>WBI / OPPORTUNITY PROFILE</span><div><b>COMMUNICATION</b><i /><i /><i /></div><div><b>DIGITAL FRICTION</b><i /><i /></div><div><b>FOLLOW-UP</b><i /><i /><i /><i /></div><small>Answers are assessed on your device.</small></div></div></section>
+
+    <section className="wbi-section" id="engage"><div className="shell"><div className="section-intro"><div><p className="eyebrow">ENGAGEMENT OPTIONS</p><h2>A practical place<br /><span className="muted-heading">to begin.</span></h2></div><p>Start with a focused audit or discuss a pilot. Scope and integrations are confirmed before work begins.</p></div><div className="price-grid">{pricing.map(item => <article className="price-card" key={item.name}><div><span>{item.type}</span><h3>{item.name}</h3><p>{item.description}</p></div><div><strong>{item.display}</strong><small>{item.note}</small><Link href={"/contact?interest=" + item.interest} className="price-link">Discuss this option ↗</Link></div></article>)}</div><p className="pricing-footnote">Prices are starting points. Final scope depends on locations, usage, workflows, and integrations. A proposal defines deliverables before any commitment.</p></div></section>
+
+    <section className="wbi-section founder-section"><div className="shell founder-grid"><div><p className="eyebrow">BUILT BY KEITH WARREN</p><h2>Technology should<br />earn its place.</h2></div><div><p>“Businesses do not need another AI promise. They need a clear view of the problem and a system people can actually use.”</p><span>KEITH WARREN · FOUNDER, WBI</span><Link href="/about" className="text-link">Meet the company ↗</Link></div></div></section>
+    <section className="wbi-section final-section"><div className="shell"><div className="final-panel"><p className="eyebrow">LET'S GET SPECIFIC</p><h2>Find the friction.<br /><span>Build the fix.</span></h2><p>Tell us what customers are trying to do and where the process gets stuck. We’ll suggest a sensible first step.</p><Link href="/audit" className="btn-primary">Request an AI Business Audit ↗</Link></div></div></section>
+  </>;
 }

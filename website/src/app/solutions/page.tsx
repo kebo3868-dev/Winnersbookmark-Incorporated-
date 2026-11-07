@@ -42,7 +42,7 @@ export default function SolutionsPage() {
         <SectionHeading
           eyebrow="Available now"
           title="What you can put to work today"
-          body="These are built, tested and running with real businesses."
+          body="These systems have working implementations. Availability and deployment scope are confirmed for each business."
         />
         <div className="mt-10 grid gap-5 lg:grid-cols-2">
           {availableAgents.map((agent) => (

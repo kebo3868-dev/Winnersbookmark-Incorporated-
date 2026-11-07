@@ -12,8 +12,8 @@ export default function SiteFooter() {
           <div>
             <Wordmark />
             <p className="lede mt-5 max-w-xs text-sm">{company.shortPositioning}</p>
-            <Link href="/contact" className="btn-primary mt-6 !min-h-[44px] !px-5 !py-2.5">
-              Book a Strategy Call
+            <Link href="/audit" className="btn-primary mt-6 !min-h-[44px] !px-5 !py-2.5">
+              Request Audit
             </Link>
           </div>
 

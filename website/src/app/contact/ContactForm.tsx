@@ -6,6 +6,7 @@ import { useSearchParams } from 'next/navigation';
 import { submitContactForm } from './actions';
 import type { SubmitResult } from '@/lib/leads';
 import { contact } from '@/data/site';
+import Link from 'next/link';
 
 const INTEREST_OPTIONS = [
   { value: 'general', label: 'General enquiry' },
@@ -56,8 +57,8 @@ export default function ContactForm() {
         </div>
         <h2 className="mt-6 text-display-sm font-bold text-snow">Enquiry received.</h2>
         <p className="mt-3 text-[15px] leading-relaxed text-snow-dim">
-          Your enquiry has been recorded and Keith has been notified. You can expect a reply
-          within one business day.
+          Your enquiry has been recorded. Keith will review the details and follow up using
+          your preferred contact method.
         </p>
 
         <h3 className="mt-8 text-sm font-semibold uppercase tracking-[0.12em] text-snow-faint">
@@ -227,6 +228,12 @@ export default function ContactForm() {
           </select>
         </div>
 
+        <div><label htmlFor="industry" className="field-label">Industry</label><select id="industry" name="industry" className="field-input" defaultValue=""><option value="">Select an industry</option><option>Restaurant</option><option>Barbershop or salon</option><option>Med spa or wellness</option><option>Local service business</option><option>Other</option></select></div>
+        <div><label htmlFor="locations" className="field-label">Number of locations</label><select id="locations" name="locations" className="field-input" defaultValue=""><option value="">Select a range</option><option>1</option><option>2–5</option><option>6–20</option><option>More than 20</option></select></div>
+        <div><label htmlFor="currentSystems" className="field-label">Current systems</label><input id="currentSystems" name="currentSystems" type="text" maxLength={180} className="field-input" placeholder="Phone, reservations, CRM, ordering…" /></div>
+        <div><label htmlFor="monthlyInquiries" className="field-label">Monthly customer inquiries</label><select id="monthlyInquiries" name="monthlyInquiries" className="field-input" defaultValue=""><option value="">Estimate or select unsure</option><option>Under 100</option><option>100–500</option><option>Over 500</option><option>Unsure</option></select></div>
+        <div className="sm:col-span-2"><label htmlFor="preferredContact" className="field-label">Preferred contact method</label><select id="preferredContact" name="preferredContact" className="field-input" defaultValue="Email"><option>Email</option><option>Phone</option></select></div>
+
         <div className="sm:col-span-2">
           <label htmlFor="message" className="field-label">
             What is not working? <span className="text-electric-light">*</span>
@@ -250,11 +257,14 @@ export default function ContactForm() {
         </div>
       </div>
 
+      <label className="mt-6 flex items-start gap-3 text-sm leading-relaxed text-snow-dim"><input name="agreementNotice" type="checkbox" required className="mt-1 h-4 w-4 accent-blue-500" /><span>I understand this request does not create a service agreement.</span></label>
+      <FieldError id="agreementNotice-error" message={errors.agreementNotice} />
+
       <div className="mt-7 flex flex-col gap-4 sm:flex-row sm:items-center">
         <SubmitButton />
         <p className="text-xs leading-relaxed text-snow-faint">
           We use your details to reply to this enquiry. We do not sell them or add you to a
-          mailing list.
+          mailing list. Read our <Link href="/privacy" className="text-electric-light underline">Privacy Policy</Link>.
         </p>
       </div>
     </form>
