@@ -4,6 +4,8 @@ import type { OwnerReportContent } from './owner';
 import { getContact } from '@/lib/config';
 import { generateBookingQrDataUrl } from './qrcode';
 import { assertOperator, type OperatorAuthorization } from '@/lib/operatorAuth';
+import { publishAuditObservations, type PublicationContext } from './observationPublication';
+import { isLinkableUrl } from './slotVerification';
 
 export type ExecutiveReportResult =
   | { status: 'ok'; dto: ExecutiveReportDTO }
@@ -47,7 +49,7 @@ export async function loadExecutiveReport(operator: OperatorAuthorization, audit
     where: { id: auditId },
     include: {
       restaurant: { select: { name: true, websiteUrl: true, city: true, state: true } },
-      sources: { select: { status: true, url: true, id: true } },
+      sources: { select: { status: true, url: true, id: true, pageTitle: true, sourceType: true } },
       evidence: {
         select: { id: true, evidenceType: true, fact: true, supportingContext: true, confidence: true, auditSourceId: true },
         orderBy: { createdAt: 'asc' },
@@ -60,7 +62,7 @@ export async function loadExecutiveReport(operator: OperatorAuthorization, audit
         },
         orderBy: { rescuePriorityScore: 'desc' },
       },
-      journeyStages: { select: { stage: true, status: true, finding: true, manualValidationRequired: true } },
+      journeyStages: { select: { stage: true, status: true, finding: true, manualValidationRequired: true, confidence: true, evidenceIds: true } },
       scores: { select: { category: true, score: true, insufficientData: true, explanation: true } },
       reports: { where: { reportType: 'OWNER_AUDIT' }, select: { content: true } },
     },
@@ -71,12 +73,42 @@ export async function loadExecutiveReport(operator: OperatorAuthorization, audit
   }
 
   const sourceUrlById = new Map(audit.sources.map((s) => [s.id, s.url]));
+  // Collected data the published observations are verified against: the
+  // pages the collector stored (their URLs and titles) and the restaurant.
+  const context: PublicationContext = {
+    sources: audit.sources,
+    restaurant: audit.restaurant,
+    suppliedUrls: [audit.orderingUrlInput, audit.reservationUrlInput, audit.socialUrlInput, audit.googleBusinessUrl],
+  };
+  const published = publishAuditObservations({
+    evidence: audit.evidence.map((e) => {
+      const recordUrl = e.auditSourceId ? sourceUrlById.get(e.auditSourceId) ?? null : null;
+      // A URL quoted in the stored context is linked only when it is a page of
+      // this audit's collected site; otherwise the record's own source page is.
+      const contextUrl = deriveEvidenceSourceUrl(e.supportingContext, null);
+      return {
+        id: e.id,
+        evidenceType: e.evidenceType,
+        fact: e.fact,
+        supportingContext: e.supportingContext,
+        confidence: e.confidence,
+        auditSourceId: e.auditSourceId,
+        sourceUrl: contextUrl && isLinkableUrl(contextUrl, context) ? contextUrl : recordUrl,
+      };
+    }),
+    journey: audit.journeyStages,
+    opportunities: audit.opportunities,
+    scores: audit.scores,
+    context,
+  });
   const owner = (audit.reports[0]?.content ?? null) as unknown as OwnerReportContent | null;
   const contact = getContact();
   const bookingQrDataUrl = await generateBookingQrDataUrl(contact.bookingUrl);
 
   const input: ExecutiveReportInput = {
     auditId: audit.id,
+    // Pilot authorisation binds to the restaurant, not to this audit.
+    restaurantId: audit.restaurantId,
     restaurantName: audit.restaurant.name,
     websiteUrl: audit.restaurant.websiteUrl,
     location: [audit.restaurant.city, audit.restaurant.state].filter(Boolean).join(', ') || null,
@@ -90,17 +122,13 @@ export async function loadExecutiveReport(operator: OperatorAuthorization, audit
     coverageScore: audit.coverageScore,
     sourcesCollected: audit.sources.filter((s) => s.status === 'COLLECTED').length,
     sourcesFailed: audit.sources.filter((s) => s.status !== 'COLLECTED').length,
-    evidence: audit.evidence.map((e) => ({
-      id: e.id,
-      evidenceType: e.evidenceType,
-      fact: e.fact,
-      supportingContext: e.supportingContext,
-      confidence: e.confidence,
-      sourceUrl: deriveEvidenceSourceUrl(e.supportingContext, e.auditSourceId ? sourceUrlById.get(e.auditSourceId) ?? null : null),
-    })),
-    opportunities: audit.opportunities,
-    journey: audit.journeyStages,
-    categoryScores: audit.scores,
+    // Observations are PUBLISHED, not read: every fact and context traced to
+    // an audited engine template, every finding, journey and score text
+    // regenerated from this audit's own evidence (observationPublication.ts).
+    evidence: published.evidence.map(({ provenance: _p, auditSourceId: _s, ...e }) => e),
+    opportunities: published.opportunities,
+    journey: published.journey,
+    categoryScores: published.scores,
     storedSummary: owner?.executiveSummary ?? null,
     storedSummaryWasAiEnhanced: Boolean(owner?.aiNarrativeUsed),
     storedRecommendation: owner?.recommendation ?? null,

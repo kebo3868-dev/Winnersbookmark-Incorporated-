@@ -10,6 +10,11 @@ const nextConfig = {
   // tracing root so standalone output lands at .next/standalone/server.js
   // (the layout the Dockerfile copies).
   outputFileTracingRoot: path.dirname(fileURLToPath(import.meta.url)),
+  // Sharp loads these package exports dynamically. Without them its native
+  // codec metadata is incomplete in standalone output.
+  outputFileTracingIncludes: {
+    '/**': ['./node_modules/@img/**/versions.json'],
+  },
   // Every route, pages and API alike. See src/lib/securityHeaders.mjs.
   async headers() {
     return [{ source: '/:path*', headers: SECURITY_HEADERS }];

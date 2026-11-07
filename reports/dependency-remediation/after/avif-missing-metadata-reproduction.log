@@ -1,0 +1,20 @@
+{
+  "sharp": {
+    "vips": "8.18.7",
+    "sharp": "0.35.5"
+  },
+  "input": {
+    "width": 256,
+    "height": 128,
+    "bytes": 294
+  },
+  "output": {
+    "width": 256,
+    "height": 128,
+    "bytes": 294,
+    "mime": "image/avif",
+    "sha256": "52e1ca5ec9faca459b899c51d4ff6cc143e1e9de6d29df4ec587823d9a5077f9"
+  },
+  "optimized": false,
+  "fallback": true
+}

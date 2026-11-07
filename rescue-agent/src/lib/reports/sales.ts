@@ -1,4 +1,5 @@
 import type { EvidenceRecordLike, JourneyStageResult } from '@/types/audit';
+import { SALES_AUTOMATION_OBJECTION, salesAutomationObjectionStrategy, salesNextStepFor, salesOfferFor } from './salesWording';
 import type { RankedOpportunity } from './owner';
 import { COMPANY } from '@/lib/config';
 import {
@@ -86,7 +87,7 @@ export function generateSalesBrief(input: {
   // tested, what was not measured — they ARE the status. "Strongly indicated,
   // not yet confirmed" said less than the audit knew, about a button whose
   // markup was read straight off the page.
-  const basis = topLeak && !canAssert ? evidenceBasisFor(topLeak.category) : null;
+  const basis = topLeak && !canAssert && topLeak.evidenceBound !== false ? evidenceBasisFor(topLeak.category) : null;
 
   // Lead quality: more confirmed, high-priority pain = better-qualified lead.
   const avgPriority = topLeaks.length ? topLeaks.reduce((s, l) => s + l.rescuePriorityScore, 0) / topLeaks.length : 0;
@@ -124,13 +125,14 @@ export function generateSalesBrief(input: {
     : 'Lead with the clean audit: their public presence is solid, so the open question is what happens off-line (calls, follow-up, repeat visits) — which only they can answer.';
 
   const likelyObjection = aiFitLeaks.length > 0
-    ? '"We\'re too busy to set up new systems, and AI sounds complicated / impersonal for a restaurant."'
+    ? SALES_AUTOMATION_OBJECTION
     : '"Our website is fine and business is okay — why would we pay for an audit or a system?"';
 
   const objectionStrategy = aiFitLeaks.length > 0
-    // No invented share of calls: what fraction is repetitive is exactly what
-    // their call records would show, and the rep may not supply a number.
-    ? `Agree — being too busy is exactly the problem the system is built for. Reframe: the AI is designed to take the repetitive questions (hours, directions, FAQs, after-hours inquiries) so staff keep the conversations that need a person — and their own call records will show how much of the load that is before anything is installed. Offer the ${COMPANY.reviewMinutes}-minute review as zero-commitment proof, walking through their own audit evidence.`
+    // No invented share of calls, and no "exactly the problem the system is
+    // built for": the system is explained, and proposed only under its
+    // conditions (salesWording.ts).
+    ? salesAutomationObjectionStrategy()
     : 'Do not argue with "fine." Show the specific evidence from the audit and ask one discovery question about what the audit could not see. Position the discovery audit as a way to verify — not a sales pitch.';
 
   // WHAT A PROSPECT IS SHOWN IS CHOSEN BY MEANING, NOT BY POSITION.
@@ -171,7 +173,7 @@ export function generateSalesBrief(input: {
     discoveryQuestions,
     likelyObjection,
     objectionStrategy,
-    recommendedOffer: recommendedTier,
+    recommendedOffer: salesOfferFor(recommendedTier),
     outreachAngle: topLeak
       ? `Reference the specific finding (${(leadTitle ?? topLeak.title).toLowerCase()}) with its evidence, offer the full audit free, and anchor the ask to a ${COMPANY.reviewMinutes}-minute review. Evidence first, product second.${canAssert ? '' : ' Ask about it rather than asserting it.'}`
       : `Compliment what the audit confirmed they do well, then raise the unverifiable areas as open questions worth a ${COMPANY.reviewMinutes}-minute review.`,
@@ -212,11 +214,22 @@ export function generateSalesBrief(input: {
  * technical failing every time — and it was the one claim the rep could not
  * stand behind.
  */
+/**
+ * The evidence state a brief may use for a finding. A finding whose wording
+ * could not be traced to its evidence (evidenceBound: false) is insufficient
+ * data, whatever its stored flags: the rep never hears it called verified,
+ * never leads with it while a bound finding exists, and never gets its
+ * category's evidence statement.
+ */
+export function briefStateFor(leak: RankedOpportunity): EvidenceState {
+  return leak.evidenceBound === false ? 'INSUFFICIENT_DATA' : stateForOpportunity(leak);
+}
+
 export function selectLeadFinding(
   leaks: RankedOpportunity[],
 ): { leak: RankedOpportunity; state: EvidenceState } | null {
   if (leaks.length === 0) return null;
-  const scored = leaks.map((leak) => ({ leak, state: stateForOpportunity(leak) }));
+  const scored = leaks.map((leak) => ({ leak, state: briefStateFor(leak) }));
   scored.sort((a, b) => {
     const byStrength = stateRank(b.state) - stateRank(a.state);
     if (byStrength !== 0) return byStrength;
@@ -290,7 +303,8 @@ function buildDiscoveryQuestions(topLeaks: RankedOpportunity[], journey: Journey
   const followUp = journey.find((s) => s.stage === 'FOLLOW_UP');
   const hasCatering = topLeaks.some((l) => /CATERING/i.test(l.category));
   const hasOrdering = topLeaks.some((l) => /ORDERING/i.test(l.category));
-  const orderButtonMismatch = topLeaks.some((l) => /ORDER BUTTON/i.test(l.category));
+  // States what the website does, so only a finding bound to its evidence may raise it.
+  const orderButtonMismatch = topLeaks.some((l) => /ORDER BUTTON/i.test(l.category) && l.evidenceBound !== false);
 
   if (phone && phone.status !== 'HEALTHY') {
     questions.push('During your busiest service periods, what happens when your team cannot immediately answer the phone?');
@@ -337,7 +351,9 @@ function buildTalkTrack(
     // together with "ask about it, do not assert it" after every one, the list
     // was a paragraph a rep could not find their place in.
     const labelled = topLeaks.map((l) => {
-      const state = stateForOpportunity(l);
+      // The same badge the client report shows for it (executive.ts).
+      if (l.evidenceBound === false) return `• "${stripDefinitive(l.title)}" — VALIDATION REQUIRED: its description could not be traced to the audit evidence; check it against the evidence before raising it`;
+      const state = briefStateFor(l);
       if (mayStateDefinitively(state)) return `• "${l.title}" — VERIFIED, state it plainly`;
       const layers = evidenceBasisFor(l.category);
       return `• "${stripDefinitive(l.title)}" — ${layers ? layers.summary : STATE_PLAIN[state]}`;
@@ -353,9 +369,9 @@ function buildTalkTrack(
     // open "the strongest claim this brief supports overall is: not
     // confirmed", which read as a verdict on findings whose evidence was
     // verified.
-    const open = topLeaks.filter((l) => !mayStateDefinitively(stateForOpportunity(l))).length;
+    const open = topLeaks.filter((l) => !mayStateDefinitively(briefStateFor(l))).length;
     if (open > 0) {
-      const combined = inheritState(...topLeaks.map(stateForOpportunity));
+      const combined = inheritState(...topLeaks.map(briefStateFor));
       const which =
         open === topLeaks.length
           ? topLeaks.length === 1
@@ -371,6 +387,7 @@ function buildTalkTrack(
     lines.push(`${findingsBlock} — Findings: public presence is solid; pivot to the three areas public data cannot see (calls, follow-up, reactivation) and ask the discovery questions.`);
   }
   lines.push(`${verify} — Verify: ask the top discovery questions. Their answers confirm or kill the assumptions — say so out loud, it builds trust.`);
-  lines.push(`${nextStep} — Next step: recommend ${tier} and explain exactly why the evidence points there. If their answers changed the picture, say that instead. Book the follow-up before hanging up.`);
+  // A product tier is never an unconditional recommendation; see salesWording.ts.
+  lines.push(`${nextStep} — ${salesNextStepFor(tier)}`);
   return lines.join('\n');
 }

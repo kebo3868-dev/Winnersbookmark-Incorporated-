@@ -261,7 +261,9 @@ describe('P3: no raw status codes in sales outreach or client-facing material', 
       'A tel: link, not a web destination. Evidence: verified from public evidence.',
     );
     expect(evidenceTypeLabel('CLICK_TO_CALL')).toBe('Tap to call');
-    expect(evidenceTypeLabel('SOMETHING_NEW')).toBe('Something new');
+    // Review of 5bfac83: an evidence type no allowlist knows is never shown by its stored code.
+    expect(evidenceTypeLabel('SOMETHING_NEW')).toBe('Other evidence');
+    expect(evidenceTypeLabel('BUY THE AI FRONT DESK')).toBe('Other evidence');
     expect(stored).toContain('PHONE_ORDERING_ONLY');
   });
 

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Document, Font, Page, Text, View, Image, StyleSheet } from '@react-pdf/renderer';
+import { Document, Font, Page, Text, View, Image, Link, StyleSheet } from '@react-pdf/renderer';
 import { classificationCounters, classificationIntro, type ExecutiveReportDTO } from '@/lib/reports/executive';
 import { evidenceBasisRows } from '@/lib/audit/evidenceBasis';
 import { pdfHyphenation, wrapAddressesDeep, wrapLongAddresses } from '@/lib/pdf/hyphenation';
@@ -149,10 +149,21 @@ function cardSlice(part: 'top' | 'middle' | 'bottom') {
   };
 }
 
-/** Split a list into fixed-size groups, so a page break falls between groups. */
-function chunk<T>(items: T[], size: number): T[][] {
+/**
+ * Split a list into groups of `size`, so a page break falls between groups.
+ *
+ * A short final group is merged into the one before it. Fixed groups of three
+ * left 22 appendix rows as 7×3 + 1, and once the appendix type was enlarged
+ * that single row was carried onto a page of its own. The final group now holds
+ * between `size` and 2×`size`−1 rows, so the last page can never carry one.
+ */
+export function chunk<T>(items: T[], size: number): T[][] {
   const groups: T[][] = [];
   for (let i = 0; i < items.length; i += size) groups.push(items.slice(i, i + size));
+  if (groups.length > 1 && groups[groups.length - 1].length < size) {
+    const last = groups.pop()!;
+    groups[groups.length - 1] = [...groups[groups.length - 1], ...last];
+  }
   return groups;
 }
 
@@ -177,6 +188,19 @@ function chunk<T>(items: T[], size: number): T[][] {
  * Letter page at this type size holds roughly 1,800 characters of card body
  * plus the card's own chrome, so 1,400 leaves headroom.
  */
+/** Prescription cards: s.card with slightly less padding and spacing. */
+const PRESCRIPTION_CARD = { padding: 11, marginBottom: 9 };
+
+/**
+ * Whether a 30-day plan phase is short enough to keep on one page. A short
+ * phase moves whole; a long one may break between its bullets (see the plan
+ * section). Characters, not measured height, for the same reason as
+ * findingMaySpanPages: 700 characters is roughly eight lines of body text.
+ */
+export function planPhaseStaysWhole(phase: { actions: string[] }): boolean {
+  return phase.actions.join(' ').length <= 700;
+}
+
 export function findingMaySpanPages(finding: ExecutiveReportDTO['findings'][number]): boolean {
   const text = [
     finding.title,
@@ -194,7 +218,7 @@ export function findingMaySpanPages(finding: ExecutiveReportDTO['findings'][numb
 function classificationColor(classification: string): string {
   if (classification === 'VERIFIED FINDING') return C.green;
   if (classification === 'STRONG EVIDENCE') return C.green;
-  if (classification === 'MANUAL VALIDATION REQUIRED') return C.amber;
+  if (classification === 'MANUAL VALIDATION REQUIRED' || classification === 'VALIDATION REQUIRED') return C.amber;
   if (classification === 'INSUFFICIENT DATA') return C.muted;
   return C.goldDim;
 }
@@ -464,8 +488,9 @@ export function ExecutivePdf({ dto: report }: { dto: ExecutiveReportDTO }) {
               <Text style={{ fontFamily: 'Helvetica-Bold', fontSize: 8, color: C.ink, marginBottom: 2 }}>{section.heading}</Text>
               <Text style={[s.mutedText, { marginBottom: section.rows ? 3 : 0 }]}>{section.body}</Text>
             </View>
+            {/* Keyed by term AND definition: weight rows share terms ("15%" for three categories). */}
             {section.rows?.map(([term, definition]) => (
-              <Text key={term} style={[s.mutedText, { marginBottom: 1 }]}>
+              <Text key={`${term} ${definition}`} style={[s.mutedText, { marginBottom: 1 }]}>
                 <Text style={{ color: C.goldDim }}>{term}</Text>
                 {` — ${definition}`}
               </Text>
@@ -750,7 +775,7 @@ export function ExecutivePdf({ dto: report }: { dto: ExecutiveReportDTO }) {
               <View style={s.card}>
                 <View style={[s.row, { justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }]}>
                   <Text style={{ fontFamily: 'Times-Bold', fontSize: 11.5, color: C.ink }}>#{opp.rank} · {opp.solutionCategory}</Text>
-                  <Text style={[s.badge, { color: C.goldDim, borderColor: C.goldDim }]}>AUTOMATION FIT: {opp.fit}</Text>
+                  <Text style={[s.badge, { color: C.goldDim, borderColor: C.goldDim }]}>{opp.exploratory ? `EXPLORATORY · ${opp.fit} FIT` : `AUTOMATION FIT: ${opp.fit}`}</Text>
                 </View>
                 <Text style={[s.mutedText, { marginBottom: 5, color: opp.requiresValidation ? C.amber : C.muted }]}>{opp.basis}</Text>
                 <Text style={s.label}>Problem addressed</Text>
@@ -759,7 +784,7 @@ export function ExecutivePdf({ dto: report }: { dto: ExecutiveReportDTO }) {
                 <Text style={[s.body, { marginBottom: 5 }]}>{opp.whyItFits}</Text>
                 <Text style={s.label}>What it can do</Text>
                 <Text style={[s.body, { marginBottom: 5 }]}>{opp.capabilities.join(' · ')}</Text>
-                <Text style={s.label}>Validation before implementation</Text>
+                <Text style={s.label}>{opp.exploratory ? 'What to check first' : 'Validation before implementation'}</Text>
                 <Text style={[s.body, { marginBottom: 5 }]}>{opp.validationBeforeImplementation}</Text>
                 <View style={[s.row, { gap: 16, borderTopWidth: 0.5, borderTopColor: C.line, paddingTop: 5 }]}>
                   <View><Text style={s.label}>Complexity</Text><Text style={{ fontSize: 8.5, fontFamily: 'Helvetica-Bold', color: C.ink }}>{opp.implementationComplexity}</Text></View>
@@ -780,13 +805,21 @@ export function ExecutivePdf({ dto: report }: { dto: ExecutiveReportDTO }) {
           ].map(([label, text, highlight], pi) => (
             <View key={label as string} wrap={false}>
               {pi === 0 && <SectionHeader kicker="Section 07" title="Winnersbookmark Prescription" />}
-              <View style={[s.card, highlight ? { borderColor: C.goldDim, backgroundColor: C.goldWash } : {}]}>
+              {/* Slightly tighter than s.card: four stacked cards at full padding pushed the Decision box off the page. */}
+              <View style={[s.card, PRESCRIPTION_CARD, highlight ? { borderColor: C.goldDim, backgroundColor: C.goldWash } : {}]}>
                 <Text style={{ fontSize: 7.5, letterSpacing: 1.4, color: highlight ? C.goldDim : C.muted, textTransform: 'uppercase', marginBottom: 3 }}>{label as string}</Text>
                 <Text style={s.body}>{text as string}</Text>
+                {/* Observed versus requires-owner-confirmation, as separate lines. */}
+                {pi === 0 && dto.prescription.diagnosisBasis.map((row) => (
+                  <Text key={row.label} style={[s.body, { marginTop: 3 }]}>
+                    <Text style={{ fontFamily: 'Helvetica-Bold' }}>{row.label}: </Text>
+                    {row.text}
+                  </Text>
+                ))}
               </View>
             </View>
           ))}
-          <View style={s.card} wrap={false}>
+          <View style={[s.card, PRESCRIPTION_CARD]} wrap={false}>
             <Text style={s.label}>Expected operational role</Text>
             {dto.prescription.expectedOperationalRole.map((r, i) => (
               <Text key={i} style={[s.body, { marginTop: 2 }]}>•  {r}</Text>
@@ -803,9 +836,9 @@ export function ExecutivePdf({ dto: report }: { dto: ExecutiveReportDTO }) {
               [dto.decisionBox.validate.heading, dto.decisionBox.validate.detail, [['Cost', dto.decisionBox.validate.cost], ['Benefit', dto.decisionBox.validate.benefit]], C.goldDim],
               [dto.decisionBox.implement.heading, dto.decisionBox.implement.detail, [['Benefit', dto.decisionBox.implement.benefit]], C.green],
             ].map(([heading, detail, rows, accent]) => (
-              <View key={heading as string} style={{ flex: 1, backgroundColor: C.softBg, borderWidth: 0.5, borderColor: C.line, borderTopWidth: 2, borderTopColor: accent as string, borderRadius: 3, padding: 10 }}>
-                <Text style={{ fontFamily: 'Times-Bold', fontSize: 11, color: accent as string, marginBottom: 4 }}>{heading as string}</Text>
-                <Text style={{ fontSize: 8, color: C.ink, lineHeight: 1.4, marginBottom: 4 }}>{detail as string}</Text>
+              <View key={heading as string} style={{ flex: 1, backgroundColor: C.softBg, borderWidth: 0.5, borderColor: C.line, borderTopWidth: 2, borderTopColor: accent as string, borderRadius: 3, paddingVertical: 8, paddingHorizontal: 10 }}>
+                <Text style={{ fontFamily: 'Times-Bold', fontSize: 11, color: accent as string, marginBottom: 3 }}>{heading as string}</Text>
+                <Text style={{ fontSize: 8, color: C.ink, lineHeight: 1.35, marginBottom: 3 }}>{detail as string}</Text>
                 {(rows as [string, string][]).map(([k, v]) => (
                   <Text key={k} style={{ fontSize: 7.5, color: C.muted, marginTop: 2 }}>
                     <Text style={{ fontFamily: 'Helvetica-Bold', color: C.ink }}>{k}: </Text>{v}
@@ -818,35 +851,62 @@ export function ExecutivePdf({ dto: report }: { dto: ExecutiveReportDTO }) {
 
         {/* 30-DAY PLAN */}
         <View style={s.section}>
+          {/*
+            * A PHASE MAY BREAK BETWEEN ITS BULLETS, NOT INSIDE ONE.
+            *
+            * Each phase was one unbreakable block. A long Days 8–14 phase that
+            * did not fit under the Decision box moved the whole plan to the
+            * next page and left the bottom third of the previous one empty.
+            * The section header, the phase title and its first bullet stay
+            * together, so no title is stranded at the foot of a page; each
+            * further bullet is its own unit, so no bullet is split. A short
+            * phase stays whole, so its last bullet cannot be orphaned onto the
+            * next page.
+            */}
           {dto.thirtyDayPlan.map((phase, pi) => (
-            <View key={phase.phase} style={{ marginBottom: 10 }} wrap={false}>
-              {pi === 0 && <SectionHeader kicker="Section 09" title="30-Day Restaurant Rescue Plan" />}
-              <Text style={{ fontFamily: 'Helvetica-Bold', fontSize: 8, letterSpacing: 1.6, color: C.goldDim }}>
-                {phase.phase} — {phase.heading}
-              </Text>
-              {phase.actions.map((a, i) => (
-                <Text key={i} style={[s.body, { marginTop: 3 }]}>•  {a}</Text>
+            <View key={phase.phase} style={{ marginBottom: pi === dto.thirtyDayPlan.length - 1 ? 0 : 10 }} wrap={!planPhaseStaysWhole(phase)}>
+              <View wrap={false}>
+                {pi === 0 && <SectionHeader kicker="Section 09" title="30-Day Restaurant Rescue Plan" />}
+                <Text style={{ fontFamily: 'Helvetica-Bold', fontSize: 8, letterSpacing: 1.6, color: C.goldDim }}>
+                  {phase.phase} — {phase.heading}
+                </Text>
+                {phase.actions.slice(0, 1).map((a, i) => (
+                  <Text key={i} style={[s.body, { marginTop: 3 }]}>•  {a}</Text>
+                ))}
+              </View>
+              {phase.actions.slice(1).map((a, i) => (
+                <View key={i} wrap={false}>
+                  <Text style={[s.body, { marginTop: 3 }]}>•  {a}</Text>
+                </View>
               ))}
             </View>
           ))}
         </View>
 
-        {/* CTA + QR */}
-        <View style={s.section} wrap={false}>
-          <View style={{ backgroundColor: C.obsidian, borderRadius: 4, padding: 20 }}>
+        {/* CTA + QR. The space below it is a separate spacer rather than the
+          * block's own bottom margin: react-pdf counts a margin when deciding
+          * whether an unbreakable block fits, so a CTA that fitted the foot of
+          * a page by its own height was still moved over, leaving the page a
+          * fifth empty. A spacer at a page break is harmless. */}
+        <View wrap={false}>
+          <View style={{ backgroundColor: C.obsidian, borderRadius: 4, paddingVertical: 16, paddingHorizontal: 20 }}>
             <View style={[s.row, { alignItems: 'center', gap: 18 }]}>
               <View style={{ flex: 1 }}>
                 <Text style={{ fontFamily: 'Times-Bold', fontSize: 15, color: C.gold, marginBottom: 5 }}>{dto.cta.headline}</Text>
-                <Text style={{ fontSize: 9, color: C.ivory, lineHeight: 1.4, marginBottom: 10 }}>{dto.cta.subtext}</Text>
+                <Text style={{ fontSize: 9, color: C.ivory, lineHeight: 1.4, marginBottom: 7 }}>{dto.cta.subtext}</Text>
                 <Text style={{ fontSize: 9.5, color: C.ivory, fontFamily: 'Helvetica-Bold' }}>{dto.cta.consultantName} · {dto.cta.company}</Text>
                 <Text style={{ fontSize: 9, color: '#b8b0a2', marginTop: 2 }}>
-                  {dto.cta.phone}{dto.cta.email ? ` · ${dto.cta.email}` : ''}
+                  {/* A tel: link, so the number can be tapped in a PDF viewer on a phone. */}
+                  {dto.cta.phoneHref
+                    ? <Link src={dto.cta.phoneHref} style={{ color: C.gold, textDecoration: 'none' }}>{dto.cta.phone}</Link>
+                    : dto.cta.phone}
+                  {dto.cta.email ? ` · ${dto.cta.email}` : ''}
                 </Text>
                 {!dto.cta.qrDataUrl && dto.cta.bookingUrl && (
                   <Text style={{ fontSize: 8.5, color: C.gold, marginTop: 4 }}>{dto.cta.bookingUrl}</Text>
                 )}
                 {!dto.cta.qrDataUrl && !dto.cta.bookingUrl && (
-                  <Text style={{ fontSize: 8.5, color: '#b8b0a2', marginTop: 6 }}>{dto.cta.fallbackText}</Text>
+                  <Text style={{ fontSize: 8.5, color: '#b8b0a2', marginTop: 4 }}>{dto.cta.fallbackText}</Text>
                 )}
               </View>
               {dto.cta.qrDataUrl && (
@@ -859,6 +919,7 @@ export function ExecutivePdf({ dto: report }: { dto: ExecutiveReportDTO }) {
             </View>
           </View>
         </View>
+        <View style={{ height: 22 }} />
 
         {/* METHODOLOGY */}
         <View style={s.section}>
@@ -888,7 +949,7 @@ export function ExecutivePdf({ dto: report }: { dto: ExecutiveReportDTO }) {
             * identifies the evidence chain, so the head of the chain is where
             * it belongs, and there it cannot be separated from anything.
             */}
-          <Text style={{ fontSize: 6.8, color: C.muted, marginBottom: 4, letterSpacing: 0.5 }}>
+          <Text style={{ fontSize: 7.5, color: C.muted, marginBottom: 4, letterSpacing: 0.5 }}>
             {dto.valueSignals.confidentialityNote} · Prepared for {dto.valueSignals.preparedFor} by {dto.valueSignals.preparedBy} · Audit {dto.valueSignals.auditId} · {dto.valueSignals.auditDate}
           </Text>
           {/* Same rubric as the web report, laid out the same way — one
@@ -897,35 +958,41 @@ export function ExecutivePdf({ dto: report }: { dto: ExecutiveReportDTO }) {
           </Lead>
           {/* The rubric is its own unit, so a heading near the foot of a page
             * needs room only for its introduction, not for the whole rubric. */}
-          <View style={{ marginBottom: 8 }} wrap={false}>
-            <Text style={[s.mutedText, { marginBottom: 2 }]}>{CONFIDENCE_EXPLANATION}</Text>
+          {/* Each paragraph of the rubric is its own unit, so the rubric may
+            * break between paragraphs but never inside one. As one unbreakable
+            * block it moved to the next page whole and left the foot of the
+            * page above it empty. */}
+          <View style={{ marginBottom: 8 }}>
+            <Text style={[s.mutedText, { marginBottom: 2 }]} wrap={false}>{CONFIDENCE_EXPLANATION}</Text>
             {dto.confidenceBands.map(([label, definition]) => (
-              <Text key={label} style={[s.mutedText, { marginTop: 1 }]}>
+              <Text key={label} style={[s.mutedText, { marginTop: 1 }]} wrap={false}>
                 <Text style={{ color: C.goldDim }}>{label}</Text>
                 {` — ${definition}`}
               </Text>
             ))}
-            <Text style={[s.mutedText, { marginTop: 3 }]}>{FINDING_CLASSIFICATION_NOTE}</Text>
+            <Text style={[s.mutedText, { marginTop: 3 }]} wrap={false}>{FINDING_CLASSIFICATION_NOTE}</Text>
           </View>
           {/*
-            * Rows travel in groups of three.
+            * Rows travel in groups of two (see chunk: a short final group joins
+            * the one before it, so the last page always carries two or three).
             *
             * One row per block let the LAST row strand on a page of its own:
             * the pagination test caught a final page carrying evidence item 22
             * and the running footer, and nothing else. Grouping moves the break
             * to a group boundary, so a page that starts the tail of the
-            * appendix carries several rows rather than one. Three rows is a
+            * appendix carries several rows rather than one. A group is a
             * small fraction of a page, so a group never exceeds one.
             */}
-          {chunk(dto.appendix, 3).map((group, gi) => (
+          {chunk(dto.appendix, 2).map((group, gi) => (
             <View key={gi} wrap={false}>
               {group.map((e, i) => (
-                <View key={i} style={{ borderBottomWidth: 0.5, borderBottomColor: C.line, paddingVertical: 4 }}>
-                  <Text style={{ fontSize: 8.5, color: C.ink }}>{e.fact}</Text>
+                <View key={i} style={{ borderBottomWidth: 0.5, borderBottomColor: C.line, paddingVertical: 3 }}>
+                  {/* Appendix type sizes: 9 / 8.5 / 7.5 (were 8.5 / 7.5 / 6.8, too small to read printed). */}
+                  <Text style={{ fontSize: 9, color: C.ink, lineHeight: 1.35 }}>{e.fact}</Text>
                   {e.supportingContext ? (
-                    <Text style={{ fontSize: 7.5, color: C.muted, marginTop: 2 }}>{e.supportingContext}</Text>
+                    <Text style={{ fontSize: 8.5, color: C.muted, marginTop: 1, lineHeight: 1.3 }}>{e.supportingContext}</Text>
                   ) : null}
-                  <Text style={{ fontSize: 6.8, color: C.muted, marginTop: 1 }}>
+                  <Text style={{ fontSize: 7.5, color: C.muted, marginTop: 1 }}>
                     {e.evidenceLabel}
                     {/* Shortened before wrapping (wrapping only adds line breaks), so the cut falls at the same character. */}
                     {e.sourceUrl ? ` · ${wrapLongAddresses(shortened(e.sourceUrl.replace(/\n/g, ''), 90))}` : ''}

@@ -118,6 +118,8 @@ vi.mock('@/lib/db', () => ({
   prisma: prismaDouble,
   resolveDatabaseUrl: () => 'postgresql://localhost:5432/test',
   resolveDatabaseUrlSource: () => 'DATABASE_URL',
+  // A production deployment (preview-database-guard.test.ts covers the rest).
+  isNonProductionDeployment: () => false,
   RUNTIME_URL_SOURCES: ['DATABASE_URL'],
 }));
 

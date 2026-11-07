@@ -1,5 +1,6 @@
 import { scoreBand } from '@/lib/scoring/rescueScore';
 import { CATEGORY_LABELS } from '@/lib/reports/owner';
+import { UNRECOGNISED_STAGE_LABEL, canonicalEvidenceType } from '@/lib/reports/canonicalIdentifiers';
 import { COMPANY, type Contact } from '@/lib/config';
 import { prefillFromAverageTicket, scenarioKindFor, SCENARIO_SPECS, type ScenarioKind } from '@/lib/reports/scenarios';
 import { STATE_LABEL, STATE_PLAIN, stateForOpportunity, type EvidenceState } from '@/lib/audit/evidenceState';
@@ -7,7 +8,23 @@ import { ORDERING_CHANNEL_FLAG, ORDERING_CHANNEL_HEAD, parseOrderingChannelFact,
 import { ORDER_BUTTON_CATEGORY, ORDER_BUTTON_TITLE, orderButtonFindingCopy } from '@/lib/audit/orderButtonFinding';
 import { presentReputationText } from '@/lib/audit/reputationWording';
 import { evidenceBasisFor, type EvidenceBasis } from '@/lib/audit/evidenceBasis';
-import { safeDisplayName } from '@/lib/audit/restaurantName';
+import { clientRestaurantName } from './clientName';
+import {
+  AUTOMATION_CARD_REQUIREMENTS,
+  AUTOMATION_PROPOSAL_GATE,
+  EXPLORATORY_STATUS,
+  isAutomationCandidate,
+  isExploratoryOpportunity,
+  presentTierRecommendation,
+} from './automationWording';
+import { auditedTierRecommendation, presentFindingRecommendation } from './recommendationTemplates';
+
+/** What is not known about a finding whose wording could not be traced to its evidence. */
+const UNVERIFIED_FINDING_UNKNOWN =
+  'Whether this finding holds at all: its stored description could not be traced to the audit evidence. Check it against the evidence in the appendix.';
+import { NO_PILOT_RECORDS, authorisePilotImplementation, type PilotAuthorisation, type PilotRecords } from './pilotAuthorization';
+
+export { isAutomationCandidate, isExploratoryOpportunity };
 import {
   CONFIDENCE_BANDS,
   CONFIDENCE_EXPLANATION,
@@ -44,7 +61,25 @@ export type EvidenceClassification =
   | 'STRONG EVIDENCE'
   | 'INFERRED OPPORTUNITY'
   | 'MANUAL VALIDATION REQUIRED'
-  | 'INSUFFICIENT DATA';
+  | 'INSUFFICIENT DATA'
+  | typeof VALIDATION_REQUIRED;
+
+/**
+ * THE BADGE SHOWN FOR A FINDING WHOSE WORDING IS NOT BOUND TO ITS EVIDENCE.
+ *
+ * Such a finding (evidenceBound: false; see observationPublication.ts) kept
+ * its stored badge — "VERIFIED FINDING" over a card that says its description
+ * could not be traced to the evidence. The badge, the counters and the
+ * headlines now show this label for it instead. It is a presentation label
+ * only: classifyFinding, the stored record, its confidence and every score are
+ * unchanged, and nothing is written.
+ */
+export const VALIDATION_REQUIRED = 'VALIDATION REQUIRED' as const;
+
+/** The badge a finding is shown with: its stored classification, or VALIDATION_REQUIRED when its wording is not bound to its evidence. */
+export function displayedClassification(opp: { manualValidationRequired: boolean; confidenceScore: number; evidenceBound?: boolean }): EvidenceClassification {
+  return opp.evidenceBound === false ? VALIDATION_REQUIRED : classifyFinding(opp);
+}
 
 /**
  * Classification preserves the engine's own uncertainty flags — it can only ever
@@ -101,14 +136,23 @@ export function classificationCounters(score: {
   strongCount: number;
   inferredCount: number;
   manualValidationCount: number;
+  validationRequiredCount?: number;
 }): [number, string][] {
-  return [
+  const counters: [number, string][] = [
     [score.verifiedCount, 'Verified findings'],
     [score.strongCount, 'Strong evidence, not tested end to end'],
     [score.inferredCount, 'Inferred opportunities'],
     [score.manualValidationCount, 'Need your data to confirm'],
   ];
+  // Shown only when such a finding is printed, so a report without one is unchanged.
+  if ((score.validationRequiredCount ?? 0) > 0) {
+    counters.push([score.validationRequiredCount!, VALIDATION_REQUIRED_COUNTER_LABEL]);
+  }
+  return counters;
 }
+
+/** The counter label for findings shown as VALIDATION REQUIRED. */
+export const VALIDATION_REQUIRED_COUNTER_LABEL = 'Validation required: not yet traced to the evidence';
 
 /** The sentence introducing the counters, shared by the web report and the PDF. */
 export function classificationIntro(findingsCount: number, evidenceCount: number): string {
@@ -195,18 +239,36 @@ export interface ExecutiveReportInput {
     rescuePriorityScore: number;
     recommendedSolution: string;
     manualValidationRequired: boolean;
+    /**
+     * false: the finding's stored wording could not be traced to its evidence
+     * and was published with neutral wording (observationPublication.ts). Such a
+     * finding is shown, with its stored classification and scores, but nothing
+     * is derived from its category: no category recommendation or evidence
+     * statement, no plan or automation entry, never "verified" in prose.
+     * Absent: engine output, built from its own evidence.
+     */
+    evidenceBound?: boolean;
   }[];
   journey: { stage: string; status: string; finding: string; manualValidationRequired: boolean }[];
   categoryScores: { category: string; score: number | null; insufficientData: boolean; explanation: string }[];
   storedSummary: string | null;
   storedSummaryWasAiEnhanced: boolean;
   storedRecommendation: { tier: string; rationale: string } | null;
+  /**
+   * The audited restaurant's id (Audit.restaurantId) — the identity pilot
+   * authorisation binds to. Absent, nothing can be authorised.
+   */
+  restaurantId?: string | null;
+  /** Structured demand, readiness and approval records (none are stored in this release). */
+  pilotRecords?: PilotRecords;
 }
 
 // ── DTO ─────────────────────────────────────────────────────────────────────
 
 export interface ExecutiveFinding {
   number: number;
+  /** false when the finding's wording could not be traced to its evidence (see ExecutiveReportInput). */
+  evidenceBound: boolean;
   title: string;
   category: string;
   classification: EvidenceClassification;
@@ -324,10 +386,23 @@ export interface RankedAiOpportunity {
    */
   basis: string;
   requiresValidation: boolean;
+  /**
+   * Shown so the opportunity is visible, never as a recommendation: below the
+   * strong-automation fit, public evidence alone (for catering, a private-party
+   * link) does not establish demand, so no pilot is proposed for it.
+   */
+  exploratory: boolean;
+  /**
+   * Whether implementation is authorised, from structured records bound to
+   * this restaurant and this product (pilotAuthorization.ts). Never from text.
+   * No such records are stored in this release, so this is always false and
+   * the report offers at most the conditional pilot decision.
+   */
+  pilotAuthorisation: PilotAuthorisation;
   whyItFits: string;
   capabilities: string[];
   validationBeforeImplementation: string;
-  implementationComplexity: 'Low' | 'Moderate' | 'High';
+  implementationComplexity: 'Low' | 'Moderate' | 'High' | 'Not assessed';
   measurement: string[];
 }
 
@@ -339,6 +414,13 @@ export interface DecisionBox {
 
 export interface Prescription {
   diagnosis: string;
+  /**
+   * For a top finding whose evidence layers are known (see evidenceBasis.ts):
+   * what was observed, with its evidence strength, and — separately — the
+   * business outcome only the owner can confirm. Printed as labelled lines
+   * under the diagnosis. Empty otherwise.
+   */
+  diagnosisBasis: { label: string; text: string }[];
   validation: string;
   prescription: string;
   expectedOperationalRole: string[];
@@ -350,6 +432,8 @@ export interface ReportCta {
   company: string;
   consultantName: string;
   phone: string;
+  /** The phone as a `tel:` link, so it can be tapped in the PDF and web report; null when it is not a dialable number. */
+  phoneHref: string | null;
   email: string | null;
   bookingUrl: string | null;
   qrDataUrl: string | null;
@@ -422,6 +506,12 @@ export interface ExecutiveReportDTO {
     /** INFERRED OPPORTUNITY only. */
     inferredCount: number;
     manualValidationCount: number;
+    /**
+     * Findings shown as VALIDATION REQUIRED (wording not bound to their
+     * evidence). Counted here and in no other counter, so the counters still
+     * sum to the findings printed.
+     */
+    validationRequiredCount: number;
   };
   findings: ExecutiveFinding[];
   journeyScorecard: { stage: string; label: string; status: string; explanation: string }[];
@@ -532,43 +622,96 @@ const JOURNEY_LABELS: Record<string, string> = {
   RETURN: 'Return & Retention',
 };
 
+/** A journey stage's label; a stage no allowlist knows is never shown by its stored name. */
+function journeyLabel(stage: string): string {
+  return JOURNEY_LABELS[stage] ?? UNRECOGNISED_STAGE_LABEL;
+}
+
 const MAX_REPORT_FINDINGS = 5;
 
 /** No finding measures what customers did; every card says so in the same words. */
 export const CUSTOMER_OUTCOME_LABEL = 'Not measured';
 
-export function buildExecutiveReport(input: ExecutiveReportInput): ExecutiveReportDTO {
+/**
+ * THE RELEASE POLICY, applied once before anything is derived, so the web
+ * report and the PDF (which render the same DTO) cannot disagree:
+ * - no AI-written summary is shown: the deterministic summary always is;
+ * - the package recommendation is reduced to a known tier and an audited
+ *   rationale (recommendationTemplates.ts);
+ * - recommended solutions are chosen later, per finding, from the audited
+ *   templates (presentFindingRecommendation).
+ * Observation text (findings, journey, evidence, score explanations) reaches
+ * this builder already PUBLISHED by the loader (observationPublication.ts):
+ * traced to an audited engine template or regenerated from the audit's own
+ * evidence, never read from storage as written. Stored records are never
+ * changed.
+ */
+function applyReleasePolicy(input: ExecutiveReportInput): ExecutiveReportInput {
+  return {
+    ...input,
+    storedSummary: null,
+    storedSummaryWasAiEnhanced: false,
+    storedRecommendation: auditedTierRecommendation(input.storedRecommendation),
+  };
+}
+
+export function buildExecutiveReport(rawInput: ExecutiveReportInput): ExecutiveReportDTO {
+  const input = applyReleasePolicy(rawInput);
   const evidenceById = new Map(input.evidence.map((e) => [e.id, e]));
   const attachedTo = (opp: OppInput) =>
     opp.evidenceIds.map((id) => evidenceById.get(id)).filter((e): e is NonNullable<typeof e> => Boolean(e));
+  // Stored recommended solutions are presented, never rewritten: an
+  // automation is conditional on demand, its own readiness and safety tests
+  // and owner approval, and an exploratory opportunity (catering) recommends
+  // only understanding and improving the current workflow — no automation, no
+  // purchase, no pilot (automationWording.ts). Cards, the AI section and the
+  // plan all read the presented text.
   const ranked = input.opportunities
-    .map((opp) => withOrderButtonCopy(opp, attachedTo(opp)))
+    .map((opp) => {
+      // Order-button copy is computed here from the finding's own evidence;
+      // every other recommendation comes from the audited templates.
+      const copied = opp.evidenceBound === false ? opp : withOrderButtonCopy(opp, attachedTo(opp));
+      return { ...copied, recommendedSolution: presentFindingRecommendation(copied, copied !== opp) };
+    })
     .sort((a, b) => b.rescuePriorityScore - a.rescuePriorityScore);
   const top = ranked.slice(0, MAX_REPORT_FINDINGS);
 
+  // Findings whose wording is bound to their evidence. Only these drive
+  // anything derived from a category: the plan, the automation section, the
+  // diagnosis and the verified-findings prose.
+  const boundTop = top.filter((o) => o.evidenceBound !== false);
   const findings: ExecutiveFinding[] = top.map((opp, i) => {
     const attached = attachedTo(opp);
-    const classification = classifyFinding(opp);
-    const scenarioKind = scenarioKindFor({ category: opp.category, classification });
+    const bound = opp.evidenceBound !== false;
+    // The badge: VALIDATION REQUIRED when the wording is not bound to its
+    // evidence; the stored classification otherwise. The stored record,
+    // confidence and scores are unchanged either way.
+    const classification = displayedClassification(opp);
+    const scenarioKind = bound ? scenarioKindFor({ category: opp.category, classification }) : null;
     // The order-button card adds only what it has not already said; the
     // generic first-three-records list repeated its own observation twice.
-    const orderButtonFacts = opp.category === ORDER_BUTTON_CATEGORY ? orderButtonFindingCopy(attached)?.facts : undefined;
+    const orderButtonFacts = bound && opp.category === ORDER_BUTTON_CATEGORY ? orderButtonFindingCopy(attached)?.facts : undefined;
+    const unknowns = bound ? unknownsFor(opp.category) : UNVERIFIED_FINDING_UNKNOWN;
     return {
       number: i + 1,
+      evidenceBound: bound,
       title: opp.title,
       category: opp.category,
       classification,
       problem: opp.problem,
       whyItMatters: opp.businessImpact,
-      commercialEffect: commercialEffectFor(opp.category, opp.businessImpact),
+      // Empty is omitted by the renderers.
+      commercialEffect: bound ? commercialEffectFor(opp.category, opp.businessImpact) : '',
       whatWeKnow: orderButtonFacts ?? attached.slice(0, 3).map((e) => presentEvidenceRecord(e).fact),
-      whatWeDoNotKnow: unknownsFor(opp.category),
+      whatWeDoNotKnow: unknowns,
       potentialEffect: opp.businessImpact,
       recommendedAction: opp.recommendedSolution,
       automationOpportunity: automationLabel(opp.aiFitScore),
-      validationRequired: unknownsFor(opp.category),
-      journeyStage: JOURNEY_LABELS[opp.customerJourneyStage] ?? opp.customerJourneyStage,
-      evidenceBasis: evidenceBasisFor(opp.category),
+      validationRequired: unknowns,
+      journeyStage: journeyLabel(opp.customerJourneyStage),
+      // The category's evidence statement ("Read from the page markup: …")
+      // describes the evidence the engine writes for it, not this finding's.
+      evidenceBasis: bound ? evidenceBasisFor(opp.category) : null,
       labels: {
         businessImpact: levelLabel(opp.impactScore),
         urgency: levelLabel(opp.urgencyScore),
@@ -605,19 +748,24 @@ export function buildExecutiveReport(input: ExecutiveReportInput): ExecutiveRepo
   const strongCount = findings.filter((f) => f.classification === 'STRONG EVIDENCE').length;
   const inferredCount = findings.filter((f) => f.classification === 'INFERRED OPPORTUNITY').length;
   const manualCount = findings.filter((f) => f.classification === 'MANUAL VALIDATION REQUIRED').length;
+  // Counted from the badge shown, so the counters match the cards.
+  const validationRequiredCount = findings.filter((f) => f.classification === VALIDATION_REQUIRED).length;
 
   const stageOrder = Object.keys(JOURNEY_LABELS);
   const journeyScorecard = [...input.journey]
     .sort((a, b) => stageOrder.indexOf(a.stage) - stageOrder.indexOf(b.stage))
     .map((s) => ({
       stage: s.stage,
-      label: JOURNEY_LABELS[s.stage] ?? s.stage,
+      label: journeyLabel(s.stage),
       status: journeyStatusLabel(s.status),
       explanation: firstSentence(presentEvidenceText(s.finding)),
     }));
 
-  const aiOpportunities = top
-    .filter((opp) => opp.aiFitScore >= 70)
+  // The same rules everywhere: isAutomationCandidate (pilot decision) and
+  // isExploratoryOpportunity (visible, no pilot) — here, in Section 06, in the
+  // Decision box and in Days 15–21.
+  const aiOpportunities = boundTop
+    .filter(inSection06)
     .map((opp) => ({
       opportunity: opp.title,
       solutionCategory: solutionCategoryFor(opp.category),
@@ -647,7 +795,7 @@ export function buildExecutiveReport(input: ExecutiveReportInput): ExecutiveRepo
       prefill: prefillFromAverageTicket(f.scenarioKind, input.avgTicket),
     });
   }
-  const rankedAiOpportunities = buildRankedAiOpportunities(top);
+  const rankedAiOpportunities = buildRankedAiOpportunities(boundTop, { restaurantId: input.restaurantId ?? null, records: input.pilotRecords ?? NO_PILOT_RECORDS });
   const journeyMap = buildJourneyMap(input.journey);
   const usedStatuses = new Set(journeyMap.map((s) => s.status));
   const snapshot = buildSnapshot(input, findings, rankedAiOpportunities);
@@ -657,10 +805,11 @@ export function buildExecutiveReport(input: ExecutiveReportInput): ExecutiveRepo
       company: COMPANY.name,
       productName: COMPANY.productName,
       subtitle: COMPANY.reportSubtitle,
-      // Never renders a null, empty or serialised-junk name to a client. The
-      // resolver runs at audit time; this report may be built from a row written
-      // by an older build, so the guard lives here too.
-      restaurantName: safeDisplayName(input.restaurantName, input.websiteUrl),
+      // Never renders a null, empty, serialised-junk or claim-carrying name to a
+      // client (see clientName.ts). The name is often read from the audited
+      // site itself, and this report may be built from a row written by an
+      // older build, so the guard lives here.
+      restaurantName: clientRestaurantName(input.restaurantName, input.websiteUrl),
       websiteUrl: input.websiteUrl,
       location: input.location,
       auditDate: input.auditDate,
@@ -669,6 +818,7 @@ export function buildExecutiveReport(input: ExecutiveReportInput): ExecutiveRepo
       demoMode: input.demoMode,
       auditStatus: input.auditStatus,
     },
+    // From the badges shown: a VALIDATION REQUIRED finding is never counted toward a "revenue leaks" heading.
     headlines: reportHeadlines(findings.map((f) => f.classification)),
     snapshot,
     scenarioCalculators,
@@ -677,13 +827,15 @@ export function buildExecutiveReport(input: ExecutiveReportInput): ExecutiveRepo
     rankedAiOpportunities,
     aiOpportunitiesIntro: AI_OPPORTUNITIES_INTRO,
     prescription: buildPrescription(input, findings),
-    decisionBox: buildDecisionBox(findings, rankedAiOpportunities),
+    // Days 8–14 lists fixes only from these (buildThirtyDayPlan); the box points to fixes only when it does.
+    decisionBox: buildDecisionBox(findings, rankedAiOpportunities, directFixesFor(boundTop).length > 0),
     cta: {
       headline: COMPANY.ctaHeadline,
       subtext: COMPANY.ctaSubtext,
       company: input.contact.company,
       consultantName: input.contact.consultantName,
       phone: input.contact.phone,
+      phoneHref: telHref(input.contact.phone),
       email: input.contact.email,
       bookingUrl: input.contact.bookingUrl,
       qrDataUrl: input.bookingQrDataUrl,
@@ -692,7 +844,7 @@ export function buildExecutiveReport(input: ExecutiveReportInput): ExecutiveRepo
     valueSignals: {
       auditId: input.auditId,
       auditDate: input.auditDate,
-      preparedFor: input.restaurantName,
+      preparedFor: clientRestaurantName(input.restaurantName, input.websiteUrl),
       preparedBy: COMPANY.name,
       pagesAnalyzed: input.sourcesCollected,
       evidenceItems: input.evidence.length,
@@ -700,7 +852,7 @@ export function buildExecutiveReport(input: ExecutiveReportInput): ExecutiveRepo
       confidentialityNote: 'Confidential — prepared for management review.',
     },
     executiveSummary: buildSummary(input, findings),
-    summaryWasAiEnhanced: Boolean(input.storedSummaryWasAiEnhanced && input.storedSummary),
+    summaryWasAiEnhanced: usesAiSummary(input),
     score: {
       rescueScore: input.overallScore,
       band: input.overallScore === null ? null : scoreBand(input.overallScore),
@@ -714,15 +866,19 @@ export function buildExecutiveReport(input: ExecutiveReportInput): ExecutiveRepo
       strongCount,
       inferredCount,
       manualValidationCount: manualCount,
+      validationRequiredCount,
     },
     findings,
     journeyScorecard,
     aiOpportunities,
-    thirtyDayPlan: buildThirtyDayPlan(top, input),
+    thirtyDayPlan: buildThirtyDayPlan(boundTop, input, top.length - boundTop.length),
     recommendation: {
       headline: 'OUR RECOMMENDATION',
       body: input.storedRecommendation
-        ? `Based on the public evidence reviewed, ${COMPANY.shortName} recommends: ${input.storedRecommendation.tier}. ${input.storedRecommendation.rationale}`
+        ? (() => {
+            const tier = presentTierRecommendation(input.storedRecommendation.tier, input.storedRecommendation.rationale);
+            return `Based on the public evidence reviewed, ${COMPANY.shortName} ${tier.lead}. ${tier.rationale}`;
+          })()
         : `Based on the public evidence reviewed, ${COMPANY.shortName} recommends validating the highest-priority findings against internal operating data before committing to any system.`,
       nextStep: COMPANY.nextStepCta,
       company: COMPANY.name,
@@ -830,8 +986,8 @@ function buildSnapshot(
     rescueScore: input.overallScore,
     band: input.overallScore === null ? null : scoreBand(input.overallScore),
     coverage: input.coverageScore,
-    topRecommendedAutomation: ranked[0]?.solutionCategory ?? null,
-    topAutomationRequiresValidation: ranked[0]?.requiresValidation ?? false,
+    topRecommendedAutomation: ranked.find((o) => !o.exploratory)?.solutionCategory ?? null,
+    topAutomationRequiresValidation: ranked.find((o) => !o.exploratory)?.requiresValidation ?? false,
     primaryValidationRequirement: primaryValidation,
     recommendedNextStep: COMPANY.nextStepCta,
   };
@@ -845,7 +1001,7 @@ function buildJourneyMap(journey: ExecutiveReportInput['journey']): JourneyMapSt
     const s = byStage.get(stage)!;
     return {
       stage,
-      label: JOURNEY_LABELS[stage] ?? stage,
+      label: journeyLabel(stage),
       status: journeyStatusLabel(s.status),
       note: firstSentence(presentEvidenceText(s.finding)),
       limitation: limitationSentence(presentEvidenceText(s.finding)),
@@ -878,13 +1034,17 @@ const AI_CAPABILITIES: [RegExp, { capabilities: string[]; measurement: string[] 
 
 export const AI_OPPORTUNITIES_INTRO =
   'Potential improvements matched to the findings above. "Fit" describes how well an automation suits the kind of problem, not evidence that the problem exists here; ' +
-  'none of these rests on measured missed calls or lost revenue, and each should follow validation against your own records.';
+  'none of these rests on measured missed calls or lost revenue. ' + AUTOMATION_PROPOSAL_GATE;
 
-function buildRankedAiOpportunities(top: OppInput[]): RankedAiOpportunity[] {
+function buildRankedAiOpportunities(top: OppInput[], target: { restaurantId: string | null; records: PilotRecords }): RankedAiOpportunity[] {
+  // Pilot candidates and exploratory opportunities, by the same rules as the
+  // Decision box and Days 15–21. Catering (AI fit 60, private-party link) is
+  // listed as exploratory, never as a recommendation; nothing is re-scored.
   return top
-    .filter((opp) => opp.aiFitScore >= 70)
+    .filter(inSection06)
     .sort((a, b) => b.aiFitScore - a.aiFitScore || b.rescuePriorityScore - a.rescuePriorityScore)
-    .slice(0, 3)
+    // No cap: every high-fit finding in the report keeps its automation entry
+    // (the report holds at most MAX_REPORT_FINDINGS findings).
     .map((opp, i) => {
       const caps = AI_CAPABILITIES.find(([re]) => re.test(opp.category) || re.test(solutionCategoryFor(opp.category)))?.[1]
         ?? { capabilities: ['Configured automation matched to the finding'], measurement: ['Response volume', 'Conversion action after response'] };
@@ -895,14 +1055,24 @@ function buildRankedAiOpportunities(top: OppInput[]): RankedAiOpportunity[] {
         solutionCategory: solutionCategoryFor(opp.category),
         fit,
         problemAddressed: problemAddressedBy(opp),
-        basis: requiresValidation
-          ? 'Potential improvement — requires operational validation before any implementation. No missed calls or lost revenue have been measured; a public audit cannot see either.'
-          : 'Addresses a verified public finding. Its effect on revenue has not been measured.',
+        // Every card states the whole gate, the verified branch included: a
+        // verified observation is not evidence of demand, readiness or approval.
+        exploratory: isExploratoryOpportunity(opp),
+        pilotAuthorisation: authorisePilotImplementation(
+          { restaurantId: target.restaurantId, product: solutionCategoryFor(opp.category) },
+          isExploratoryOpportunity(opp) ? NO_PILOT_RECORDS : target.records,
+        ),
+        basis: isExploratoryOpportunity(opp)
+          ? `Not a recommendation. ${EXPLORATORY_STATUS} The next step is to understand and improve the current workflow from your own records.`
+          : requiresValidation
+            ? `Potential improvement — requires operational validation before any implementation: ${AUTOMATION_CARD_REQUIREMENTS}. No missed calls or lost revenue have been measured; a public audit cannot see either.`
+            : `Addresses a verified public finding; its effect on revenue has not been measured. Any implementation still requires ${AUTOMATION_CARD_REQUIREMENTS}.`,
         requiresValidation,
         whyItFits: opp.businessImpact,
         capabilities: caps.capabilities,
         validationBeforeImplementation: unknownsFor(opp.category),
-        implementationComplexity: 'Moderate',
+        // Nothing is being implemented for an exploratory opportunity.
+        implementationComplexity: isExploratoryOpportunity(opp) ? 'Not assessed' : 'Moderate',
         measurement: caps.measurement,
       };
     });
@@ -918,9 +1088,11 @@ function problemAddressedBy(opp: OppInput): string {
 }
 
 function buildPrescription(input: ExecutiveReportInput, findings: ExecutiveFinding[]): Prescription {
-  const primary = findings[0];
+  // The diagnosis names the highest-priority finding bound to its evidence; a
+  // finding with untraceable wording is never named as the diagnosis.
+  const primary = findings.find((f) => f.evidenceBound);
   const tier = input.storedRecommendation?.tier ?? 'AI DISCOVERY AUDIT';
-  const frictionStages = input.journey.filter((s) => s.status === 'FRICTION' || s.status === 'RISK').map((s) => JOURNEY_LABELS[s.stage] ?? s.stage);
+  const frictionStages = input.journey.filter((s) => s.status === 'FRICTION' || s.status === 'RISK').map((s) => journeyLabel(s.stage));
   // OBSERVED FRICTION AND OPEN QUESTIONS ARE SEPARATE SENTENCES.
   //
   // The diagnosis used to append the top finding's first observation straight
@@ -931,19 +1103,47 @@ function buildPrescription(input: ExecutiveReportInput, findings: ExecutiveFindi
   const observed = frictionStages.length > 0
     ? `Observed friction in the public journey: ${frictionStages.join(', ')}.`
     : 'No customer-facing friction was observed in the public journey.';
+  // AN OBSERVED LINK IS NOT AN OPEN QUESTION; ITS EFFECT IS.
+  //
+  // For the order-button finding the diagnosis read "Highest-priority open
+  // question, to check against your own records: The online ordering button
+  // uses a telephone link…" — calling a link read directly from the page
+  // markup (Strong evidence) a question, in the same breath as the business
+  // outcome nobody has measured. Where the finding's evidence layers are known,
+  // the diagnosis names the finding and then states the two apart: what was
+  // observed, at its evidence strength, and what requires owner confirmation.
+  // The finding's classification and evidence are unchanged.
+  const basis = primary?.evidenceBasis ?? null;
+  const title = primary?.title.replace(/\.$/, '');
   const lead = primary
     ? primary.classification === 'VERIFIED FINDING'
-      ? ` Highest-priority verified finding: ${primary.title.replace(/\.$/, '')}.`
-      : ` Highest-priority open question, to check against your own records: ${primary.title.replace(/\.$/, '')}.`
-    : ' The open questions sit in areas a public audit cannot observe.';
+      ? ` Highest-priority verified finding: ${title}.`
+      : basis
+        ? ` Highest-priority finding: ${title}.`
+        : ` Highest-priority opportunity requiring validation: ${title}.`
+    : findings.length > 0
+      ? ' The highest-priority findings could not be traced to the audit evidence; check them against the evidence in the appendix before acting on them.'
+      : ' The open questions sit in areas a public audit cannot observe.';
   const diagnosis = `${observed}${lead}`;
+  const strength = primary?.labels.observedEvidence;
+  const diagnosisBasis = basis && primary
+    ? [
+        {
+          label: strength && strength !== 'Not recorded' ? `Directly observed in the page markup (${strength} evidence)` : 'Directly observed in the page markup',
+          text: `${capitalize(basis.diagnosisObserved)}.`,
+        },
+        { label: 'Not verified — requires owner confirmation', text: `${capitalize(basis.ownerConfirmation)}.` },
+      ]
+    : [];
   const validation = primary?.whatWeDoNotKnow
     ?? 'Review 30 days of phone activity, missed-call counts, guest-question categories, and average ticket data.';
-  const prescription = input.storedRecommendation
-    ? `${COMPANY.shortName} recommends ${tier} as the next step${primary && primary.internalScores.aiFit >= 70 ? ', considering the highest-fit automation identified above only once your operating records confirm the open questions it depends on' : ''}. ${input.storedRecommendation.rationale}`
+  const presentedTier = input.storedRecommendation ? presentTierRecommendation(tier, input.storedRecommendation.rationale) : null;
+  const prescription = presentedTier
+    ? `${COMPANY.shortName} ${presentedTier.lead}${primary && isAutomationCandidate({ category: primary.category, aiFitScore: primary.internalScores.aiFit }) && !/limited, monitored pilot/.test(presentedTier.lead) ? ', considering the highest-fit automation identified above only once your operating records confirm the open questions it depends on and the system passes its own readiness and safety checks' : ''}. ${presentedTier.rationale}`
     : `${COMPANY.shortName} recommends validating the highest-priority findings against internal operating data before committing to any system.`;
   return {
     diagnosis,
+    diagnosisBasis,
     validation,
     prescription,
     expectedOperationalRole: [
@@ -956,8 +1156,11 @@ function buildPrescription(input: ExecutiveReportInput, findings: ExecutiveFindi
   };
 }
 
-function buildDecisionBox(findings: ExecutiveFinding[], ranked: RankedAiOpportunity[]): DecisionBox {
-  const topAutomation = ranked[0]?.solutionCategory ?? 'the highest-fit automation';
+function buildDecisionBox(findings: ExecutiveFinding[], ranked: RankedAiOpportunity[], hasWebsiteFixes: boolean): DecisionBox {
+  // The Section 06 proposals, every one — the same list Days 15–21 decides.
+  const proposals = ranked.filter((o) => !o.exploratory).map((o) => o.solutionCategory);
+  const exploratory = ranked.filter((o) => o.exploratory).map((o) => o.solutionCategory);
+  const exploratoryNote = exploratory.length > 0 ? ` ${joinAnd(exploratory)} stays exploratory: no pilot proposed.` : '';
   const frictionExists = findings.some((f) => f.classification !== 'INSUFFICIENT DATA');
   return {
     doNothing: {
@@ -973,11 +1176,32 @@ function buildDecisionBox(findings: ExecutiveFinding[], ranked: RankedAiOpportun
       cost: 'Low operational effort.',
       benefit: 'Turns public audit findings into measurable business evidence you own.',
     },
-    implement: {
-      heading: 'IMPLEMENT',
-      detail: `Deploy ${topAutomation} after validation confirms the demand.`,
-      benefit: 'Creates a measurable customer-response workflow with defined KPIs.',
-    },
+    // NO DEPLOYMENT IS PROMISED AHEAD OF READINESS TESTING.
+    //
+    // "Deploy AI Front Desk & Missed-Call Text Back after validation confirms
+    // the demand" committed to a deployment on one condition, when there are
+    // two: the restaurant's records must show the demand, and the product must
+    // pass its own readiness testing for this restaurant. Either failing means
+    // no deployment.
+    //
+    // With no automation proposal there is nothing to pilot: the box says so
+    // rather than offering "the highest-fit automation", which the report
+    // never identified.
+    implement: proposals.length > 0
+      ? {
+          heading: 'PILOT IF READY',
+          detail: `Pilot ${joinOr(proposals)} only if validation confirms the demand AND it passes its own independent readiness and safety tests AND you approve it. Otherwise, make no automation change.${exploratoryNote}`,
+          benefit: 'If piloted: a limited, monitored workflow with defined KPIs and human escalation.',
+        }
+      : {
+          heading: 'NO AUTOMATION PROPOSED',
+          detail: exploratory.length > 0
+            ? `No automation change is currently proposed. ${joinAnd(exploratory)} stays exploratory until your own records show demand.`
+            : 'No automation change is currently proposed: no finding in this audit is one an automation would address.',
+          // "the website fixes" only when Days 8–14 lists one: with none, there
+          // are no fixes for the effort to stay on.
+          benefit: hasWebsiteFixes ? 'Effort stays on the website fixes and the validation steps.' : 'Effort stays on the validation steps.',
+        },
   };
 }
 
@@ -994,6 +1218,110 @@ function interpretScore(score: number | null): string {
   if (score >= 70) return 'A workable public foundation with identified gaps in specific parts of the guest journey. Whether those gaps cost money is not measured here.';
   if (score >= 60) return 'Several parts of the public guest journey show friction or could not be verified; these are the places to look first.';
   return 'Multiple core pathways are missing, broken, or unverifiable from public pages. This is where a review should start.';
+}
+
+/**
+ * Findings whose fix is a direct website repair, established from public
+ * evidence: the only findings the Days 8–14 phase may list.
+ *
+ * Listed by category, not inferred from the AI-fit score: the catering finding
+ * scores 60, under the automation threshold, yet its solution is an automation
+ * ("AI-assisted intake … is the matched fix"). A category not listed here —
+ * including any a future engine adds — is left out, so the phase fails toward
+ * saying less rather than toward recommending an automation. A listed finding
+ * still needing owner data is left to the Days 1–7 manual-validation walk, and
+ * any solution text that recommends an automation is excluded as well.
+ */
+const DIRECT_FIX_CATEGORIES = new Set([
+  'BROKEN CUSTOMER PATHWAY',
+  'ONLINE ORDERING FAILURE RISK',
+  ORDER_BUTTON_CATEGORY,
+  'MENU ACCESS FRICTION',
+  'CONFUSING CTA HIERARCHY',
+  'WEBSITE TECHNICAL FOUNDATION',
+  'CONTACT PATH FRICTION',
+  'THIRD-PARTY ORDERING DEPENDENCY',
+]);
+/** Wording that recommends an automation, or restates the Days 1–7 record pull. */
+const AUTOMATION_OR_VALIDATION_STEP =
+  /\bis the matched fix\b|\bAI Front Desk\b|\bAI-assisted\b|\bAI Reactivation\b|\bvoice answering\b|\bmissed-call text-back\b|\bchatbot\b|\bbefore any system\b|\bpull 30 days\b|\bcollect acknowledgment records\b/i;
+
+export function directFixesFor<T extends { category: string; aiFitScore: number; manualValidationRequired: boolean; recommendedSolution: string }>(
+  top: T[],
+): T[] {
+  return top
+    .filter((o) =>
+      DIRECT_FIX_CATEGORIES.has(o.category) &&
+      o.aiFitScore < 70 &&
+      !o.manualValidationRequired &&
+      !AUTOMATION_OR_VALIDATION_STEP.test(o.recommendedSolution))
+    .slice(0, 3);
+}
+
+/** Listed in Section 06: a pilot candidate or an exploratory opportunity. */
+function inSection06(o: { category: string; aiFitScore: number }): boolean {
+  return isAutomationCandidate(o) || isExploratoryOpportunity(o);
+}
+
+/**
+ * What "passes its own readiness and safety checks" means for each automation,
+ * for this restaurant — so the condition names checks that fit the system.
+ */
+function readinessChecksFor(category: string): string {
+  if (/PHONE-DEPENDENT/i.test(category)) {
+    return "answers on hours, menu and ordering checked against the restaurant's own information; missed-call text-back and transfer to staff tested";
+  }
+  if (/CATERING|PRIVATE/i.test(category)) {
+    return 'intake questions and acknowledgment wording approved by the owner; every inquiry verified to route to a named staff member; human escalation tested';
+  }
+  if (/RETENTION/i.test(category)) {
+    return 'consent and opt-out handling checked for every guest contact; message content and sending frequency approved by the owner';
+  }
+  if (/CONTACT/i.test(category)) {
+    return "answers checked against the restaurant's published hours, menu and policies; handoff to staff tested";
+  }
+  return "outputs checked against the restaurant's own information; handoff to staff tested";
+}
+
+/**
+ * The demand an automation answers, as the condition the Days 1–7 records must
+ * meet before it is considered — completing "If …, consider …".
+ */
+function demandConditionFor(category: string): string {
+  if (/CATERING|PRIVATE/i.test(category)) return 'the inquiry records show slow or missed responses to catering or private-event requests';
+  if (/PHONE|CONTACT/i.test(category)) return 'the call records show calls going unanswered, or the same questions asked again and again';
+  if (/RETENTION/i.test(category)) return 'a guest contact database exists and is not being used for follow-up';
+  if (/RESERVATION|BOOKING/i.test(category)) return 'the booking records show requests going unanswered';
+  if (/REVIEW|REPUTATION/i.test(category)) return 'reviews are going unanswered';
+  return 'the Days 1–7 records confirm the demand it answers';
+}
+
+/**
+ * A displayed phone number as a `tel:` href. A ten-digit North American number
+ * gets its +1 country code; a number already written with a leading + keeps
+ * it. Anything without 7–15 digits is not dialable and gets no link.
+ */
+export function telHref(phone: string): string | null {
+  const digits = phone.replace(/\D/g, '');
+  if (digits.length < 7 || digits.length > 15) return null;
+  if (phone.trim().startsWith('+')) return `tel:+${digits}`;
+  if (digits.length === 10) return `tel:+1${digits}`;
+  if (digits.length === 11 && digits.startsWith('1')) return `tel:+${digits}`;
+  return `tel:${digits}`;
+}
+
+/** "A", "A and B", "A, B and C". */
+function joinAnd(items: string[]): string {
+  return items.length <= 1 ? (items[0] ?? '') : `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`;
+}
+
+/** "A", "A or B", "A, B or C". */
+function joinOr(items: string[]): string {
+  return items.length <= 1 ? (items[0] ?? '') : `${items.slice(0, -1).join(', ')} or ${items[items.length - 1]}`;
+}
+
+function capitalize(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
 function firstSentence(text: string): string {
@@ -1020,19 +1348,26 @@ function limitationSentence(text: string): string | null {
   return found ? found.trim().slice(0, 240) : null;
 }
 
+/**
+ * No AI-written summary is shown in this release (applyReleasePolicy clears
+ * it): free text cannot be proven safe, so the summary is always composed
+ * deterministically from the stored audit data.
+ */
+function usesAiSummary(input: ExecutiveReportInput): boolean {
+  return Boolean(input.storedSummaryWasAiEnhanced && input.storedSummary);
+}
+
 function buildSummary(input: ExecutiveReportInput, findings: ExecutiveFinding[]): string {
-  // Prefer the audit-time summary when it was AI-enhanced (it was schema-
-  // validated against the same stored data); otherwise compose deterministically.
-  if (input.storedSummaryWasAiEnhanced && input.storedSummary) return input.storedSummary;
+  if (usesAiSummary(input)) return input.storedSummary!;
 
   const stageOrder = Object.keys(JOURNEY_LABELS);
   const ordered = [...input.journey].sort((a, b) => stageOrder.indexOf(a.stage) - stageOrder.indexOf(b.stage));
-  const healthy = ordered.filter((s) => s.status === 'HEALTHY').map((s) => JOURNEY_LABELS[s.stage] ?? s.stage);
-  const friction = ordered.filter((s) => s.status === 'FRICTION' || s.status === 'RISK').map((s) => JOURNEY_LABELS[s.stage] ?? s.stage);
+  const healthy = ordered.filter((s) => s.status === 'HEALTHY').map((s) => journeyLabel(s.stage));
+  const friction = ordered.filter((s) => s.status === 'FRICTION' || s.status === 'RISK').map((s) => journeyLabel(s.stage));
   const parts: string[] = [];
 
   parts.push(
-    `Our audit analyzed ${input.sourcesCollected} public page(s) of the ${input.restaurantName} digital presence and collected ${input.evidence.length} evidence items across the guest journey.`,
+    `Our audit analyzed ${input.sourcesCollected} public page(s) of the ${clientRestaurantName(input.restaurantName, input.websiteUrl)} digital presence and collected ${input.evidence.length} evidence items across the guest journey.`,
   );
   if (input.overallScore !== null) {
     parts.push(`The restaurant scored ${input.overallScore}/100 on the Restaurant Rescue Score${input.coverageScore !== null ? `, with ${input.coverageScore}% of the intended audit scope covered by sufficient public evidence` : ''}.`);
@@ -1041,19 +1376,29 @@ function buildSummary(input: ExecutiveReportInput, findings: ExecutiveFinding[])
   }
   if (healthy.length > 0) parts.push(`The strongest areas of the current digital operation are: ${healthy.join(', ')}.`);
   if (friction.length > 0) parts.push(`Public evidence suggests guest friction concentrated in: ${friction.join(', ')}.`);
-  if (findings.length > 0) {
+  const bound = findings.filter((f) => f.evidenceBound);
+  const unbound = findings.filter((f) => !f.evidenceBound);
+  if (bound.length > 0) {
     // Only verified findings may be called revenue leaks; see reportHeadlines.
-    const verified = findings.filter((f) => f.classification === 'VERIFIED FINDING').length;
+    const verified = bound.filter((f) => f.classification === 'VERIFIED FINDING').length;
     const lead =
-      verified === findings.length
+      verified === bound.length
         ? 'The verified revenue leaks identified are'
         : verified > 0
           ? 'The priority findings, verified and to be validated, are'
           : 'No revenue loss was verified from public evidence. The priority opportunities to validate are';
-    parts.push(`${lead}: ${findings.map((f) => f.title.toLowerCase()).join('; ')}.`);
-    const manual = findings.filter((f) => f.classification === 'MANUAL VALIDATION REQUIRED').length;
+    parts.push(`${lead}: ${bound.map((f) => f.title.toLowerCase()).join('; ')}.`);
+  }
+  if (unbound.length > 0) {
+    // Named apart, never among the verified findings or the leaks.
+    parts.push(
+      `${unbound.length === 1 ? 'One further finding' : `${unbound.length} further findings`} could not be traced to the audit evidence and should be checked against it before being acted on: ${unbound.map((f) => f.title.toLowerCase()).join('; ')}.`,
+    );
+  }
+  if (findings.length > 0) {
+    const manual = bound.filter((f) => f.classification === 'MANUAL VALIDATION REQUIRED').length;
     if (manual > 0) parts.push(`${manual} of these should be validated against internal call, booking, or sales data before being treated as confirmed.`);
-    parts.push(`Ownership should prioritize the first finding in this report; the 30-day plan sequences validation, fixes, and automation in order.`);
+    parts.push(`Ownership should prioritize the first finding in this report; the 30-day plan sequences validation, fixes, and then a decision on automation.`);
   } else {
     parts.push('No high-priority revenue leaks were confirmed from public evidence; the recommended next step is validating the areas public analysis cannot see — calls, follow-up, and repeat business.');
   }
@@ -1061,8 +1406,11 @@ function buildSummary(input: ExecutiveReportInput, findings: ExecutiveFinding[])
 }
 
 function buildThirtyDayPlan(
+  // Only findings bound to their evidence: the plan's category-specific steps,
+  // fixes and decisions are never derived from a finding with untraceable wording.
   top: ExecutiveReportInput['opportunities'],
   input: ExecutiveReportInput,
+  unverifiedFindings = 0,
 ): { phase: string; heading: string; actions: string[] }[] {
   const has = (pattern: RegExp) => top.some((o) => pattern.test(o.category));
 
@@ -1074,15 +1422,71 @@ function buildThirtyDayPlan(
   if (has(/RETENTION/i)) validate.push('Check whether the POS or reservation system already holds a guest contact database, and its size.');
   if (input.journey.some((s) => s.stage === 'RESERVATION' && s.status !== 'HEALTHY')) validate.push('Review reservation patterns: how bookings arrive, and whether any requests go unanswered.');
   validate.push('Walk each finding marked "manual validation required" against your own operating data.');
+  if (unverifiedFindings > 0) {
+    validate.push('Check each finding whose description could not be traced to the audit evidence against the evidence in the appendix; act on none of them until it is confirmed.');
+  }
 
-  const highestDirect = top.filter((o) => o.aiFitScore < 70);
-  const fix = (highestDirect.length > 0 ? highestDirect : top).slice(0, 3).map((o) => o.recommendedSolution);
-  if (fix.length === 0) fix.push('No urgent digital repairs surfaced from public evidence; use this window to complete validation.');
+  // DAYS 8–14 IS FOR VERIFIED WEBSITE FIXES ONLY.
+  //
+  // This phase took every finding with an AI fit under 70 and, when there were
+  // none, fell back to the top findings whatever they were. Both routes printed
+  // an automation's recommended solution here, a week before the Days 15–21
+  // decision: "…the Winnersbookmark AI Front Desk … is the matched fix" (fit
+  // 95, via the fallback) and "…AI-assisted intake … is the matched fix" (the
+  // catering finding, fit 60) — each opening with the Days 1–7 record pull
+  // again, and neither gated on readiness testing. Now a finding is a fix here
+  // only if it is a direct website repair (directFixesFor), and with none the
+  // phase says so; there is no fallback.
+  const directFixes = directFixesFor(top);
+  const fix = directFixes.length > 0
+    ? directFixes.map((o) => o.recommendedSolution)
+    : [
+        'No website fix is confirmed by the public evidence. Use this week to finish the Days 1–7 validation and to correct anything it confirms.',
+        'No automation change is authorized in this phase; any automation is decided in Days 15–21, under the conditions set out there.',
+      ];
 
-  const automation = top.filter((o) => o.aiFitScore >= 70).slice(0, 2);
-  const automate = automation.length > 0
-    ? automation.map((o) => `${solutionCategoryFor(o.category)} — ${firstSentence(o.recommendedSolution)}`)
-    : ['If validation confirms repetitive demand, select the automation with the strongest fit; otherwise reinvest in the fixes above.'];
+  // DAYS 15–21 IS A DECISION, NOT A SECOND ROUND OF DATA COLLECTION.
+  //
+  // This phase printed each automation with the first sentence of its
+  // recommended solution — for the AI Front Desk, "Before any system: pull 30
+  // days of call records…", which is the Days 1–7 step again — and headed the
+  // phase AUTOMATE, as if deployment followed automatically. The records are
+  // collected in Days 1–7; here they are read, and the outcome decides. An
+  // automation is considered only where they show the demand it answers, and
+  // is introduced only after it passes its own readiness testing.
+  //
+  // Three conditions, in order, for each candidate: the restaurant's records
+  // show the demand it answers; the proposed system passes its own readiness
+  // and safety checks for this restaurant (checks specific to that automation);
+  // only then a limited, monitored pilot. Otherwise no automation change.
+  //
+  // Candidates are chosen by category as well as AI fit: the catering finding
+  // scores 60 yet its card recommends AI-assisted inquiry intake, so it is
+  // decided here, under its own gates, rather than nowhere. AI fit and scores
+  // are not changed to make it eligible. No cap: every automation the report
+  // recommends on a finding card is decided in this phase.
+  const automation = top.filter(isAutomationCandidate);
+  // Exploratory opportunities are named here too — as no pilot, with what would
+  // have to be true before they could even be proposed.
+  const exploratoryLines = top.filter(isExploratoryOpportunity).map((o) =>
+    `${solutionCategoryFor(o.category)} stays exploratory — no pilot is proposed: public evidence alone does not show demand for it. Only if ${demandConditionFor(o.category)} could it be assessed as a proposal, under the same conditions as any automation.`);
+  // "the website fixes above" only when Days 8–14 lists one (the same
+  // directFixes); with none, the time goes to the validation.
+  const otherwise = directFixes.length > 0 ? 'put the time into the website fixes above' : 'continue with the validated findings';
+  const decide = automation.length > 0
+    ? [
+        'Review the operational evidence collected in Days 1–7 before choosing any automation.',
+        ...automation.map((o) =>
+          `If ${demandConditionFor(o.category)}: consider a limited, monitored pilot of ${solutionCategoryFor(o.category)} — only after the proposed system passes its own readiness and safety checks for this restaurant (${readinessChecksFor(o.category)}) and the owner approves the pilot. Set success metrics and human escalation before it starts.`),
+        `If the records do not show that demand, or the system has not passed those checks, make no automation change — ${otherwise}.`,
+        ...exploratoryLines,
+      ]
+    // No candidate, no pilot: the report identified no automation to pilot, so
+    // this phase does not offer one. An exploratory opportunity is still named,
+    // as no pilot.
+    : exploratoryLines.length > 0
+      ? [...exploratoryLines, `No automation change is proposed in this plan — ${otherwise}.`]
+      : [`No automation is proposed: no finding in this audit is one an automation would address. Make no automation change — ${otherwise}.`];
 
   const kpis: string[] = [];
   if (has(/PHONE|CONTACT/i)) kpis.push('Missed calls per week and answered-inquiry rate');
@@ -1095,8 +1499,8 @@ function buildThirtyDayPlan(
 
   return [
     { phase: 'DAYS 1–7', heading: 'VALIDATE', actions: validate },
-    { phase: 'DAYS 8–14', heading: 'FIX THE HIGHEST-PRIORITY DIGITAL ISSUE', actions: fix },
-    { phase: 'DAYS 15–21', heading: 'AUTOMATE', actions: automate },
+    { phase: 'DAYS 8–14', heading: directFixes.length > 0 ? 'FIX THE HIGHEST-PRIORITY DIGITAL ISSUE' : 'COMPLETE VALIDATION — NO AUTOMATION CHANGE', actions: fix },
+    { phase: 'DAYS 15–21', heading: automation.length > 0 ? 'DECIDE & PILOT IF READY' : 'NO AUTOMATION PROPOSED', actions: decide },
     { phase: 'DAYS 22–30', heading: 'MEASURE', actions: kpis.map((k) => `Track: ${k}.`) },
   ];
 }
@@ -1157,9 +1561,9 @@ const EVIDENCE_TYPE_LABEL: Record<string, string> = {
   REVIEW_SIGNAL: 'Reviews',
 };
 
-/** A readable label for an evidence type; unknown codes become plain words. */
+/** A readable label for an evidence type: a known code's label, its words when it is a known type without one, otherwise "Other evidence". */
 export function evidenceTypeLabel(type: string): string {
-  return EVIDENCE_TYPE_LABEL[type] ?? plainWords(type);
+  return EVIDENCE_TYPE_LABEL[type] ?? (canonicalEvidenceType(type) === type && type !== 'UNKNOWN' ? plainWords(type) : 'Other evidence');
 }
 
 /** Evidence text with machine codes replaced by the words they stand for. */

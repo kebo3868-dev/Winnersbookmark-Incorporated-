@@ -18,6 +18,8 @@ const CLASSIFICATION_STYLES: Record<string, string> = {
   'INFERRED OPPORTUNITY': 'text-gold border-gold/40',
   'MANUAL VALIDATION REQUIRED': 'text-amber-400 border-amber-400/40',
   'INSUFFICIENT DATA': 'text-ivory-faint border-obsidian-line',
+  // A finding whose wording could not be traced to its evidence (executive.ts).
+  'VALIDATION REQUIRED': 'text-amber-400 border-amber-400/40',
 };
 
 const STATUS_STYLES: Record<string, string> = {
@@ -49,7 +51,7 @@ export default async function ExecutiveReportPage({ params }: { params: Promise<
   return (
     <div className="max-w-3xl mx-auto space-y-16">
       {dto.cover.demoMode && (
-        <div className="border border-gold-dim/60 text-gold-dim rounded px-4 py-3 text-center text-xs uppercase tracking-widest">
+        <div className="border border-gold-dim/60 text-gold-muted rounded px-4 py-3 text-center text-xs uppercase tracking-widest">
           Demonstration Data — this report describes a fictional restaurant
         </div>
       )}
@@ -64,7 +66,7 @@ export default async function ExecutiveReportPage({ params }: { params: Promise<
       <header className="card border-gold-dim/30 px-6 sm:px-10 py-14 text-center space-y-5 relative overflow-hidden">
         <p className="label text-gold">Winnersbookmark</p>
         <h1 className="font-display text-3xl sm:text-4xl text-ivory tracking-wide">RESTAURANT RESCUE AUDIT</h1>
-        <p className="text-gold-dim text-sm">{dto.cover.subtitle}</p>
+        <p className="text-gold-muted text-sm">{dto.cover.subtitle}</p>
         <div className="pt-6 space-y-1">
           {/* A restaurant's own name can be one long word; it must wrap, not spill. */}
           <p className="font-display text-2xl text-ivory break-words">{dto.cover.restaurantName}</p>
@@ -105,7 +107,7 @@ export default async function ExecutiveReportPage({ params }: { params: Promise<
         <div className="grid sm:grid-cols-3 gap-4 mb-6">
           {dto.snapshot.priorities.map((p) => (
             <div key={p.rank} className="card p-5 border-gold-dim/20">
-              <p className="label text-gold-dim">Priority {String(p.rank).padStart(2, '0')}</p>
+              <p className="label text-gold-muted">Priority {String(p.rank).padStart(2, '0')}</p>
               <p className="font-display text-ivory text-lg mt-1 leading-tight">{p.title}</p>
               <p className="text-[10px] uppercase tracking-widest text-amber-400 mt-2">{p.priorityLabel}</p>
               <p className="text-ivory-dim text-xs mt-3">{p.summary}</p>
@@ -190,9 +192,10 @@ export default async function ExecutiveReportPage({ params }: { params: Promise<
                 <p className="text-ivory-faint text-[13px] leading-relaxed mt-1">{section.body}</p>
                 {section.rows && (
                   <dl className="mt-2.5 space-y-1.5">
+                    {/* Keyed by term AND definition: weight rows share terms ("15%" for three categories). */}
                     {section.rows.map(([term, definition]) => (
-                      <div key={term} className="text-[13px] leading-relaxed">
-                        <dt className="text-gold-dim inline">{term}</dt>
+                      <div key={`${term} ${definition}`} className="text-[13px] leading-relaxed">
+                        <dt className="text-gold-muted inline">{term}</dt>
                         <dd className="text-ivory-faint inline"> — {definition}</dd>
                       </div>
                     ))}
@@ -218,7 +221,7 @@ export default async function ExecutiveReportPage({ params }: { params: Promise<
           <details className="card">
             <summary className="px-4 sm:px-6 py-4 cursor-pointer label hover:text-gold">Open the calculator</summary>
             <div className="px-4 sm:px-6 pb-6 space-y-5 border-t border-obsidian-line pt-4">
-              <p className="text-gold-dim text-xs">{SCENARIO_DISCLAIMER}</p>
+              <p className="text-gold-muted text-xs">{SCENARIO_DISCLAIMER}</p>
               {dto.scenarioCalculators.map((c) => (
                 <ScenarioCalculator key={c.kind} kind={c.kind} findingTitle={c.findingTitle} observedFriction={c.observedFriction} prefill={c.prefill} />
               ))}
@@ -274,7 +277,7 @@ export default async function ExecutiveReportPage({ params }: { params: Promise<
               <div key={opp.rank} className="card p-6 text-sm">
                 <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
                   <p className="font-display text-lg text-gold">#{opp.rank} · {opp.solutionCategory}</p>
-                  <span className="text-[10px] uppercase tracking-widest border border-gold/40 text-gold rounded px-2.5 py-1">Automation fit: {opp.fit}</span>
+                  <span className="text-[10px] uppercase tracking-widest border border-gold/40 text-gold rounded px-2.5 py-1">{opp.exploratory ? `Exploratory · ${opp.fit.toLowerCase()} fit` : `Automation fit: ${opp.fit}`}</span>
                 </div>
                 <p className={`text-xs mb-3 ${opp.requiresValidation ? 'text-amber-400' : 'text-ivory-faint'}`}>{opp.basis}</p>
                 <Field label="Problem addressed">{opp.problemAddressed}</Field>
@@ -283,7 +286,7 @@ export default async function ExecutiveReportPage({ params }: { params: Promise<
                   <p className="label mb-1">What it can do</p>
                   <ul className="list-disc list-inside text-ivory-dim space-y-0.5">{opp.capabilities.map((c, i) => <li key={i}>{c}</li>)}</ul>
                 </div>
-                <div className="mt-3"><Field label="Validation before implementation">{opp.validationBeforeImplementation}</Field></div>
+                <div className="mt-3"><Field label={opp.exploratory ? 'What to check first' : 'Validation before implementation'}>{opp.validationBeforeImplementation}</Field></div>
                 <div className="flex flex-wrap gap-6 mt-3 pt-3 border-t border-obsidian-line">
                   <div><p className="label">Complexity</p><p className="text-ivory text-sm">{opp.implementationComplexity}</p></div>
                   <div className="flex-1 min-w-[200px]"><p className="label">Measurement</p><p className="text-ivory-dim text-xs">{opp.measurement.join(' · ')}</p></div>
@@ -297,7 +300,12 @@ export default async function ExecutiveReportPage({ params }: { params: Promise<
       {/* WINNERS BOOKMARK PRESCRIPTION */}
       <Section kicker="Section 07" title="Winnersbookmark Prescription">
         <div className="space-y-4">
-          <PrescriptionBlock label="Diagnosis">{dto.prescription.diagnosis}</PrescriptionBlock>
+          <PrescriptionBlock label="Diagnosis">
+            {dto.prescription.diagnosis}
+            {dto.prescription.diagnosisBasis.map((row) => (
+              <span key={row.label} className="block mt-2"><span className="label">{row.label}:</span> {row.text}</span>
+            ))}
+          </PrescriptionBlock>
           <PrescriptionBlock label="Validation">{dto.prescription.validation}</PrescriptionBlock>
           <PrescriptionBlock label="Prescription" highlight>{dto.prescription.prescription}</PrescriptionBlock>
           <div className="card p-6">
@@ -359,7 +367,10 @@ export default async function ExecutiveReportPage({ params }: { params: Promise<
         )}
         <div className="border-t border-obsidian-line pt-5 mt-2">
           <p className="text-ivory">{dto.cta.consultantName} · {dto.cta.company}</p>
-          <p className="text-ivory-dim text-sm">{dto.cta.phone}{dto.cta.email ? ` · ${dto.cta.email}` : ''}</p>
+          <p className="text-ivory-dim text-sm">
+            {dto.cta.phoneHref ? <a href={dto.cta.phoneHref} className="inline-block min-h-[24px] py-1 underline decoration-dotted underline-offset-2">{dto.cta.phone}</a> : dto.cta.phone}
+            {dto.cta.email ? ` · ${dto.cta.email}` : ''}
+          </p>
         </div>
       </section>
 
@@ -413,7 +424,7 @@ export default async function ExecutiveReportPage({ params }: { params: Promise<
                   <p className="text-ivory-dim text-[13px] leading-relaxed mt-1.5 break-words">{e.supportingContext}</p>
                 )}
                 <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px]">
-                  <span className="text-gold-dim uppercase tracking-wider">{e.evidenceLabel}</span>
+                  <span className="text-gold-muted uppercase tracking-wider">{e.evidenceLabel}</span>
                   {/*
                     * The label, without the percentage. "90%" and "85%" came
                     * from a hand-assigned constant per observation type, and
@@ -452,7 +463,7 @@ export default async function ExecutiveReportPage({ params }: { params: Promise<
 function Section({ kicker, title, children }: { kicker: string; title: string; children: React.ReactNode }) {
   return (
     <section>
-      <p className="label text-gold-dim mb-1">{kicker}</p>
+      <p className="label text-gold-muted mb-1">{kicker}</p>
       <h2 className="font-display text-2xl text-ivory mb-1">{title}</h2>
       <div className="gold-rule w-12 mb-6 border-t-2" />
       {children}
@@ -524,7 +535,7 @@ function JourneyMapRow({ stage, isLast }: { stage: JourneyMapStage; isLast: bool
 function PrescriptionBlock({ label, children, highlight }: { label: string; children: React.ReactNode; highlight?: boolean }) {
   return (
     <div className={`card p-6 ${highlight ? 'border-gold-dim/50' : ''}`}>
-      <p className={`label mb-2 ${highlight ? 'text-gold' : 'text-gold-dim'}`}>{label}</p>
+      <p className={`label mb-2 ${highlight ? 'text-gold' : 'text-gold-muted'}`}>{label}</p>
       <p className="text-ivory-dim text-sm leading-relaxed">{children}</p>
     </div>
   );

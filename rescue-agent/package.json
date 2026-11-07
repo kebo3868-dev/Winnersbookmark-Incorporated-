@@ -2,7 +2,7 @@
   "name": "wbi-restaurant-rescue-agent",
   "private": true,
   "version": "0.1.0",
-  "description": "Winners Bookmark Restaurant Rescue Agent \u2014 restaurant revenue intelligence and AI opportunity detection engine.",
+  "description": "Winners Bookmark Restaurant Rescue Agent — restaurant revenue intelligence and AI opportunity detection engine.",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -20,19 +20,20 @@
     "smoke:provider": "node --experimental-strip-types scripts/provider-smoke-test.mjs"
   },
   "engines": {
-    "node": ">=20.9"
+    "node": ">=22.19.0"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
     "@prisma/client": "^6.5.0",
     "@react-pdf/renderer": "^4.5.1",
     "cheerio": "^1.0.0",
-    "next": "^15.2.4",
+    "next": "^15.5.28",
     "qrcode": "^1.5.4",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "undici": "^8.7.0",
-    "zod": "^3.24.2"
+    "undici": "^8.12.3",
+    "zod": "^4.6.7",
+    "sharp": "^0.35.5"
   },
   "devDependencies": {
     "@types/node": "^22.13.10",
@@ -40,10 +41,19 @@
     "@types/react": "^19.0.12",
     "@types/react-dom": "^19.0.4",
     "autoprefixer": "^10.4.21",
-    "postcss": "^8.5.3",
+    "postcss": "^8.5.32",
     "prisma": "^6.5.0",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.8.2",
-    "vitest": "^3.0.9"
+    "vitest": "^4.1.11",
+    "vite": "^7.3.7"
+  },
+  "overrides": {
+    "sharp": "$sharp",
+    "postcss": "$postcss",
+    "deepmerge-ts": "^8.0.2",
+    "cheerio": {
+      "undici": "^7.30.1"
+    }
   }
 }

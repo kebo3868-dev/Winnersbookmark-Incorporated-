@@ -1,0 +1,275 @@
+#0 building with "default" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 2.09kB done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/node:22-slim
+#2 DONE 5.3s
+
+#3 [internal] load .dockerignore
+#3 transferring context: 123B done
+#3 DONE 0.0s
+
+#4 [deps 1/6] FROM docker.io/library/node:22-slim@sha256:4b150b48b4116e2a22f2c39cc27025fbf4f153e2078fd3b14d159fdb5c7279da
+#4 resolve docker.io/library/node:22-slim@sha256:4b150b48b4116e2a22f2c39cc27025fbf4f153e2078fd3b14d159fdb5c7279da 0.0s done
+#4 sha256:709e8267cebf108d59c4e6e386882a5c79c10bbe11ecd02c6ed9ed4efa5b905d 0B / 3.31kB 0.1s
+#4 sha256:df736340692d217b57cd447c94f978f9a91ce3e8805b225e78374eae3aff864c 0B / 49.89MB 0.1s
+#4 sha256:4b150b48b4116e2a22f2c39cc27025fbf4f153e2078fd3b14d159fdb5c7279da 5.22kB / 5.22kB done
+#4 sha256:9f0dde62d10e7ff7a310ecaebd66225f6b46c17e6cb778449a77b05d3541bea2 1.93kB / 1.93kB done
+#4 sha256:c469fbffcbb0086ddfb92598192d3e09eab25f2d81b9750a00f77f0910fed744 6.77kB / 6.77kB done
+#4 sha256:3c5439d0ae62993af4cc4e21b8c777297e81bc40e200d4633c85a3e0f977a3bc 0B / 28.25MB 0.1s
+#4 ...
+
+#5 [internal] load build context
+#5 transferring context: 2.48MB 0.2s done
+#5 DONE 0.2s
+
+#4 [deps 1/6] FROM docker.io/library/node:22-slim@sha256:4b150b48b4116e2a22f2c39cc27025fbf4f153e2078fd3b14d159fdb5c7279da
+#4 sha256:709e8267cebf108d59c4e6e386882a5c79c10bbe11ecd02c6ed9ed4efa5b905d 3.31kB / 3.31kB 2.5s done
+#4 sha256:d22dd8aef5082b9de7fb037db9c398ee2822c5c81cc5cbb63bb32a46a5decdb1 0B / 1.71MB 2.6s
+#4 sha256:3c5439d0ae62993af4cc4e21b8c777297e81bc40e200d4633c85a3e0f977a3bc 2.10MB / 28.25MB 2.7s
+#4 sha256:3c5439d0ae62993af4cc4e21b8c777297e81bc40e200d4633c85a3e0f977a3bc 4.19MB / 28.25MB 3.4s
+#4 sha256:3c5439d0ae62993af4cc4e21b8c777297e81bc40e200d4633c85a3e0f977a3bc 6.29MB / 28.25MB 4.2s
+#4 sha256:df736340692d217b57cd447c94f978f9a91ce3e8805b225e78374eae3aff864c 3.15MB / 49.89MB 4.6s
+#4 sha256:3c5439d0ae62993af4cc4e21b8c777297e81bc40e200d4633c85a3e0f977a3bc 8.39MB / 28.25MB 4.7s
+#4 sha256:d22dd8aef5082b9de7fb037db9c398ee2822c5c81cc5cbb63bb32a46a5decdb1 1.05MB / 1.71MB 5.1s
+#4 sha256:3c5439d0ae62993af4cc4e21b8c777297e81bc40e200d4633c85a3e0f977a3bc 10.49MB / 28.25MB 5.5s
+#4 sha256:d22dd8aef5082b9de7fb037db9c398ee2822c5c81cc5cbb63bb32a46a5decdb1 1.71MB / 1.71MB 5.4s done
+#4 sha256:0bee45faaffff77eee1e3d151cc650b854df28523ea01e5a2dcc0327da8793a9 0B / 448B 5.5s
+#4 sha256:3c5439d0ae62993af4cc4e21b8c777297e81bc40e200d4633c85a3e0f977a3bc 12.58MB / 28.25MB 6.2s
+#4 sha256:df736340692d217b57cd447c94f978f9a91ce3e8805b225e78374eae3aff864c 6.29MB / 49.89MB 6.7s
+#4 sha256:3c5439d0ae62993af4cc4e21b8c777297e81bc40e200d4633c85a3e0f977a3bc 14.68MB / 28.25MB 6.8s
+#4 sha256:0bee45faaffff77eee1e3d151cc650b854df28523ea01e5a2dcc0327da8793a9 448B / 448B 6.7s done
+#4 sha256:3c5439d0ae62993af4cc4e21b8c777297e81bc40e200d4633c85a3e0f977a3bc 16.78MB / 28.25MB 7.5s
+#4 sha256:3c5439d0ae62993af4cc4e21b8c777297e81bc40e200d4633c85a3e0f977a3bc 18.87MB / 28.25MB 8.1s
+#4 sha256:df736340692d217b57cd447c94f978f9a91ce3e8805b225e78374eae3aff864c 9.44MB / 49.89MB 8.8s
+#4 sha256:3c5439d0ae62993af4cc4e21b8c777297e81bc40e200d4633c85a3e0f977a3bc 20.97MB / 28.25MB 8.8s
+#4 sha256:3c5439d0ae62993af4cc4e21b8c777297e81bc40e200d4633c85a3e0f977a3bc 23.07MB / 28.25MB 9.5s
+#4 sha256:3c5439d0ae62993af4cc4e21b8c777297e81bc40e200d4633c85a3e0f977a3bc 25.17MB / 28.25MB 10.1s
+#4 sha256:3c5439d0ae62993af4cc4e21b8c777297e81bc40e200d4633c85a3e0f977a3bc 27.26MB / 28.25MB 10.9s
+#4 sha256:df736340692d217b57cd447c94f978f9a91ce3e8805b225e78374eae3aff864c 12.58MB / 49.89MB 11.0s
+#4 sha256:3c5439d0ae62993af4cc4e21b8c777297e81bc40e200d4633c85a3e0f977a3bc 28.25MB / 28.25MB 11.1s done
+#4 extracting sha256:3c5439d0ae62993af4cc4e21b8c777297e81bc40e200d4633c85a3e0f977a3bc
+#4 sha256:df736340692d217b57cd447c94f978f9a91ce3e8805b225e78374eae3aff864c 15.73MB / 49.89MB 13.2s
+#4 extracting sha256:3c5439d0ae62993af4cc4e21b8c777297e81bc40e200d4633c85a3e0f977a3bc 2.6s done
+#4 extracting sha256:709e8267cebf108d59c4e6e386882a5c79c10bbe11ecd02c6ed9ed4efa5b905d 0.0s done
+#4 sha256:df736340692d217b57cd447c94f978f9a91ce3e8805b225e78374eae3aff864c 18.87MB / 49.89MB 15.3s
+#4 sha256:df736340692d217b57cd447c94f978f9a91ce3e8805b225e78374eae3aff864c 22.02MB / 49.89MB 17.4s
+#4 sha256:df736340692d217b57cd447c94f978f9a91ce3e8805b225e78374eae3aff864c 25.17MB / 49.89MB 19.4s
+#4 sha256:df736340692d217b57cd447c94f978f9a91ce3e8805b225e78374eae3aff864c 28.31MB / 49.89MB 21.7s
+#4 sha256:df736340692d217b57cd447c94f978f9a91ce3e8805b225e78374eae3aff864c 31.46MB / 49.89MB 23.7s
+#4 sha256:df736340692d217b57cd447c94f978f9a91ce3e8805b225e78374eae3aff864c 34.60MB / 49.89MB 25.8s
+#4 sha256:df736340692d217b57cd447c94f978f9a91ce3e8805b225e78374eae3aff864c 37.75MB / 49.89MB 27.9s
+#4 sha256:df736340692d217b57cd447c94f978f9a91ce3e8805b225e78374eae3aff864c 40.89MB / 49.89MB 30.0s
+#4 sha256:df736340692d217b57cd447c94f978f9a91ce3e8805b225e78374eae3aff864c 44.04MB / 49.89MB 32.1s
+#4 sha256:df736340692d217b57cd447c94f978f9a91ce3e8805b225e78374eae3aff864c 47.19MB / 49.89MB 34.4s
+#4 sha256:df736340692d217b57cd447c94f978f9a91ce3e8805b225e78374eae3aff864c 49.89MB / 49.89MB 36.0s done
+#4 extracting sha256:df736340692d217b57cd447c94f978f9a91ce3e8805b225e78374eae3aff864c
+#4 extracting sha256:df736340692d217b57cd447c94f978f9a91ce3e8805b225e78374eae3aff864c 4.4s done
+#4 extracting sha256:d22dd8aef5082b9de7fb037db9c398ee2822c5c81cc5cbb63bb32a46a5decdb1
+#4 extracting sha256:d22dd8aef5082b9de7fb037db9c398ee2822c5c81cc5cbb63bb32a46a5decdb1 0.9s done
+#4 extracting sha256:0bee45faaffff77eee1e3d151cc650b854df28523ea01e5a2dcc0327da8793a9 done
+#4 DONE 42.8s
+
+#6 [deps 2/6] WORKDIR /app
+#6 DONE 0.7s
+
+#7 [runner 3/9] RUN apt-get update -y && apt-get install -y --no-install-recommends openssl curl && rm -rf /var/lib/apt/lists/*   && groupadd --system nodejs && useradd --system --gid nodejs nextjs
+#7 1.800 Get:1 http://deb.debian.org/debian bookworm InRelease [151 kB]
+#7 2.429 Get:2 http://deb.debian.org/debian bookworm-updates InRelease [55.4 kB]
+#7 2.632 Get:3 http://deb.debian.org/debian-security bookworm-security InRelease [34.8 kB]
+#7 3.117 Get:4 http://deb.debian.org/debian bookworm/main amd64 Packages [8790 kB]
+#7 4.301 Get:5 http://deb.debian.org/debian bookworm-updates/main amd64 Packages [6924 B]
+#7 4.510 Get:6 http://deb.debian.org/debian-security bookworm-security/main amd64 Packages [360 kB]
+#7 5.907 Fetched 9398 kB in 4s (2133 kB/s)
+#7 5.907 Reading package lists...
+#7 6.739 Reading package lists...
+#7 7.350 Building dependency tree...
+#7 7.547 Reading state information...
+#7 7.733 The following additional packages will be installed:
+#7 7.734   libbrotli1 libcurl4 libgssapi-krb5-2 libk5crypto3 libkeyutils1 libkrb5-3
+#7 7.734   libkrb5support0 libldap-2.5-0 libnghttp2-14 libpsl5 librtmp1 libsasl2-2
+#7 7.734   libsasl2-modules-db libssh2-1 libssl3
+#7 7.735 Suggested packages:
+#7 7.735   krb5-doc krb5-user ca-certificates
+#7 7.735 Recommended packages:
+#7 7.735   ca-certificates krb5-locales libldap-common publicsuffix libsasl2-modules
+#7 7.857 The following NEW packages will be installed:
+#7 7.857   curl libbrotli1 libcurl4 libgssapi-krb5-2 libk5crypto3 libkeyutils1
+#7 7.857   libkrb5-3 libkrb5support0 libldap-2.5-0 libnghttp2-14 libpsl5 librtmp1
+#7 7.857   libsasl2-2 libsasl2-modules-db libssh2-1 libssl3 openssl
+#7 8.227 0 upgraded, 17 newly installed, 0 to remove and 1 not upgraded.
+#7 8.227 Need to get 5685 kB of archives.
+#7 8.227 After this operation, 14.4 MB of additional disk space will be used.
+#7 8.227 Get:1 http://deb.debian.org/debian-security bookworm-security/main amd64 libbrotli1 amd64 1.0.9-2+deb12u1 [275 kB]
+#7 ...
+
+#8 [deps 3/6] RUN apt-get update -y && apt-get install -y --no-install-recommends openssl && rm -rf /var/lib/apt/lists/*
+#8 1.796 Get:1 http://deb.debian.org/debian bookworm InRelease [151 kB]
+#8 2.635 Get:2 http://deb.debian.org/debian bookworm-updates InRelease [55.4 kB]
+#8 3.004 Get:3 http://deb.debian.org/debian-security bookworm-security InRelease [34.8 kB]
+#8 3.199 Get:4 http://deb.debian.org/debian bookworm/main amd64 Packages [8790 kB]
+#8 4.315 Get:5 http://deb.debian.org/debian bookworm-updates/main amd64 Packages [6924 B]
+#8 4.619 Get:6 http://deb.debian.org/debian-security bookworm-security/main amd64 Packages [360 kB]
+#8 5.618 Fetched 9398 kB in 4s (2257 kB/s)
+#8 5.618 Reading package lists...
+#8 6.417 Reading package lists...
+#8 7.139 Building dependency tree...
+#8 7.443 Reading state information...
+#8 7.731 The following additional packages will be installed:
+#8 7.731   libssl3
+#8 7.731 Suggested packages:
+#8 7.731   ca-certificates
+#8 7.815 The following NEW packages will be installed:
+#8 7.815   libssl3 openssl
+#8 7.996 0 upgraded, 2 newly installed, 0 to remove and 1 not upgraded.
+#8 7.996 Need to get 3482 kB of archives.
+#8 7.996 After this operation, 8558 kB of additional disk space will be used.
+#8 7.996 Get:1 http://deb.debian.org/debian-security bookworm-security/main amd64 libssl3 amd64 3.0.22-1~deb12u2 [2040 kB]
+#8 8.196 Get:2 http://deb.debian.org/debian-security bookworm-security/main amd64 openssl amd64 3.0.22-1~deb12u2 [1442 kB]
+#8 8.351 debconf: delaying package configuration, since apt-utils is not installed
+#8 8.421 Fetched 3482 kB in 0s (8804 kB/s)
+#8 8.442 Selecting previously unselected package libssl3:amd64.
+#8 8.442 (Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 6096 files and directories currently installed.)
+#8 8.448 Preparing to unpack .../libssl3_3.0.22-1~deb12u2_amd64.deb ...
+#8 8.451 Unpacking libssl3:amd64 (3.0.22-1~deb12u2) ...
+#8 8.745 Selecting previously unselected package openssl.
+#8 8.745 Preparing to unpack .../openssl_3.0.22-1~deb12u2_amd64.deb ...
+#8 8.747 Unpacking openssl (3.0.22-1~deb12u2) ...
+#8 8.919 Setting up libssl3:amd64 (3.0.22-1~deb12u2) ...
+#8 ...
+
+#7 [runner 3/9] RUN apt-get update -y && apt-get install -y --no-install-recommends openssl curl && rm -rf /var/lib/apt/lists/*   && groupadd --system nodejs && useradd --system --gid nodejs nextjs
+#7 8.812 Get:2 http://deb.debian.org/debian bookworm/main amd64 libkrb5support0 amd64 1.20.1-2+deb12u5 [33.2 kB]
+#7 ...
+
+#8 [deps 3/6] RUN apt-get update -y && apt-get install -y --no-install-recommends openssl && rm -rf /var/lib/apt/lists/*
+#8 8.928 Setting up openssl (3.0.22-1~deb12u2) ...
+#8 8.941 Processing triggers for libc-bin (2.36-9+deb12u14) ...
+#8 DONE 9.0s
+
+#7 [runner 3/9] RUN apt-get update -y && apt-get install -y --no-install-recommends openssl curl && rm -rf /var/lib/apt/lists/*   && groupadd --system nodejs && useradd --system --gid nodejs nextjs
+#7 9.136 Get:3 http://deb.debian.org/debian bookworm/main amd64 libk5crypto3 amd64 1.20.1-2+deb12u5 [79.7 kB]
+#7 9.314 Get:4 http://deb.debian.org/debian bookworm/main amd64 libkeyutils1 amd64 1.6.3-2 [8808 B]
+#7 ...
+
+#9 [deps 4/6] COPY package.json package-lock.json ./
+#9 DONE 0.6s
+
+#7 [runner 3/9] RUN apt-get update -y && apt-get install -y --no-install-recommends openssl curl && rm -rf /var/lib/apt/lists/*   && groupadd --system nodejs && useradd --system --gid nodejs nextjs
+#7 9.620 Get:5 http://deb.debian.org/debian-security bookworm-security/main amd64 libssl3 amd64 3.0.22-1~deb12u2 [2040 kB]
+#7 ...
+
+#10 [deps 5/6] COPY prisma ./prisma
+#10 DONE 0.7s
+
+#7 [runner 3/9] RUN apt-get update -y && apt-get install -y --no-install-recommends openssl curl && rm -rf /var/lib/apt/lists/*   && groupadd --system nodejs && useradd --system --gid nodejs nextjs
+#7 10.41 Get:6 http://deb.debian.org/debian bookworm/main amd64 libkrb5-3 amd64 1.20.1-2+deb12u5 [332 kB]
+#7 10.60 Get:7 http://deb.debian.org/debian bookworm/main amd64 libgssapi-krb5-2 amd64 1.20.1-2+deb12u5 [135 kB]
+#7 10.75 Get:8 http://deb.debian.org/debian-security bookworm-security/main amd64 libsasl2-modules-db amd64 2.1.28+dfsg-10+deb12u1 [20.5 kB]
+#7 11.05 Get:9 http://deb.debian.org/debian-security bookworm-security/main amd64 libsasl2-2 amd64 2.1.28+dfsg-10+deb12u1 [59.9 kB]
+#7 11.40 Get:10 http://deb.debian.org/debian bookworm/main amd64 libldap-2.5-0 amd64 2.5.13+dfsg-5 [183 kB]
+#7 11.53 Get:11 http://deb.debian.org/debian bookworm/main amd64 libnghttp2-14 amd64 1.52.0-1+deb12u3 [72.4 kB]
+#7 11.70 Get:12 http://deb.debian.org/debian bookworm/main amd64 libpsl5 amd64 0.21.2-1 [58.7 kB]
+#7 12.00 Get:13 http://deb.debian.org/debian bookworm/main amd64 librtmp1 amd64 2.4+20151223.gitfa8646d.1-2+b2 [60.8 kB]
+#7 12.31 Get:14 http://deb.debian.org/debian-security bookworm-security/main amd64 libssh2-1 amd64 1.10.0-3+deb12u1 [176 kB]
+#7 12.50 Get:15 http://deb.debian.org/debian bookworm/main amd64 libcurl4 amd64 7.88.1-10+deb12u15 [392 kB]
+#7 12.82 Get:16 http://deb.debian.org/debian bookworm/main amd64 curl amd64 7.88.1-10+deb12u15 [316 kB]
+#7 13.22 Get:17 http://deb.debian.org/debian-security bookworm-security/main amd64 openssl amd64 3.0.22-1~deb12u2 [1442 kB]
+#7 13.44 debconf: delaying package configuration, since apt-utils is not installed
+#7 13.51 Fetched 5685 kB in 5s (1053 kB/s)
+#7 13.53 Selecting previously unselected package libbrotli1:amd64.
+#7 13.53 (Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 6096 files and directories currently installed.)
+#7 13.53 Preparing to unpack .../00-libbrotli1_1.0.9-2+deb12u1_amd64.deb ...
+#7 13.53 Unpacking libbrotli1:amd64 (1.0.9-2+deb12u1) ...
+#7 13.62 Selecting previously unselected package libkrb5support0:amd64.
+#7 13.62 Preparing to unpack .../01-libkrb5support0_1.20.1-2+deb12u5_amd64.deb ...
+#7 13.62 Unpacking libkrb5support0:amd64 (1.20.1-2+deb12u5) ...
+#7 13.64 Selecting previously unselected package libk5crypto3:amd64.
+#7 13.64 Preparing to unpack .../02-libk5crypto3_1.20.1-2+deb12u5_amd64.deb ...
+#7 13.65 Unpacking libk5crypto3:amd64 (1.20.1-2+deb12u5) ...
+#7 13.71 Selecting previously unselected package libkeyutils1:amd64.
+#7 13.71 Preparing to unpack .../03-libkeyutils1_1.6.3-2_amd64.deb ...
+#7 13.71 Unpacking libkeyutils1:amd64 (1.6.3-2) ...
+#7 13.75 Selecting previously unselected package libssl3:amd64.
+#7 13.75 Preparing to unpack .../04-libssl3_3.0.22-1~deb12u2_amd64.deb ...
+#7 13.75 Unpacking libssl3:amd64 (3.0.22-1~deb12u2) ...
+#7 14.11 Selecting previously unselected package libkrb5-3:amd64.
+#7 14.11 Preparing to unpack .../05-libkrb5-3_1.20.1-2+deb12u5_amd64.deb ...
+#7 14.12 Unpacking libkrb5-3:amd64 (1.20.1-2+deb12u5) ...
+#7 14.20 Selecting previously unselected package libgssapi-krb5-2:amd64.
+#7 14.20 Preparing to unpack .../06-libgssapi-krb5-2_1.20.1-2+deb12u5_amd64.deb ...
+#7 14.21 Unpacking libgssapi-krb5-2:amd64 (1.20.1-2+deb12u5) ...
+#7 14.24 Selecting previously unselected package libsasl2-modules-db:amd64.
+#7 14.24 Preparing to unpack .../07-libsasl2-modules-db_2.1.28+dfsg-10+deb12u1_amd64.deb ...
+#7 14.24 Unpacking libsasl2-modules-db:amd64 (2.1.28+dfsg-10+deb12u1) ...
+#7 14.26 Selecting previously unselected package libsasl2-2:amd64.
+#7 14.26 Preparing to unpack .../08-libsasl2-2_2.1.28+dfsg-10+deb12u1_amd64.deb ...
+#7 14.30 Unpacking libsasl2-2:amd64 (2.1.28+dfsg-10+deb12u1) ...
+#7 14.32 Selecting previously unselected package libldap-2.5-0:amd64.
+#7 14.32 Preparing to unpack .../09-libldap-2.5-0_2.5.13+dfsg-5_amd64.deb ...
+#7 14.32 Unpacking libldap-2.5-0:amd64 (2.5.13+dfsg-5) ...
+#7 14.36 Selecting previously unselected package libnghttp2-14:amd64.
+#7 14.36 Preparing to unpack .../10-libnghttp2-14_1.52.0-1+deb12u3_amd64.deb ...
+#7 14.40 Unpacking libnghttp2-14:amd64 (1.52.0-1+deb12u3) ...
+#7 14.43 Selecting previously unselected package libpsl5:amd64.
+#7 14.43 Preparing to unpack .../11-libpsl5_0.21.2-1_amd64.deb ...
+#7 14.44 Unpacking libpsl5:amd64 (0.21.2-1) ...
+#7 14.50 Selecting previously unselected package librtmp1:amd64.
+#7 14.50 Preparing to unpack .../12-librtmp1_2.4+20151223.gitfa8646d.1-2+b2_amd64.deb ...
+#7 14.50 Unpacking librtmp1:amd64 (2.4+20151223.gitfa8646d.1-2+b2) ...
+#7 14.53 Selecting previously unselected package libssh2-1:amd64.
+#7 14.53 Preparing to unpack .../13-libssh2-1_1.10.0-3+deb12u1_amd64.deb ...
+#7 14.53 Unpacking libssh2-1:amd64 (1.10.0-3+deb12u1) ...
+#7 14.60 Selecting previously unselected package libcurl4:amd64.
+#7 14.60 Preparing to unpack .../14-libcurl4_7.88.1-10+deb12u15_amd64.deb ...
+#7 14.60 Unpacking libcurl4:amd64 (7.88.1-10+deb12u15) ...
+#7 14.65 Selecting previously unselected package curl.
+#7 14.65 Preparing to unpack .../15-curl_7.88.1-10+deb12u15_amd64.deb ...
+#7 14.66 Unpacking curl (7.88.1-10+deb12u15) ...
+#7 14.74 Selecting previously unselected package openssl.
+#7 14.75 Preparing to unpack .../16-openssl_3.0.22-1~deb12u2_amd64.deb ...
+#7 14.75 Unpacking openssl (3.0.22-1~deb12u2) ...
+#7 14.95 Setting up libkeyutils1:amd64 (1.6.3-2) ...
+#7 14.95 Setting up libpsl5:amd64 (0.21.2-1) ...
+#7 14.95 Setting up libbrotli1:amd64 (1.0.9-2+deb12u1) ...
+#7 14.96 Setting up libssl3:amd64 (3.0.22-1~deb12u2) ...
+#7 15.00 Setting up libnghttp2-14:amd64 (1.52.0-1+deb12u3) ...
+#7 15.00 Setting up libkrb5support0:amd64 (1.20.1-2+deb12u5) ...
+#7 15.01 Setting up libsasl2-modules-db:amd64 (2.1.28+dfsg-10+deb12u1) ...
+#7 15.01 Setting up librtmp1:amd64 (2.4+20151223.gitfa8646d.1-2+b2) ...
+#7 15.01 Setting up libk5crypto3:amd64 (1.20.1-2+deb12u5) ...
+#7 15.02 Setting up libsasl2-2:amd64 (2.1.28+dfsg-10+deb12u1) ...
+#7 15.02 Setting up libssh2-1:amd64 (1.10.0-3+deb12u1) ...
+#7 15.02 Setting up libkrb5-3:amd64 (1.20.1-2+deb12u5) ...
+#7 15.03 Setting up openssl (3.0.22-1~deb12u2) ...
+#7 15.03 Setting up libldap-2.5-0:amd64 (2.5.13+dfsg-5) ...
+#7 15.04 Setting up libgssapi-krb5-2:amd64 (1.20.1-2+deb12u5) ...
+#7 15.04 Setting up libcurl4:amd64 (7.88.1-10+deb12u15) ...
+#7 15.04 Setting up curl (7.88.1-10+deb12u15) ...
+#7 15.05 Processing triggers for libc-bin (2.36-9+deb12u14) ...
+#7 DONE 15.1s
+
+#11 [deps 6/6] RUN npm ci
+#11 72.50 npm error Exit handler never called!
+#11 72.50 npm error This is an error with npm itself. Please report this error at:
+#11 72.50 npm error   <https://github.com/npm/cli/issues>
+#11 72.50 npm error A complete log of this run can be found in: /root/.npm/_logs/2026-11-03T16_32_35_543Z-debug-0.log
+#11 ERROR: process "/bin/sh -c npm ci" did not complete successfully: exit code: 1
+------
+ > [deps 6/6] RUN npm ci:
+72.50 npm error Exit handler never called!
+72.50 npm error This is an error with npm itself. Please report this error at:
+72.50 npm error   <https://github.com/npm/cli/issues>
+72.50 npm error A complete log of this run can be found in: /root/.npm/_logs/2026-11-03T16_32_35_543Z-debug-0.log
+------
+Dockerfile:10
+--------------------
+   8 |     COPY package.json package-lock.json ./
+   9 |     COPY prisma ./prisma
+  10 | >>> RUN npm ci
+  11 |     
+  12 |     FROM node:22-slim AS builder
+--------------------
+ERROR: failed to build: failed to solve: process "/bin/sh -c npm ci" did not complete successfully: exit code: 1

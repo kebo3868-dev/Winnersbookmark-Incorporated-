@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { prisma, resolveDatabaseUrlSource } from '@/lib/db';
+import { isNonProductionDeployment, prisma, resolveDatabaseUrlSource } from '@/lib/db';
 import { checkBasicAuth, resolveAuthMode } from '@/lib/auth';
 import { resolveLeadRetentionDays } from '@/lib/leads/retention';
 
@@ -63,7 +63,8 @@ function diagnosticConfig() {
           ? 'open (non-production)'
           : 'MISSING — all routes serve 503 until BASIC_AUTH_USER/BASIC_AUTH_PASSWORD are set',
     databaseSource: resolveDatabaseUrlSource() ?? 'NONE — no database env var found',
-    migrationSourceAvailable: Boolean(
+    // A non-production deployment never migrates (scripts/vercel-build-plan.mjs).
+    migrationSourceAvailable: !isNonProductionDeployment() && Boolean(
       process.env.RESCUE_DIRECT_URL || process.env.DATABASE_URL_UNPOOLED || process.env.POSTGRES_URL_NON_POOLING,
     ),
     aiNarrative:

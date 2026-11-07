@@ -37,7 +37,7 @@ export default async function SalesBriefPage({ params }: { params: Promise<{ aud
           <p className="label mb-2">Sales Brief</p>
           <h1 className="font-display text-3xl">{brief.audit.restaurant.name}</h1>
           {brief.audit.demoMode && (
-            <p className="mt-2 inline-block border border-gold-dim/60 text-gold-dim rounded px-3 py-1 text-xs uppercase tracking-widest">Demonstration Data</p>
+            <p className="mt-2 inline-block border border-gold-dim/60 text-gold-muted rounded px-3 py-1 text-xs uppercase tracking-widest">Demonstration Data</p>
           )}
         </div>
         <span className={`self-start sm:self-auto text-sm uppercase tracking-widest border rounded px-3 py-1.5 ${
