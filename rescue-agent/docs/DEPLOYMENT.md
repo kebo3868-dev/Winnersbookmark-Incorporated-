@@ -79,6 +79,23 @@ This brings up the app plus a persistent PostgreSQL with migrations applied.
 | `AI_PROVIDER` / `AI_MODEL` / `ANTHROPIC_API_KEY` | no | Optional AI narrative layer; deterministic fallback when unset |
 | `RESCUE_AGENT_ALLOW_PRIVATE_TARGETS` | never in production | Test-only fixture hook; hard-disabled when `NODE_ENV=production` |
 
+### Preview deployments have no database
+
+Database variables are scoped to **Production only** in Vercel, and the code
+enforces the same rule:
+
+- **Build** (`scripts/vercel-build-plan.mjs`): only a production build runs
+  `prisma migrate deploy`. A preview or development build runs `prisma generate`
+  and `next build` only, and is **refused** if it can see any database
+  variable. A build without `VERCEL_ENV` is refused too, so keep
+  "Automatically expose System Environment Variables" enabled.
+- **Runtime** (`src/lib/db.ts`): a preview or development deployment connects to
+  an unreachable `.invalid` address whatever is configured. Its database-backed
+  pages fail, and `/api/health` reports the database down with source
+  "DISABLED — non-production deployment".
+
+Production, local development, Docker and CI are unchanged.
+
 ### Database URL overrides
 
 `RESCUE_DATABASE_URL` / `RESCUE_DIRECT_URL` take priority over `DATABASE_URL`,

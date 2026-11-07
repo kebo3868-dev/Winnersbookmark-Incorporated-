@@ -63,7 +63,7 @@ export default function ScenarioCalculator({
             <p className="label">What-if, per year</p>
             <p className="font-display text-2xl text-gold">{result.annualExposure}</p>
           </div>
-          <p className="sm:col-span-2 text-gold-dim text-xs">{result.confidenceStatement}</p>
+          <p className="sm:col-span-2 text-gold-muted text-xs">{result.confidenceStatement}</p>
         </div>
       ) : (
         <p className={`mt-4 text-xs ${problem ? 'text-amber-400' : 'text-ivory-faint'}`} role={problem ? 'alert' : undefined}>

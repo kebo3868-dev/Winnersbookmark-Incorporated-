@@ -158,10 +158,31 @@ describe('2. a private-party link does not establish how inquiries are handled',
     expect(leak!.recommendedSolution).toMatch(/if they do not, no automation is needed/i);
   });
 
+  // PR #63's intent, restored in PR #77 after review: a link alone does not
+  // establish demand, so catering is never a recommendation or a pilot
+  // decision. It stays visible — in Section 06, the Decision box and Days
+  // 15–21 alike — as an exploratory Moderate-fit opportunity requiring
+  // owner-record validation, at its unchanged AI fit.
   it('is not promoted to an AI recommendation on the strength of a link', () => {
     expect(leak!.aiFitScore).toBeLessThan(70);
     const dto = buildExecutiveReport(reportInput(leaks, analyzeJourney(records)));
-    expect(dto.rankedAiOpportunities.map((o) => o.solutionCategory)).not.toContain('Lead Capture & Inquiry Automation');
+    const intake = dto.rankedAiOpportunities.find((o) => o.solutionCategory === 'Lead Capture & Inquiry Automation');
+    // Visible in Section 06 only as exploratory — not a recommendation, no pilot.
+    expect(intake, 'listed, flagged exploratory').toBeDefined();
+    expect(intake!.exploratory).toBe(true);
+    expect(intake!.fit).toBe('MODERATE');
+    expect(intake!.requiresValidation).toBe(true);
+    expect(intake!.basis).toMatch(/^Not a recommendation\. This opportunity is exploratory only: public evidence alone does not establish demand for it, so no automation purchase is justified and no pilot is recommended\./);
+    // Its finding card recommends no automation and no pilot either.
+    const card = dto.findings.find((f) => /CATERING|PRIVATE/i.test(f.category))!;
+    expect(card.recommendedAction).not.toMatch(/pilot —|limited, monitored pilot|matched fix|AI-assisted/i);
+    expect(card.recommendedAction).toMatch(/no automation purchase is justified and no pilot is recommended/);
+    // Never a pilot decision: not piloted in Days 15–21, not piloted in the Decision box.
+    const decide = dto.thirtyDayPlan.find((p) => p.phase === 'DAYS 15–21')!.actions.join(' ');
+    expect(decide).not.toMatch(/pilot of Lead Capture/);
+    expect(decide).toContain('Lead Capture & Inquiry Automation stays exploratory — no pilot is proposed');
+    expect(dto.decisionBox.implement.detail).not.toMatch(/Pilot [^.]*Lead Capture/);
+    expect(dto.findings.find((f) => /CATERING|PRIVATE/i.test(f.category))!.internalScores.aiFit).toBe(leak!.aiFitScore);
     const finding = dto.findings.find((f) => /Private-event/.test(f.title))!;
     expect(finding.commercialEffect).not.toMatch(/manual handling/i);
     expect(finding.whatWeDoNotKnow).toMatch(/acknowledgment records, response times and booking records/i);
@@ -366,8 +387,15 @@ describe('phone wording: observed facts, open questions and losses stay distinct
     const { dto } = build();
     expect(dto.prescription.diagnosis).not.toMatch(/FAQ/i);
     expect(frictionFaqSentences(dto.prescription.diagnosis)).toEqual([]);
-    // The top finding is named as what it is: an open question for the owner's records.
-    expect(dto.prescription.diagnosis).toMatch(/open question/i);
+    // The top finding is named as what it is: unverified, an opportunity that
+    // requires validation against the owner's records. The wording changed from
+    // "open question" to match the report's own section heading ("Priority
+    // Opportunities to Validate"); the substance this pins is unchanged — it is
+    // not presented as a verified finding, as friction, or as a loss.
+    expect(dto.prescription.diagnosis).toMatch(/opportunity requiring validation/i);
+    expect(dto.prescription.diagnosis).not.toMatch(/verified finding/i);
+    expect(dto.prescription.diagnosis).toMatch(/^No customer-facing friction was observed/);
+    expect(dto.prescription.diagnosis).not.toMatch(/\b(lost|losing|loss|revenue leak)\b/i);
     expect(dto.prescription.prescription).not.toMatch(/confirms the observed friction/i);
   });
 

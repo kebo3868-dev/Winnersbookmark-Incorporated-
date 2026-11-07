@@ -1,0 +1,208 @@
+{
+ "_about": "Evidence chain reconstructed from the appendix of the Leverock's Great Seafood report that scored 77/100 (audit cmvoqcs6u0002kw08rfmgydre, generated 2026-10-26 on main a00bbde). Public-website facts only, as printed in that report; confidence is the printed label (Strong/Moderate/Preliminary). Read-only test input: nothing writes it to any database.",
+ "records": [
+  {
+   "type": "BUSINESS_IDENTITY",
+   "source": "https://leverocks.com/",
+   "fact": "Homepage title: \"Leverock's Great Seafood | St. Petersburg, FL\".",
+   "ctx": "Meta description: Since 1948, Leverock's has been providing quality, value, and service. Our dining room is casual, so come as you are. We are located just off of St. Pete Beach in the South Pasadena area of St. Pete",
+   "conf": "Strong"
+  },
+  {
+   "type": "MOBILE_SIGNAL",
+   "source": "https://leverocks.com/",
+   "fact": "Homepage declares a mobile viewport meta tag (basic mobile configuration present).",
+   "ctx": "",
+   "conf": "Strong"
+  },
+  {
+   "type": "PHONE_VISIBILITY",
+   "source": "https://leverocks.com/",
+   "fact": "A phone number is publicly displayed: (727) 367-4588.",
+   "ctx": "Displayed on the homepage.",
+   "conf": "Strong"
+  },
+  {
+   "type": "CLICK_TO_CALL",
+   "source": "https://leverocks.com/",
+   "fact": "Click-to-call (tel:) links are present, enabling one-tap mobile calls.",
+   "ctx": "Based on 8 analyzed page(s).",
+   "conf": "Strong"
+  },
+  {
+   "type": "CONTACT_EMAIL",
+   "source": "https://leverocks.com/",
+   "fact": "A public contact email address is published: leverocksgreatseafood@gmail.com.",
+   "ctx": "Found on https://leverocks.com/. This is an address the restaurant publishes for customers to write to — it is not a newsletter signup, which is recorded separately.",
+   "conf": "Strong"
+  },
+  {
+   "type": "FORM_PURPOSE_UNVERIFIED",
+   "source": "https://leverocks.com/st-petersburg-leverock-s-great-seafood-gift-cards",
+   "fact": "A form a customer can write into is published on the website, but whether it accepts general enquiries could not be established from the form itself.",
+   "ctx": "Found on https://leverocks.com/st-petersburg-leverock-s-great-seafood-gift-cards. Nothing in the form's own heading, attributes or submit button says what it is for, and a message box alone does not show that it takes general enquiries. It is not counted as a verified contact route, and it is not evidence that no route exists. The form was not submitted during this audit. Owner confirmation required.",
+   "conf": "Preliminary"
+  },
+  {
+   "type": "HOURS_VISIBILITY",
+   "source": "https://leverocks.com/",
+   "fact": "Business hours are published on the website.",
+   "ctx": "Detected hours text: \"Sat 11:30 AM - 10:00 PM\"",
+   "conf": "Strong"
+  },
+  {
+   "type": "ADDRESS_VISIBILITY",
+   "source": "https://leverocks.com/",
+   "fact": "A street address is published on the website.",
+   "ctx": "Detected address text: \"840 Pasadena Avenue South, St. Petersburg, FL 33707\"",
+   "conf": "Strong"
+  },
+  {
+   "type": "TECHNICAL_SIGNAL",
+   "source": "https://leverocks.com/",
+   "fact": "The website carries a builder/vendor credit for SpotHopper.",
+   "ctx": "Credit link text: \"\" → https://www.spothopperapp.com. Recorded as a technical fact about who built the site. It is not a customer-facing booking or ordering pathway and is excluded from those checks.",
+   "conf": "Strong"
+  },
+  {
+   "type": "MENU_ACCESS",
+   "source": "https://leverocks.com/st-petersburg-leverock-s-great-seafood-food-menu",
+   "fact": "A menu pathway is publicly linked (9 link(s) found).",
+   "ctx": "Example link text: \"Menu\" → https://leverocks.com/st-petersburg-leverock-s-great-seafood-food-menu",
+   "conf": "Strong"
+  },
+  {
+   "type": "MENU_ACCESS",
+   "source": "https://leverocks.com/st-petersburg-leverock-s-great-seafood-food-menu",
+   "fact": "The linked menu page was fetched successfully during this audit (HTTP 200).",
+   "ctx": "https://leverocks.com/st-petersburg-leverock-s-great-seafood-food-menu. Collected as one of the audit's source pages, so it was not probed separately. This confirms the page loads; whether it shows a complete, current menu is not assessed.",
+   "conf": "Strong"
+  },
+  {
+   "type": "RESERVATION_PATH",
+   "source": "https://leverocks.com/",
+   "fact": "No public reservation pathway could be resolved, but a SpotHopper widget was detected on the page.",
+   "ctx": "SpotHopper assets are loaded by the site, so a reservation option may be presented to customers by a script. Its destination is rendered in the browser and cannot be verified from the public HTML — manual validation required. This is not evidence that a working pathway exists.",
+   "conf": "Preliminary"
+  },
+  {
+   "type": "ORDERING_PATH",
+   "source": "https://leverocks.com/",
+   "fact": "Ordering is offered by telephone: the ordering call-to-action on the website places a phone call rather than opening an online ordering page.",
+   "ctx": "Call-to-action text: \"Order\" linked to a telephone number. An ordering destination is also declared in the page markup (https://tmt.spotapps.co/order- ing-menu/?spot_id=), but the action a customer is actually offered is the phone call above, so it is recorded as context rather than as a working online ordering pathway. Whether that destination is reachable for customers requires manual validation.",
+   "conf": "Strong"
+  },
+  {
+   "type": "CONTACT_PATH",
+   "source": "https://leverocks.com/",
+   "fact": "A contact pathway is publicly available by telephone and a published email address, but no contact page or verified enquiry form was detected, and a form was found whose purpose could not be established.",
+   "ctx": "Phone number published: (727) 367-4588. Click-to-call (tel:) links are present. Public email address published: leverocksgreatseafood@gmail.com. 1 form(s) whose purpose could not be established are recorded separately and are not counted as routes. Customers can reach the restaurant by phone or in writing; what happens to a written enquiry, and how fast, is not observable from the public site. Based on 8 analyzed page(s).",
+   "conf": "Strong"
+  },
+  {
+   "type": "CATERING_PATH",
+   "source": "https://leverocks.com/",
+   "fact": "No public catering pathway was detected on the analyzed website pages.",
+   "ctx": "Based on 8 analyzed page(s).",
+   "conf": "Moderate"
+  },
+  {
+   "type": "PRIVATE_DINING_PATH",
+   "source": "https://leverocks.com/-party?source=pop_up&spot_id=78550&destination=private_parties&promo…",
+   "fact": "A private dining pathway is publicly linked (3 link(s) found).",
+   "ctx": "Example link text: \"Book your party\" → https://leverocks.com/-party?source=pop_up&spot_id=78550&destination=private_parties&promotion=holiday_party",
+   "conf": "Strong"
+  },
+  {
+   "type": "FAQ_SIGNAL",
+   "source": "https://leverocks.com/",
+   "fact": "No public FAQ pathway was detected on the analyzed website pages.",
+   "ctx": "Based on 8 analyzed page(s).",
+   "conf": "Moderate"
+  },
+  {
+   "type": "GIFT_CARD_SIGNAL",
+   "source": "https://leverocks.com/st-petersburg-leverock-s-great-seafood-gift-cards",
+   "fact": "A gift card pathway is publicly linked (2 link(s) found).",
+   "ctx": "Example link text: \"Gift Cards\" → https://leverocks.com/st-petersburg-leverock-s-great-seafood-gift-cards",
+   "conf": "Strong"
+  },
+  {
+   "type": "LOYALTY_SIGNAL",
+   "source": "https://leverocks.com/",
+   "fact": "No public loyalty or rewards pathway was detected on the analyzed website pages.",
+   "ctx": "Based on 8 analyzed page(s).",
+   "conf": "Moderate"
+  },
+  {
+   "type": "ORDERING_CHANNEL",
+   "source": "https://leverocks.com/",
+   "fact": "ORDERING CHANNEL: PHONE_ORDERING_ONLY — The ordering call-to-action found on the analyzed pages places a telephone call rather than opening an online ordering page. Telephone ordering is a legitimate ordering pathway, and it is not online ordering. Whether online ordering exists somewhere this audit did not reach is not established either way.",
+   "ctx": "Call-to-action text \"Order\" resolves to a telephone number (a tel: link), not to a web destination. No browser-based ordering destination was found alongside it. Evidence confidence: VERIFIED.",
+   "conf": "Strong"
+  },
+  {
+   "type": "EMAIL_CAPTURE",
+   "source": "https://leverocks.com/",
+   "fact": "An email capture mechanism for collecting visitors' addresses (signup form or newsletter invitation) is publicly visible.",
+   "ctx": "Based on 8 analyzed page(s). This concerns list building, not the restaurant's own published contact address.",
+   "conf": "Strong"
+  },
+  {
+   "type": "SOCIAL_LINK",
+   "source": "https://leverocks.com/",
+   "fact": "2 social profile link(s) detected.",
+   "ctx": "https://www.facebook.com/199397746835544, https://www.instagram.com/leverocksseafoodrestaurant",
+   "conf": "Strong"
+  },
+  {
+   "type": "CTA_SIGNAL",
+   "source": "https://leverocks.com/",
+   "fact": "Homepage presents 9 action-oriented CTA(s).",
+   "ctx": "Examples: Book your party | Call to Inquire | Menu | Gift Cards | Facebook page | Order",
+   "conf": "Strong"
+  },
+  {
+   "type": "CTA_SIGNAL",
+   "source": "https://leverocks.com/",
+   "fact": "Homepage presents 9 distinct action-oriented CTAs, more than the 8 this audit treats as a prompt to look at hierarchy.",
+   "ctx": "Book your party | Call to Inquire | Menu | Gift Cards | Facebook page | Order | Our Menu | Get Directions | Call us at (727) 367-4588. This is a COUNT, not a judgement about the design. Whether these actions compete visually depends on layout, size and placement, which this audit does not render or measure, and whether any conversion is lost depends on website analytics it cannot see.",
+   "conf": "Moderate"
+  },
+  {
+   "type": "TECHNICAL_SIGNAL",
+   "source": "https://leverocks.com/",
+   "fact": "A reservation endpoint referenced by the site was tested and is not a customer-facing destination (HTTP 405 — the destination exists and does not accept GET requests; it was not verified from the customer's side).",
+   "ctx": "https://www.spothopperapp.com/api/spots/78550/reservation_requests/add. Classified as API_ENDPOINT — path contains an /api/ segment. Raw result retained for debugging. It is deliberately excluded from the customer-journey assessment: no customer opens this URL, so its response says nothing about whether the pathway works or fails.",
+   "conf": "Strong"
+  },
+  {
+   "type": "ORDERING_PATH",
+   "source": "https://leverocks.com/",
+   "fact": "The ordering destination could not be verified when tested (HTTP 404) — manual validation required.",
+   "ctx": "https://tmt.spotapps.co/ordering-menu/?spot_id=. Not reported as a failure because the destination appears only in the page markup — no visible link or button points customers to it, so nothing here shows a customer ever reaches it.",
+   "conf": "Preliminary"
+  },
+  {
+   "type": "MENU_ACCESS",
+   "source": "https://static.spotapps.co/spots/5b/d68d61f1434b70aacb93ea0a18eedf/full",
+   "fact": "The linked menu destination responded successfully when tested (HTTP 200) and is operated by SpotHopper.",
+   "ctx": "https://static.spotapps.co/spots/5b/d68d61f1434b70aacb93ea0a18eedf/full",
+   "conf": "Strong"
+  },
+  {
+   "type": "MENU_ACCESS",
+   "source": "https://static.spotapps.co/spots/e5/eaad43eb754356819c159cb04f69db/full",
+   "fact": "The linked menu destination responded successfully when tested (HTTP 200) and is operated by SpotHopper.",
+   "ctx": "https://static.spotapps.co/spots/e5/eaad43eb754356819c159cb04f69db/full",
+   "conf": "Strong"
+  },
+  {
+   "type": "MENU_AVAILABILITY",
+   "source": "https://leverocks.com/st-petersburg-leverock-s-great-seafood-drink-menu",
+   "fact": "A working menu was verified at https://leverocks.com/st-petersburg-leverock-s-great-seafood-drink-menu; 5 other menu link(s) were not verified.",
+   "ctx": "https://leverocks.com/488258 — not verified (not tested). https://leverocks.com/488259 — not verified (not tested). https://leverocks.com/st-pe- tersburg-leverock-s-great-seafood-drink-menu — works (fetched during this audit, HTTP 200). https://leverocks.com/st-petersburg-leve- rock-s-great-seafood-food-menu — works (fetched during this audit, HTTP 200). https://static.spotapps.co/spots/5b/d68d61f1434b70aacb93ea0a18eedf/full — works (HTTP 200). https://static.spotapps.co/spots/e5/eaad43eb754356819c159cb04f69db/full — works (HTTP 200). https://tmt.spotapps.co/job-list- ings?spot_id=78550&callback_url=http://leverocks.com/st-petersburg-leverock-s-great-seafood-drink-menu — not verified (not tested). https://tmt.spotapps.co/job-listings?spot_id=78550&callback_url=http://leverocks.com/st-petersburg-leverock-s-great-seafood-food-menu — not verified (not tested). https://tmt.spotapps.co/ordering-menu/?spot_id= — not verified (HTTP 404, tested as the ordering destination). Each menu link is judged on its own: a working link is not cancelled by a broken one, and a link that was not verified is neither counted as working nor as broken.",
+   "conf": "Strong"
+  }
+ ]
+}

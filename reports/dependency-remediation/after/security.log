@@ -1,0 +1,8 @@
+
+ RUN  v4.1.12 /workspace/winnersbookmark/rescue-agent
+
+
+ Test Files  11 passed (11)
+      Tests  324 passed (324)
+   Start at  17:07:53
+   Duration  84.25s (transform 8.09s, setup 0ms, import 20.69s, tests 123.42s, environment 1ms)

@@ -1,0 +1,36 @@
+Unable to find image 'busybox:latest' locally
+latest: Pulling from library/busybox
+37bb94b0940b: Pulling fs layer
+37bb94b0940b: Verifying Checksum
+37bb94b0940b: Download complete
+37bb94b0940b: Pull complete
+Digest: sha256:a46257e06c82ad85242d0d38077d0a52d9896389ca60a1a59d3463db586e5fa4
+Status: Downloaded newer image for busybox:latest
+81.4M	/inspect/vfs/dir/516923262ca5018687326e66f8c348274f3204945ba3e5af1613394bf010a585
+8.0K	/inspect/vfs/dir/cebwkjzvfobub3d1j2qtwj6ji
+4.4M	/inspect/vfs/dir/cbe0fe97e1d036ccbe4d57d65be1488a33d864c364d2820f5ea5419bc23ac180-init
+3.2M	/inspect/vfs/dir/nn4lb7q0xb3lt315brd092p4n
+238.4M	/inspect/vfs/dir/xc56ykyucxnvo8x7x9i6d99ds
+231.4M	/inspect/vfs/dir/c8860a69bc76bf79298e8e9d7e8e922b39d09b38a1955174b02d1e2b382c570c
+1.0G	/inspect/vfs/dir/x1pp1oeat3c8svgzookjm8qe1
+4.4M	/inspect/vfs/dir/cbe0fe97e1d036ccbe4d57d65be1488a33d864c364d2820f5ea5419bc23ac180
+231.4M	/inspect/vfs/dir/jr3xt97j5sd7v2sc25fh9xo8w
+243.5M	/inspect/vfs/dir/rzaz2hi382pz1cvzvqcqcm4gl
+231.4M	/inspect/vfs/dir/954829b46bbc5de2cd5babdbd5029063c1557e399a8afe7a347e2ab9d4ec5670
+238.2M	/inspect/vfs/dir/e4r8ui5hksxrddyser4e72wxb
+1.1G	/inspect/vfs/dir/qxf9ts10247wmpoe2sxgd18b0
+8.0K	/inspect/vfs/dir/j8iexmllanx1zotvczsgqdatq
+1.1G	/inspect/vfs/dir/y3krfbphkf19ssye1d2ydgv3d
+4.4M	/inspect/vfs/dir/65a7fb35a3b7a2e0d7d23efa1b124d002a8b0261fcee9eea76ba580161d42082
+238.1M	/inspect/vfs/dir/sulmk99ng25cl8zce9zrvsoqg
+226.2M	/inspect/vfs/dir/5c0b270ef9be864dc0be40ad62b35ff9a2067ac1f3c01d0c34ffc25fdbbc190c
+81.4M	/inspect/vfs/dir/6c81892a57e238b7d84b91a50109aed20d050007299026bb940ff50c400db3eb
+1.5G	/inspect/vfs/dir/osu46klxhxpnekympwupcycfr
+6.7G	/inspect/vfs/dir
+6.7G	/inspect/vfs
+172.0K	/inspect/buildkit/content/blobs
+4.0K	/inspect/buildkit/content/ingest
+180.0K	/inspect/buildkit/content
+8.0K	/inspect/buildkit/executor
+4.0K	/inspect/buildkit/net
+4.1M	/inspect/buildkit

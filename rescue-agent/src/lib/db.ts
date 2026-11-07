@@ -16,7 +16,9 @@ import { PrismaClient } from '@prisma/client';
  * 4. POSTGRES_URL / PRISMA_DATABASE_URL — other integrations' aliases.
  *
  * Must be a direct postgres:// URL (never prisma+postgres://). Migrations use
- * the UNPOOLED URL instead — see scripts/vercel-build.mjs.
+ * the UNPOOLED URL instead — see scripts/vercel-build-plan.mjs.
+ *
+ * Not on a non-production Vercel deployment: see NON_PRODUCTION_DATABASE_URL.
  */
 export const RUNTIME_URL_SOURCES = [
   'RESCUE_DATABASE_URL',
@@ -26,7 +28,31 @@ export const RUNTIME_URL_SOURCES = [
   'PRISMA_DATABASE_URL',
 ] as const;
 
+/**
+ * PREVIEW AND DEVELOPMENT DEPLOYMENTS NEVER CONNECT TO A DATABASE.
+ *
+ * A Vercel deployment that is not production gets this address instead of any
+ * configured variable. `.invalid` is reserved (RFC 2606) and never resolves, so
+ * every query fails to connect. It is never `undefined`: with no URL, Prisma
+ * falls back to the schema's `env("DATABASE_URL")`, which is exactly the
+ * variable that must not be used here. Database variables are scoped to
+ * Production only in Vercel; this keeps a re-scoped variable harmless at
+ * runtime too. The build refuses the same situation (scripts/vercel-build-plan.mjs).
+ */
+export const NON_PRODUCTION_DATABASE_URL = 'postgresql://non-production-database-disabled.invalid:5432/disabled';
+
+/**
+ * True on a Vercel deployment that is not production (preview, development),
+ * and on Vercel when the target cannot be determined. Local development,
+ * Docker and CI (no Vercel variables) are unaffected.
+ */
+export function isNonProductionDeployment(env: Record<string, string | undefined> = process.env): boolean {
+  if (env.VERCEL_ENV) return env.VERCEL_ENV !== 'production';
+  return env.VERCEL === '1';
+}
+
 export function resolveDatabaseUrl(env: Record<string, string | undefined> = process.env): string | undefined {
+  if (isNonProductionDeployment(env)) return NON_PRODUCTION_DATABASE_URL;
   for (const name of RUNTIME_URL_SOURCES) {
     if (env[name]) return env[name];
   }
@@ -35,6 +61,7 @@ export function resolveDatabaseUrl(env: Record<string, string | undefined> = pro
 
 /** Name of the env var the runtime connection came from (for diagnostics). */
 export function resolveDatabaseUrlSource(env: Record<string, string | undefined> = process.env): string | null {
+  if (isNonProductionDeployment(env)) return 'DISABLED — non-production deployment';
   for (const name of RUNTIME_URL_SOURCES) {
     if (env[name]) return name;
   }

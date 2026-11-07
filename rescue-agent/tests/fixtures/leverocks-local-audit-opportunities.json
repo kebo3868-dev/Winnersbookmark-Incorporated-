@@ -1,0 +1,65 @@
+{
+ "_about": "The four stored findings of the local Leverock's verification audit (cmvy93jxy00027d46q4mnw053), produced by the current engine against a local replica of the public site. Evidence ids are dropped: they refer to a local test database. Read-only test input; nothing writes it anywhere.",
+ "opportunities": [
+  {
+   "category": "ORDER BUTTON LABEL MISMATCH",
+   "title": "The online ordering button uses a telephone link instead of an online checkout",
+   "problem": "The \"Order\" button under \"ORDER ONLINE\" uses a telephone link that can open the phone's calling function rather than directing customers to an online checkout.",
+   "businessImpact": "A visitor who chooses to order online is sent to a phone number instead of the online checkout the label promises. Ordering by phone may be intentional; the mismatch between the label and the destination is what needs a decision.",
+   "customerJourneyStage": "ORDERING",
+   "evidenceIds": [],
+   "impactScore": 60,
+   "urgencyScore": 55,
+   "confidenceScore": 78,
+   "aiFitScore": 15,
+   "rescuePriorityScore": 57,
+   "recommendedSolution": "Decide which experience is intended. If online ordering should be offered, point the button at the restaurant's online ordering page — setting one up first if none exists, and complete or remove the unfinished ordering address in the page code. If orders are taken by phone, relabel the section — for example \"Order by Phone\" — so the button does what it says. After the change, tap the button on a phone to confirm it behaves as intended. A direct website fix, not an AI project.",
+   "manualValidationRequired": false
+  },
+  {
+   "category": "PHONE-DEPENDENT CUSTOMER JOURNEY",
+   "title": "Phone demand is unmeasured, and the website cannot show whether it is avoidable",
+   "problem": "OBSERVED: no dedicated FAQ page was found. The website does publish opening hours, the menu, the address and how to get in touch, so those questions are answerable online without calling. REQUIRES YOUR DATA: how many calls arrive, how many go unanswered, and what share are repeat questions cannot be observed from a public website. This audit does not claim the phone is overloaded or that calls are being missed — it cannot see either.",
+   "businessImpact": "If call volume turns out to be high and largely repetitive, answering those calls automatically is worth measuring. Whether that is the case here is an open question, not a finding.",
+   "customerJourneyStage": "PHONE",
+   "evidenceIds": [],
+   "impactScore": 40,
+   "urgencyScore": 30,
+   "confidenceScore": 55,
+   "aiFitScore": 95,
+   "rescuePriorityScore": 50,
+   "recommendedSolution": "Before any system: pull 30 days of call records — total calls, unanswered calls, and the most common reasons. If that shows high repetitive volume, the Winnersbookmark AI Front Desk (voice answering, missed-call text-back, FAQ automation, after-hours capture) is the matched fix. If it does not, this is not a problem worth solving.",
+   "manualValidationRequired": true
+  },
+  {
+   "category": "CATERING LEAD CAPTURE OPPORTUNITY",
+   "title": "Private-event inquiry handling requires validation",
+   "problem": "Private-event inquiry handling requires validation. OBSERVED: a private-event pathway is publicly linked. NOT OBSERVED: how those inquiries are received, acknowledged or answered — a link shows that a pathway exists, not whether handling is manual, automated, fast or slow. REQUIRES YOUR DATA: acknowledgment records, response times and booking records for recent private-event inquiries.",
+   "businessImpact": "Private-event bookings are high-value, so how their inquiries are handled matters. Whether any are slowed or lost is unmeasured here.",
+   "customerJourneyStage": "CONTACT",
+   "evidenceIds": [],
+   "impactScore": 50,
+   "urgencyScore": 35,
+   "confidenceScore": 55,
+   "aiFitScore": 60,
+   "rescuePriorityScore": 49,
+   "recommendedSolution": "Before recommending any automation, collect acknowledgment records, response times and booking records for recent private-event inquiries. If they show slow or missed responses, AI-assisted intake (instant acknowledgment, structured intake, human handoff) is the matched fix; if they do not, no automation is needed here.",
+   "manualValidationRequired": true
+  },
+  {
+   "category": "CONFUSING CTA HIERARCHY",
+   "title": "The homepage offers many actions — worth checking which one leads",
+   "problem": "OBSERVED: the homepage presents more distinct action-oriented CTAs than the threshold this audit flags for review. NOT OBSERVED: whether they compete visually. This audit reads markup, not layout — it cannot see size, position or contrast, so a long list of actions in a clear hierarchy looks identical to a cluttered one. REQUIRES YOUR DATA: whether any conversion is actually lost needs website analytics.",
+   "businessImpact": "If the actions do compete, the cost is visitors who arrive ready to act and hesitate. Whether that is happening here is unmeasured.",
+   "customerJourneyStage": "WEBSITE",
+   "evidenceIds": [],
+   "impactScore": 35,
+   "urgencyScore": 25,
+   "confidenceScore": 50,
+   "aiFitScore": 25,
+   "rescuePriorityScore": 35,
+   "recommendedSolution": "Open the homepage on a phone and name the single action you want a first-time visitor to take. If it is not obvious within a second, demote the rest. Confirm against analytics before treating this as a conversion problem.",
+   "manualValidationRequired": true
+  }
+ ]
+}

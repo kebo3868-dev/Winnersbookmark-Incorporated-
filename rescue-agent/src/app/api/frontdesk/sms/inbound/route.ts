@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { z } from 'zod';
+import { z } from '@/lib/validation/zod';
 import { prisma } from '@/lib/db';
 import { handleInboundSms } from '@/lib/frontdesk/messaging/inbound';
 import { handleMissedCall } from '@/lib/frontdesk/messaging/missedCall';

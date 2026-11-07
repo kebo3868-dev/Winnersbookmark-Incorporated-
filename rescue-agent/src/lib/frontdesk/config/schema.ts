@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z, integerSchema } from '@/lib/validation/zod';
 
 /**
  * LAYER 2 — CLIENT CONFIGURATION
@@ -149,13 +149,13 @@ export const promotionSchema = z.object({
  * A 12-top is routine for a banquet hall and a major event for a 30-seat cafe.
  */
 export const thresholdsSchema = z.object({
-  largePartySize: z.number().int().min(2).default(8),
+  largePartySize: integerSchema().min(2).default(8),
   /** Party size at or above which a reservation is treated as high priority. */
-  highPriorityPartySize: z.number().int().min(2).default(12),
+  highPriorityPartySize: integerSchema().min(2).default(12),
   /** Used only for ESTIMATED opportunity value. Never reported as revenue. */
-  averageCheckCents: z.number().int().min(0).optional(),
-  cateringMinimumCents: z.number().int().min(0).optional(),
-  privateEventMinimumCents: z.number().int().min(0).optional(),
+  averageCheckCents: integerSchema().min(0).optional(),
+  cateringMinimumCents: integerSchema().min(0).optional(),
+  privateEventMinimumCents: integerSchema().min(0).optional(),
 });
 
 /**
@@ -188,7 +188,7 @@ export const messagingSchema = z.object({
   credentialRef: z.string().optional(),
   fromNumber: z.string().optional(),
   /** Hard cap on unanswered outbound follow-ups (§VII). */
-  maxFollowUps: z.number().int().min(0).max(3).default(1),
+  maxFollowUps: integerSchema().min(0).max(3).default(1),
   optOutKeywords: z.array(z.string()).default(['STOP', 'UNSUBSCRIBE', 'CANCEL', 'END', 'QUIT']),
   /**
    * Whether staff escalation alerts are ALSO emailed.
@@ -212,8 +212,8 @@ export const messagingSchema = z.object({
    * blast radius of a misconfiguration. Both fall back to conservative
    * defaults when unset — never to "unlimited".
    */
-  rateLimitPerNumberPerHour: z.number().int().min(1).max(50).optional(),
-  rateLimitPerTenantPerHour: z.number().int().min(1).max(5000).optional(),
+  rateLimitPerNumberPerHour: integerSchema().min(1).max(50).optional(),
+  rateLimitPerTenantPerHour: integerSchema().min(1).max(5000).optional(),
   /** Verbatim text for the missed-call recovery message (§VII). */
   missedCallTemplate: z.string().max(320).optional(),
 });
@@ -345,7 +345,7 @@ export const tenantConfigSchema = z.object({
   faqs: z.array(faqSchema).default([]),
   escalationContacts: z.array(escalationContactSchema).default([]),
   /** intent/reason → escalation contact key. Falls back to "manager". */
-  escalationRouting: z.record(z.string()).default({}),
+  escalationRouting: z.record(z.string(), z.string()).default({}),
   brandVoice: brandVoiceSchema.default({ tone: 'WARM_PROFESSIONAL', avoidPhrases: [] }),
   promotions: z.array(promotionSchema).default([]),
   thresholds: thresholdsSchema.default({ largePartySize: 8, highPriorityPartySize: 12 }),
@@ -359,10 +359,11 @@ export const tenantConfigSchema = z.object({
     missedCallRecoveryEnabled: false,
     maxFollowUps: 1,
     optOutKeywords: ['STOP', 'UNSUBSCRIBE', 'CANCEL', 'END', 'QUIT'],
+    emailEnabled: false,
   }),
   pilot: pilotSchema.default({ escalationRota: [] }),
   /** Per-tenant retention override; deployment default applies when unset. */
-  retentionDays: z.number().int().min(1).max(3650).optional(),
+  retentionDays: integerSchema().min(1).max(3650).optional(),
 });
 
 export type TenantConfig = z.infer<typeof tenantConfigSchema>;

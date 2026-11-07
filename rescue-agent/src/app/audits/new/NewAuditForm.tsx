@@ -47,7 +47,9 @@ export default function NewAuditForm() {
     e.preventDefault();
     setError(null);
     setSubmitting(true);
-    const num = (v: string) => (v.trim() === '' ? undefined : Number(v));
+    // Numbers are sent as typed and read on the server (intakeNumbers.ts):
+    // Number("4,5") is NaN, which JSON sends as null — and null was stored as 0.
+    const num = (v: string) => (v.trim() === '' ? undefined : v.trim());
     const str = (v: string) => (v.trim() === '' ? undefined : v.trim());
     try {
       const res = await fetch('/api/audits', {

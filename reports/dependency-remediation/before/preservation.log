@@ -1,0 +1,11 @@
+
+ RUN  v3.2.7 /workspace/winnersbookmark/rescue-agent
+
+ ✓ ../reports/dependency-remediation/preservation.test.ts (2 tests) 10949ms
+   ✓ captures real loaders, report and Sales Brief HTML, PDF text and every PDF page raster; preserves both stored audits  10904ms
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Start at  16:34:23
+   Duration  11.89s (transform 1.11s, setup 0ms, collect 316ms, tests 10.95s, environment 0ms, prepare 273ms)
+

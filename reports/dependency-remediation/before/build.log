@@ -1,0 +1,70 @@
+
+> wbi-restaurant-rescue-agent@0.1.0 build
+> next build
+
+   ▲ Next.js 15.5.20
+
+   Creating an optimized production build ...
+ ✓ Compiled successfully in 34.5s
+   Linting and checking validity of types ...
+   Collecting page data ...
+   Generating static pages (0/6) ...
+   Generating static pages (1/6) 
+   Generating static pages (2/6) 
+   Generating static pages (4/6) 
+ ✓ Generating static pages (6/6)
+   Finalizing page optimization ...
+   Collecting build traces ...
+
+Route (app)                                             Size  First Load JS
+┌ ƒ /                                                  169 B         106 kB
+├ ○ /_not-found                                         1 kB         103 kB
+├ ƒ /api/audits                                        206 B         103 kB
+├ ƒ /api/audits/[auditId]/report/pdf                   206 B         103 kB
+├ ƒ /api/audits/[auditId]/status                       206 B         103 kB
+├ ƒ /api/audits/demo                                   206 B         103 kB
+├ ƒ /api/demo/purge                                    206 B         103 kB
+├ ƒ /api/frontdesk/[tenantSlug]/activate               206 B         103 kB
+├ ƒ /api/frontdesk/[tenantSlug]/attestations           206 B         103 kB
+├ ƒ /api/frontdesk/[tenantSlug]/keys                   206 B         103 kB
+├ ƒ /api/frontdesk/[tenantSlug]/keys/[keyId]           206 B         103 kB
+├ ƒ /api/frontdesk/[tenantSlug]/leads/[leadId]         206 B         103 kB
+├ ƒ /api/frontdesk/[tenantSlug]/message                206 B         103 kB
+├ ƒ /api/frontdesk/[tenantSlug]/readiness              206 B         103 kB
+├ ƒ /api/frontdesk/[tenantSlug]/reviews/request        206 B         103 kB
+├ ƒ /api/frontdesk/[tenantSlug]/rota                   206 B         103 kB
+├ ƒ /api/frontdesk/[tenantSlug]/sms/twilio             206 B         103 kB
+├ ƒ /api/frontdesk/[tenantSlug]/voice/twilio-status    206 B         103 kB
+├ ƒ /api/frontdesk/[tenantSlug]/webhook-secret         206 B         103 kB
+├ ƒ /api/frontdesk/auth/login                          206 B         103 kB
+├ ƒ /api/frontdesk/auth/logout                         206 B         103 kB
+├ ƒ /api/frontdesk/demo                                206 B         103 kB
+├ ƒ /api/frontdesk/notifications/cron                  206 B         103 kB
+├ ƒ /api/frontdesk/notifications/dispatch              206 B         103 kB
+├ ƒ /api/frontdesk/notifications/webhook               206 B         103 kB
+├ ƒ /api/frontdesk/sms/inbound                         206 B         103 kB
+├ ƒ /api/frontdesk/tenants                             206 B         103 kB
+├ ƒ /api/health                                        206 B         103 kB
+├ ƒ /api/leads/[leadId]                                206 B         103 kB
+├ ƒ /api/marketing/leads                               206 B         103 kB
+├ ƒ /api/retention/sweep                               206 B         103 kB
+├ ƒ /audits                                            444 B         106 kB
+├ ƒ /audits/[auditId]                                 1.1 kB         107 kB
+├ ƒ /audits/[auditId]/report                         2.93 kB         109 kB
+├ ƒ /audits/[auditId]/sales                            169 B         106 kB
+├ ƒ /audits/new                                      3.76 kB         106 kB
+├ ƒ /frontdesk                                       1.03 kB         107 kB
+├ ƒ /frontdesk/[tenantSlug]                          3.42 kB         109 kB
+├ ƒ /frontdesk/[tenantSlug]/simulator                2.34 kB         108 kB
+└ ƒ /leads                                           1.49 kB         107 kB
++ First Load JS shared by all                         102 kB
+  ├ chunks/1255-d90f22433f14e976.js                  46.2 kB
+  ├ chunks/4bd1b696-f785427dddbba9fb.js              54.2 kB
+  └ other shared chunks (total)                      1.93 kB
+
+
+ƒ Middleware                                         34.9 kB
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+

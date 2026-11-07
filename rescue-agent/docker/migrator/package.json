@@ -1,0 +1,11 @@
+{
+  "name": "wbi-rescue-migrator",
+  "private": true,
+  "version": "1.0.0",
+  "dependencies": {
+    "prisma": "6.19.3"
+  },
+  "overrides": {
+    "deepmerge-ts": "^8.0.2"
+  }
+}

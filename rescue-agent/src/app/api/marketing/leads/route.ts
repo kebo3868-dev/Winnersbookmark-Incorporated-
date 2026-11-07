@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
+import { validationIssues } from '@/lib/validation/zod';
 import { timingSafeEqual } from 'node:crypto';
 import { prisma } from '@/lib/db';
 import { marketingLeadSchema, normaliseInterest, emptyToNull } from '@/lib/marketing/schema';
@@ -87,7 +88,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         error: 'VALIDATION FAILED',
-        issues: parsed.error.issues.map((i) => ({ path: i.path.join('.'), message: i.message })),
+        issues: validationIssues(parsed.error).map((i) => ({ path: i.path.join('.'), message: i.message })),
       },
       { status: 400 },
     );

@@ -1,0 +1,2980 @@
+{
+  "serviceWindowSchema": [
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received undefined"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received null"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received boolean"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received number"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received string"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received string"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received array"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "open"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        },
+        {
+          "path": [
+            "close"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "open"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        },
+        {
+          "path": [
+            "close"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "open"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        },
+        {
+          "path": [
+            "close"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "open"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        },
+        {
+          "path": [
+            "close"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "open"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        },
+        {
+          "path": [
+            "close"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "open"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        },
+        {
+          "path": [
+            "close"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "open"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        },
+        {
+          "path": [
+            "close"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        }
+      ]
+    }
+  ],
+  "weeklyHoursSchema": [
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received undefined"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received null"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received boolean"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received number"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received string"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received string"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received array"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "sun"
+          ],
+          "message": "Invalid input: expected array, received undefined"
+        },
+        {
+          "path": [
+            "mon"
+          ],
+          "message": "Invalid input: expected array, received undefined"
+        },
+        {
+          "path": [
+            "tue"
+          ],
+          "message": "Invalid input: expected array, received undefined"
+        },
+        {
+          "path": [
+            "wed"
+          ],
+          "message": "Invalid input: expected array, received undefined"
+        },
+        {
+          "path": [
+            "thu"
+          ],
+          "message": "Invalid input: expected array, received undefined"
+        },
+        {
+          "path": [
+            "fri"
+          ],
+          "message": "Invalid input: expected array, received undefined"
+        },
+        {
+          "path": [
+            "sat"
+          ],
+          "message": "Invalid input: expected array, received undefined"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "sun"
+          ],
+          "message": "Invalid input: expected array, received undefined"
+        },
+        {
+          "path": [
+            "mon"
+          ],
+          "message": "Invalid input: expected array, received undefined"
+        },
+        {
+          "path": [
+            "tue"
+          ],
+          "message": "Invalid input: expected array, received undefined"
+        },
+        {
+          "path": [
+            "wed"
+          ],
+          "message": "Invalid input: expected array, received undefined"
+        },
+        {
+          "path": [
+            "thu"
+          ],
+          "message": "Invalid input: expected array, received undefined"
+        },
+        {
+          "path": [
+            "fri"
+          ],
+          "message": "Invalid input: expected array, received undefined"
+        },
+        {
+          "path": [
+            "sat"
+          ],
+          "message": "Invalid input: expected array, received undefined"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "sun"
+          ],
+          "message": "Invalid input: expected array, received undefined"
+        },
+        {
+          "path": [
+            "mon"
+          ],
+          "message": "Invalid input: expected array, received undefined"
+        },
+        {
+          "path": [
+            "tue"
+          ],
+          "message": "Invalid input: expected array, received undefined"
+        },
+        {
+          "path": [
+            "wed"
+          ],
+          "message": "Invalid input: expected array, received undefined"
+        },
+        {
+          "path": [
+            "thu"
+          ],
+          "message": "Invalid input: expected array, received undefined"
+        },
+        {
+          "path": [
+            "fri"
+          ],
+          "message": "Invalid input: expected array, received undefined"
+        },
+        {
+          "path": [
+            "sat"
+          ],
+          "message": "Invalid input: expected array, received undefined"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "sun"
+          ],
+          "message": "Invalid input: expected array, received undefined"
+        },
+        {
+          "path": [
+            "mon"
+          ],
+          "message": "Invalid input: expected array, received undefined"
+        },
+        {
+          "path": [
+            "tue"
+          ],
+          "message": "Invalid input: expected array, received undefined"
+        },
+        {
+          "path": [
+            "wed"
+          ],
+          "message": "Invalid input: expected array, received undefined"
+        },
+        {
+          "path": [
+            "thu"
+          ],
+          "message": "Invalid input: expected array, received undefined"
+        },
+        {
+          "path": [
+            "fri"
+          ],
+          "message": "Invalid input: expected array, received undefined"
+        },
+        {
+          "path": [
+            "sat"
+          ],
+          "message": "Invalid input: expected array, received undefined"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "sun"
+          ],
+          "message": "Invalid input: expected array, received undefined"
+        },
+        {
+          "path": [
+            "mon"
+          ],
+          "message": "Invalid input: expected array, received undefined"
+        },
+        {
+          "path": [
+            "tue"
+          ],
+          "message": "Invalid input: expected array, received undefined"
+        },
+        {
+          "path": [
+            "wed"
+          ],
+          "message": "Invalid input: expected array, received undefined"
+        },
+        {
+          "path": [
+            "thu"
+          ],
+          "message": "Invalid input: expected array, received undefined"
+        },
+        {
+          "path": [
+            "fri"
+          ],
+          "message": "Invalid input: expected array, received undefined"
+        },
+        {
+          "path": [
+            "sat"
+          ],
+          "message": "Invalid input: expected array, received undefined"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "sun"
+          ],
+          "message": "Invalid input: expected array, received undefined"
+        },
+        {
+          "path": [
+            "mon"
+          ],
+          "message": "Invalid input: expected array, received undefined"
+        },
+        {
+          "path": [
+            "tue"
+          ],
+          "message": "Invalid input: expected array, received undefined"
+        },
+        {
+          "path": [
+            "wed"
+          ],
+          "message": "Invalid input: expected array, received undefined"
+        },
+        {
+          "path": [
+            "thu"
+          ],
+          "message": "Invalid input: expected array, received undefined"
+        },
+        {
+          "path": [
+            "fri"
+          ],
+          "message": "Invalid input: expected array, received undefined"
+        },
+        {
+          "path": [
+            "sat"
+          ],
+          "message": "Invalid input: expected array, received undefined"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "sun"
+          ],
+          "message": "Invalid input: expected array, received undefined"
+        },
+        {
+          "path": [
+            "mon"
+          ],
+          "message": "Invalid input: expected array, received undefined"
+        },
+        {
+          "path": [
+            "tue"
+          ],
+          "message": "Invalid input: expected array, received undefined"
+        },
+        {
+          "path": [
+            "wed"
+          ],
+          "message": "Invalid input: expected array, received undefined"
+        },
+        {
+          "path": [
+            "thu"
+          ],
+          "message": "Invalid input: expected array, received undefined"
+        },
+        {
+          "path": [
+            "fri"
+          ],
+          "message": "Invalid input: expected array, received undefined"
+        },
+        {
+          "path": [
+            "sat"
+          ],
+          "message": "Invalid input: expected array, received undefined"
+        }
+      ]
+    }
+  ],
+  "holidayHoursSchema": [
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received undefined"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received null"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received boolean"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received number"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received string"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received string"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received array"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "date"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "date"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "date"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "date"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "date"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "date"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "date"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        }
+      ]
+    }
+  ],
+  "locationSchema": [
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received undefined"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received null"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received boolean"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received number"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received string"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received string"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received array"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "id"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        },
+        {
+          "path": [
+            "name"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        },
+        {
+          "path": [
+            "addressLine1"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        },
+        {
+          "path": [
+            "city"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        },
+        {
+          "path": [
+            "state"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        },
+        {
+          "path": [
+            "timezone"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "id"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        },
+        {
+          "path": [
+            "name"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        },
+        {
+          "path": [
+            "addressLine1"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        },
+        {
+          "path": [
+            "city"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        },
+        {
+          "path": [
+            "state"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        },
+        {
+          "path": [
+            "timezone"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "id"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        },
+        {
+          "path": [
+            "name"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        },
+        {
+          "path": [
+            "addressLine1"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        },
+        {
+          "path": [
+            "city"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        },
+        {
+          "path": [
+            "state"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        },
+        {
+          "path": [
+            "timezone"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "id"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        },
+        {
+          "path": [
+            "name"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        },
+        {
+          "path": [
+            "addressLine1"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        },
+        {
+          "path": [
+            "city"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        },
+        {
+          "path": [
+            "state"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        },
+        {
+          "path": [
+            "timezone"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "id"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        },
+        {
+          "path": [
+            "name"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        },
+        {
+          "path": [
+            "addressLine1"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        },
+        {
+          "path": [
+            "city"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        },
+        {
+          "path": [
+            "state"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        },
+        {
+          "path": [
+            "timezone"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "id"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        },
+        {
+          "path": [
+            "name"
+          ],
+          "message": "Too small: expected string to have >=1 characters"
+        },
+        {
+          "path": [
+            "addressLine1"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        },
+        {
+          "path": [
+            "city"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        },
+        {
+          "path": [
+            "state"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        },
+        {
+          "path": [
+            "timezone"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "id"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        },
+        {
+          "path": [
+            "addressLine1"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        },
+        {
+          "path": [
+            "city"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        },
+        {
+          "path": [
+            "state"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        },
+        {
+          "path": [
+            "timezone"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        }
+      ]
+    }
+  ],
+  "pathwaySchema": [
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received undefined"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received null"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received boolean"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received number"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received string"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received string"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received array"
+        }
+      ]
+    },
+    {
+      "success": true,
+      "data": {
+        "enabled": false
+      }
+    },
+    {
+      "success": true,
+      "data": {
+        "enabled": false
+      }
+    },
+    {
+      "success": true,
+      "data": {
+        "enabled": false
+      }
+    },
+    {
+      "success": true,
+      "data": {
+        "enabled": false
+      }
+    },
+    {
+      "success": true,
+      "data": {
+        "enabled": false
+      }
+    },
+    {
+      "success": true,
+      "data": {
+        "enabled": false
+      }
+    },
+    {
+      "success": true,
+      "data": {
+        "enabled": false
+      }
+    }
+  ],
+  "faqSchema": [
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received undefined"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received null"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received boolean"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received number"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received string"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received string"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received array"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "id"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        },
+        {
+          "path": [
+            "keywords"
+          ],
+          "message": "Invalid input: expected array, received undefined"
+        },
+        {
+          "path": [
+            "question"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        },
+        {
+          "path": [
+            "answer"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "id"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        },
+        {
+          "path": [
+            "keywords"
+          ],
+          "message": "Invalid input: expected array, received undefined"
+        },
+        {
+          "path": [
+            "question"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        },
+        {
+          "path": [
+            "answer"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "id"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        },
+        {
+          "path": [
+            "keywords"
+          ],
+          "message": "Invalid input: expected array, received undefined"
+        },
+        {
+          "path": [
+            "question"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        },
+        {
+          "path": [
+            "answer"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "id"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        },
+        {
+          "path": [
+            "keywords"
+          ],
+          "message": "Invalid input: expected array, received undefined"
+        },
+        {
+          "path": [
+            "question"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        },
+        {
+          "path": [
+            "answer"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "id"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        },
+        {
+          "path": [
+            "keywords"
+          ],
+          "message": "Invalid input: expected array, received undefined"
+        },
+        {
+          "path": [
+            "question"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        },
+        {
+          "path": [
+            "answer"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "id"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        },
+        {
+          "path": [
+            "keywords"
+          ],
+          "message": "Invalid input: expected array, received undefined"
+        },
+        {
+          "path": [
+            "question"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        },
+        {
+          "path": [
+            "answer"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "id"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        },
+        {
+          "path": [
+            "keywords"
+          ],
+          "message": "Invalid input: expected array, received undefined"
+        },
+        {
+          "path": [
+            "question"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        },
+        {
+          "path": [
+            "answer"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        }
+      ]
+    }
+  ],
+  "escalationContactSchema": [
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received undefined"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received null"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received boolean"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received number"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received string"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received string"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received array"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "key"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "key"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "key"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "key"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "key"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "key"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        },
+        {
+          "path": [
+            "email"
+          ],
+          "message": "Invalid email address"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "key"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        }
+      ]
+    }
+  ],
+  "brandVoiceSchema": [
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received undefined"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received null"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received boolean"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received number"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received string"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received string"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received array"
+        }
+      ]
+    },
+    {
+      "success": true,
+      "data": {
+        "tone": "WARM_PROFESSIONAL",
+        "avoidPhrases": []
+      }
+    },
+    {
+      "success": true,
+      "data": {
+        "tone": "WARM_PROFESSIONAL",
+        "avoidPhrases": []
+      }
+    },
+    {
+      "success": true,
+      "data": {
+        "tone": "WARM_PROFESSIONAL",
+        "avoidPhrases": []
+      }
+    },
+    {
+      "success": true,
+      "data": {
+        "tone": "WARM_PROFESSIONAL",
+        "avoidPhrases": []
+      }
+    },
+    {
+      "success": true,
+      "data": {
+        "tone": "WARM_PROFESSIONAL",
+        "avoidPhrases": []
+      }
+    },
+    {
+      "success": true,
+      "data": {
+        "tone": "WARM_PROFESSIONAL",
+        "avoidPhrases": []
+      }
+    },
+    {
+      "success": true,
+      "data": {
+        "tone": "WARM_PROFESSIONAL",
+        "avoidPhrases": []
+      }
+    }
+  ],
+  "promotionSchema": [
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received undefined"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received null"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received boolean"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received number"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received string"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received string"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received array"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "id"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        },
+        {
+          "path": [
+            "title"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        },
+        {
+          "path": [
+            "details"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "id"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        },
+        {
+          "path": [
+            "title"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        },
+        {
+          "path": [
+            "details"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "id"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        },
+        {
+          "path": [
+            "title"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        },
+        {
+          "path": [
+            "details"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "id"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        },
+        {
+          "path": [
+            "title"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        },
+        {
+          "path": [
+            "details"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "id"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        },
+        {
+          "path": [
+            "title"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        },
+        {
+          "path": [
+            "details"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "id"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        },
+        {
+          "path": [
+            "title"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        },
+        {
+          "path": [
+            "details"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "id"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        },
+        {
+          "path": [
+            "title"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        },
+        {
+          "path": [
+            "details"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        }
+      ]
+    }
+  ],
+  "thresholdsSchema": [
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received undefined"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received null"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received boolean"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received number"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received string"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received string"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received array"
+        }
+      ]
+    },
+    {
+      "success": true,
+      "data": {
+        "largePartySize": 8,
+        "highPriorityPartySize": 12
+      }
+    },
+    {
+      "success": true,
+      "data": {
+        "largePartySize": 8,
+        "highPriorityPartySize": 12
+      }
+    },
+    {
+      "success": true,
+      "data": {
+        "largePartySize": 8,
+        "highPriorityPartySize": 12
+      }
+    },
+    {
+      "success": true,
+      "data": {
+        "largePartySize": 8,
+        "highPriorityPartySize": 12
+      }
+    },
+    {
+      "success": true,
+      "data": {
+        "largePartySize": 8,
+        "highPriorityPartySize": 12
+      }
+    },
+    {
+      "success": true,
+      "data": {
+        "largePartySize": 8,
+        "highPriorityPartySize": 12
+      }
+    },
+    {
+      "success": true,
+      "data": {
+        "largePartySize": 8,
+        "highPriorityPartySize": 12
+      }
+    }
+  ],
+  "policySchema": [
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received undefined"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received null"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received boolean"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received number"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received string"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received string"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received array"
+        }
+      ]
+    },
+    {
+      "success": true,
+      "data": {
+        "allowAllergenFreeClaims": false,
+        "restrictedTopics": [],
+        "approvedStatements": []
+      }
+    },
+    {
+      "success": true,
+      "data": {
+        "allowAllergenFreeClaims": false,
+        "restrictedTopics": [],
+        "approvedStatements": []
+      }
+    },
+    {
+      "success": true,
+      "data": {
+        "allowAllergenFreeClaims": false,
+        "restrictedTopics": [],
+        "approvedStatements": []
+      }
+    },
+    {
+      "success": true,
+      "data": {
+        "allowAllergenFreeClaims": false,
+        "restrictedTopics": [],
+        "approvedStatements": []
+      }
+    },
+    {
+      "success": true,
+      "data": {
+        "allowAllergenFreeClaims": false,
+        "restrictedTopics": [],
+        "approvedStatements": []
+      }
+    },
+    {
+      "success": true,
+      "data": {
+        "allowAllergenFreeClaims": false,
+        "restrictedTopics": [],
+        "approvedStatements": []
+      }
+    },
+    {
+      "success": true,
+      "data": {
+        "allowAllergenFreeClaims": false,
+        "restrictedTopics": [],
+        "approvedStatements": []
+      }
+    }
+  ],
+  "messagingSchema": [
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received undefined"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received null"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received boolean"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received number"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received string"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received string"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received array"
+        }
+      ]
+    },
+    {
+      "success": true,
+      "data": {
+        "smsEnabled": false,
+        "missedCallRecoveryEnabled": false,
+        "maxFollowUps": 1,
+        "optOutKeywords": [
+          "STOP",
+          "UNSUBSCRIBE",
+          "CANCEL",
+          "END",
+          "QUIT"
+        ],
+        "emailEnabled": false
+      }
+    },
+    {
+      "success": true,
+      "data": {
+        "smsEnabled": false,
+        "missedCallRecoveryEnabled": false,
+        "maxFollowUps": 1,
+        "optOutKeywords": [
+          "STOP",
+          "UNSUBSCRIBE",
+          "CANCEL",
+          "END",
+          "QUIT"
+        ],
+        "emailEnabled": false
+      }
+    },
+    {
+      "success": true,
+      "data": {
+        "smsEnabled": false,
+        "missedCallRecoveryEnabled": false,
+        "maxFollowUps": 1,
+        "optOutKeywords": [
+          "STOP",
+          "UNSUBSCRIBE",
+          "CANCEL",
+          "END",
+          "QUIT"
+        ],
+        "emailEnabled": false
+      }
+    },
+    {
+      "success": true,
+      "data": {
+        "smsEnabled": false,
+        "missedCallRecoveryEnabled": false,
+        "maxFollowUps": 1,
+        "optOutKeywords": [
+          "STOP",
+          "UNSUBSCRIBE",
+          "CANCEL",
+          "END",
+          "QUIT"
+        ],
+        "emailEnabled": false
+      }
+    },
+    {
+      "success": true,
+      "data": {
+        "smsEnabled": false,
+        "missedCallRecoveryEnabled": false,
+        "maxFollowUps": 1,
+        "optOutKeywords": [
+          "STOP",
+          "UNSUBSCRIBE",
+          "CANCEL",
+          "END",
+          "QUIT"
+        ],
+        "emailEnabled": false
+      }
+    },
+    {
+      "success": true,
+      "data": {
+        "smsEnabled": false,
+        "missedCallRecoveryEnabled": false,
+        "maxFollowUps": 1,
+        "optOutKeywords": [
+          "STOP",
+          "UNSUBSCRIBE",
+          "CANCEL",
+          "END",
+          "QUIT"
+        ],
+        "emailEnabled": false
+      }
+    },
+    {
+      "success": true,
+      "data": {
+        "smsEnabled": false,
+        "missedCallRecoveryEnabled": false,
+        "maxFollowUps": 1,
+        "optOutKeywords": [
+          "STOP",
+          "UNSUBSCRIBE",
+          "CANCEL",
+          "END",
+          "QUIT"
+        ],
+        "emailEnabled": false
+      }
+    }
+  ],
+  "pilotSchema": [
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received undefined"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received null"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received boolean"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received number"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received string"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received string"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received array"
+        }
+      ]
+    },
+    {
+      "success": true,
+      "data": {
+        "escalationRota": []
+      }
+    },
+    {
+      "success": true,
+      "data": {
+        "escalationRota": []
+      }
+    },
+    {
+      "success": true,
+      "data": {
+        "escalationRota": []
+      }
+    },
+    {
+      "success": true,
+      "data": {
+        "escalationRota": []
+      }
+    },
+    {
+      "success": true,
+      "data": {
+        "escalationRota": []
+      }
+    },
+    {
+      "success": true,
+      "data": {
+        "escalationRota": []
+      }
+    },
+    {
+      "success": true,
+      "data": {
+        "escalationRota": []
+      }
+    }
+  ],
+  "tenantConfigSchema": [
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received undefined"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received null"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received boolean"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received number"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received string"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received string"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received array"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "restaurantName"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        }
+      ]
+    },
+    {
+      "success": true,
+      "data": {
+        "version": 1,
+        "restaurantName": "A Restaurant",
+        "locations": [],
+        "menu": {
+          "highlights": [],
+          "dietaryOptions": []
+        },
+        "reservations": {
+          "enabled": false
+        },
+        "takeout": {
+          "enabled": false
+        },
+        "delivery": {
+          "enabled": false
+        },
+        "catering": {
+          "enabled": false
+        },
+        "privateEvents": {
+          "enabled": false
+        },
+        "giftCards": {
+          "enabled": false
+        },
+        "employment": {
+          "enabled": false
+        },
+        "reviews": {
+          "enabled": false,
+          "channel": "SMS"
+        },
+        "faqs": [],
+        "escalationContacts": [],
+        "escalationRouting": {},
+        "brandVoice": {
+          "tone": "WARM_PROFESSIONAL",
+          "avoidPhrases": []
+        },
+        "promotions": [],
+        "thresholds": {
+          "largePartySize": 8,
+          "highPriorityPartySize": 12
+        },
+        "policies": {
+          "allowAllergenFreeClaims": false,
+          "restrictedTopics": [],
+          "approvedStatements": []
+        },
+        "messaging": {
+          "smsEnabled": false,
+          "missedCallRecoveryEnabled": false,
+          "maxFollowUps": 1,
+          "optOutKeywords": [
+            "STOP",
+            "UNSUBSCRIBE",
+            "CANCEL",
+            "END",
+            "QUIT"
+          ]
+        },
+        "pilot": {
+          "escalationRota": []
+        }
+      }
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "restaurantName"
+          ],
+          "message": "Too small: expected string to have >=1 characters"
+        }
+      ]
+    },
+    {
+      "success": true,
+      "data": {
+        "version": 1,
+        "restaurantName": "A",
+        "locations": [],
+        "menu": {
+          "highlights": [],
+          "dietaryOptions": []
+        },
+        "reservations": {
+          "enabled": false
+        },
+        "takeout": {
+          "enabled": false
+        },
+        "delivery": {
+          "enabled": false
+        },
+        "catering": {
+          "enabled": false
+        },
+        "privateEvents": {
+          "enabled": false
+        },
+        "giftCards": {
+          "enabled": false
+        },
+        "employment": {
+          "enabled": false
+        },
+        "reviews": {
+          "enabled": false,
+          "channel": "SMS"
+        },
+        "faqs": [],
+        "escalationContacts": [],
+        "escalationRouting": {},
+        "brandVoice": {
+          "tone": "WARM_PROFESSIONAL",
+          "avoidPhrases": []
+        },
+        "promotions": [],
+        "thresholds": {
+          "largePartySize": 8,
+          "highPriorityPartySize": 12
+        },
+        "policies": {
+          "allowAllergenFreeClaims": false,
+          "restrictedTopics": [],
+          "approvedStatements": []
+        },
+        "messaging": {
+          "smsEnabled": false,
+          "missedCallRecoveryEnabled": false,
+          "maxFollowUps": 1,
+          "optOutKeywords": [
+            "STOP",
+            "UNSUBSCRIBE",
+            "CANCEL",
+            "END",
+            "QUIT"
+          ],
+          "emailEnabled": false
+        },
+        "pilot": {
+          "escalationRota": []
+        }
+      }
+    },
+    {
+      "success": true,
+      "data": {
+        "version": 1,
+        "restaurantName": "A",
+        "locations": [],
+        "menu": {
+          "highlights": [],
+          "dietaryOptions": []
+        },
+        "reservations": {
+          "enabled": false
+        },
+        "takeout": {
+          "enabled": false
+        },
+        "delivery": {
+          "enabled": false
+        },
+        "catering": {
+          "enabled": false
+        },
+        "privateEvents": {
+          "enabled": false
+        },
+        "giftCards": {
+          "enabled": false
+        },
+        "employment": {
+          "enabled": false
+        },
+        "reviews": {
+          "enabled": false,
+          "channel": "SMS"
+        },
+        "faqs": [],
+        "escalationContacts": [],
+        "escalationRouting": {
+          "UNKNOWN": "manager"
+        },
+        "brandVoice": {
+          "tone": "WARM_PROFESSIONAL",
+          "avoidPhrases": []
+        },
+        "promotions": [],
+        "thresholds": {
+          "largePartySize": 8,
+          "highPriorityPartySize": 12
+        },
+        "policies": {
+          "allowAllergenFreeClaims": false,
+          "restrictedTopics": [],
+          "approvedStatements": []
+        },
+        "messaging": {
+          "smsEnabled": false,
+          "missedCallRecoveryEnabled": false,
+          "maxFollowUps": 1,
+          "optOutKeywords": [
+            "STOP",
+            "UNSUBSCRIBE",
+            "CANCEL",
+            "END",
+            "QUIT"
+          ]
+        },
+        "pilot": {
+          "escalationRota": []
+        }
+      }
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "restaurantName"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "restaurantName"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        }
+      ]
+    }
+  ],
+  "marketingLeadSchema": [
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received undefined"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received null"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received boolean"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received number"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received string"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received string"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [],
+          "message": "Invalid input: expected object, received array"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "name"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        },
+        {
+          "path": [
+            "email"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        },
+        {
+          "path": [
+            "message"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "name"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        },
+        {
+          "path": [
+            "email"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        },
+        {
+          "path": [
+            "message"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "name"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        },
+        {
+          "path": [
+            "email"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        },
+        {
+          "path": [
+            "message"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "name"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        },
+        {
+          "path": [
+            "email"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        },
+        {
+          "path": [
+            "message"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "name"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        },
+        {
+          "path": [
+            "email"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        },
+        {
+          "path": [
+            "message"
+          ],
+          "message": "Invalid input: expected string, received undefined"
+        }
+      ]
+    },
+    {
+      "success": false,
+      "issues": [
+        {
+          "path": [
+            "name"
+          ],
+          "message": "Enter your name"
+        },
+        {
+          "path": [
+            "email"
+          ],
+          "message": "Enter a valid email address"
+        },
+        {
+          "path": [
+            "message"
+          ],
+          "message": "Tell us what you need"
+        }
+      ]
+    },
+    {
+      "success": true,
+      "data": {
+        "name": "A",
+        "email": "a@example.com",
+        "message": "Help"
+      }
+    }
+  ]
+}

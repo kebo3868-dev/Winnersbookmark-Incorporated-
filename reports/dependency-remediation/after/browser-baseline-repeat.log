@@ -1,0 +1,74 @@
+[
+  {
+    "name": "current-report-360",
+    "sha256": "41e1e695d0df41453e91f4c94e4c4a1999fdc1e2494fa9b6dae289eb77b70202",
+    "dimensions": {
+      "width": 360,
+      "height": 20998,
+      "viewport": 360
+    }
+  },
+  {
+    "name": "current-report-1280",
+    "sha256": "2e12c79e3f45a8502b9c08f4b79d625931c799bd2b35295b6e5b25de99d1d7ae",
+    "dimensions": {
+      "width": 1280,
+      "height": 13434,
+      "viewport": 1280
+    }
+  },
+  {
+    "name": "current-sales-360",
+    "sha256": "a125ea27b37296eb64313341b96ea302f8fe7c985e710a3df0c73bd994a8ff5d",
+    "dimensions": {
+      "width": 360,
+      "height": 3900,
+      "viewport": 360
+    }
+  },
+  {
+    "name": "current-sales-1280",
+    "sha256": "4247e3fb81ebea1ae23c331888fe134ac373cffbc8ea4f45aa676eddb18ecb69",
+    "dimensions": {
+      "width": 1280,
+      "height": 2708,
+      "viewport": 1280
+    }
+  },
+  {
+    "name": "historical-report-360",
+    "sha256": "a7c3b37e340ba162f17102439c8d74394c722e1331d24de64600757b950295f8",
+    "dimensions": {
+      "width": 360,
+      "height": 19813,
+      "viewport": 360
+    }
+  },
+  {
+    "name": "historical-report-1280",
+    "sha256": "fc170c03fab6caa962a62ed9c342aafee0f879f19dc5421f7024ad2ecae4663e",
+    "dimensions": {
+      "width": 1280,
+      "height": 12760,
+      "viewport": 1280
+    }
+  },
+  {
+    "name": "historical-sales-360",
+    "sha256": "49c050497e440848e32482bab6cc421033da31dfaabf7ace37d0d65754d592f7",
+    "dimensions": {
+      "width": 360,
+      "height": 3599,
+      "viewport": 360
+    }
+  },
+  {
+    "name": "historical-sales-1280",
+    "sha256": "52346dabb89dc99816f270b839f4a7c2be11f7153434bf33ed8f475f6c5f66f3",
+    "dimensions": {
+      "width": 1280,
+      "height": 2609,
+      "viewport": 1280
+    }
+  }
+]

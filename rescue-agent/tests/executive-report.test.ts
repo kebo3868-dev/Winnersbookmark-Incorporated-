@@ -262,7 +262,17 @@ describe('buildExecutiveReport', () => {
 
   it('builds a 4-phase 30-day plan with evidence-driven KPIs', () => {
     const dto = buildExecutiveReport(baseInput());
-    expect(dto.thirtyDayPlan.map((p) => p.heading)).toEqual(['VALIDATE', 'FIX THE HIGHEST-PRIORITY DIGITAL ISSUE', 'AUTOMATE', 'MEASURE']);
+    expect(dto.thirtyDayPlan.map((p) => p.heading)).toEqual(['VALIDATE', 'FIX THE HIGHEST-PRIORITY DIGITAL ISSUE', 'DECIDE & PILOT IF READY', 'MEASURE']);
+    // Days 15–21 is a conditional decision, not a deployment: any AI Front Desk
+    // pilot follows validation AND the system's own readiness testing, and the
+    // phase does not repeat the Days 1–7 data collection.
+    const decide = dto.thirtyDayPlan[2].actions.join(' ');
+    expect(decide).toMatch(/AI Front Desk/);
+    expect(decide).toMatch(/only after the proposed system passes its own readiness and safety checks/i);
+    expect(decide).toMatch(/make no automation change/i);
+    expect(decide).toMatch(/Days 1–7/);
+    expect(decide).not.toMatch(/pull 30 days/i);
+    expect(decide).not.toMatch(/\bdeploy (the )?AI Front Desk\b/i);
     expect(dto.thirtyDayPlan[0].actions.join(' ')).toMatch(/phone records/i);
     expect(dto.thirtyDayPlan[3].actions.join(' ')).toMatch(/missed calls/i);
   });
@@ -275,10 +285,10 @@ describe('buildExecutiveReport', () => {
     expect(dto.executiveSummary).toMatch(/Our audit analyzed/);
   });
 
-  it('prefers the audit-time AI-enhanced summary when one was stored', () => {
+  it('never shows a stored AI-written summary in this release: the deterministic summary is shown instead', () => {
     const dto = buildExecutiveReport(baseInput({ storedSummary: 'Stored AI-enhanced summary generated at audit time from validated data.', storedSummaryWasAiEnhanced: true }));
-    expect(dto.executiveSummary).toBe('Stored AI-enhanced summary generated at audit time from validated data.');
-    expect(dto.summaryWasAiEnhanced).toBe(true);
+    expect(dto.executiveSummary).toBe(buildExecutiveReport(baseInput()).executiveSummary);
+    expect(dto.summaryWasAiEnhanced).toBe(false);
   });
 
   it('handles zero opportunities without inventing findings', () => {
@@ -426,7 +436,7 @@ describe('Phase 2.5 — executive snapshot, scenarios, journey map, prescription
     const dto = buildExecutiveReport(baseInput());
     expect(dto.decisionBox.doNothing.heading).toBe('DO NOTHING');
     expect(dto.decisionBox.validate.heading).toBe('VALIDATE');
-    expect(dto.decisionBox.implement.heading).toBe('IMPLEMENT');
+    expect(dto.decisionBox.implement.heading).toBe('PILOT IF READY');
   });
 
   it('CTA falls back to phone text when no booking URL/QR is configured', () => {

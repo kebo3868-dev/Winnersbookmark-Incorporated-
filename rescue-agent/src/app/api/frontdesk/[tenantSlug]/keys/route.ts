@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { z } from 'zod';
+import { z } from '@/lib/validation/zod';
 import { ALL_SCOPES, parseScopes } from '@/lib/frontdesk/auth/apiKey';
 import { createApiKey, listApiKeys, recordAudit } from '@/lib/frontdesk/auth/store';
 import { authorize, resolveActor } from '@/lib/frontdesk/auth/actor';

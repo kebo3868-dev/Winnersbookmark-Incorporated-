@@ -38,6 +38,19 @@ export interface EvidenceBasis {
   ownerCaveat: string;
   /** The single check that would confirm it, as an instruction to the rep. */
   nextCheck: string;
+  /**
+   * What was observed, for the report's Diagnosis — completing "Observed in the
+   * page markup: …". It is the established part of the finding, stated without
+   * any claim about what customers did.
+   */
+  diagnosisObserved: string;
+  /**
+   * What only the owner can confirm, for the report's Diagnosis — completing
+   * "Requires owner confirmation: …". It is the unverified business outcome,
+   * kept out of the observed sentence so the strong markup evidence is not read
+   * as evidence of an effect on the business.
+   */
+  ownerConfirmation: string;
 }
 
 const BASIS_BY_CATEGORY: Record<string, EvidenceBasis> = {
@@ -60,6 +73,11 @@ const BASIS_BY_CATEGORY: Record<string, EvidenceBasis> = {
     ownerCaveat: 'My audit read that from the page itself rather than tapping it, and I am not assuming what it costs you',
     nextCheck:
       'Tap the button on a phone (or use the separately documented tap test), or ask the owner, before describing what customers experience.',
+    diagnosisObserved:
+      'the ordering button in the section labelled as online ordering is a telephone (tel:) link, not a link to an online checkout',
+    ownerConfirmation:
+      'whether ordering by phone is the intended method, what customers do after selecting the button, and any effect on ' +
+      'orders or revenue — which needs order and call records',
   },
 };
 
