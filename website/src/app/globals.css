@@ -29,6 +29,8 @@ html {
 
 body {
   @apply bg-night text-snow-soft font-sans antialiased;
+  font-feature-settings: 'ss01', 'cv11';
+  text-rendering: optimizeLegibility;
   /* One restrained wash of blue at the top of the page. This is the only
      decorative gradient in the system — the brief explicitly ruled out cheap
      gradients, and the way to honour that is to have exactly one and keep it
@@ -37,6 +39,22 @@ body {
   background-repeat: no-repeat;
   background-attachment: fixed;
 }
+
+::selection {
+  background: rgba(37, 99, 235, 0.45);
+  color: #fff;
+}
+
+/* The display serif ships one weight. Forbid the browser from faking a bold
+   or an oblique — a synthesised serif is the fastest way to look cheap. */
+.font-display {
+  font-synthesis: none;
+  font-optical-sizing: auto;
+}
+
+/* Headlines balance across lines; body copy avoids orphans. */
+h1, h2, h3 { text-wrap: balance; }
+p { text-wrap: pretty; }
 
 /* Visible focus everywhere, on every interactive element. Removing this to
    tidy up the visuals is an accessibility regression, not a design choice. */
@@ -54,12 +72,40 @@ body {
   }
 
   .section {
-    @apply py-16 sm:py-24;
+    @apply py-20 sm:py-28;
+  }
+
+  /* A hairline that fades out at both ends. Separates without boxing in. */
+  .rule-fade {
+    @apply h-px w-full;
+    background: linear-gradient(90deg, transparent, rgba(168, 178, 196, 0.22) 20%, rgba(168, 178, 196, 0.22) 80%, transparent);
+  }
+
+  /* Engineering-paper grid. Texture only: masked so it dissolves before it
+     can compete with copy. Used behind the hero and the closing CTA. */
+  .grid-paper {
+    background-image:
+      linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+    background-size: 56px 56px;
+    mask-image: radial-gradient(ellipse 70% 60% at 50% 30%, #000 30%, transparent 75%);
+    -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 30%, #000 30%, transparent 75%);
   }
 
   /* Typography ------------------------------------------------------------ */
+  /* The eyebrow carries a short blue rule — the "bookmark" — so every section
+     is visibly marked the same way. */
   .eyebrow {
-    @apply text-[11px] font-semibold uppercase tracking-[0.2em] text-electric-light;
+    @apply inline-flex items-center gap-3 font-mono text-[11px] font-medium uppercase tracking-[0.22em] text-electric-light;
+  }
+  .eyebrow::before {
+    content: '';
+    @apply block h-px w-6 bg-electric-light/70;
+  }
+
+  /* Italic serif emphasis inside a display headline. */
+  .em {
+    @apply font-display italic text-electric-light;
   }
 
   .lede {
@@ -68,18 +114,20 @@ body {
 
   /* Surfaces -------------------------------------------------------------- */
   .card {
-    @apply rounded-xl border border-night-line bg-night-card;
+    @apply rounded-2xl border border-night-line bg-night-card shadow-edge;
+    background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.022), transparent 40%);
   }
 
   .card-hover {
-    @apply transition-colors duration-200 hover:border-night-edge;
+    @apply transition-[border-color,transform,box-shadow] duration-300 ease-out
+           hover:-translate-y-0.5 hover:border-night-edge hover:shadow-lift;
   }
 
   /* Actions --------------------------------------------------------------- */
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg px-6 py-3.5
-           text-sm font-semibold tracking-tight transition-colors duration-200
-           min-h-[48px];
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-6 py-3.5
+           text-sm font-semibold tracking-tight transition-[background-color,border-color,color,transform] duration-200
+           min-h-[48px] active:translate-y-px;
   }
 
   /* PRIMARY — one per view. This is the only solid blue element on a page. */
@@ -90,8 +138,8 @@ body {
   }
 
   .btn-secondary {
-    @apply btn border border-night-edge bg-transparent text-snow-soft
-           hover:border-electric hover:text-white
+    @apply btn border border-night-edge bg-white/[0.02] text-snow-soft
+           hover:border-snow-faint hover:bg-white/[0.05] hover:text-white
            disabled:opacity-55 disabled:cursor-not-allowed;
   }
 
@@ -109,9 +157,9 @@ body {
   }
 
   .field-input {
-    @apply w-full rounded-lg border border-night-line bg-night-soft px-4 py-3
-           text-[16px] text-snow placeholder:text-snow-faint
-           transition-colors focus:border-electric;
+    @apply w-full rounded-xl border border-night-line bg-night-soft px-4 py-3
+           text-[16px] text-snow placeholder:text-snow-faint shadow-edge
+           transition-colors hover:border-night-edge focus:border-electric;
     /* 16px minimum prevents iOS Safari zooming the viewport on focus, which is
        what makes a mobile form feel broken even when it works. */
   }

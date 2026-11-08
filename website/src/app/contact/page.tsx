@@ -22,7 +22,7 @@ export default function ContactPage() {
         <div className="shell py-14 sm:py-20">
           <div className="max-w-3xl">
             <p className="eyebrow">Contact</p>
-            <h1 className="mt-5 text-display-lg font-bold text-snow">
+            <h1 className="mt-5 font-display text-display-lg font-normal text-snow">
               Tell us what is not working.
             </h1>
             <p className="lede mt-5 max-w-2xl text-lg">

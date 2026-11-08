@@ -65,8 +65,8 @@ export default function SiteHeader() {
   const isCurrent = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
 
   return (
-    <header className="sticky top-0 z-50 border-b border-night-line bg-night/85 backdrop-blur-md">
-      <div className="shell flex h-[68px] items-center justify-between gap-4">
+    <header className="sticky top-0 z-50 border-b border-night-line/80 bg-night/75 backdrop-blur-xl backdrop-saturate-150">
+      <div className="shell flex h-[72px] items-center justify-between gap-4">
         <Link
           href="/"
           aria-label="Winners Bookmark Incorporated — home"
@@ -82,18 +82,25 @@ export default function SiteHeader() {
               key={item.href}
               href={item.href}
               aria-current={isCurrent(item.href) ? 'page' : undefined}
-              className={`rounded-lg px-3.5 py-2 text-sm font-medium transition-colors ${
+              className={`relative rounded-full px-4 py-2 text-[13.5px] font-medium transition-colors ${
                 isCurrent(item.href) ? 'text-white' : 'text-snow-dim hover:text-white'
               }`}
             >
               {item.label}
+              {/* Current page is marked the way the brand marks everything: a
+                  short blue rule. Colour is never the only signal — the text
+                  also brightens and aria-current carries it for screen readers. */}
+              {isCurrent(item.href) && (
+                <span aria-hidden="true" className="absolute inset-x-4 -bottom-[17px] h-px bg-electric-light" />
+              )}
             </Link>
           ))}
         </nav>
 
         <div className="flex items-center gap-3">
-          <Link href="/contact" className="btn-primary hidden !min-h-[44px] !px-5 !py-2.5 sm:inline-flex">
+          <Link href="/contact" className="btn-primary group hidden !min-h-[44px] !px-5 !py-2.5 sm:inline-flex">
             Book a Strategy Call
+            <span aria-hidden="true" className="transition-transform duration-200 group-hover:translate-x-0.5">→</span>
           </Link>
 
           <button
@@ -103,7 +110,7 @@ export default function SiteHeader() {
             aria-expanded={open}
             aria-controls="mobile-nav"
             aria-label={open ? 'Close menu' : 'Open menu'}
-            className="flex h-11 w-11 items-center justify-center rounded-lg border border-night-line text-snow-dim transition-colors hover:border-night-edge hover:text-white lg:hidden"
+            className="flex h-11 w-11 items-center justify-center rounded-full border border-night-line text-snow-dim transition-colors hover:border-night-edge hover:text-white lg:hidden"
           >
             <span aria-hidden="true" className="flex flex-col gap-[4px]">
               <span className={`block h-[1.5px] w-4 bg-current transition-transform ${open ? 'translate-y-[5.5px] rotate-45' : ''}`} />

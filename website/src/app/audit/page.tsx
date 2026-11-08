@@ -37,7 +37,7 @@ export default function AuditPage() {
         <div className="shell py-16 sm:py-24">
           <div className="max-w-3xl">
             <p className="eyebrow">AI Business Audit</p>
-            <h1 className="mt-5 text-display-lg font-bold text-snow">
+            <h1 className="mt-5 font-display text-display-lg font-normal text-snow">
               Find out what your business is losing — before you buy anything.
             </h1>
             <p className="lede mt-6 max-w-2xl text-lg">
@@ -112,7 +112,7 @@ export default function AuditPage() {
 
       <Section>
         <div className="card p-8 text-center sm:p-12">
-          <h2 className="text-display-md font-bold text-snow">Request your audit.</h2>
+          <h2 className="font-display text-display-md font-normal text-snow">Request your audit.</h2>
           <p className="lede mx-auto mt-4 max-w-xl">
             Tell us about your business and we will get started. No obligation, and no
             pressure afterwards.

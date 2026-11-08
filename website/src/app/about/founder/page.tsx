@@ -49,7 +49,7 @@ export default function FounderPage() {
 
           <div className="max-w-3xl">
             <p className="eyebrow">{company.founderRole}</p>
-            <h1 className="mt-5 text-display-lg font-bold text-snow">{company.founder}</h1>
+            <h1 className="mt-5 font-display text-display-lg font-normal text-snow">{company.founder}</h1>
             <p className="lede mt-5 max-w-2xl text-lg">
               Founder of {company.legalName}, building the AI systems that keep restaurants and
               local service businesses from losing the customers they have already earned.
@@ -99,7 +99,7 @@ export default function FounderPage() {
 
       <Section className="border-t border-night-line">
         <div className="card p-8 text-center sm:p-12">
-          <h2 className="text-display-md font-bold text-snow">Talk to Keith directly.</h2>
+          <h2 className="font-display text-display-md font-normal text-snow">Talk to Keith directly.</h2>
           <p className="lede mx-auto mt-4 max-w-xl">
             Enquiries to Winners Bookmark reach the founder. If you want to talk about what AI
             could do for your business, start here.

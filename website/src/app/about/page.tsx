@@ -41,7 +41,7 @@ export default function AboutPage() {
         <div className="shell py-16 sm:py-24">
           <div className="max-w-3xl">
             <p className="eyebrow">About</p>
-            <h1 className="mt-5 text-display-lg font-bold text-snow">
+            <h1 className="mt-5 font-display text-display-lg font-normal text-snow">
               We build AI systems for businesses that cannot afford to lose customers.
             </h1>
             <p className="lede mt-6 max-w-2xl text-lg">{company.positioning}</p>
@@ -113,7 +113,7 @@ export default function AboutPage() {
 
       <Section className="border-t border-night-line">
         <div className="card p-8 text-center sm:p-12">
-          <h2 className="text-display-md font-bold text-snow">Talk to Winners Bookmark.</h2>
+          <h2 className="font-display text-display-md font-normal text-snow">Talk to Winners Bookmark.</h2>
           <p className="lede mx-auto mt-4 max-w-xl">
             Tell us what is not working in your business. We will tell you honestly whether this
             is something we can help with.

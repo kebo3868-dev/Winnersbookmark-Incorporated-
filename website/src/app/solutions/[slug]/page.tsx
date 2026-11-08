@@ -121,7 +121,7 @@ export default async function AgentPage({ params }: { params: Promise<{ slug: st
 
           <div className="max-w-3xl">
             <StatusBadge status={agent.status} />
-            <h1 className="mt-5 text-display-lg font-bold text-snow">{agent.name}</h1>
+            <h1 className="mt-5 font-display text-display-lg font-normal text-snow">{agent.name}</h1>
             <p className="lede mt-5 max-w-2xl text-lg">{agent.tagline}</p>
 
             {/* The status note is prominent, not buried. A visitor should not
@@ -314,7 +314,7 @@ export default async function AgentPage({ params }: { params: Promise<{ slug: st
       {/* ── CTA ─────────────────────────────────────────────────────────── */}
       <Section>
         <div className="card p-8 text-center sm:p-12">
-          <h2 className="text-display-md font-bold text-snow">
+          <h2 className="font-display text-display-md font-normal text-snow">
             {isAvailable ? `Ready to put the ${agent.name} to work?` : `Want to shape where ${agent.name} goes?`}
           </h2>
           <p className="lede mx-auto mt-4 max-w-xl">

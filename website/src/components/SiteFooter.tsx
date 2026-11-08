@@ -6,7 +6,7 @@ export default function SiteFooter() {
   const year = new Date().getFullYear();
 
   return (
-    <footer className="mt-auto border-t border-night-line bg-night-soft/40">
+    <footer className="relative mt-auto overflow-hidden border-t border-night-line bg-night-soft/40">
       <div className="shell py-14 sm:py-16">
         <div className="grid gap-10 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
           <div>
@@ -19,7 +19,7 @@ export default function SiteFooter() {
 
           {footerNav.map((group) => (
             <nav key={group.heading} aria-label={group.heading}>
-              <h2 className="text-[11px] font-semibold uppercase tracking-[0.16em] text-snow-faint">
+              <h2 className="font-mono text-[11px] font-medium uppercase tracking-[0.2em] text-snow-faint">
                 {group.heading}
               </h2>
               {/* `py-1.5` + `inline-block` gives each link a ~32px tap target
@@ -41,7 +41,16 @@ export default function SiteFooter() {
           ))}
         </div>
 
-        <div className="mt-12 flex flex-col gap-3 border-t border-night-line pt-7 text-xs text-snow-faint sm:flex-row sm:items-center sm:justify-between">
+        {/* Oversized wordmark as a sign-off. Decorative: the real name is in the
+            lockup above and the copyright line below. */}
+        <p
+          aria-hidden="true"
+          className="pointer-events-none mt-16 select-none whitespace-nowrap font-display text-[clamp(3rem,12.4vw,10.4rem)] leading-[0.85] tracking-[-0.03em] text-transparent [-webkit-text-stroke:1px_rgba(168,178,196,0.16)]"
+        >
+          Winners Bookmark
+        </p>
+
+        <div className="mt-8 flex flex-col gap-3 border-t border-night-line pt-7 text-xs text-snow-faint sm:flex-row sm:items-center sm:justify-between">
           <p>
             © {year} {company.legalName}. All rights reserved.
           </p>

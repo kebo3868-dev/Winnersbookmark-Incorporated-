@@ -26,7 +26,7 @@ export default function SolutionsPage() {
         <div className="shell py-16 sm:py-24">
           <div className="max-w-3xl">
             <p className="eyebrow">The ecosystem</p>
-            <h1 className="mt-5 text-display-lg font-bold text-snow">
+            <h1 className="mt-5 font-display text-display-lg font-normal text-snow">
               Specialised AI agents, each solving one problem properly.
             </h1>
             <p className="lede mt-6 max-w-2xl">
@@ -79,7 +79,7 @@ export default function SolutionsPage() {
 
       <Section className="border-t border-night-line">
         <div className="card p-8 text-center sm:p-12">
-          <h2 className="text-display-md font-bold text-snow">Not sure which one you need?</h2>
+          <h2 className="font-display text-display-md font-normal text-snow">Not sure which one you need?</h2>
           <p className="lede mx-auto mt-4 max-w-xl">
             That is what the strategy call is for. Describe the problem and we will tell you which
             system addresses it — or whether something simpler would.

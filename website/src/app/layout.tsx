@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { Inter, Instrument_Serif } from 'next/font/google';
 import './globals.css';
 import SiteHeader from '@/components/SiteHeader';
 import SiteFooter from '@/components/SiteFooter';
@@ -10,6 +11,20 @@ import { SITE_URL, company } from '@/data/site';
  * `alternates.canonical: '/solutions'` and get the right absolute URL for
  * whichever origin this deployment is actually served from.
  */
+/**
+ * Fonts are downloaded at BUILD time and served from this origin, so a visitor
+ * never makes a request to a font CDN and there is no flash of swapped text:
+ * next/font generates size-adjusted fallbacks that match each face's metrics.
+ */
+const sans = Inter({ subsets: ['latin'], display: 'swap', variable: '--font-sans' });
+const display = Instrument_Serif({
+  subsets: ['latin'],
+  weight: '400',
+  style: ['normal', 'italic'],
+  display: 'swap',
+  variable: '--font-display',
+});
+
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
@@ -50,7 +65,7 @@ export const viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" className={`${sans.variable} ${display.variable}`}>
       <body className="flex min-h-screen flex-col">
         {/* Keyboard users must be able to reach the content without tabbing the
             whole navigation on every page. Visually hidden until focused. */}

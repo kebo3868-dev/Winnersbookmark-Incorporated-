@@ -6,7 +6,7 @@ export default function NotFound() {
     <div className="shell flex min-h-[60vh] flex-col justify-center py-20">
       <div className="max-w-xl">
         <p className="eyebrow">404</p>
-        <h1 className="mt-4 text-display-lg font-bold text-snow">This page does not exist.</h1>
+        <h1 className="mt-4 font-display text-display-lg font-normal text-snow">This page does not exist.</h1>
         <p className="lede mt-5">
           The link may be out of date, or the page may have moved. Here is where to go instead.
         </p>
