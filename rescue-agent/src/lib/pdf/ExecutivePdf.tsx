@@ -4,8 +4,43 @@ import { classificationCounters, classificationIntro, type ExecutiveReportDTO } 
 import { evidenceBasisRows } from '@/lib/audit/evidenceBasis';
 import { pdfHyphenation, wrapAddressesDeep, wrapLongAddresses } from '@/lib/pdf/hyphenation';
 
-/** `text` cut to `max` characters with an ellipsis. */
-const shortened = (text: string, max: number) => (text.length > max ? `${text.slice(0, max)}…` : text);
+/**
+ * The link target for an address printed in the PDF: the recorded value itself
+ * when it is an absolute http(s) address, otherwise null (printed, not linked).
+ * Never rewritten — no scheme is added or changed, so a link opens exactly the
+ * address the audit recorded.
+ */
+export function webHref(value: string | null | undefined): string | null {
+  if (!value || /\s/.test(value)) return null;
+  try {
+    const url = new URL(value);
+    return url.protocol === 'https:' || url.protocol === 'http:' ? value : null;
+  } catch {
+    return null;
+  }
+}
+/**
+ * CHARACTERS THE PDF FONTS CANNOT DRAW, REPLACED FOR PRINT ONLY.
+ *
+ * The PDF uses the standard Helvetica and Times faces, which have no arrow. The
+ * audit records example links as 'Example link text: "Menu" → https://…', and
+ * in the export the arrow printed as a stray mark ('"Menu" ' https://…') on
+ * every such appendix line — 276 times across the 85 locally stored audits,
+ * and the only undrawable character found in them. The web report draws the
+ * arrow and keeps it; the stored evidence is not changed.
+ */
+const PDF_SUBSTITUTES: [RegExp, string][] = [
+  [/\u2192/g, '->'],
+  [/\u2190/g, '<-'],
+];
+export function pdfDrawableDeep<T>(value: T): T {
+  if (typeof value === 'string') return PDF_SUBSTITUTES.reduce((text, [pattern, replacement]) => text.replace(pattern, replacement), value as string) as T;
+  if (Array.isArray(value)) return value.map((item) => pdfDrawableDeep(item)) as T;
+  if (value !== null && typeof value === 'object') {
+    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, pdfDrawableDeep(item)])) as T;
+  }
+  return value;
+}
 import { CONFIDENCE_EXPLANATION, FINDING_CLASSIFICATION_NOTE } from '@/lib/scoring/methodology';
 import { SCENARIO_DISCLAIMER, SCENARIO_SPECS } from '@/lib/reports/scenarios';
 
@@ -80,13 +115,23 @@ const s = StyleSheet.create({
  */
 export type ContinuationLedger = Map<string, number>;
 
-function ContinuedLabel({ id, text, ledger }: { id: string; text: string; ledger: ContinuationLedger }) {
-  // Drawn as a slice of the card (fill and side rules, no vertical padding), so
-  // on the first page, where it is empty, it has no height and draws nothing.
+/** The continuation line of a finding card: a slice of the card (fill and side rules, no vertical padding). */
+// Padded above and below so that, opening a page, it does not touch the top of
+// the card slice or crowd the block beneath it. The padding is drawn (as card
+// fill) where the label is hidden too: a single line's height is reserved for
+// the label in every layout pass, so a taller label would cost every card that
+// space and push pages onto further pages.
+const CARD_CONTINUED_STYLE = { fontSize: 6.5, letterSpacing: 0.8, color: C.muted, textTransform: 'uppercase' as const, backgroundColor: C.softBg, borderLeftWidth: 0.5, borderRightWidth: 0.5, borderColor: C.line, paddingHorizontal: 14, paddingTop: 4, paddingBottom: 2 };
+/** The continuation line of a plain section (Methodology, Appendix): no fill, no padding. */
+const SECTION_CONTINUED_STYLE = { fontSize: 6.5, letterSpacing: 1.2, color: C.goldDim, textTransform: 'uppercase' as const };
+
+function ContinuedLabel({ id, text, ledger, variant = 'card' }: { id: string; text: string; ledger: ContinuationLedger; variant?: 'card' | 'section' }) {
+  // Where it is empty (a block's first page) the section variant has no height
+  // and draws nothing; the card variant keeps only its padding, as card fill.
   return (
     <Text
       fixed
-      style={{ fontSize: 6.5, letterSpacing: 0.8, color: C.muted, textTransform: 'uppercase', backgroundColor: C.softBg, borderLeftWidth: 0.5, borderRightWidth: 0.5, borderColor: C.line, paddingHorizontal: 14 }}
+      style={variant === 'card' ? CARD_CONTINUED_STYLE : SECTION_CONTINUED_STYLE}
       render={({ pageNumber, totalPages }) => {
         // react-pdf calls this during pagination too, once per tentative page
         // split, with page numbers the block may never be placed on. Recording
@@ -197,22 +242,181 @@ const PRESCRIPTION_CARD = { padding: 11, marginBottom: 9 };
  * section). Characters, not measured height, for the same reason as
  * findingMaySpanPages: 700 characters is roughly eight lines of body text.
  */
+/** Bullets that always travel together at the end of Methodology & Limitations. */
+export const METHODOLOGY_TAIL = 3;
+
+/**
+ * Items as page-break units: one unit per item, except the last `tail`, which
+ * form one unit — so a page break can never carry a single item over on its own.
+ */
+export function tailGroups<T>(items: T[], tail: number): T[][] {
+  const tailStart = Math.max(0, items.length - tail);
+  return [...items.slice(0, tailStart).map((item) => [item]), ...(tailStart < items.length ? [items.slice(tailStart)] : [])];
+}
+
+/** The methodology bullets after the two kept with the heading, as page-break units (see tailGroups). */
+export function methodologyGroups(lines: string[]): string[][] {
+  return tailGroups(lines, METHODOLOGY_TAIL);
+}
+
 export function planPhaseStaysWhole(phase: { actions: string[] }): boolean {
   return phase.actions.join(' ').length <= 700;
 }
 
-export function findingMaySpanPages(finding: ExecutiveReportDTO['findings'][number]): boolean {
-  const text = [
-    finding.title,
-    finding.problem,
-    finding.whyItMatters,
-    finding.commercialEffect,
-    finding.whatWeDoNotKnow,
-    finding.recommendedAction,
-    ...finding.whatWeKnow,
-    ...(finding.evidenceBasis ? evidenceBasisRows(finding.evidenceBasis).flat() : []),
-  ].join(' ');
-  return text.length > 1400;
+/**
+ * FINDING CARDS: A SHORT CARD STAYS WHOLE; A TALLER ONE NEVER LEAVES A FRAGMENT.
+ *
+ * The decision used to be a character count (more than 1,400 characters of
+ * card text), and a "long" card could break after ANY block. In the Leverock's
+ * PDF the private-event finding (about 500pt on a 676pt page) was cut after its
+ * first block: its title and one paragraph sat at the foot of page 6, the rest
+ * opened page 7 under a continuation label, and the next card could not fit
+ * beneath it, so most of page 7 was empty.
+ *
+ * Two simpler rules were tried on the 85 locally stored audits and rejected:
+ * holding every card that fits whole (a short card followed by a tall one left
+ * half a page blank; 28 reports gained a page), and breaking a card only at its
+ * middle (still left 40% of a page blank where a slightly smaller first part
+ * would have fitted).
+ *
+ * So each card's height is ESTIMATED, block by block, in points, and:
+ *  - a short card (at most SHORT_CARD) is one unbreakable unit;
+ *  - a taller card opens with an unbreakable unit holding its title and enough
+ *    blocks to make up MIN_PART of it, and closes with an unbreakable unit of
+ *    at least the same share; the blocks between may each start a new page. A
+ *    page therefore never ends on a card's title and one paragraph, and never
+ *    starts with a lone last block: each side of a break carries a real part
+ *    of the card, and every later page names it ("— continued").
+ *
+ * The estimate must never fall short: an unbreakable block taller than the page
+ * is not split by the layout engine, it runs off the bottom of the page and its
+ * last lines are lost (react-pdf warns "can't wrap between pages and it's bigger
+ * than available page height"). So every measure rounds up — wider glyphs than
+ * Helvetica draws, a partly filled last line on every paragraph, a fixed
+ * allowance for each label — and a unit is held together only with 40pt of the
+ * page to spare; a card whose opening or closing unit would not fit falls back
+ * to breaking between any blocks. Calibrated on rendered Leverock's cards
+ * (actual 440–532pt; estimated 11–18% above) and held by a test that renders
+ * cards either side of the boundary and fails on that warning (it fails if the
+ * budget is removed).
+ */
+/** Usable height of a body page: Letter (792pt) less the top and bottom padding of s.page. */
+export const PAGE_CONTENT_HEIGHT = 792 - 52 - 64;
+/** An unbreakable unit is used only if its estimate leaves this much of the page spare. */
+const UNIT_BUDGET = PAGE_CONTENT_HEIGHT - 40;
+/** A card no taller than about half a page (estimated) is never broken: each part would be under a quarter page. */
+export const SHORT_CARD = 340;
+/** The least share of a broken card on either side of the break… */
+export const MIN_PART = 0.4;
+/** …and never less than this many points. */
+const MIN_PART_POINTS = 180;
+/** The Section 04 heading travels with the first card (SectionHeader: kicker, title, rule). */
+export const SECTION_HEADER_HEIGHT = 50;
+/** The continuation label over a card's second half: one line of 6.5pt type and its padding. */
+const CONTINUATION_LINE = 15;
+/** Text width inside a finding card: page width less page padding, card padding and borders. */
+const CARD_TEXT_WIDTH = 612 - 2 * 52 - 2 * 14 - 1;
+
+/** Lines a paragraph needs at `fontSize`, assuming wider-than-average glyphs and an underfilled last line. */
+function estimatedLines(text: string, fontSize: number, width = CARD_TEXT_WIDTH, emPerChar = 0.5): number {
+  const perLine = Math.max(1, Math.floor((width / (fontSize * emPerChar)) * 0.92));
+  return text
+    .split('\n')
+    .reduce((n, paragraph) => n + Math.max(1, Math.ceil(paragraph.length / perLine)), 0);
+}
+
+type Finding = ExecutiveReportDTO['findings'][number];
+/** Estimated heights of a card's parts: its head (padding, title, stage line), each block in render order, its foot. */
+export interface FindingParts {
+  head: number;
+  blocks: { key: string; height: number }[];
+  foot: number;
+}
+
+/** Estimated height in points of each part of a finding card as rendered below, rounded up on purpose. */
+export function estimatedFindingParts(finding: Finding): FindingParts {
+  const BODY = 9.5 * 1.5; // s.body line
+  const MUTED = 8.5 * 1.4; // s.mutedText line
+  const LABEL = 7 * 1.25 + 2; // s.label and its margin
+  const body = (text: string) => estimatedLines(text, 9.5) * BODY;
+  // Title row beside the classification badge, then the stage line.
+  const badgeWidth = finding.classification.length * 7 * 0.72 + 14;
+  const head =
+    14 + 0.5 +
+    Math.max(estimatedLines(`${finding.number}. ${finding.title}`, 12, CARD_TEXT_WIDTH - badgeWidth - 8, 0.52) * 12 * 1.25, 16) + 6 +
+    estimatedLines(`Customer journey stage: ${finding.journeyStage} · Priority: ${finding.labels.priority}`, 8.5) * MUTED + 6;
+  const blocks: { key: string; height: number }[] = [];
+  if (finding.evidenceBasis) {
+    blocks.push({
+      key: 'basis',
+      height: 12 + 1 + 6 + evidenceBasisRows(finding.evidenceBasis).reduce((n, [label, text]) => n + estimatedLines(`${label}: ${text}`, 9.5, CARD_TEXT_WIDTH - 13) * BODY + 1, 0),
+    });
+  }
+  blocks.push({ key: 'problem', height: LABEL + body(finding.problem) + 6 });
+  blocks.push({ key: 'why', height: LABEL + body(finding.whyItMatters) + 6 });
+  if (finding.commercialEffect) blocks.push({ key: 'effect', height: LABEL + body(finding.commercialEffect) + 6 });
+  if (finding.whatWeKnow.length > 0) blocks.push({ key: 'known', height: LABEL + finding.whatWeKnow.reduce((n, k) => n + body(`•  ${k}`) + 2, 0) });
+  blocks.push({ key: 'unknown', height: 5 + LABEL + body(finding.whatWeDoNotKnow) + 6 });
+  // Label grid: six label/value pairs that wrap, each row about 19pt plus the row gap.
+  const pairs: [string, string][] = [
+    ['Business impact', finding.labels.businessImpact],
+    ['Urgency', finding.labels.urgency],
+    ['Finding confidence', finding.labels.findingConfidence],
+    ['Observed evidence', finding.labels.observedEvidence],
+    ['Customer outcome', finding.labels.customerOutcome],
+    ['Automation opportunity', finding.labels.automationOpportunity],
+  ];
+  const gridWidth = pairs.reduce((w, [label, value]) => w + Math.max(label.length * 6.5 * 0.72 + label.length * 0.8, String(value).length * 8.5 * 0.62) + 14, 0);
+  blocks.push({
+    key: 'action',
+    height: LABEL + body(finding.recommendedAction) + 8 + (finding.scenarioKind ? 2 * MUTED + 4 : 0) + 8 + 6 + 0.5 + Math.ceil(gridWidth / CARD_TEXT_WIDTH) * 23,
+  });
+  return { head: Math.ceil(head), blocks: blocks.map((b) => ({ ...b, height: Math.ceil(b.height) })), foot: 14 + 1 };
+}
+
+/** Estimated height in points of a whole finding card. */
+export function estimatedFindingHeight(finding: Finding): number {
+  const { head, blocks, foot } = estimatedFindingParts(finding);
+  return head + blocks.reduce((n, b) => n + b.height, 0) + foot;
+}
+
+/**
+ * How a finding card is laid out (see the note above). `withHeading` is true
+ * for the first card, which carries the Section 04 heading in its first unit.
+ *  - whole: one unbreakable unit.
+ *  - units: unbreakable groups of consecutive blocks, `groups` giving how many
+ *    blocks each holds, in order; a page may break only between groups.
+ */
+export type FindingLayout = { kind: 'whole' } | { kind: 'units'; groups: number[] };
+
+export function findingLayout(finding: Finding, withHeading = false): FindingLayout {
+  const { head, blocks, foot } = estimatedFindingParts(finding);
+  const heading = withHeading ? SECTION_HEADER_HEIGHT : 0;
+  const card = head + blocks.reduce((n, b) => n + b.height, 0) + foot;
+  if (card <= SHORT_CARD && heading + card <= UNIT_BUDGET) return { kind: 'whole' };
+  const n = blocks.length;
+  if (n < 2) return { kind: 'units', groups: [n] };
+  const minPart = Math.max(MIN_PART_POINTS, card * MIN_PART);
+  // Opening: the head and the fewest blocks that reach minPart (at least one block).
+  let open = 1;
+  while (open < n - 1 && head + blocks.slice(0, open).reduce((t, b) => t + b.height, 0) < minPart) open++;
+  // Closing: the fewest final blocks that reach minPart, not reaching into the opening.
+  let close = n - 1;
+  while (close > open && blocks.slice(close).reduce((t, b) => t + b.height, 0) + foot < minPart) close--;
+  const groups = [open, ...Array.from({ length: close - open }, () => 1), n - close];
+  const sizes = groups.map((size, i) => {
+    const start = groups.slice(0, i).reduce((t, g) => t + g, 0);
+    const body = blocks.slice(start, start + size).reduce((t, b) => t + b.height, 0);
+    return i === 0 ? heading + head + body : CONTINUATION_LINE + body + (i === groups.length - 1 ? foot : 0);
+  });
+  if (sizes.every((h) => h <= UNIT_BUDGET)) return { kind: 'units', groups };
+  // An opening or closing too tall for a page: break between any blocks.
+  return { kind: 'units', groups: blocks.map(() => 1) };
+}
+
+/** Whether a finding card may break across pages (anything but one unbreakable unit). */
+export function findingMaySpanPages(finding: Finding, withHeading = false): boolean {
+  return findingLayout(finding, withHeading).kind !== 'whole';
 }
 
 function classificationColor(classification: string): string {
@@ -307,7 +511,7 @@ Font.registerHyphenationCallback(pdfHyphenation);
 export function ExecutivePdf({ dto: report }: { dto: ExecutiveReportDTO }) {
   // An address longer than a line is broken after its own separators before
   // layout, so it neither runs off the page nor gains a hyphen.
-  const dto = wrapAddressesDeep(report);
+  const dto = wrapAddressesDeep(pdfDrawableDeep(report));
   // Per-render bookkeeping for the continuation labels: one ledger per
   // document, so two reports rendering at once cannot disturb each other.
   const continuationLedger: ContinuationLedger = new Map();
@@ -333,7 +537,12 @@ export function ExecutivePdf({ dto: report }: { dto: ExecutiveReportDTO }) {
           <View style={{ marginTop: 28 }}>
             <Text style={{ fontFamily: 'Times-Bold', fontSize: 18, color: C.ivory }}>{dto.cover.restaurantName}</Text>
             <Text style={{ fontSize: 9, color: '#b8b0a2', marginTop: 4 }}>
-              {dto.cover.websiteUrl}
+              {/* The audited website, linked to the address as recorded (see webHref). */}
+              {webHref(report.cover.websiteUrl) ? (
+                <Link src={webHref(report.cover.websiteUrl)!} style={{ color: '#b8b0a2', textDecoration: 'none' }}>{dto.cover.websiteUrl}</Link>
+              ) : (
+                dto.cover.websiteUrl
+              )}
               {dto.cover.location ? `  ·  ${dto.cover.location}` : ''}
             </Text>
             <Text style={{ fontSize: 9, color: '#b8b0a2', marginTop: 2 }}>Audit date: {dto.cover.auditDate}</Text>
@@ -659,7 +868,7 @@ export function ExecutivePdf({ dto: report }: { dto: ExecutiveReportDTO }) {
                 ),
               },
             ];
-            const maySpanPages = findingMaySpanPages(f);
+            const layout = findingLayout(f, fi === 0);
             const titleRow = (
               <>
                 <View style={[s.row, { justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }]}>
@@ -673,8 +882,8 @@ export function ExecutivePdf({ dto: report }: { dto: ExecutiveReportDTO }) {
             );
             // The section heading travels with the first finding — see Lead.
             const heading = fi === 0 ? <SectionHeader kicker="Section 04" title={dto.headlines.findings} /> : null;
-            if (!maySpanPages) {
-              // A card that fits a page is placed whole, so it is never continued.
+            if (layout.kind === 'whole') {
+              // A short card is placed whole, so it is never continued.
               return (
                 <View key={f.number} style={{ marginBottom: 14 }} wrap={false}>
                   {heading}
@@ -697,22 +906,33 @@ export function ExecutivePdf({ dto: report }: { dto: ExecutiveReportDTO }) {
             // later block draws its own slice of the card, so a break can only
             // fall between blocks and never leaves an empty box.
             const id = `finding-${f.number}`;
-            const [first, ...rest] = blocks;
+            const continued = <ContinuedLabel id={id} text={`${f.number}. ${f.title} — continued`} ledger={continuationLedger} />;
+            // UNBREAKABLE GROUPS OF BLOCKS (see findingLayout). The opening
+            // group travels with the heading; each later group draws its own
+            // slice of the card, so a break can only fall between groups and
+            // never leaves an empty box; the label names the card on every page
+            // after its first.
+            const groupStarts = layout.groups.map((_, gi) => layout.groups.slice(0, gi).reduce((t, g) => t + g, 0));
+            const [opening, ...later] = layout.groups.map((size, gi) => blocks.slice(groupStarts[gi], groupStarts[gi] + size));
             return (
               <React.Fragment key={f.number}>
                 <View wrap={false}>
                   {heading}
                   <View style={cardSlice('top')}>
                     {titleRow}
-                    {first.node}
+                    {opening.map((block) => (
+                      <View key={block.key}>{block.node}</View>
+                    ))}
                     <FirstPageMark id={id} ledger={continuationLedger} />
                   </View>
                 </View>
                 <View style={{ marginBottom: 14 }}>
-                  <ContinuedLabel id={id} text={`${f.number}. ${f.title} — continued`} ledger={continuationLedger} />
-                  {rest.map((block, bi) => (
-                    <View key={block.key} wrap={false} style={cardSlice(bi === rest.length - 1 ? 'bottom' : 'middle')}>
-                      {block.node}
+                  {continued}
+                  {later.map((group, gi) => (
+                    <View key={group[0].key} wrap={false} style={cardSlice(gi === later.length - 1 ? 'bottom' : 'middle')}>
+                      {group.map((block) => (
+                        <View key={block.key}>{block.node}</View>
+                      ))}
                     </View>
                   ))}
                 </View>
@@ -721,22 +941,19 @@ export function ExecutivePdf({ dto: report }: { dto: ExecutiveReportDTO }) {
           })}
         </View>
 
-        {/* VISUAL CUSTOMER JOURNEY */}
-        <View style={s.section}>
-          <Lead kicker="Section 05" title="Customer Journey Map">
-          <Text style={[s.mutedText, { marginBottom: 4 }]}>Where guest friction clusters across the journey, from discovery to return.</Text>
-          {/* Same legend, from the same DTO field, as the web report. */}
-          <View style={{ marginBottom: 8 }}>
-            {dto.journeyLegend.map(([label, meaning]) => (
-              <Text key={label} style={{ fontSize: 7, color: C.muted, marginTop: 1 }}>
-                <Text style={{ fontFamily: 'Helvetica-Bold', color: statusColor(label) }}>{label}</Text>
-                {` — ${meaning}`}
-              </Text>
-            ))}
-          </View>
-          </Lead>
-          {dto.journeyMap.map((stage, i) => (
-            <View key={stage.stage} wrap={false}>
+        {/* VISUAL CUSTOMER JOURNEY AND AI OPPORTUNITIES: PAGE-LEVEL SIBLINGS.
+          *
+          * Each of these two sections sat inside its own wrapping section View.
+          * When the journey map ran onto a further page, the AI Opportunities
+          * section's View then started a page late (the react-pdf behaviour
+          * described at Section 02): four of the 85 locally stored audits
+          * printed a page holding nothing but the last journey stage. As
+          * page-level siblings, with the section margin as a spacer, Section 06
+          * follows the journey map on the same page.
+          */}
+        {(() => {
+          const stageRow = (stage: (typeof dto.journeyMap)[number], i: number) => (
+            <View>
               <View style={[s.row, { alignItems: 'center', gap: 10 }]}>
                 <Text style={{ width: 118, fontSize: 7, fontFamily: 'Helvetica-Bold', letterSpacing: 0.8, textAlign: 'center', color: statusColor(stage.status), borderWidth: 0.75, borderColor: statusColor(stage.status), borderRadius: 2, paddingVertical: 3 }}>
                   {stage.status}
@@ -752,11 +969,34 @@ export function ExecutivePdf({ dto: report }: { dto: ExecutiveReportDTO }) {
               </View>
               {i < dto.journeyMap.length - 1 && <View style={{ marginLeft: 59, height: 6, borderLeftWidth: 0.75, borderLeftColor: C.line }} />}
             </View>
-          ))}
-        </View>
+          );
+          return (
+            <>
+              <Lead kicker="Section 05" title="Customer Journey Map">
+                <Text style={[s.mutedText, { marginBottom: 4 }]}>Where guest friction clusters across the journey, from discovery to return.</Text>
+                {/* Same legend, from the same DTO field, as the web report. */}
+                <View style={{ marginBottom: 8 }}>
+                  {dto.journeyLegend.map(([label, meaning]) => (
+                    <Text key={label} style={{ fontSize: 7, color: C.muted, marginTop: 1 }}>
+                      <Text style={{ fontFamily: 'Helvetica-Bold', color: statusColor(label) }}>{label}</Text>
+                      {` — ${meaning}`}
+                    </Text>
+                  ))}
+                </View>
+              </Lead>
+              {dto.journeyMap.map((stage, i) => (
+                <View key={stage.stage} wrap={false}>
+                  {stageRow(stage, i)}
+                </View>
+              ))}
+              {/* The section's bottom margin, as a spacer: harmless at a page break. */}
+              <View style={{ height: 22 }} />
+            </>
+          );
+        })()}
 
-        {/* RANKED AI OPPORTUNITIES */}
-        <View style={s.section}>
+        {/* RANKED AI OPPORTUNITIES — page-level siblings, see the note at Section 05. */}
+        <>
           {dto.rankedAiOpportunities.length === 0 ? (
             <Lead kicker="Section 06" title="AI Automation Opportunities">
             <Text style={s.body}>
@@ -794,7 +1034,8 @@ export function ExecutivePdf({ dto: report }: { dto: ExecutiveReportDTO }) {
               </View>
             ))
           )}
-        </View>
+        <View style={{ height: 22 }} />
+        </>
 
         {/* WINNERS BOOKMARK PRESCRIPTION */}
         <View style={s.section}>
@@ -903,7 +1144,13 @@ export function ExecutivePdf({ dto: report }: { dto: ExecutiveReportDTO }) {
                   {dto.cta.email ? ` · ${dto.cta.email}` : ''}
                 </Text>
                 {!dto.cta.qrDataUrl && dto.cta.bookingUrl && (
-                  <Text style={{ fontSize: 8.5, color: C.gold, marginTop: 4 }}>{dto.cta.bookingUrl}</Text>
+                  <Text style={{ fontSize: 8.5, color: C.gold, marginTop: 4 }}>
+                    {webHref(report.cta.bookingUrl) ? (
+                      <Link src={webHref(report.cta.bookingUrl)!} style={{ color: C.gold, textDecoration: 'none' }}>{dto.cta.bookingUrl}</Link>
+                    ) : (
+                      dto.cta.bookingUrl
+                    )}
+                  </Text>
                 )}
                 {!dto.cta.qrDataUrl && !dto.cta.bookingUrl && (
                   <Text style={{ fontSize: 8.5, color: '#b8b0a2', marginTop: 4 }}>{dto.cta.fallbackText}</Text>
@@ -922,15 +1169,37 @@ export function ExecutivePdf({ dto: report }: { dto: ExecutiveReportDTO }) {
         <View style={{ height: 22 }} />
 
         {/* METHODOLOGY */}
+        {/*
+          * NO STRANDED BULLET, AND A CONTINUATION SAYS WHAT IT CONTINUES.
+          *
+          * The bullets after the first two flowed one by one, so the last
+          * bullet alone could be carried over and printed above the Appendix
+          * heading with nothing saying which section it belonged to (Leverock's,
+          * page 13). Now the heading keeps the first two bullets, the last
+          * METHODOLOGY_TAIL bullets travel as one unit, and a later page opens
+          * with "Methodology & Limitations — continued". The section is not held
+          * whole: as one unbreakable block it moved to the next page and left
+          * the bottom of the page above it empty.
+          */}
         <View style={s.section}>
           <Lead kicker="Section 10" title="Methodology & Limitations">
             {dto.methodologyAndLimitations.slice(0, 2).map((line, i) => (
               <Text key={i} style={[s.body, { marginBottom: 4 }]}>•  {line}</Text>
             ))}
+            <FirstPageMark id="methodology" ledger={continuationLedger} />
           </Lead>
-          {dto.methodologyAndLimitations.slice(2).map((line, i) => (
-            <Text key={i} style={[s.body, { marginBottom: 4 }]}>•  {line}</Text>
-          ))}
+          {dto.methodologyAndLimitations.length > 2 && (
+            <View>
+              <ContinuedLabel id="methodology" text="Section 10 · Methodology & Limitations — continued" ledger={continuationLedger} variant="section" />
+              {methodologyGroups(dto.methodologyAndLimitations.slice(2)).map((group, gi) => (
+                <View key={gi} wrap={false}>
+                  {group.map((line, i) => (
+                    <Text key={i} style={[s.body, { marginBottom: 4 }]}>•  {line}</Text>
+                  ))}
+                </View>
+              ))}
+            </View>
+          )}
         </View>
 
         {/* APPENDIX */}
@@ -952,6 +1221,7 @@ export function ExecutivePdf({ dto: report }: { dto: ExecutiveReportDTO }) {
           <Text style={{ fontSize: 7.5, color: C.muted, marginBottom: 4, letterSpacing: 0.5 }}>
             {dto.valueSignals.confidentialityNote} · Prepared for {dto.valueSignals.preparedFor} by {dto.valueSignals.preparedBy} · Audit {dto.valueSignals.auditId} · {dto.valueSignals.auditDate}
           </Text>
+          <FirstPageMark id="appendix" ledger={continuationLedger} />
           {/* Same rubric as the web report, laid out the same way — one
             * introductory sentence, then the bands as their own lines. As a
             * single concatenated string it read as an unscannable block. */}
@@ -983,26 +1253,50 @@ export function ExecutivePdf({ dto: report }: { dto: ExecutiveReportDTO }) {
             * appendix carries several rows rather than one. A group is a
             * small fraction of a page, so a group never exceeds one.
             */}
-          {chunk(dto.appendix, 2).map((group, gi) => (
-            <View key={gi} wrap={false}>
-              {group.map((e, i) => (
-                <View key={i} style={{ borderBottomWidth: 0.5, borderBottomColor: C.line, paddingVertical: 3 }}>
-                  {/* Appendix type sizes: 9 / 8.5 / 7.5 (were 8.5 / 7.5 / 6.8, too small to read printed). */}
-                  <Text style={{ fontSize: 9, color: C.ink, lineHeight: 1.35 }}>{e.fact}</Text>
-                  {e.supportingContext ? (
-                    <Text style={{ fontSize: 8.5, color: C.muted, marginTop: 1, lineHeight: 1.3 }}>{e.supportingContext}</Text>
-                  ) : null}
-                  <Text style={{ fontSize: 7.5, color: C.muted, marginTop: 1 }}>
-                    {e.evidenceLabel}
-                    {/* Shortened before wrapping (wrapping only adds line breaks), so the cut falls at the same character. */}
-                    {e.sourceUrl ? ` · ${wrapLongAddresses(shortened(e.sourceUrl.replace(/\n/g, ''), 90))}` : ''}
-                    {/* Label only — see the note on the web report's appendix. */}
-                    {` · evidence confidence: ${e.confidenceLabel}`}
-                  </Text>
-                </View>
-              ))}
-            </View>
-          ))}
+          <View>
+            <ContinuedLabel id="appendix" text="Appendix · Full Evidence Chain — continued" ledger={continuationLedger} variant="section" />
+            {chunk(dto.appendix, 2).map((group, gi) => (
+              <View key={gi} wrap={false}>
+                {group.map((e, i) => {
+                  // The address exactly as recorded: wrapAddressesDeep only
+                  // inserted line breaks into the copy laid out on the page.
+                  const recorded = e.sourceUrl ? e.sourceUrl.replace(/\n/g, '') : null;
+                  const href = webHref(recorded);
+                  const printed = recorded ? wrapLongAddresses(recorded) : null;
+                  return (
+                    <View key={i} style={{ borderBottomWidth: 0.5, borderBottomColor: C.line, paddingVertical: 3 }}>
+                      {/* Appendix type sizes: 9 / 8.5 / 7.5 (were 8.5 / 7.5 / 6.8, too small to read printed). */}
+                      <Text style={{ fontSize: 9, color: C.ink, lineHeight: 1.35 }}>{e.fact}</Text>
+                      {e.supportingContext ? (
+                        <Text style={{ fontSize: 8.5, color: C.muted, marginTop: 1, lineHeight: 1.3 }}>{e.supportingContext}</Text>
+                      ) : null}
+                      {/* Extra leading only when the address runs onto a second line, so its two lines do not touch. */}
+                      <Text style={{ fontSize: 7.5, color: C.muted, marginTop: 1, ...(printed?.includes('\n') ? { lineHeight: 1.35 } : {}) }}>
+                        {e.evidenceLabel}
+                        {/*
+                          * THE SOURCE ADDRESS IN FULL, AND CLICKABLE.
+                          *
+                          * It was cut to 90 characters with an ellipsis, so a long
+                          * address ("…&promotion=holiday_party") lost its end and
+                          * could not be followed. It is now printed whole, broken
+                          * after its own separators where it is wider than the line
+                          * (no character added), and linked to the recorded address.
+                          * A recorded value that is not an http(s) address is printed
+                          * as text and not linked.
+                          */}
+                        {recorded ? ' · ' : ''}
+                        {printed && href ? (
+                          <Link src={href} style={{ color: C.muted, textDecoration: 'underline' }}>{printed}</Link>
+                        ) : printed}
+                        {/* Label only — see the note on the web report's appendix. */}
+                        {` · evidence confidence: ${e.confidenceLabel}`}
+                      </Text>
+                    </View>
+                  );
+                })}
+              </View>
+            ))}
+          </View>
         </View>
       </Page>
     </Document>
