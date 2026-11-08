@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { contact, socialImage } from '@/data/site';
 import { Section, SectionHeading } from '@/components/Section';
 
 export const metadata: Metadata = {
@@ -8,6 +9,7 @@ export const metadata: Metadata = {
     'AI consulting for businesses that want a straight answer: what AI can actually do for you, what it cannot, and what is worth building first.',
   alternates: { canonical: '/consulting' },
   openGraph: {
+    images: [socialImage],
     title: 'AI Consulting | Winners Bookmark',
     description: 'Practical AI consulting, audits and implementation for local business.',
     url: '/consulting',
@@ -68,7 +70,7 @@ export default function ConsultingPage() {
         <div className="shell py-16 sm:py-24">
           <div className="max-w-3xl">
             <p className="eyebrow">AI Consulting</p>
-            <h1 className="mt-5 text-display-lg font-bold text-snow">
+            <h1 className="mt-5 font-display text-display-lg font-normal text-snow">
               A straight answer about what AI can do for your business.
             </h1>
             <p className="lede mt-6 max-w-2xl text-lg">
@@ -77,7 +79,7 @@ export default function ConsultingPage() {
               start with.
             </p>
             <div className="mt-9 flex flex-col gap-3 sm:flex-row">
-              <Link href="/contact" className="btn-primary">Book a Strategy Call</Link>
+              <Link href={contact.strategyCallHref} className="btn-primary">{contact.strategyCallLabel}</Link>
               <Link href="/audit" className="btn-secondary">Request an AI Business Audit</Link>
             </div>
           </div>
@@ -132,13 +134,13 @@ export default function ConsultingPage() {
 
       <Section>
         <div className="card p-8 text-center sm:p-12">
-          <h2 className="text-display-md font-bold text-snow">Start with a conversation.</h2>
+          <h2 className="font-display text-display-md font-normal text-snow">Start with a conversation.</h2>
           <p className="lede mx-auto mt-4 max-w-xl">
             Tell us what is not working. We will tell you whether we can help, what we would do
             first, and what it would take.
           </p>
           <div className="mt-8 flex justify-center">
-            <Link href="/contact" className="btn-primary">Book a Strategy Call</Link>
+            <Link href={contact.strategyCallHref} className="btn-primary">{contact.strategyCallLabel}</Link>
           </div>
         </div>
       </Section>

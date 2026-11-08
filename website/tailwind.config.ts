@@ -56,37 +56,52 @@ const config: Config = {
         },
       },
       fontFamily: {
-        // System stack. No webfont request on first paint, which protects
-        // Largest Contentful Paint and removes a layout-shift source.
+        // Two families, self-hosted at build time by next/font (no runtime
+        // request to a font CDN, no layout shift: metrics-matched fallbacks).
+        //  - Display: Instrument Serif. Headlines only. An editorial serif is
+        //    what separates "a serious firm" from "another AI landing page" at a
+        //    glance, and it is the only typographic flourish in the system.
+        //  - Sans: Inter. Everything a visitor has to read or act on.
         sans: [
-          '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Inter',
+          'var(--font-sans)', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI',
           'Roboto', 'Helvetica Neue', 'Arial', 'sans-serif',
         ],
+        display: ['var(--font-display)', 'Iowan Old Style', 'Georgia', 'serif'],
         mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
       },
       fontSize: {
         // A display ramp that stays readable on a 320px phone. `clamp` means
         // no breakpoint-by-breakpoint font overrides scattered through markup.
-        'display-xl': ['clamp(2.5rem, 7vw, 4.5rem)', { lineHeight: '1.04', letterSpacing: '-0.03em' }],
-        'display-lg': ['clamp(2rem, 5.5vw, 3.5rem)', { lineHeight: '1.08', letterSpacing: '-0.025em' }],
-        'display-md': ['clamp(1.65rem, 4vw, 2.5rem)', { lineHeight: '1.15', letterSpacing: '-0.02em' }],
-        'display-sm': ['clamp(1.35rem, 3vw, 1.75rem)', { lineHeight: '1.25', letterSpacing: '-0.015em' }],
+        // The serif runs larger and tighter than a sans would at the same rank.
+        'display-xl': ['clamp(2.9rem, 8.2vw, 6rem)', { lineHeight: '0.98', letterSpacing: '-0.025em' }],
+        'display-lg': ['clamp(2.4rem, 6vw, 4.25rem)', { lineHeight: '1.02', letterSpacing: '-0.02em' }],
+        'display-md': ['clamp(2rem, 4.6vw, 3.25rem)', { lineHeight: '1.06', letterSpacing: '-0.018em' }],
+        'display-sm': ['clamp(1.3rem, 2.6vw, 1.6rem)', { lineHeight: '1.25', letterSpacing: '-0.015em' }],
       },
       maxWidth: {
         prose: '68ch',
       },
       boxShadow: {
         // One glow, used sparingly on primary actions only.
-        action: '0 6px 24px -6px rgba(37, 99, 235, 0.55)',
+        action: 'inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 8px 28px -8px rgba(37, 99, 235, 0.7)',
+        // Hairline highlight along the top edge of a surface: reads as a lit
+        // edge on black, which is where "premium" comes from on a dark site.
+        edge: 'inset 0 1px 0 rgba(255, 255, 255, 0.045)',
         lift: '0 18px 48px -24px rgba(0, 0, 0, 0.9)',
       },
       animation: {
-        'rise': 'rise 0.5s cubic-bezier(0.22, 1, 0.36, 1) both',
+        'rise': 'rise 0.7s cubic-bezier(0.22, 1, 0.36, 1) both',
+        'rise-late': 'rise 0.7s 0.15s cubic-bezier(0.22, 1, 0.36, 1) both',
+        'pulse-dot': 'pulseDot 2.4s ease-in-out infinite',
       },
       keyframes: {
         rise: {
           '0%': { opacity: '0', transform: 'translateY(12px)' },
           '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+        pulseDot: {
+          '0%, 100%': { boxShadow: '0 0 0 0 currentColor' },
+          '50%': { boxShadow: '0 0 0 4px transparent' },
         },
       },
     },

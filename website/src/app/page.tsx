@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { Section, SectionHeading } from '@/components/Section';
 import AgentCard from '@/components/AgentCard';
-import { featuredAgents, agentsByOrder, availableAgents } from '@/data/agents';
+import { featuredAgents, agentsByOrder } from '@/data/agents';
 import { company, SITE_URL, contact } from '@/data/site';
 
 /**
@@ -31,15 +31,15 @@ const PAINS = [
     body: 'Hours, parking, whether you deliver. Every one of those interruptions costs attention that should be going to customers in the room.',
   },
   {
-    title: 'Enquiries arrive everywhere and get lost',
+    title: 'Inquiries arrive everywhere and get lost',
     body: 'Texts, voicemails, emails, form submissions. Nothing joins them up, so follow-up depends on whoever happens to remember.',
   },
 ];
 
 const OUTCOMES = [
   { title: 'Recover missed revenue', body: 'Find and close the gaps where interested customers are dropping out.' },
-  { title: 'Answer every enquiry', body: 'Missed calls, after-hours messages and repeat questions get a response instead of silence.' },
-  { title: 'Capture every lead', body: 'Enquiries land in one place with the customer’s details and what they actually wanted.' },
+  { title: 'Improve inquiry follow-up', body: 'Identify where missed calls and after-hours messages need a clearer response path.' },
+  { title: 'Capture more inquiries', body: 'Give customers a clear way to leave their details and tell your team what they need.' },
   { title: 'Free your staff', body: 'Routine questions stop interrupting service so your team can do the work customers came for.' },
   { title: 'See what is really happening', body: 'Evidence about your customer journey, not guesses about it.' },
   { title: 'Fix the right thing first', body: 'Findings ranked by what actually stands between a customer and an order.' },
@@ -69,18 +69,100 @@ const PRINCIPLES = [
   },
 ];
 
+const STEPS = [
+  {
+    step: '01',
+    title: 'We audit what you have',
+    body: 'We examine your business the way a customer experiences it and produce evidence of where that experience breaks down. You get the findings whether or not you work with us further.',
+  },
+  {
+    step: '02',
+    title: 'We agree what is worth fixing',
+    body: 'Findings ranked by impact, in plain English. You decide what matters. If the fix is a cheap change to your website rather than an AI system, we will say so.',
+  },
+  {
+    step: '03',
+    title: 'We build and run the system',
+    body: 'We deploy the agent that addresses the problem, configure it around how your business actually works, and stay responsible for it running properly.',
+  },
+];
+
+/**
+ * The hero illustration shows a planned AI Front Desk workflow. It is labelled as an illustration on its face — the names, times
+ * and messages are invented to show the shape of the workflow, and nothing in
+ * it is a result or a metric. That label is load-bearing; do not remove it.
+ */
+const HERO_LOG = [
+  {
+    time: '9:42 pm',
+    kind: 'Missed call',
+    detail: 'Rang out during close-down',
+    action: 'Texted back',
+  },
+  {
+    time: '9:43 pm',
+    kind: 'Question',
+    detail: '“Do you deliver to Eastside?”',
+    action: 'Answered',
+  },
+  {
+    time: '9:47 pm',
+    kind: 'Booking request',
+    detail: 'Table for six, Friday evening',
+    action: 'Captured',
+  },
+  {
+    time: '9:51 pm',
+    kind: 'Catering inquiry',
+    detail: 'Needs a person to quote',
+    action: 'Escalated',
+  },
+];
+
+function HeroLog() {
+  return (
+    <figure className="card relative overflow-hidden p-0 shadow-lift">
+      <div className="flex items-center justify-between gap-3 border-b border-night-line px-5 py-4">
+        <div className="flex items-center gap-2.5">
+          <span className="relative flex h-2 w-2">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-electric-light/60" />
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-electric-light" />
+          </span>
+          <span className="text-[13px] font-semibold text-snow">Front desk · planned workflow</span>
+        </div>
+        <span className="rounded-full border border-night-edge px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.16em] text-snow-faint">
+          Illustration
+        </span>
+      </div>
+
+      <ol className="divide-y divide-night-line">
+        {HERO_LOG.map((row) => (
+          <li key={row.time} className="grid grid-cols-[4.25rem_1fr_auto] items-center gap-4 px-5 py-4">
+            <time className="font-mono text-[11px] text-snow-faint">{row.time}</time>
+            <div className="min-w-0">
+              <p className="text-[13.5px] font-medium text-snow">{row.kind}</p>
+              <p className="mt-0.5 truncate text-[12.5px] text-snow-dim">{row.detail}</p>
+            </div>
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-electric/10 px-2.5 py-1 text-[11px] font-semibold text-electric-light ring-1 ring-inset ring-electric/25">
+              <span aria-hidden="true">✓</span>
+              {row.action}
+            </span>
+          </li>
+        ))}
+      </ol>
+
+      <figcaption className="border-t border-night-line bg-night-soft/60 px-5 py-3.5 text-[11.5px] leading-relaxed text-snow-faint">
+        Illustrative data. This workflow is in development and requires testing before a pilot.
+      </figcaption>
+    </figure>
+  );
+}
+
 export default function HomePage() {
-  /**
-   * Organisation structured data. Deliberately minimal: name, description,
-   * founder, contact route. No aggregateRating, no review markup, no employee
-   * count — every one of those would be an unverifiable claim, and search
-   * engines penalise exactly that.
-   */
   const organisationLd = {
     '@context': 'https://schema.org',
     '@type': 'Organization',
-    name: company.legalName,
-    alternateName: company.shortName,
+    name: company.shortName,
     url: SITE_URL,
     description: company.positioning,
     founder: { '@type': 'Person', name: company.founder },
@@ -100,37 +182,54 @@ export default function HomePage() {
       />
       {/* ── HERO ──────────────────────────────────────────────────────────── */}
       <section className="relative overflow-hidden border-b border-night-line">
-        <div className="shell py-20 sm:py-28 lg:py-32">
-          <div className="max-w-3xl animate-rise">
+        <div aria-hidden="true" className="grid-paper pointer-events-none absolute inset-0" />
+        <div className="shell relative grid items-center gap-14 py-20 sm:py-28 lg:grid-cols-[1.15fr_0.85fr] lg:gap-16 lg:py-32">
+          <div className="animate-rise">
             <p className="eyebrow">AI Consulting &amp; Automation</p>
 
-            <h1 className="mt-5 text-display-xl font-bold text-snow">
-              Stop losing customers you already earned.
+            <h1 className="mt-7 font-display text-display-xl text-snow">
+              Stop losing customers you <span className="em">already earned.</span>
             </h1>
 
-            <p className="lede mt-6 max-w-2xl text-lg sm:text-xl">
-              {company.legalName} builds AI systems that answer the calls you miss, find the
-              revenue leaking out of your website, and capture the enquiries that would otherwise
-              disappear — for restaurants and local service businesses.
+            <p className="lede mt-7 max-w-xl text-lg sm:text-xl">
+              {company.shortName} helps restaurants and local service businesses find where customers
+              get stuck, starting with the website, menu, ordering and reservation paths.
             </p>
 
             {/* Exactly two actions. The brief was explicit about not putting
                 five competing choices in a hero, and a primary CTA only reads
                 as primary when it is the only solid blue thing here. */}
-            <div className="mt-9 flex flex-col gap-3 sm:flex-row">
-              <Link href="/contact" className="btn-primary">
-                Book a Strategy Call
+            <div className="mt-10 flex flex-col gap-3 sm:flex-row">
+              <Link href={contact.strategyCallHref} className="btn-primary group">
+                {contact.strategyCallLabel}
+                <span aria-hidden="true" className="transition-transform duration-200 group-hover:translate-x-0.5">→</span>
               </Link>
               <Link href="/solutions" className="btn-secondary">
                 Explore the AI Agents
               </Link>
             </div>
 
-            <p className="mt-6 text-sm text-snow-faint">
+            <p className="mt-7 max-w-md text-sm leading-relaxed text-snow-faint">
               No cost, no obligation. We will tell you plainly whether AI is the right answer to
               your problem — including when it is not.
             </p>
           </div>
+
+          <div className="animate-rise-late lg:pl-4">
+            <HeroLog />
+          </div>
+        </div>
+
+        {/* Trust strip in place of a logo wall the company does not have. */}
+        <div className="relative border-t border-night-line bg-night-soft/40">
+          <ul className="shell grid gap-x-8 gap-y-3 py-5 text-[13px] text-snow-dim sm:grid-cols-3">
+            {PRINCIPLES.map((p, i) => (
+              <li key={p.title} className="flex items-center gap-3">
+                <span className="font-mono text-[11px] text-electric-light">{String(i + 1).padStart(2, '0')}</span>
+                {p.title}
+              </li>
+            ))}
+          </ul>
         </div>
       </section>
 
@@ -138,29 +237,45 @@ export default function HomePage() {
       <Section>
         <SectionHeading
           eyebrow="The problem"
-          title="The revenue you lose is the revenue you never see."
+          title={<>The revenue you lose is the revenue <span className="em">you never see.</span></>}
           body="Nobody sends you a report about the customer who called and got no answer, or the one who could not read your menu on a phone. These losses are invisible from inside the business — which is exactly why they persist."
         />
 
-        <div className="mt-12 grid gap-4 sm:grid-cols-2">
-          {PAINS.map((pain) => (
-            <div key={pain.title} className="card p-6 sm:p-7">
-              <h3 className="text-base font-semibold text-snow">{pain.title}</h3>
-              <p className="mt-2.5 text-sm leading-relaxed text-snow-dim">{pain.body}</p>
-            </div>
+        {/* A ledger, not a card grid: numbered entries divided by hairlines. */}
+        <ol className="mt-16 grid border-t border-night-line sm:grid-cols-2">
+          {PAINS.map((pain, i) => (
+            <li
+              key={pain.title}
+              className={`flex gap-6 border-b border-night-line py-9 sm:py-10 ${
+                i % 2 === 0 ? 'sm:border-r sm:pr-10' : 'sm:pl-10'
+              }`}
+            >
+              <span className="w-12 shrink-0 font-display text-[2.6rem] leading-none text-snow-faint/70">
+                {String(i + 1).padStart(2, '0')}
+              </span>
+              <div>
+                <h3 className="text-[17px] font-semibold leading-snug text-snow">{pain.title}</h3>
+                <p className="mt-3 text-[15px] leading-relaxed text-snow-dim">{pain.body}</p>
+              </div>
+            </li>
           ))}
-        </div>
+        </ol>
       </Section>
 
       {/* ── THE ECOSYSTEM ─────────────────────────────────────────────────── */}
       <Section className="border-y border-night-line bg-night-soft/30">
-        <SectionHeading
-          eyebrow="The WBI AI ecosystem"
-          title="Specialised agents, built to work together."
-          body="Each agent solves one problem properly rather than solving many badly. Every one carries its real availability — so you always know what you can use today."
-        />
+        <div className="flex flex-col justify-between gap-8 lg:flex-row lg:items-end">
+          <SectionHeading
+            eyebrow="The Winners Bookmark AI ecosystem"
+            title={<>Specialized agents, <span className="em">built to work together.</span></>}
+            body="Each agent solves one problem properly rather than solving many badly. Every one carries its real availability — so you always know what you can use today."
+          />
+          <Link href="/solutions" className="btn-secondary shrink-0 self-start lg:self-end">
+            See all AI agents
+          </Link>
+        </div>
 
-        <div className="mt-12 grid gap-5 lg:grid-cols-2">
+        <div className="mt-14 grid gap-5">
           {featuredAgents.map((agent) => (
             <AgentCard key={agent.slug} agent={agent} />
           ))}
@@ -168,12 +283,14 @@ export default function HomePage() {
 
         {/* The non-featured agents get an honest, low-key listing rather than
             equal billing — they are not purchasable and should not compete
-            visually with the two that are. */}
-        <div className="mt-10 rounded-xl border border-night-line bg-night-card/50 p-6 sm:p-7">
-          <h3 className="text-sm font-semibold text-snow">Also in the ecosystem</h3>
-          <p className="mt-1.5 text-sm text-snow-faint">
-            In development and not yet available. Listed so you can see where this is going.
-          </p>
+            visually with the available offers. */}
+        <div className="mt-6 rounded-2xl border border-dashed border-night-edge p-6 sm:p-8">
+          <div className="flex flex-col gap-1.5 sm:flex-row sm:items-baseline sm:justify-between">
+            <h3 className="text-sm font-semibold text-snow">Also in the ecosystem</h3>
+            <p className="text-sm text-snow-faint">
+              In development and not yet available. Listed so you can see where this is going.
+            </p>
+          </div>
           <ul className="mt-5 grid gap-3 sm:grid-cols-2">
             {agentsByOrder
               .filter((a) => !a.featured)
@@ -181,20 +298,21 @@ export default function HomePage() {
                 <li key={agent.slug}>
                   <Link
                     href={`/solutions/${agent.slug}`}
-                    className="flex items-baseline gap-2 text-sm text-snow-dim transition-colors hover:text-white"
+                    className="group flex items-center justify-between gap-4 rounded-xl border border-night-line bg-night-card/60 px-5 py-4 transition-colors hover:border-night-edge"
                   >
-                    <span className="font-semibold">{agent.name}</span>
-                    <span className="text-xs text-snow-faint">— {agent.statusLabel.split('—')[0].trim()}</span>
+                    <span>
+                      <span className="block font-display text-xl text-snow">{agent.name}</span>
+                      <span className="mt-0.5 block text-xs text-snow-faint">
+                        {agent.statusLabel.split('—')[0].trim()}
+                      </span>
+                    </span>
+                    <span aria-hidden="true" className="text-snow-faint transition-transform group-hover:translate-x-0.5 group-hover:text-snow">
+                      →
+                    </span>
                   </Link>
                 </li>
               ))}
           </ul>
-        </div>
-
-        <div className="mt-9">
-          <Link href="/solutions" className="btn-secondary">
-            See all AI agents
-          </Link>
         </div>
       </Section>
 
@@ -202,34 +320,21 @@ export default function HomePage() {
       <Section id="how-it-works">
         <SectionHeading
           eyebrow="How we work"
-          title="Find the problem. Prove it. Then fix it."
+          title={<>Find the problem. Prove it. <span className="em">Then fix it.</span></>}
           body="We do not start by selling you software. We start by establishing what is actually costing you money — and sometimes the honest answer is that you do not need us."
         />
 
-        <ol className="mt-12 grid gap-5 md:grid-cols-3">
-          {[
-            {
-              step: '01',
-              title: 'We audit what you have',
-              body: 'We examine your business the way a customer experiences it and produce evidence of where that experience breaks down. You get the findings whether or not you work with us further.',
-            },
-            {
-              step: '02',
-              title: 'We agree what is worth fixing',
-              body: 'Findings ranked by impact, in plain English. You decide what matters. If the fix is a cheap change to your website rather than an AI system, we will say so.',
-            },
-            {
-              step: '03',
-              title: 'We build and run the system',
-              body: 'We deploy the agent that addresses the problem, configure it around how your business actually works, and stay responsible for it running properly.',
-            },
-          ].map((item) => (
-            <li key={item.step} className="card p-6 sm:p-7">
-              <span className="font-mono text-xs font-bold tracking-wider text-electric-light">
+        <ol className="relative mt-16 grid gap-10 md:grid-cols-3 md:gap-8">
+          {/* The connecting rail between steps — desktop only, where the steps
+              sit in a row and the sequence needs showing. */}
+          <span aria-hidden="true" className="rule-fade absolute left-0 top-[19px] hidden md:block" />
+          {STEPS.map((item) => (
+            <li key={item.step} className="relative">
+              <span className="relative z-10 flex h-10 w-10 items-center justify-center rounded-full border border-night-edge bg-night font-mono text-[11px] font-semibold text-electric-light shadow-edge">
                 {item.step}
               </span>
-              <h3 className="mt-4 text-lg font-semibold text-snow">{item.title}</h3>
-              <p className="mt-2.5 text-sm leading-relaxed text-snow-dim">{item.body}</p>
+              <h3 className="mt-7 font-display text-[1.85rem] leading-tight text-snow">{item.title}</h3>
+              <p className="mt-3 text-[15px] leading-relaxed text-snow-dim">{item.body}</p>
             </li>
           ))}
         </ol>
@@ -239,15 +344,18 @@ export default function HomePage() {
       <Section className="border-y border-night-line bg-night-soft/30">
         <SectionHeading
           eyebrow="What you get"
-          title="Business outcomes, not a technology project."
+          title={<>Business outcomes, <span className="em">not a technology project.</span></>}
           body="You do not need to understand how any of this works. You need the phone answered and the orders completed."
         />
 
-        <div className="mt-12 grid gap-x-8 gap-y-7 sm:grid-cols-2 lg:grid-cols-3">
+        {/* gap-px over a line-coloured ground draws perfect 1px gridlines
+            without doubled borders where cells meet. */}
+        <div className="mt-14 grid gap-px overflow-hidden rounded-2xl border border-night-line bg-night-line sm:grid-cols-2 lg:grid-cols-3">
           {OUTCOMES.map((outcome) => (
-            <div key={outcome.title} className="border-l-2 border-electric/50 pl-5">
-              <h3 className="text-base font-semibold text-snow">{outcome.title}</h3>
-              <p className="mt-1.5 text-sm leading-relaxed text-snow-dim">{outcome.body}</p>
+            <div key={outcome.title} className="bg-night-card p-7 sm:p-8">
+              <span aria-hidden="true" className="block h-px w-6 bg-electric-light" />
+              <h3 className="mt-6 text-[17px] font-semibold text-snow">{outcome.title}</h3>
+              <p className="mt-2.5 text-[15px] leading-relaxed text-snow-dim">{outcome.body}</p>
             </div>
           ))}
         </div>
@@ -255,74 +363,90 @@ export default function HomePage() {
 
       {/* ── HOW WE OPERATE (trust, in place of fabricated proof) ──────────── */}
       <Section>
-        <div className="grid gap-12 lg:grid-cols-[1fr_1.1fr] lg:gap-16">
+        <div className="grid gap-14 lg:grid-cols-[1fr_1fr] lg:gap-20">
           <div>
-            <SectionHeading
-              eyebrow="Why trust us"
-              title="We would rather lose the sale than overstate the product."
-              body="Winners Bookmark is a young company. We do not have a wall of client logos, and we are not going to invent one. What we can show you is how we work."
-            />
-            <Link href="/about" className="btn-secondary mt-8">
+            <p className="eyebrow mb-5">Why trust us</p>
+            <blockquote className="font-display text-display-md text-snow">
+              “We would rather lose the sale than <span className="em">overstate the product.</span>”
+            </blockquote>
+            <p className="lede mt-6 max-w-lg">
+              Winners Bookmark is a young company. We do not have a wall of client logos, and we
+              are not going to invent one. What we can show you is how we work.
+            </p>
+            <Link href="/about" className="btn-secondary mt-9">
               About the company
             </Link>
           </div>
 
-          <div className="space-y-4">
-            {PRINCIPLES.map((p) => (
-              <div key={p.title} className="card p-6">
-                <h3 className="text-base font-semibold text-snow">{p.title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-snow-dim">{p.body}</p>
-              </div>
+          <ol className="divide-y divide-night-line border-y border-night-line">
+            {PRINCIPLES.map((p, i) => (
+              <li key={p.title} className="grid grid-cols-[2.5rem_1fr] gap-4 py-8">
+                <span className="pt-1 font-mono text-[11px] text-electric-light">
+                  {String(i + 1).padStart(2, '0')}
+                </span>
+                <div>
+                  <h3 className="text-[17px] font-semibold text-snow">{p.title}</h3>
+                  <p className="mt-2.5 text-[15px] leading-relaxed text-snow-dim">{p.body}</p>
+                </div>
+              </li>
             ))}
-          </div>
+          </ol>
         </div>
       </Section>
 
       {/* ── INDUSTRIES ────────────────────────────────────────────────────── */}
       <Section className="border-y border-night-line bg-night-soft/30">
-        <SectionHeading
-          eyebrow="Who we work with"
-          title="Businesses where a missed call is a lost customer."
-          body="Our systems are built for businesses that run on local demand and where the phone still matters. Restaurants are where we started and where we are deepest."
-        />
-        <ul className="mt-10 flex flex-wrap gap-2.5">
-          {INDUSTRIES.map((industry) => (
-            <li
-              key={industry}
-              className="rounded-full border border-night-line bg-night-card px-4 py-2 text-sm text-snow-dim"
-            >
-              {industry}
-            </li>
-          ))}
-        </ul>
+        <div className="grid gap-12 lg:grid-cols-[1.1fr_0.9fr] lg:items-end">
+          <SectionHeading
+            eyebrow="Who we work with"
+            title={<>Businesses where a missed call is <span className="em">a lost customer.</span></>}
+            body="Our systems are built for businesses that run on local demand and where the phone still matters. Restaurants are where we started and where we are deepest."
+          />
+          <ul className="flex flex-wrap gap-2.5 lg:justify-end">
+            {INDUSTRIES.map((industry, i) => (
+              <li
+                key={industry}
+                className={`rounded-full border px-4 py-2 text-sm ${
+                  i === 0
+                    ? 'border-electric/40 bg-electric/10 text-snow'
+                    : 'border-night-line bg-night-card text-snow-dim'
+                }`}
+              >
+                {industry}
+              </li>
+            ))}
+          </ul>
+        </div>
       </Section>
 
       {/* ── FINAL CTA ─────────────────────────────────────────────────────── */}
       <Section>
-        <div className="card relative overflow-hidden p-8 text-center sm:p-14">
+        <div className="card relative overflow-hidden px-6 py-16 text-center sm:px-14 sm:py-24">
+          <div aria-hidden="true" className="grid-paper pointer-events-none absolute inset-0" />
           <div
             aria-hidden="true"
-            className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-[radial-gradient(ellipse_60%_100%_at_50%_0%,rgba(37,99,235,0.18),transparent_70%)]"
+            className="pointer-events-none absolute inset-x-0 top-0 h-56 bg-[radial-gradient(ellipse_60%_100%_at_50%_0%,rgba(37,99,235,0.2),transparent_70%)]"
           />
           <div className="relative">
-            <h2 className="text-display-md font-bold text-snow">
-              Find out what your business is losing.
+            <p className="eyebrow justify-center">Start here</p>
+            <h2 className="mx-auto mt-6 max-w-3xl font-display text-display-lg text-snow">
+              Find out what your business <span className="em">is losing.</span>
             </h2>
-            <p className="lede mx-auto mt-4 max-w-xl">
+            <p className="lede mx-auto mt-6 max-w-xl">
               Tell us about your business and we will tell you, honestly, whether we can help —
               and what we would do first.
             </p>
-            <div className="mt-9 flex flex-col justify-center gap-3 sm:flex-row">
-              <Link href="/contact" className="btn-primary">
-                Book a Strategy Call
+            <div className="mt-10 flex flex-col justify-center gap-3 sm:flex-row">
+              <Link href={contact.strategyCallHref} className="btn-primary group">
+                {contact.strategyCallLabel}
+                <span aria-hidden="true" className="transition-transform duration-200 group-hover:translate-x-0.5">→</span>
               </Link>
               <Link href="/audit" className="btn-secondary">
                 Request an AI Business Audit
               </Link>
             </div>
-            <p className="mt-6 text-xs text-snow-faint">
-              {availableAgents.length} of our AI agents are available today. The rest are labelled
-              honestly.
+            <p className="mt-8 font-mono text-[11px] uppercase tracking-[0.16em] text-snow-faint">
+              Restaurant website audits are available by request.
             </p>
           </div>
         </div>

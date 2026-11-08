@@ -8,7 +8,8 @@ import type { SubmitResult } from '@/lib/leads';
 import { contact } from '@/data/site';
 
 const INTEREST_OPTIONS = [
-  { value: 'general', label: 'General enquiry' },
+  { value: 'general', label: 'General inquiry' },
+  { value: 'strategy-call', label: 'Strategy Call' },
   { value: 'restaurant-rescue-agent', label: 'Restaurant Rescue Agent' },
   { value: 'ai-front-desk', label: 'AI Front Desk' },
   { value: 'ai-business-audit', label: 'AI Business Audit' },
@@ -21,7 +22,7 @@ function SubmitButton() {
   const { pending } = useFormStatus();
   return (
     <button type="submit" className="btn-primary w-full sm:w-auto" disabled={pending}>
-      {pending ? 'Sending…' : 'Send Enquiry'}
+      {pending ? 'Sending…' : 'Send Inquiry'}
     </button>
   );
 }
@@ -54,10 +55,9 @@ export default function ContactForm() {
         <div className="flex h-12 w-12 items-center justify-center rounded-full border border-status-live/40 bg-status-live/10 text-xl text-status-live">
           ✓
         </div>
-        <h2 className="mt-6 text-display-sm font-bold text-snow">Enquiry received.</h2>
+        <h2 className="mt-6 text-display-sm font-bold text-snow">Inquiry received.</h2>
         <p className="mt-3 text-[15px] leading-relaxed text-snow-dim">
-          Your enquiry has been recorded and Keith has been notified. You can expect a reply
-          within one business day.
+          Your inquiry has been recorded. You can expect a reply within one business day.
         </p>
 
         <h3 className="mt-8 text-sm font-semibold uppercase tracking-[0.12em] text-snow-faint">
@@ -65,7 +65,7 @@ export default function ContactForm() {
         </h3>
         <ol className="mt-4 space-y-3">
           {[
-            'Keith reads your enquiry personally — this is a small company, not a queue.',
+            'Keith reads your inquiry personally — this is a small company, not a queue.',
             'You get a reply with an honest first read on whether we can help.',
             'If it looks like a fit, we book a call and go deeper. If not, we will tell you that too.',
           ].map((step, i) => (
@@ -81,10 +81,7 @@ export default function ContactForm() {
           ))}
         </ol>
 
-        {/* No scheduling link is invented here. `hasBooking` only becomes true
-            when NEXT_PUBLIC_BOOKING_URL is actually configured, so this block
-            cannot render a dead CTA. */}
-        {contact.hasBooking && contact.bookingUrl && (
+        {contact.bookingUrl && (
           <a
             href={contact.bookingUrl}
             target="_blank"
@@ -105,7 +102,7 @@ export default function ContactForm() {
 
       {/* Honeypot. Hidden from people, harvested by bots. A submission that
           fills it is stored and FLAGGED upstream rather than discarded —
-          silently deleting a real customer enquiry is the worse error. */}
+          silently deleting a real customer inquiry is the worse error. */}
       <div aria-hidden="true" className="absolute h-0 w-0 overflow-hidden opacity-0">
         <label htmlFor="botField">Leave this field empty</label>
         <input id="botField" name="botField" type="text" tabIndex={-1} autoComplete="off" />
@@ -117,7 +114,7 @@ export default function ContactForm() {
           className="mb-6 rounded-lg border border-red-500/40 bg-red-500/10 p-4 sm:p-5"
         >
           <p className="text-sm font-semibold text-red-300">
-            Your enquiry was not sent.
+            Your inquiry was not sent.
           </p>
           <p className="mt-2 text-sm leading-relaxed text-snow-dim">
             {unavailable.message} Nothing was recorded, so please email us directly at{' '}
@@ -253,7 +250,7 @@ export default function ContactForm() {
       <div className="mt-7 flex flex-col gap-4 sm:flex-row sm:items-center">
         <SubmitButton />
         <p className="text-xs leading-relaxed text-snow-faint">
-          We use your details to reply to this enquiry. We do not sell them or add you to a
+          We use your details to reply to this inquiry. We do not sell them or add you to a
           mailing list.
         </p>
       </div>

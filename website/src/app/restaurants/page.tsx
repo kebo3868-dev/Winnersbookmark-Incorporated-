@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { socialImage } from '@/data/site';
 import Link from 'next/link';
 import { Section, SectionHeading } from '@/components/Section';
 import AgentCard from '@/components/AgentCard';
@@ -10,6 +11,7 @@ export const metadata: Metadata = {
     'AI for restaurants: recover missed calls, fix the ordering path customers abandon, and stop losing revenue you already earned.',
   alternates: { canonical: '/restaurants' },
   openGraph: {
+    images: [socialImage],
     title: 'Restaurant AI | Winners Bookmark',
     description: 'AI systems built specifically for restaurants and food service.',
     url: '/restaurants',
@@ -50,7 +52,7 @@ export default function RestaurantsPage() {
         <div className="shell py-16 sm:py-24">
           <div className="max-w-3xl">
             <p className="eyebrow">Restaurant AI</p>
-            <h1 className="mt-5 text-display-lg font-bold text-snow">
+            <h1 className="mt-5 font-display text-display-lg font-normal text-snow">
               Restaurants are where we started, and where we go deepest.
             </h1>
             <p className="lede mt-6 max-w-2xl text-lg">
@@ -95,9 +97,9 @@ export default function RestaurantsPage() {
         <SectionHeading
           eyebrow="The systems"
           title="What we run for restaurants"
-          body="Two systems, available today, each addressing a different half of the problem: the customers who cannot reach you, and the customers who cannot complete an order."
+          body="Start with a restaurant website audit to see where guests may have trouble finding the menu, ordering, booking or reaching your team."
         />
-        <div className="mt-12 grid gap-5 lg:grid-cols-2">
+        <div className="mt-12 grid gap-5">
           {featuredAgents.map((agent) => (
             <AgentCard key={agent.slug} agent={agent} />
           ))}
@@ -106,7 +108,7 @@ export default function RestaurantsPage() {
 
       <Section>
         <div className="card p-8 text-center sm:p-12">
-          <h2 className="text-display-md font-bold text-snow">
+          <h2 className="font-display text-display-md font-normal text-snow">
             Find out what your restaurant is losing.
           </h2>
           <p className="lede mx-auto mt-4 max-w-xl">

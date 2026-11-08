@@ -1,6 +1,6 @@
-# Winners Bookmark Incorporated — Marketing Website
+# Winners Bookmark — Marketing Website
 
-The public website for Winners Bookmark Incorporated: an AI consulting and
+The public website for Winners Bookmark: an AI consulting and
 automation company building specialised AI agents for restaurants and local
 service businesses.
 
@@ -78,8 +78,9 @@ browser → server action → rescue-agent /api/marketing/leads → MarketingLea
 - The honeypot **flags** suspected bots rather than blocking them — silently
   deleting a real customer enquiry is the more expensive error.
 
-If `LEADS_INGEST_URL` and `MARKETING_INGEST_SECRET` are not set, the form
-refuses loudly and shows the email fallback. It never pretends to have sent.
+If the ingest URL or shared secret is missing, the contact page offers direct email.
+Set `NEXT_PUBLIC_BOOKING_URL` to a public HTTPS scheduler to enable direct booking.
+Until then, strategy call buttons open the contact page.
 
 ---
 

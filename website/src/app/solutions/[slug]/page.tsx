@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation';
 import { Section, SectionHeading } from '@/components/Section';
 import { StatusBadge, FeatureStateBadge } from '@/components/StatusBadge';
 import { getAgent, agentSlugs, agentsByOrder, STATUS_PRESENTATION } from '@/data/agents';
-import { SITE_URL, company } from '@/data/site';
+import { SITE_URL, company, socialImage } from '@/data/site';
 
 /**
  * THE AGENT PAGE TEMPLATE
@@ -37,12 +37,18 @@ export async function generateMetadata({
     description: agent.tagline,
     alternates: { canonical: `/solutions/${agent.slug}` },
     openGraph: {
+      images: [socialImage],
       title: `${agent.name} | ${company.shortName}`,
       description: agent.tagline,
       url: `/solutions/${agent.slug}`,
       type: 'website',
     },
-    twitter: { card: 'summary_large_image', title: agent.name, description: agent.tagline },
+    twitter: {
+      card: 'summary_large_image',
+      title: agent.name,
+      description: agent.tagline,
+      images: [socialImage],
+    },
   };
 }
 
@@ -70,7 +76,7 @@ export default async function AgentPage({ params }: { params: Promise<{ slug: st
         serviceType: 'AI automation for local business',
         provider: {
           '@type': 'Organization',
-          name: company.legalName,
+          name: company.shortName,
           url: SITE_URL,
         },
         url: `${SITE_URL}/solutions/${agent.slug}`,
@@ -121,7 +127,7 @@ export default async function AgentPage({ params }: { params: Promise<{ slug: st
 
           <div className="max-w-3xl">
             <StatusBadge status={agent.status} />
-            <h1 className="mt-5 text-display-lg font-bold text-snow">{agent.name}</h1>
+            <h1 className="mt-5 font-display text-display-lg font-normal text-snow">{agent.name}</h1>
             <p className="lede mt-5 max-w-2xl text-lg">{agent.tagline}</p>
 
             {/* The status note is prominent, not buried. A visitor should not
@@ -314,7 +320,7 @@ export default async function AgentPage({ params }: { params: Promise<{ slug: st
       {/* ── CTA ─────────────────────────────────────────────────────────── */}
       <Section>
         <div className="card p-8 text-center sm:p-12">
-          <h2 className="text-display-md font-bold text-snow">
+          <h2 className="font-display text-display-md font-normal text-snow">
             {isAvailable ? `Ready to put the ${agent.name} to work?` : `Want to shape where ${agent.name} goes?`}
           </h2>
           <p className="lede mx-auto mt-4 max-w-xl">

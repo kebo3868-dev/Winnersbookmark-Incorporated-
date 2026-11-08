@@ -45,14 +45,23 @@ export type SubmitResult =
 
 const TIMEOUT_MS = 10_000;
 
+function getLeadIngestConfiguration() {
+  const endpoint = process.env.LEADS_INGEST_URL?.trim();
+  const secret = process.env.MARKETING_INGEST_SECRET?.trim();
+
+  return endpoint && secret && secret.length >= 24 ? { endpoint, secret } : null;
+}
+
+export function hasLeadIngestConfiguration(): boolean {
+  return getLeadIngestConfiguration() !== null;
+}
+
 export async function submitLead(
   values: ContactFormValues,
   sourcePath: string,
 ): Promise<SubmitResult> {
-  const endpoint = process.env.LEADS_INGEST_URL?.trim();
-  const secret = process.env.MARKETING_INGEST_SECRET?.trim();
-
-  if (!endpoint || !secret) {
+  const configuration = getLeadIngestConfiguration();
+  if (!configuration) {
     // Refuse loudly. The alternative — pretending to accept while discarding —
     // is exactly the failure mode this whole path exists to prevent.
     console.error(
@@ -69,18 +78,18 @@ export async function submitLead(
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
   try {
-    const response = await fetch(endpoint, {
+    const response = await fetch(configuration.endpoint, {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
-        'x-wbi-ingest-secret': secret,
+        'x-wbi-ingest-secret': configuration.secret,
       },
       body: JSON.stringify({ ...values, sourcePath }),
       signal: controller.signal,
       cache: 'no-store',
     });
 
-    if (response.ok) return { ok: true };
+    if (response.status === 201) return { ok: true };
 
     // Do not leak the upstream status to the visitor — it tells them nothing
     // useful and tells an attacker something. Log it for the operator instead.
