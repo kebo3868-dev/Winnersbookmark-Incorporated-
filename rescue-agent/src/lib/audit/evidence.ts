@@ -40,6 +40,12 @@ export interface ProbeResult {
    * ever shown cannot demonstrate anything about the customer journey.
    */
   exposedInCustomerJourney?: boolean;
+  /**
+   * True when the URL was supplied on the audit form, false when the website
+   * offered it. Set by the orchestrator. Absent on probes built by older
+   * callers, for which provenance is inferred from the collected pages.
+   */
+  suppliedForAudit?: boolean;
   /** Destination reached after redirects, when it differs from the link href. */
   finalUrl?: string;
   /**
@@ -687,6 +693,7 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
         destinations.push({
           url: probe.url,
           exposedInCustomerJourney: false,
+          ...(probe.suppliedForAudit === undefined ? {} : { suppliedForAudit: probe.suppliedForAudit }),
           platform: detectPlatform([probe.finalUrl ?? probe.url]),
           host: hostOf(probe.finalUrl ?? probe.url),
         });
@@ -873,6 +880,20 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
     );
   };
 
+  /**
+   * True when a tested URL came from the audit form and the collected pages do
+   * not offer it as a visible link — so nothing supports calling it "linked".
+   * Explicit provenance (`suppliedForAudit`) wins; without it, the same
+   * inference as `unexposedReason`: unexposed, and neither a visible link nor
+   * a markup-only embed on the analyzed pages.
+   */
+  const suppliedNotLinked = (probe: ProbeResult): boolean => {
+    if (visibleLink(probe.url) || visibleLink(probe.finalUrl)) return false;
+    if (probe.suppliedForAudit !== undefined) return probe.suppliedForAudit;
+    return probe.exposedInCustomerJourney === false && !markupOnly(probe.url) && !markupOnly(probe.finalUrl);
+  };
+  const SUPPLIED_NOT_ON_PAGE = ' This URL was provided for this audit and was not found on the analyzed pages.';
+
   // Probes (broken links)
   //
   // Every probe's outcome is also recorded against its own URL, so MENU
@@ -994,14 +1015,18 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
         // The destination itself says the service is off. A 200 response with
         // bookings closed is not a working pathway, and reporting it as one was
         // the false claim this branch exists to prevent.
+        const supplied = suppliedNotLinked(probe);
         evidence.push({
           sourceUrl: probe.url,
           evidenceType,
-          fact: `The linked ${probe.category} destination is reachable but states the service is unavailable (${probe.note}).`,
+          fact: supplied
+            ? `The ${probe.category} URL provided for this audit is reachable but states the service is unavailable (${probe.note}).`
+            : `The linked ${probe.category} destination is reachable but states the service is unavailable (${probe.note}).`,
           supportingContext:
             `${resolved ? `${probe.url} → resolves to ${resolved}. ` : `${probe.url}. `}` +
             `Signal read from the destination page — ${probe.disabledSignal}. ` +
-            'Customers arriving here cannot complete the action.',
+            'Customers arriving here cannot complete the action.' +
+            `${supplied ? SUPPLIED_NOT_ON_PAGE : ''}`,
           confidence: 90,
         });
       } else if (probe.category === 'reservation' || probe.category === 'ordering') {
@@ -1017,17 +1042,20 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
         const action = probe.category === 'reservation' ? 'complete a booking' : 'place an order';
         const service = probe.category === 'reservation' ? 'bookings are' : 'orders are';
         const offState = probe.category === 'reservation' ? 'reservations switched off' : 'ordering switched off';
+        const supplied = suppliedNotLinked(probe);
         evidence.push({
           sourceUrl: probe.url,
           evidenceType,
           fact:
-            `The linked ${probe.category} destination is reachable, but whether a customer can ${action} ` +
+            `${supplied ? `The ${probe.category} URL provided for this audit` : `The linked ${probe.category} destination`} ` +
+            `is reachable, but whether a customer can ${action} ` +
             `was not verified (${probe.note})` +
             `${operator ? ` — operated by ${operator}` : ''}.`,
           supportingContext:
             `${resolved ? `${probe.url} → resolves to ${resolved}. ` : `${probe.url}. `}` +
             `The destination responded, which confirms it exists and is reachable. It does not confirm that ${service} ` +
-            `being accepted — a page with ${offState} responds identically. Manual validation required.`,
+            `being accepted — a page with ${offState} responds identically. Manual validation required.` +
+            `${supplied ? SUPPLIED_NOT_ON_PAGE : ''}`,
           confidence: 80,
         });
       } else if (probe.category === 'menu' && isAccessRestricted(probe)) {

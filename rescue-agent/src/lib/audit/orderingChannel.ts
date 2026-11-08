@@ -69,6 +69,13 @@ export interface OrderingDestination {
   ctaText?: string | null;
   /** How the destination was found. Only VISIBLE_LINK proves customer exposure. */
   discoveredVia?: 'VISIBLE_LINK' | 'PAGE_MARKUP';
+  /**
+   * True when the URL was supplied on the audit form; false when it came from
+   * the website. Set by the orchestrator and carried through ProbeResult.
+   * Absent on destinations built by older callers, for which provenance is
+   * still inferred (see `suppliedOnly` in resolveOrderingChannel).
+   */
+  suppliedForAudit?: boolean;
 }
 
 /** The result of testing one ordering destination. */
@@ -374,6 +381,9 @@ export function resolveOrderingChannel(input: OrderingChannelInput): OrderingCha
     const fromMarkup = destinations.filter((d) => d.discoveredVia === 'PAGE_MARKUP');
     const suppliedOnly = destinations.filter((d) => {
       if (d.discoveredVia || d.exposedInCustomerJourney) return false;
+      // Explicit provenance, when the caller recorded it, is the answer.
+      if (d.suppliedForAudit !== undefined) return d.suppliedForAudit;
+      // Otherwise inferred, as before, for destinations built without it.
       const kind = classifyDestination(d.url).kind;
       return kind !== 'API_ENDPOINT' && kind !== 'STATIC_ASSET';
     });

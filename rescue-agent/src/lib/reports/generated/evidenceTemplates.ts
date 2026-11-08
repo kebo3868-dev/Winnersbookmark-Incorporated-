@@ -1074,6 +1074,51 @@ export const EVIDENCE_TEMPLATES: readonly EvidenceTemplate[] = [
    "RESERVATION_PATH"
   ],
   "field": "fact",
+  "pattern": "The ([^\\n]{0,600}?) URL provided for this audit is reachable but states the service is unavailable \\(([^\\n]{0,600}?)\\)\\."
+ },
+ {
+  "types": [
+   "MENU_ACCESS",
+   "ORDERING_PATH",
+   "RESERVATION_PATH"
+  ],
+  "field": "fact",
+  "pattern": "The ([^\\n]{0,600}?) URL provided for this audit is reachable, but whether a customer can complete a booking was not verified \\(([^\\n]{0,600}?)\\) — operated by ([^\\n]{0,600}?)\\."
+ },
+ {
+  "types": [
+   "MENU_ACCESS",
+   "ORDERING_PATH",
+   "RESERVATION_PATH"
+  ],
+  "field": "fact",
+  "pattern": "The ([^\\n]{0,600}?) URL provided for this audit is reachable, but whether a customer can complete a booking was not verified \\(([^\\n]{0,600}?)\\)\\."
+ },
+ {
+  "types": [
+   "MENU_ACCESS",
+   "ORDERING_PATH",
+   "RESERVATION_PATH"
+  ],
+  "field": "fact",
+  "pattern": "The ([^\\n]{0,600}?) URL provided for this audit is reachable, but whether a customer can place an order was not verified \\(([^\\n]{0,600}?)\\) — operated by ([^\\n]{0,600}?)\\."
+ },
+ {
+  "types": [
+   "MENU_ACCESS",
+   "ORDERING_PATH",
+   "RESERVATION_PATH"
+  ],
+  "field": "fact",
+  "pattern": "The ([^\\n]{0,600}?) URL provided for this audit is reachable, but whether a customer can place an order was not verified \\(([^\\n]{0,600}?)\\)\\."
+ },
+ {
+  "types": [
+   "MENU_ACCESS",
+   "ORDERING_PATH",
+   "RESERVATION_PATH"
+  ],
+  "field": "fact",
   "pattern": "The linked ([^\\n]{0,600}?) destination is reachable but states the service is unavailable \\(([^\\n]{0,600}?)\\)\\."
  },
  {
@@ -7908,6 +7953,15 @@ export const EVIDENCE_TEMPLATES: readonly EvidenceTemplate[] = [
    "RESERVATION_PATH"
   ],
   "field": "supportingContext",
+  "pattern": "([^\\n]{0,600}?) → resolves to ([^\\n]{0,600}?)\\. Signal read from the destination page — ([^\\n]{0,600}?)\\. Customers arriving here cannot complete the action\\. This URL was provided for this audit and was not found on the analyzed pages\\."
+ },
+ {
+  "types": [
+   "MENU_ACCESS",
+   "ORDERING_PATH",
+   "RESERVATION_PATH"
+  ],
+  "field": "supportingContext",
   "pattern": "([^\\n]{0,600}?) → resolves to ([^\\n]{0,600}?)\\. Signal read from the destination page — ([^\\n]{0,600}?)\\. Customers who follow the menu link do not find a menu\\."
  },
  {
@@ -7926,7 +7980,25 @@ export const EVIDENCE_TEMPLATES: readonly EvidenceTemplate[] = [
    "RESERVATION_PATH"
   ],
   "field": "supportingContext",
+  "pattern": "([^\\n]{0,600}?) → resolves to ([^\\n]{0,600}?)\\. The destination responded, which confirms it exists and is reachable\\. It does not confirm that bookings are being accepted — a page with ordering switched off responds identically\\. Manual validation required\\. This URL was provided for this audit and was not found on the analyzed pages\\."
+ },
+ {
+  "types": [
+   "MENU_ACCESS",
+   "ORDERING_PATH",
+   "RESERVATION_PATH"
+  ],
+  "field": "supportingContext",
   "pattern": "([^\\n]{0,600}?) → resolves to ([^\\n]{0,600}?)\\. The destination responded, which confirms it exists and is reachable\\. It does not confirm that bookings are being accepted — a page with reservations switched off responds identically\\. Manual validation required\\."
+ },
+ {
+  "types": [
+   "MENU_ACCESS",
+   "ORDERING_PATH",
+   "RESERVATION_PATH"
+  ],
+  "field": "supportingContext",
+  "pattern": "([^\\n]{0,600}?) → resolves to ([^\\n]{0,600}?)\\. The destination responded, which confirms it exists and is reachable\\. It does not confirm that bookings are being accepted — a page with reservations switched off responds identically\\. Manual validation required\\. This URL was provided for this audit and was not found on the analyzed pages\\."
  },
  {
   "types": [
@@ -7944,7 +8016,25 @@ export const EVIDENCE_TEMPLATES: readonly EvidenceTemplate[] = [
    "RESERVATION_PATH"
   ],
   "field": "supportingContext",
+  "pattern": "([^\\n]{0,600}?) → resolves to ([^\\n]{0,600}?)\\. The destination responded, which confirms it exists and is reachable\\. It does not confirm that orders are being accepted — a page with ordering switched off responds identically\\. Manual validation required\\. This URL was provided for this audit and was not found on the analyzed pages\\."
+ },
+ {
+  "types": [
+   "MENU_ACCESS",
+   "ORDERING_PATH",
+   "RESERVATION_PATH"
+  ],
+  "field": "supportingContext",
   "pattern": "([^\\n]{0,600}?) → resolves to ([^\\n]{0,600}?)\\. The destination responded, which confirms it exists and is reachable\\. It does not confirm that orders are being accepted — a page with reservations switched off responds identically\\. Manual validation required\\."
+ },
+ {
+  "types": [
+   "MENU_ACCESS",
+   "ORDERING_PATH",
+   "RESERVATION_PATH"
+  ],
+  "field": "supportingContext",
+  "pattern": "([^\\n]{0,600}?) → resolves to ([^\\n]{0,600}?)\\. The destination responded, which confirms it exists and is reachable\\. It does not confirm that orders are being accepted — a page with reservations switched off responds identically\\. Manual validation required\\. This URL was provided for this audit and was not found on the analyzed pages\\."
  },
  {
   "types": [
@@ -8106,6 +8196,15 @@ export const EVIDENCE_TEMPLATES: readonly EvidenceTemplate[] = [
    "RESERVATION_PATH"
   ],
   "field": "supportingContext",
+  "pattern": "([^\\n]{0,600}?)\\. Signal read from the destination page — ([^\\n]{0,600}?)\\. Customers arriving here cannot complete the action\\. This URL was provided for this audit and was not found on the analyzed pages\\."
+ },
+ {
+  "types": [
+   "MENU_ACCESS",
+   "ORDERING_PATH",
+   "RESERVATION_PATH"
+  ],
+  "field": "supportingContext",
   "pattern": "([^\\n]{0,600}?)\\. Signal read from the destination page — ([^\\n]{0,600}?)\\. Customers who follow the menu link do not find a menu\\."
  },
  {
@@ -8124,7 +8223,25 @@ export const EVIDENCE_TEMPLATES: readonly EvidenceTemplate[] = [
    "RESERVATION_PATH"
   ],
   "field": "supportingContext",
+  "pattern": "([^\\n]{0,600}?)\\. The destination responded, which confirms it exists and is reachable\\. It does not confirm that bookings are being accepted — a page with ordering switched off responds identically\\. Manual validation required\\. This URL was provided for this audit and was not found on the analyzed pages\\."
+ },
+ {
+  "types": [
+   "MENU_ACCESS",
+   "ORDERING_PATH",
+   "RESERVATION_PATH"
+  ],
+  "field": "supportingContext",
   "pattern": "([^\\n]{0,600}?)\\. The destination responded, which confirms it exists and is reachable\\. It does not confirm that bookings are being accepted — a page with reservations switched off responds identically\\. Manual validation required\\."
+ },
+ {
+  "types": [
+   "MENU_ACCESS",
+   "ORDERING_PATH",
+   "RESERVATION_PATH"
+  ],
+  "field": "supportingContext",
+  "pattern": "([^\\n]{0,600}?)\\. The destination responded, which confirms it exists and is reachable\\. It does not confirm that bookings are being accepted — a page with reservations switched off responds identically\\. Manual validation required\\. This URL was provided for this audit and was not found on the analyzed pages\\."
  },
  {
   "types": [
@@ -8142,7 +8259,25 @@ export const EVIDENCE_TEMPLATES: readonly EvidenceTemplate[] = [
    "RESERVATION_PATH"
   ],
   "field": "supportingContext",
+  "pattern": "([^\\n]{0,600}?)\\. The destination responded, which confirms it exists and is reachable\\. It does not confirm that orders are being accepted — a page with ordering switched off responds identically\\. Manual validation required\\. This URL was provided for this audit and was not found on the analyzed pages\\."
+ },
+ {
+  "types": [
+   "MENU_ACCESS",
+   "ORDERING_PATH",
+   "RESERVATION_PATH"
+  ],
+  "field": "supportingContext",
   "pattern": "([^\\n]{0,600}?)\\. The destination responded, which confirms it exists and is reachable\\. It does not confirm that orders are being accepted — a page with reservations switched off responds identically\\. Manual validation required\\."
+ },
+ {
+  "types": [
+   "MENU_ACCESS",
+   "ORDERING_PATH",
+   "RESERVATION_PATH"
+  ],
+  "field": "supportingContext",
+  "pattern": "([^\\n]{0,600}?)\\. The destination responded, which confirms it exists and is reachable\\. It does not confirm that orders are being accepted — a page with reservations switched off responds identically\\. Manual validation required\\. This URL was provided for this audit and was not found on the analyzed pages\\."
  },
  {
   "types": [
