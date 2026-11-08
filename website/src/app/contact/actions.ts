@@ -14,14 +14,21 @@ export async function submitContactForm(
   _previous: SubmitResult | null,
   formData: FormData,
 ): Promise<SubmitResult> {
+  const interest = String(formData.get('interest') ?? '').trim();
+  const message = String(formData.get('message') ?? '').trim();
+  const isStrategyCall = interest === 'strategy-call';
   const raw = {
     name: String(formData.get('name') ?? ''),
     email: String(formData.get('email') ?? ''),
     company: String(formData.get('company') ?? ''),
     phone: String(formData.get('phone') ?? ''),
     websiteUrl: String(formData.get('websiteUrl') ?? ''),
-    interest: String(formData.get('interest') ?? ''),
-    message: String(formData.get('message') ?? ''),
+    // The ingest service recognizes consulting. Preserve the more specific
+    // request in the message that the founder reads in the notification.
+    interest: isStrategyCall ? 'consulting' : interest,
+    message: isStrategyCall && message ? `Strategy call requested.
+
+${message}` : message,
     botField: String(formData.get('botField') ?? ''),
   };
 
@@ -37,6 +44,8 @@ export async function submitContactForm(
     return { ok: false, kind: 'validation', fieldErrors };
   }
 
-  const sourcePath = String(formData.get('sourcePath') ?? '/contact');
+  const sourcePath = isStrategyCall
+    ? '/contact?interest=strategy-call'
+    : String(formData.get('sourcePath') ?? '/contact');
   return submitLead(parsed.data, sourcePath);
 }
