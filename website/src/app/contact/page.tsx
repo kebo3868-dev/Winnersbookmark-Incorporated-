@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import ContactForm from './ContactForm';
-import { company, contact } from '@/data/site';
+import { company, contact, socialImage } from '@/data/site';
 import { hasLeadIngestConfiguration } from '@/lib/leads';
 
 export const metadata: Metadata = {
@@ -10,6 +10,7 @@ export const metadata: Metadata = {
     'Talk to Winners Bookmark about AI for your business. Tell us what is not working and we will tell you honestly whether we can help.',
   alternates: { canonical: '/contact' },
   openGraph: {
+    images: [socialImage],
     title: `Contact | ${company.shortName}`,
     description: 'Request a strategy call or ask about a restaurant audit.',
     url: '/contact',

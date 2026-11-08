@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation';
 import { Section, SectionHeading } from '@/components/Section';
 import { StatusBadge, FeatureStateBadge } from '@/components/StatusBadge';
 import { getAgent, agentSlugs, agentsByOrder, STATUS_PRESENTATION } from '@/data/agents';
-import { SITE_URL, company } from '@/data/site';
+import { SITE_URL, company, socialImage } from '@/data/site';
 
 /**
  * THE AGENT PAGE TEMPLATE
@@ -37,12 +37,18 @@ export async function generateMetadata({
     description: agent.tagline,
     alternates: { canonical: `/solutions/${agent.slug}` },
     openGraph: {
+      images: [socialImage],
       title: `${agent.name} | ${company.shortName}`,
       description: agent.tagline,
       url: `/solutions/${agent.slug}`,
       type: 'website',
     },
-    twitter: { card: 'summary_large_image', title: agent.name, description: agent.tagline },
+    twitter: {
+      card: 'summary_large_image',
+      title: agent.name,
+      description: agent.tagline,
+      images: [socialImage],
+    },
   };
 }
 

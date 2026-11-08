@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Section, SectionHeading } from '@/components/Section';
-import { company, contact } from '@/data/site';
+import { company, contact, socialImage } from '@/data/site';
 import { agentsByOrder } from '@/data/agents';
 
 export const metadata: Metadata = {
@@ -9,6 +9,7 @@ export const metadata: Metadata = {
   description: `${company.shortName} is an AI consulting and automation company building specialized AI agents for restaurants and local service businesses.`,
   alternates: { canonical: '/about' },
   openGraph: {
+    images: [socialImage],
     title: `About | ${company.shortName}`,
     description: company.shortPositioning,
     url: '/about',

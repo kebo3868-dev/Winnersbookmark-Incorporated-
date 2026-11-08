@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { socialImage } from '@/data/site';
 import Link from 'next/link';
 import { Section, SectionHeading } from '@/components/Section';
 
@@ -8,6 +9,7 @@ export const metadata: Metadata = {
     'Request an AI business audit: evidence-backed findings on where your customer journey is losing you revenue, and what to fix first.',
   alternates: { canonical: '/audit' },
   openGraph: {
+    images: [socialImage],
     title: 'AI Business Audit | Winners Bookmark',
     description: 'Evidence-backed findings on where your business is losing revenue.',
     url: '/audit',

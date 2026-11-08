@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { contact } from '@/data/site';
+import { contact, socialImage } from '@/data/site';
 import { Section, SectionHeading } from '@/components/Section';
 
 export const metadata: Metadata = {
@@ -9,6 +9,7 @@ export const metadata: Metadata = {
     'AI consulting for businesses that want a straight answer: what AI can actually do for you, what it cannot, and what is worth building first.',
   alternates: { canonical: '/consulting' },
   openGraph: {
+    images: [socialImage],
     title: 'AI Consulting | Winners Bookmark',
     description: 'Practical AI consulting, audits and implementation for local business.',
     url: '/consulting',

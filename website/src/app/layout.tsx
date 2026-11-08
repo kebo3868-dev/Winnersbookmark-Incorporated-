@@ -3,7 +3,7 @@ import { Inter, Instrument_Serif } from 'next/font/google';
 import './globals.css';
 import SiteHeader from '@/components/SiteHeader';
 import SiteFooter from '@/components/SiteFooter';
-import { SITE_URL, company } from '@/data/site';
+import { SITE_URL, company, socialImage } from '@/data/site';
 
 /**
  * Root metadata. `metadataBase` makes every relative Open Graph and canonical
@@ -38,6 +38,7 @@ export const metadata: Metadata = {
   publisher: company.shortName,
   alternates: { canonical: '/' },
   openGraph: {
+    images: [socialImage],
     type: 'website',
     siteName: company.shortName,
     title: `${company.shortName} — AI Systems for Restaurants and Local Business`,
@@ -46,6 +47,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
+    images: [socialImage],
     title: `${company.shortName} — AI Systems for Restaurants and Local Business`,
     description: company.shortPositioning,
   },

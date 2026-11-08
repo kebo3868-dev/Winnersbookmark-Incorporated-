@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { socialImage } from '@/data/site';
 import Link from 'next/link';
 import { Section, SectionHeading } from '@/components/Section';
 import AgentCard from '@/components/AgentCard';
@@ -10,6 +11,7 @@ export const metadata: Metadata = {
     'AI for restaurants: recover missed calls, fix the ordering path customers abandon, and stop losing revenue you already earned.',
   alternates: { canonical: '/restaurants' },
   openGraph: {
+    images: [socialImage],
     title: 'Restaurant AI | Winners Bookmark',
     description: 'AI systems built specifically for restaurants and food service.',
     url: '/restaurants',

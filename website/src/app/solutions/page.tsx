@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { contact } from '@/data/site';
+import { contact, socialImage } from '@/data/site';
 import { Section, SectionHeading } from '@/components/Section';
 import AgentCard from '@/components/AgentCard';
 import { StatusBadge } from '@/components/StatusBadge';
@@ -12,6 +12,7 @@ export const metadata: Metadata = {
     'The Winners Bookmark AI agent ecosystem — Restaurant Rescue Agent, AI Front Desk, AI Sales Agent and Gigi. Each listed with its real availability.',
   alternates: { canonical: '/solutions' },
   openGraph: {
+    images: [socialImage],
     title: 'AI Agents | Winners Bookmark',
     description: 'Specialized AI agents for restaurants and local service businesses.',
     url: '/solutions',

@@ -38,6 +38,13 @@ function resolveSiteUrl(): string {
 
 export const SITE_URL = resolveSiteUrl();
 
+export const socialImage = {
+  url: '/opengraph-image.png',
+  width: 1200,
+  height: 630,
+  alt: 'Winners Bookmark. Stop losing customers you already earned. Evidence-backed website audits for restaurants.',
+};
+
 /** True once a real domain has been configured. Drives nothing user-visible
  *  today, but lets a page opt out of emitting canonical tags that would point
  *  at a preview URL. */

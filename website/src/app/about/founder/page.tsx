@@ -1,13 +1,14 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Section } from '@/components/Section';
-import { company, contact } from '@/data/site';
+import { company, contact, socialImage } from '@/data/site';
 
 export const metadata: Metadata = {
   title: 'About the Founder',
   description: `${company.founder} is the founder of ${company.shortName}, building AI systems for restaurants and local service businesses.`,
   alternates: { canonical: '/about/founder' },
   openGraph: {
+    images: [socialImage],
     title: `${company.founder} | ${company.shortName}`,
     description: `Founder of ${company.shortName}.`,
     url: '/about/founder',
