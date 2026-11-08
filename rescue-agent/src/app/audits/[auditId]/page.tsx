@@ -20,6 +20,7 @@ import {
   displayedClassification,
 } from '@/lib/reports/executive';
 import { publishAuditObservations } from '@/lib/reports/observationPublication';
+import { reportCalendarDate } from '@/lib/reports/reportDate';
 import { evidenceBasisFor, evidenceBasisRows } from '@/lib/audit/evidenceBasis';
 import { ORDER_BUTTON_CATEGORY, orderButtonFindingCopy } from '@/lib/audit/orderButtonFinding';
 import { presentOrderingText } from '@/lib/audit/orderingChannel';
@@ -79,7 +80,7 @@ export default async function AuditDetailPage({ params }: { params: Promise<{ au
     <div className="space-y-10">
       <div className="flex flex-wrap items-end justify-between gap-6">
         <div>
-          <p className="label mb-2">Audit · {audit.createdAt.toISOString().slice(0, 10)}</p>
+          <p className="label mb-2">Audit · {reportCalendarDate(audit.createdAt)}</p>
           <h1 className="font-display text-3xl">{audit.restaurant.name}</h1>
           <p className="text-ivory-dim text-sm mt-1">{audit.restaurant.websiteUrl}</p>
           {audit.demoMode && (

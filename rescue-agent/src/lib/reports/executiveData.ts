@@ -6,6 +6,7 @@ import { generateBookingQrDataUrl } from './qrcode';
 import { assertOperator, type OperatorAuthorization } from '@/lib/operatorAuth';
 import { publishAuditObservations, type PublicationContext } from './observationPublication';
 import { isLinkableUrl } from './slotVerification';
+import { reportCalendarDate } from './reportDate';
 
 export type ExecutiveReportResult =
   | { status: 'ok'; dto: ExecutiveReportDTO }
@@ -112,7 +113,8 @@ export async function loadExecutiveReport(operator: OperatorAuthorization, audit
     restaurantName: audit.restaurant.name,
     websiteUrl: audit.restaurant.websiteUrl,
     location: [audit.restaurant.city, audit.restaurant.state].filter(Boolean).join(', ') || null,
-    auditDate: (audit.completedAt ?? audit.createdAt).toISOString().slice(0, 10),
+    // The calendar date where the restaurant is, not in UTC — see reportDate.ts.
+    auditDate: reportCalendarDate(audit.completedAt ?? audit.createdAt),
     auditStatus: audit.status,
     demoMode: audit.demoMode,
     contact,

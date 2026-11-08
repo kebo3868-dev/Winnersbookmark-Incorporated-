@@ -538,8 +538,10 @@ describe('6. export layout', () => {
 
   it('a long finding is labelled "continued" only on later pages', async () => {
     let labelled = 0;
-    for (const repeats of [0, 6, 12, 18]) {
-    const dto = buildExecutiveReport(layoutInput(repeats));
+    // Cards that fit a page are kept whole (findingMaySpanPages), so the
+    // layouts include cards far longer than a page, which must continue.
+    for (const [repeats, problemRepeats] of [[0, 9], [6, 9], [12, 9], [18, 9], [0, 45], [6, 45]]) {
+    const dto = buildExecutiveReport(layoutInput(repeats, problemRepeats));
     const pages = await renderedPages(dto);
     for (const f of dto.findings) {
       // The card's own heading: number, title, badge, then its stage line — the
@@ -649,13 +651,13 @@ function reportInput(
 }
 
 /** Three long findings (each may span a page) and a full journey: the Leverock's shape. */
-function layoutInput(summaryRepeats: number): ExecutiveReportInput {
+function layoutInput(summaryRepeats: number, problemRepeats = 9): ExecutiveReportInput {
   const long = (n: number, category: string, stage: string) =>
     opp({
       category,
       title: `Finding ${n} with a descriptive title`,
       customerJourneyStage: stage,
-      problem: 'OBSERVED: something specific on the public site. NOT OBSERVED: what it costs. '.repeat(9),
+      problem: 'OBSERVED: something specific on the public site. NOT OBSERVED: what it costs. '.repeat(problemRepeats),
       businessImpact: 'Whether that is happening here is unmeasured. '.repeat(3),
       recommendedSolution: 'Before any system: pull 30 days of records and compare. '.repeat(3),
       rescuePriorityScore: 60 - n,

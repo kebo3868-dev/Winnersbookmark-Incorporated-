@@ -173,9 +173,17 @@ describe('the PDF prints no scenario figures', () => {
   }, 60_000);
 });
 
+/** A finding card well under half a page: one short sentence per block. */
+function shortFinding<F extends { problem: string; whyItMatters: string; commercialEffect: string; whatWeKnow: string[]; whatWeDoNotKnow: string; recommendedAction: string }>(f: F): F {
+  return { ...f, problem: 'Short.', whyItMatters: 'Short.', commercialEffect: '', whatWeKnow: [], whatWeDoNotKnow: 'Short.', recommendedAction: 'Short.', evidenceBasis: null, scenarioKind: null };
+}
+
 describe('finding pagination', () => {
-  it('a card that fits a page is never labelled continued — because it never splits', () => {
-    const short = buildExecutiveReport(reportInput()).findings[0];
+  // A card no taller than about half a page never splits; a taller one may,
+  // but only between units that each carry a real part of it (see
+  // findingLayout and tests/pdf-quality-dates-links.test.ts).
+  it('a short card never splits; a long card may', () => {
+    const short = shortFinding(buildExecutiveReport(reportInput()).findings[0]);
     expect(findingMaySpanPages(short)).toBe(false);
 
     const long = buildExecutiveReport(
@@ -299,11 +307,16 @@ describe('layout and continuation labels agree', () => {
     expect(drawn.toUpperCase()).toContain('CONTINUED');
   }, 60_000);
 
-  it('a card that fits one page carries no continuation label at all', async () => {
+  it('a short card carries no continuation label at all', async () => {
     const dto = buildExecutiveReport(reportInput());
+    dto.findings[0] = shortFinding(dto.findings[0]);
     expect(findingMaySpanPages(dto.findings[0])).toBe(false);
     const drawn = await renderedAsciiText(dto);
-    expect(drawn.toUpperCase()).not.toContain('CONTINUED');
+    // The finding's own label. (The Methodology and Appendix sections carry
+    // their own "— continued" labels when they run onto a further page.)
+    // The text reads back in the PDF's own byte encoding, so the dash between
+    // a heading and "CONTINUED" is matched as any separator.
+    expect(drawn.toUpperCase().replace(/(METHODOLOGY & LIMITATIONS|FULL EVIDENCE CHAIN)\W+CONTINUED/g, '')).not.toContain('CONTINUED');
   }, 60_000);
 });
 
