@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { contact } from '@/data/site';
 import { Section, SectionHeading } from '@/components/Section';
 import AgentCard from '@/components/AgentCard';
 import { StatusBadge } from '@/components/StatusBadge';
@@ -12,13 +13,13 @@ export const metadata: Metadata = {
   alternates: { canonical: '/solutions' },
   openGraph: {
     title: 'AI Agents | Winners Bookmark',
-    description: 'Specialised AI agents for restaurants and local service businesses.',
+    description: 'Specialized AI agents for restaurants and local service businesses.',
     url: '/solutions',
   },
 };
 
 export default function SolutionsPage() {
-  const unavailable = agentsByOrder.filter((a) => a.status === 'COMING_SOON');
+  const unavailable = agentsByOrder.filter((a) => !availableAgents.includes(a));
 
   return (
     <>
@@ -27,12 +28,10 @@ export default function SolutionsPage() {
           <div className="max-w-3xl">
             <p className="eyebrow">The ecosystem</p>
             <h1 className="mt-5 font-display text-display-lg font-normal text-snow">
-              Specialised AI agents, each solving one problem properly.
+              Specialized AI agents, each solving one problem properly.
             </h1>
             <p className="lede mt-6 max-w-2xl">
-              Every agent below shows exactly where it stands. {availableAgents.length} are
-              available to businesses today; the rest are in development and labelled as such. We
-              would rather you know that here than find out later.
+              Explore the audit you can request today and the agents we are developing.
             </p>
           </div>
         </div>
@@ -42,9 +41,9 @@ export default function SolutionsPage() {
         <SectionHeading
           eyebrow="Available now"
           title="What you can put to work today"
-          body="These are built, tested and running with real businesses."
+          body="Request an evidence-backed review of your restaurant’s public website."
         />
-        <div className="mt-10 grid gap-5 lg:grid-cols-2">
+        <div className="mt-10 grid gap-5">
           {availableAgents.map((agent) => (
             <AgentCard key={agent.slug} agent={agent} />
           ))}
@@ -85,7 +84,7 @@ export default function SolutionsPage() {
             system addresses it — or whether something simpler would.
           </p>
           <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
-            <Link href="/contact" className="btn-primary">Book a Strategy Call</Link>
+            <Link href={contact.strategyCallHref} className="btn-primary">{contact.strategyCallLabel}</Link>
             <Link href="/consulting" className="btn-secondary">See our consulting services</Link>
           </div>
         </div>

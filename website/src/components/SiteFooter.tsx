@@ -12,8 +12,8 @@ export default function SiteFooter() {
           <div>
             <Wordmark />
             <p className="lede mt-5 max-w-xs text-sm">{company.shortPositioning}</p>
-            <Link href="/contact" className="btn-primary mt-6 !min-h-[44px] !px-5 !py-2.5">
-              Book a Strategy Call
+            <Link href={contact.strategyCallHref} className="btn-primary mt-6 !min-h-[44px] !px-5 !py-2.5">
+              {contact.strategyCallLabel}
             </Link>
           </div>
 
@@ -52,7 +52,7 @@ export default function SiteFooter() {
 
         <div className="mt-8 flex flex-col gap-3 border-t border-night-line pt-7 text-xs text-snow-faint sm:flex-row sm:items-center sm:justify-between">
           <p>
-            © {year} {company.legalName}. All rights reserved.
+            © {year} {company.shortName}. All rights reserved.
           </p>
           <p>
             Founded by {company.founder} ·{' '}

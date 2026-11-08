@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { contact } from '@/data/site';
 import { Section, SectionHeading } from '@/components/Section';
 
 export const metadata: Metadata = {
@@ -77,7 +78,7 @@ export default function ConsultingPage() {
               start with.
             </p>
             <div className="mt-9 flex flex-col gap-3 sm:flex-row">
-              <Link href="/contact" className="btn-primary">Book a Strategy Call</Link>
+              <Link href={contact.strategyCallHref} className="btn-primary">{contact.strategyCallLabel}</Link>
               <Link href="/audit" className="btn-secondary">Request an AI Business Audit</Link>
             </div>
           </div>
@@ -138,7 +139,7 @@ export default function ConsultingPage() {
             first, and what it would take.
           </p>
           <div className="mt-8 flex justify-center">
-            <Link href="/contact" className="btn-primary">Book a Strategy Call</Link>
+            <Link href={contact.strategyCallHref} className="btn-primary">{contact.strategyCallLabel}</Link>
           </div>
         </div>
       </Section>

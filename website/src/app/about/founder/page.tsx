@@ -5,11 +5,11 @@ import { company, contact } from '@/data/site';
 
 export const metadata: Metadata = {
   title: 'About the Founder',
-  description: `${company.founder} is the founder of ${company.legalName}, building AI systems for restaurants and local service businesses.`,
+  description: `${company.founder} is the founder of ${company.shortName}, building AI systems for restaurants and local service businesses.`,
   alternates: { canonical: '/about/founder' },
   openGraph: {
     title: `${company.founder} | ${company.shortName}`,
-    description: `Founder of ${company.legalName}.`,
+    description: `Founder of ${company.shortName}.`,
     url: '/about/founder',
   },
 };
@@ -51,7 +51,7 @@ export default function FounderPage() {
             <p className="eyebrow">{company.founderRole}</p>
             <h1 className="mt-5 font-display text-display-lg font-normal text-snow">{company.founder}</h1>
             <p className="lede mt-5 max-w-2xl text-lg">
-              Founder of {company.legalName}, building the AI systems that keep restaurants and
+              Founder of {company.shortName}, building the AI systems that keep restaurants and
               local service businesses from losing the customers they have already earned.
             </p>
           </div>
@@ -70,8 +70,7 @@ export default function FounderPage() {
             <p>
               That conviction shows up in unusual places in the products. The Restaurant Rescue
               Agent is architecturally forbidden from stating a finding it cannot attach evidence
-              to. The AI Front Desk refuses to answer questions outside what it has been told,
-              rather than generating something plausible. Neither product will produce a revenue
+              to. The AI Front Desk is being designed to answer from information approved by the restaurant. Neither product will produce a revenue
               projection, because a projection would be a guess wearing the costume of data.
             </p>
             <p>
@@ -101,11 +100,11 @@ export default function FounderPage() {
         <div className="card p-8 text-center sm:p-12">
           <h2 className="font-display text-display-md font-normal text-snow">Talk to Keith directly.</h2>
           <p className="lede mx-auto mt-4 max-w-xl">
-            Enquiries to Winners Bookmark reach the founder. If you want to talk about what AI
+            Inquiries to Winners Bookmark reach the founder. If you want to talk about what AI
             could do for your business, start here.
           </p>
           <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
-            <Link href="/contact" className="btn-primary">Book a Strategy Call</Link>
+            <Link href={contact.strategyCallHref} className="btn-primary">{contact.strategyCallLabel}</Link>
             <a href={`mailto:${contact.email}`} className="btn-secondary">Email directly</a>
           </div>
         </div>

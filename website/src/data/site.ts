@@ -46,18 +46,17 @@ export const HAS_CANONICAL_DOMAIN = Boolean(
 );
 
 export const company = {
-  legalName: 'Winners Bookmark Incorporated',
   shortName: 'Winners Bookmark',
   founder: 'Keith Warren',
   founderRole: 'Founder',
 
   /** What the company does, in one sentence a non-technical owner understands. */
   positioning:
-    'An AI consulting and automation company that helps restaurants and local service businesses recover missed revenue, answer every customer, and automate the work that eats their day.',
+    'An AI consulting and automation company that helps restaurants and local service businesses find friction in the customer journey and reduce repetitive work.',
 
   /** Shorter form, for meta descriptions and cards. */
   shortPositioning:
-    'AI systems that recover missed revenue for restaurants and local service businesses.',
+    'AI consulting and automation for restaurants and local service businesses.',
 } as const;
 
 /**
@@ -66,19 +65,27 @@ export const company = {
  * `bookingUrl` is intentionally null. No scheduling system (Calendly, Cal.com,
  * SavvyCal, HubSpot) is configured anywhere in this repository, and inventing a
  * URL would produce a dead primary CTA — the single most damaging bug a
- * marketing site can ship. Until one is configured, the contact form IS the
- * booking path: it captures the enquiry and tells the prospect what happens
- * next. Set NEXT_PUBLIC_BOOKING_URL to switch every "book a call" affordance
+ * marketing site can ship. Until one is configured, the contact page is the request path. Set NEXT_PUBLIC_BOOKING_URL to switch every "book a call" affordance
  * over to a real scheduler.
  */
-const bookingUrl = process.env.NEXT_PUBLIC_BOOKING_URL?.trim() || null;
+function resolveBookingUrl(value: string | undefined): string | null {
+  try {
+    const url = new URL(value?.trim() ?? '');
+    return url.protocol === 'https:' && !url.username && !url.password ? url.href : null;
+  } catch {
+    return null;
+  }
+}
+
+const bookingUrl = resolveBookingUrl(process.env.NEXT_PUBLIC_BOOKING_URL);
 
 export const contact = {
   /** Fallback address shown when the enquiry form cannot reach the pipeline.
    *  Overridable so it can be corrected without a code change. */
-  email: process.env.NEXT_PUBLIC_CONTACT_EMAIL?.trim() || 'keith@winnersbookmark.com',
+  email: process.env.NEXT_PUBLIC_CONTACT_EMAIL?.trim() || 'winnersbookmark@gmail.com',
   bookingUrl,
-  hasBooking: bookingUrl !== null,
+  strategyCallHref: bookingUrl ?? '/contact?interest=strategy-call',
+  strategyCallLabel: bookingUrl ? 'Book a Strategy Call' : 'Request a Strategy Call',
 } as const;
 
 /**

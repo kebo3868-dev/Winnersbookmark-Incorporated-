@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { Section, SectionHeading } from '@/components/Section';
 import AgentCard from '@/components/AgentCard';
-import { featuredAgents, agentsByOrder, availableAgents } from '@/data/agents';
+import { featuredAgents, agentsByOrder } from '@/data/agents';
 import { company, SITE_URL, contact } from '@/data/site';
 
 /**
@@ -31,15 +31,15 @@ const PAINS = [
     body: 'Hours, parking, whether you deliver. Every one of those interruptions costs attention that should be going to customers in the room.',
   },
   {
-    title: 'Enquiries arrive everywhere and get lost',
+    title: 'Inquiries arrive everywhere and get lost',
     body: 'Texts, voicemails, emails, form submissions. Nothing joins them up, so follow-up depends on whoever happens to remember.',
   },
 ];
 
 const OUTCOMES = [
   { title: 'Recover missed revenue', body: 'Find and close the gaps where interested customers are dropping out.' },
-  { title: 'Answer every enquiry', body: 'Missed calls, after-hours messages and repeat questions get a response instead of silence.' },
-  { title: 'Capture every lead', body: 'Enquiries land in one place with the customer’s details and what they actually wanted.' },
+  { title: 'Improve inquiry follow-up', body: 'Identify where missed calls and after-hours messages need a clearer response path.' },
+  { title: 'Capture more inquiries', body: 'Give customers a clear way to leave their details and tell your team what they need.' },
   { title: 'Free your staff', body: 'Routine questions stop interrupting service so your team can do the work customers came for.' },
   { title: 'See what is really happening', body: 'Evidence about your customer journey, not guesses about it.' },
   { title: 'Fix the right thing first', body: 'Findings ranked by what actually stands between a customer and an order.' },
@@ -88,8 +88,7 @@ const STEPS = [
 ];
 
 /**
- * The hero illustration: what the AI Front Desk does, drawn as the log an owner
- * would see. It is labelled as an illustration on its face — the names, times
+ * The hero illustration shows a planned AI Front Desk workflow. It is labelled as an illustration on its face — the names, times
  * and messages are invented to show the shape of the workflow, and nothing in
  * it is a result or a metric. That label is load-bearing; do not remove it.
  */
@@ -114,7 +113,7 @@ const HERO_LOG = [
   },
   {
     time: '9:51 pm',
-    kind: 'Catering enquiry',
+    kind: 'Catering inquiry',
     detail: 'Needs a person to quote',
     action: 'Escalated',
   },
@@ -129,7 +128,7 @@ function HeroLog() {
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-electric-light/60" />
             <span className="relative inline-flex h-2 w-2 rounded-full bg-electric-light" />
           </span>
-          <span className="text-[13px] font-semibold text-snow">Front desk · after hours</span>
+          <span className="text-[13px] font-semibold text-snow">Front desk · planned workflow</span>
         </div>
         <span className="rounded-full border border-night-edge px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.16em] text-snow-faint">
           Illustration
@@ -153,8 +152,7 @@ function HeroLog() {
       </ol>
 
       <figcaption className="border-t border-night-line bg-night-soft/60 px-5 py-3.5 text-[11.5px] leading-relaxed text-snow-faint">
-        An example of the workflow, not customer data. Every enquiry gets a response or
-        reaches a person — none of them go to voicemail.
+        Illustrative data. This workflow is in development and requires testing before a pilot.
       </figcaption>
     </figure>
   );
@@ -164,8 +162,7 @@ export default function HomePage() {
   const organisationLd = {
     '@context': 'https://schema.org',
     '@type': 'Organization',
-    name: company.legalName,
-    alternateName: company.shortName,
+    name: company.shortName,
     url: SITE_URL,
     description: company.positioning,
     founder: { '@type': 'Person', name: company.founder },
@@ -195,17 +192,16 @@ export default function HomePage() {
             </h1>
 
             <p className="lede mt-7 max-w-xl text-lg sm:text-xl">
-              {company.legalName} builds AI systems that answer the calls you miss, find the
-              revenue leaking out of your website, and capture the enquiries that would otherwise
-              disappear — for restaurants and local service businesses.
+              {company.shortName} helps restaurants and local service businesses find where customers
+              get stuck, starting with the website, menu, ordering and reservation paths.
             </p>
 
             {/* Exactly two actions. The brief was explicit about not putting
                 five competing choices in a hero, and a primary CTA only reads
                 as primary when it is the only solid blue thing here. */}
             <div className="mt-10 flex flex-col gap-3 sm:flex-row">
-              <Link href="/contact" className="btn-primary group">
-                Book a Strategy Call
+              <Link href={contact.strategyCallHref} className="btn-primary group">
+                {contact.strategyCallLabel}
                 <span aria-hidden="true" className="transition-transform duration-200 group-hover:translate-x-0.5">→</span>
               </Link>
               <Link href="/solutions" className="btn-secondary">
@@ -270,8 +266,8 @@ export default function HomePage() {
       <Section className="border-y border-night-line bg-night-soft/30">
         <div className="flex flex-col justify-between gap-8 lg:flex-row lg:items-end">
           <SectionHeading
-            eyebrow="The WBI AI ecosystem"
-            title={<>Specialised agents, <span className="em">built to work together.</span></>}
+            eyebrow="The Winners Bookmark AI ecosystem"
+            title={<>Specialized agents, <span className="em">built to work together.</span></>}
             body="Each agent solves one problem properly rather than solving many badly. Every one carries its real availability — so you always know what you can use today."
           />
           <Link href="/solutions" className="btn-secondary shrink-0 self-start lg:self-end">
@@ -279,7 +275,7 @@ export default function HomePage() {
           </Link>
         </div>
 
-        <div className="mt-14 grid gap-5 lg:grid-cols-2">
+        <div className="mt-14 grid gap-5">
           {featuredAgents.map((agent) => (
             <AgentCard key={agent.slug} agent={agent} />
           ))}
@@ -287,7 +283,7 @@ export default function HomePage() {
 
         {/* The non-featured agents get an honest, low-key listing rather than
             equal billing — they are not purchasable and should not compete
-            visually with the two that are. */}
+            visually with the available offers. */}
         <div className="mt-6 rounded-2xl border border-dashed border-night-edge p-6 sm:p-8">
           <div className="flex flex-col gap-1.5 sm:flex-row sm:items-baseline sm:justify-between">
             <h3 className="text-sm font-semibold text-snow">Also in the ecosystem</h3>
@@ -441,8 +437,8 @@ export default function HomePage() {
               and what we would do first.
             </p>
             <div className="mt-10 flex flex-col justify-center gap-3 sm:flex-row">
-              <Link href="/contact" className="btn-primary group">
-                Book a Strategy Call
+              <Link href={contact.strategyCallHref} className="btn-primary group">
+                {contact.strategyCallLabel}
                 <span aria-hidden="true" className="transition-transform duration-200 group-hover:translate-x-0.5">→</span>
               </Link>
               <Link href="/audit" className="btn-secondary">
@@ -450,7 +446,7 @@ export default function HomePage() {
               </Link>
             </div>
             <p className="mt-8 font-mono text-[11px] uppercase tracking-[0.16em] text-snow-faint">
-              {availableAgents.length} of our AI agents are available today · The rest are labelled honestly
+              Restaurant website audits are available by request.
             </p>
           </div>
         </div>

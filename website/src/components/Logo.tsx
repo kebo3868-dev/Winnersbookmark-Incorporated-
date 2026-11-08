@@ -1,3 +1,5 @@
+import { company } from '@/data/site';
+
 /**
  * Brand mark + wordmark. Drawn rather than imported so there is no image
  * request, no layout shift while it loads, and it stays crisp at any size.
@@ -28,13 +30,8 @@ export function Wordmark({ className = '' }: { className?: string }) {
   return (
     <span className={`flex items-center gap-3 ${className}`}>
       <LogoMark size={30} />
-      <span className="flex flex-col leading-none">
-        <span className="font-display text-[21px] leading-none tracking-[-0.01em] text-snow">
-          Winners Bookmark
-        </span>
-        <span className="mt-[5px] font-mono text-[8.5px] font-medium uppercase tracking-[0.32em] text-snow-faint">
-          Incorporated
-        </span>
+      <span className="font-display text-[21px] leading-none tracking-[-0.01em] text-snow">
+        {company.shortName}
       </span>
     </span>
   );

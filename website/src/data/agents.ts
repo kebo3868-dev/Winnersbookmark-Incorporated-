@@ -299,13 +299,13 @@ export const agents: Agent[] = [
   {
     slug: 'ai-front-desk',
     name: 'AI Front Desk',
-    tagline: 'Every missed call answered. Every question handled. Nothing falls through.',
-    status: 'PILOT',
-    statusLabel: 'Private pilot — onboarding a limited number of businesses',
+    tagline: 'Follow up on missed calls and route inquiries to the right person.',
+    status: 'IN_DEVELOPMENT',
+    statusLabel: 'In development — pilot readiness testing',
     statusNote:
-      'The system is built and running with pilot businesses. We are deliberately onboarding a small number at a time so each one is set up properly. Some capabilities listed below are still in development and are marked as such.',
+      'The front desk is in development. We are testing the core workflows and provider connections before opening pilot onboarding.',
     description:
-      'An AI front desk that picks up what your staff cannot. When a call is missed, it texts the customer back within seconds. It answers the questions it can answer, captures the details of the ones it cannot, and escalates to a real person when something needs one.',
+      'An AI front desk designed to text back missed callers, answer approved questions, capture inquiries and route requests that need a person.',
     problem: {
       headline: 'The call you did not answer was a customer you did not keep.',
       body:
@@ -322,44 +322,44 @@ export const agents: Agent[] = [
       {
         title: 'Missed-call text-back',
         description:
-          'When a call goes unanswered, the customer receives a text within seconds — while they are still deciding where to go.',
-        state: 'LIVE',
+          'A missed call can trigger a follow-up text once the restaurant’s phone and messaging setup is verified.',
+        state: 'IN_DEVELOPMENT',
       },
       {
         title: 'Answers real customer questions',
         description:
           'Hours, location, parking, menu access and the other questions that consume staff time, answered from information you control.',
-        state: 'LIVE',
+        state: 'IN_DEVELOPMENT',
       },
       {
         title: 'Lead capture',
         description:
           'When the agent cannot resolve something, it captures the customer’s details and what they wanted, so the enquiry survives instead of evaporating.',
-        state: 'LIVE',
+        state: 'IN_DEVELOPMENT',
       },
       {
         title: 'Escalation to a real person',
         description:
           'Anything sensitive, unusual, or beyond the agent’s remit is handed to a named member of staff, with the message recorded and delivery tracked.',
-        state: 'LIVE',
+        state: 'IN_DEVELOPMENT',
       },
       {
         title: 'Ordering handoff',
         description:
           'Customers who want to order are routed to the ordering channel you actually use, rather than being told something generic.',
-        state: 'LIVE',
+        state: 'IN_DEVELOPMENT',
       },
       {
         title: 'Review requests',
         description:
           'Eligible customers are invited to leave a review at the right moment, with rules about who is asked and how often.',
-        state: 'LIVE',
+        state: 'IN_DEVELOPMENT',
       },
       {
         title: 'Safety guardrails',
         description:
           'The agent refuses to answer outside what it actually knows, and never invents an answer about allergens, pricing or availability.',
-        state: 'LIVE',
+        state: 'IN_DEVELOPMENT',
       },
       {
         title: 'Email as a second alert channel',
@@ -394,7 +394,7 @@ export const agents: Agent[] = [
       {
         title: 'A missed call triggers a text',
         description:
-          'Within seconds of a call going unanswered, the customer gets a message asking what they need.',
+          'The planned workflow sends a follow-up message when a call goes unanswered.',
       },
       {
         title: 'The agent handles what it can',
@@ -407,13 +407,7 @@ export const agents: Agent[] = [
           'Escalations go to a named member of staff. You see every conversation and every captured lead in one place.',
       },
     ],
-    outcomes: [
-      'Missed calls get a response instead of a silence',
-      'Common questions stop interrupting staff during service',
-      'Enquiries are captured in one place rather than scattered across channels',
-      'After-hours interest is answered instead of lost',
-      'You can see what customers are actually asking for',
-    ],
+    outcomes: [],
     faqs: [
       {
         question: 'Does this replace my staff?',
@@ -431,24 +425,24 @@ export const agents: Agent[] = [
           'No. Calls continue to ring at your business as they do today. The agent responds to calls that go unanswered.',
       },
       {
-        question: 'Why is this a private pilot rather than generally available?',
+        question: 'When will the pilot open?',
         answer:
-          'Because setting it up properly matters more than setting it up quickly. The agent is only as good as the information behind it, so we onboard a small number of businesses at a time and configure each one carefully.',
+          'We will open onboarding after the core workflows are verified. You can register interest in the meantime.',
       },
       {
         question: 'Can it take a reservation?',
         answer:
-          'Not end-to-end yet — that is in development and honestly labelled as such. Today it captures the booking request and routes the customer to your existing booking path or to a member of staff.',
+          'Direct reservations are in development. The initial workflow is designed to capture the request and route it to your existing booking channel or a member of staff.',
       },
     ],
     caseStudies: [],
     cta: {
-      primaryLabel: 'Apply for the Pilot',
+      primaryLabel: 'Register Pilot Interest',
       primaryHref: '/contact?interest=ai-front-desk',
       secondaryLabel: 'See how it works',
       secondaryHref: '/solutions/ai-front-desk#how-it-works',
     },
-    featured: true,
+    featured: false,
     order: 2,
   },
 

@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import ContactForm from './ContactForm';
 import { company, contact } from '@/data/site';
+import { hasLeadIngestConfiguration } from '@/lib/leads';
 
 export const metadata: Metadata = {
   title: 'Contact',
@@ -10,12 +11,14 @@ export const metadata: Metadata = {
   alternates: { canonical: '/contact' },
   openGraph: {
     title: `Contact | ${company.shortName}`,
-    description: 'Book a strategy call or request an AI business audit.',
+    description: 'Request a strategy call or ask about a restaurant audit.',
     url: '/contact',
   },
 };
 
 export default function ContactPage() {
+  const showForm = hasLeadIngestConfiguration();
+
   return (
     <>
       <section className="border-b border-night-line">
@@ -36,22 +39,34 @@ export default function ContactPage() {
 
       <div className="shell py-14 sm:py-20">
         <div className="grid gap-10 lg:grid-cols-[1.35fr_1fr] lg:gap-14">
-          <div>
-            {/* useSearchParams needs a Suspense boundary or the whole route
-                opts out of static rendering. */}
-            <Suspense
-              fallback={<div className="card h-[600px] animate-pulse" aria-hidden="true" />}
-            >
-              <ContactForm />
-            </Suspense>
-          </div>
+          {showForm ? (
+            <div>
+              <Suspense
+                fallback={<div className="card h-[600px] animate-pulse" aria-hidden="true" />}
+              >
+                <ContactForm />
+              </Suspense>
+            </div>
+          ) : (
+            <section className="card self-start p-6 sm:p-8">
+              <h2 className="font-display text-display-sm text-snow">Email Keith Warren</h2>
+              <p className="mt-3 text-sm leading-relaxed text-snow-dim">
+                For a strategy call, restaurant audit or pilot inquiry, send your business name, website
+                and a short note about what you would like to improve.
+              </p>
+              <a href={`mailto:${contact.email}`} className="btn-primary mt-6">
+                Email Keith
+              </a>
+              <p className="mt-3 break-all text-sm text-snow-dim">{contact.email}</p>
+            </section>
+          )}
 
           <aside className="space-y-5">
             <div className="card p-6">
               <h2 className="text-base font-semibold text-snow">What happens after you send it</h2>
               <ol className="mt-5 space-y-4">
                 {[
-                  { t: 'Keith reads it', d: 'Enquiries go to the founder, not a shared inbox or a sales team.' },
+                  { t: 'Keith reads it', d: 'Inquiries go to the founder, not a shared inbox or a sales team.' },
                   { t: 'You get an honest reply', d: 'A first read on whether this is something we can help with, usually within one business day.' },
                   { t: 'We talk, if it fits', d: 'A call to go deeper. No obligation, and no pressure afterwards.' },
                 ].map((step, i) => (
@@ -71,18 +86,20 @@ export default function ContactPage() {
               </ol>
             </div>
 
-            <div className="card p-6">
-              <h2 className="text-base font-semibold text-snow">Prefer email?</h2>
-              <p className="mt-2.5 text-sm leading-relaxed text-snow-dim">
-                Write to us directly and it reaches the same place.
-              </p>
-              <a
-                href={`mailto:${contact.email}`}
-                className="mt-3 inline-block break-all py-1.5 text-sm font-semibold text-electric-light underline underline-offset-4 transition-colors hover:text-white"
-              >
-                {contact.email}
-              </a>
-            </div>
+            {showForm && (
+              <div className="card p-6">
+                <h2 className="text-base font-semibold text-snow">Prefer email?</h2>
+                <p className="mt-2.5 text-sm leading-relaxed text-snow-dim">
+                  Write directly to Keith.
+                </p>
+                <a
+                  href={`mailto:${contact.email}`}
+                  className="mt-3 inline-block break-all py-1.5 text-sm font-semibold text-electric-light underline underline-offset-4 transition-colors hover:text-white"
+                >
+                  {contact.email}
+                </a>
+              </div>
+            )}
 
             <div className="card p-6">
               <h2 className="text-base font-semibold text-snow">What we will not do</h2>

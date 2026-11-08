@@ -95,9 +95,9 @@ export default function RestaurantsPage() {
         <SectionHeading
           eyebrow="The systems"
           title="What we run for restaurants"
-          body="Two systems, available today, each addressing a different half of the problem: the customers who cannot reach you, and the customers who cannot complete an order."
+          body="Start with a restaurant website audit to see where guests may have trouble finding the menu, ordering, booking or reaching your team."
         />
-        <div className="mt-12 grid gap-5 lg:grid-cols-2">
+        <div className="mt-12 grid gap-5">
           {featuredAgents.map((agent) => (
             <AgentCard key={agent.slug} agent={agent} />
           ))}

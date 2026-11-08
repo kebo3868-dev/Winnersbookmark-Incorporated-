@@ -28,25 +28,25 @@ const display = Instrument_Serif({
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: `${company.legalName} — AI Systems for Restaurants and Local Business`,
+    default: `${company.shortName} — AI Systems for Restaurants and Local Business`,
     template: `%s | ${company.shortName}`,
   },
   description: company.positioning,
-  applicationName: company.legalName,
+  applicationName: company.shortName,
   authors: [{ name: company.founder }],
-  creator: company.legalName,
-  publisher: company.legalName,
+  creator: company.shortName,
+  publisher: company.shortName,
   alternates: { canonical: '/' },
   openGraph: {
     type: 'website',
-    siteName: company.legalName,
-    title: `${company.legalName} — AI Systems for Restaurants and Local Business`,
+    siteName: company.shortName,
+    title: `${company.shortName} — AI Systems for Restaurants and Local Business`,
     description: company.positioning,
     url: '/',
   },
   twitter: {
     card: 'summary_large_image',
-    title: `${company.legalName} — AI Systems for Restaurants and Local Business`,
+    title: `${company.shortName} — AI Systems for Restaurants and Local Business`,
     description: company.shortPositioning,
   },
   robots: {

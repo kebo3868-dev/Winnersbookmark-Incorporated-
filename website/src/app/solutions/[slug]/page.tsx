@@ -70,7 +70,7 @@ export default async function AgentPage({ params }: { params: Promise<{ slug: st
         serviceType: 'AI automation for local business',
         provider: {
           '@type': 'Organization',
-          name: company.legalName,
+          name: company.shortName,
           url: SITE_URL,
         },
         url: `${SITE_URL}/solutions/${agent.slug}`,

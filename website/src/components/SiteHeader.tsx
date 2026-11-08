@@ -4,13 +4,13 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Wordmark } from './Logo';
-import { primaryNav } from '@/data/site';
+import { company, contact, primaryNav } from '@/data/site';
 
 /**
  * PRIMARY NAVIGATION
  *
  * Desktop is a row; below `lg` it becomes a drawer. The breakpoint is `lg`
- * rather than `sm` because the wordmark is two lines wide and four nav labels
+ * rather than `sm` because the wordmark and four nav labels
  * plus a CTA do not fit a tablet without the row reflowing into two ragged
  * lines — which reads as broken on exactly the devices owners browse on.
  *
@@ -69,7 +69,7 @@ export default function SiteHeader() {
       <div className="shell flex h-[72px] items-center justify-between gap-4">
         <Link
           href="/"
-          aria-label="Winners Bookmark Incorporated — home"
+          aria-label={`${company.shortName} home`}
           className="-my-1.5 flex shrink-0 items-center py-1.5"
         >
           <Wordmark />
@@ -98,8 +98,8 @@ export default function SiteHeader() {
         </nav>
 
         <div className="flex items-center gap-3">
-          <Link href="/contact" className="btn-primary group hidden !min-h-[44px] !px-5 !py-2.5 sm:inline-flex">
-            Book a Strategy Call
+          <Link href={contact.strategyCallHref} className="btn-primary group hidden !min-h-[44px] !px-5 !py-2.5 sm:inline-flex">
+            {contact.strategyCallLabel}
             <span aria-hidden="true" className="transition-transform duration-200 group-hover:translate-x-0.5">→</span>
           </Link>
 
@@ -142,8 +142,8 @@ export default function SiteHeader() {
               {item.label}
             </Link>
           ))}
-          <Link href="/contact" onClick={() => setOpen(false)} className="btn-primary mt-3 w-full">
-            Book a Strategy Call
+          <Link href={contact.strategyCallHref} onClick={() => setOpen(false)} className="btn-primary mt-3 w-full">
+            {contact.strategyCallLabel}
           </Link>
         </nav>
       </div>
