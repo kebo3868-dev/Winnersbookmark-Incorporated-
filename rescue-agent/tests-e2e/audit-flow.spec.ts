@@ -21,11 +21,13 @@ test('demo audit → executive report → PDF → leads', async ({ page, request
   // 3. Executive report renders with Phase 3 sections.
   await page.goto(`/audits/${auditId}/report`);
   await expect(page.getByRole('heading', { name: 'RESTAURANT RESCUE AUDIT' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Executive Revenue Snapshot' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'What This Could Be Costing You' })).toBeVisible();
-  await expect(page.getByText('ILLUSTRATIVE SCENARIO').first()).toBeVisible();
+  // Current report labels (the prior assertions predated the report repair).
+  await expect(page.getByRole('heading', { name: 'Executive Snapshot', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Optional Scenario Calculator', exact: true })).toBeVisible();
+  await expect(page.getByText('This audit does not measure money.', { exact: false })).toBeVisible();
   // Owner-reported review data is surfaced (Phase 3), never scraped.
-  await expect(page.getByText(/owner-reported/i).first()).toBeVisible();
+  await page.getByText(/Show all \d+ evidence items/).click();
+  await expect(page.getByText(/^Owner-reported public rating:/i)).toBeVisible();
 
   // 4. Executive PDF downloads with the right content type.
   const pdf = await request.get(`/api/audits/${auditId}/report/pdf`);
@@ -35,5 +37,5 @@ test('demo audit → executive report → PDF → leads', async ({ page, request
   // 5. Leads view shows the captured demo lead.
   await page.goto('/leads');
   await expect(page.getByRole('heading', { name: 'Leads' })).toBeVisible();
-  await expect(page.getByText('Sample Prospect (DEMO)').first()).toBeVisible();
+  await expect(page.getByRole('cell', { name: /Sample Prospect \(DEMO\)/ }).first()).toBeVisible();
 });

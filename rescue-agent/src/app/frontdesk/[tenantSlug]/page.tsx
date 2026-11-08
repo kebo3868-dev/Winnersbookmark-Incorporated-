@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { authorize, resolveActor } from '@/lib/frontdesk/auth/actor';
 import { buildCompletenessReport } from '@/lib/frontdesk/config/completeness';
 import { startOfLocalDay, tenantTimezone } from '@/lib/frontdesk/knowledge/hours';
@@ -40,6 +40,10 @@ export default async function FrontDeskTenantPage({
   params: Promise<{ tenantSlug: string }>;
 }) {
   const { tenantSlug } = await params;
+  // Invalid/expired/revoked sessions take the same route as a fresh browser,
+  // before looking up a tenant. A valid wrong-tenant actor still gets a 404.
+  const actor = await resolveActor();
+  if (!actor) redirect('/frontdesk/login');
   const tenant = await getTenantBySlug(tenantSlug);
   if (!tenant) notFound();
 
@@ -47,7 +51,6 @@ export default async function FrontDeskTenantPage({
   // only ever see their own restaurant, and an unauthorised actor gets the
   // same 404 as a nonexistent slug so this page cannot be used to discover
   // which restaurants are on the platform.
-  const actor = await resolveActor();
   const authz = authorize(actor, tenant.id, 'tenant:read');
   if (!authz.ok) notFound();
 

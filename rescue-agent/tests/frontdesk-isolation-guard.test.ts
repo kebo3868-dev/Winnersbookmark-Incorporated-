@@ -1,5 +1,6 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
+import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
 
 /**
@@ -185,11 +186,22 @@ describe('every front desk surface authorizes itself', () => {
 
   /** Routes that are intentionally unauthenticated, with the reason. */
   const PUBLIC_BY_DESIGN: Record<string, string> = {
+    'src/app/frontdesk/login/page.tsx':
+      'Browser entry only; no data reads. GET/HEAD only bypass Basic Auth, credentials go to the existing API.',
     'src/app/api/frontdesk/auth/login/route.ts':
       'Sign-in cannot sit behind the credential it issues. Rate-limited per account.',
     'src/app/api/frontdesk/auth/logout/route.ts':
       'Clearing a cookie is harmless; it revokes only the session presented.',
   };
+
+  it('the public browser login page imports only its form, with no data or authorization dependency', () => {
+    const rel = 'src/app/frontdesk/login/page.tsx';
+    const source = ts.createSourceFile(rel, readSource(rel), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+    const imports = source.statements.filter(ts.isImportDeclaration)
+      .map((node) => (node.moduleSpecifier as ts.StringLiteral).text);
+    expect(imports).toEqual(['./LoginForm']);
+    expect(readSource(rel)).not.toMatch(/\b(fetch|prisma|resolveActor|getSessionActor|requireOperatorPage)\s*\(/);
+  });
 
   function walk(dir: string): string[] {
     const out: string[] = [];
