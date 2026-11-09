@@ -203,3 +203,116 @@ describe('the orchestrator sets the marker where the supplied URL enters the pip
     expect(src).toMatch(/suppliedForAudit: target\.supplied/);
   });
 });
+
+/**
+ * FOLLOW-UP: A SUPPLIED URL THE PAGE CARRIES IN ITS MARKUP.
+ *
+ * Validation of da2d62c found the added sentence "This URL was provided for
+ * this audit and was not found on the analyzed pages." printed for a supplied
+ * URL that IS on the page — as an iframe src, or as the address a redirect
+ * lands on. The explicit supplied marker short-circuited the markup check.
+ * The sentence is now chosen from what the collected pages show; the fact,
+ * evidence type, confidence and every score are unchanged.
+ *
+ * Trailing slashes are not normalised: ".../harbor-grill" and
+ * ".../harbor-grill/" are different addresses with their own HTTP outcomes
+ * unless a redirect observed during the audit joins them.
+ */
+describe('a supplied URL the analyzed pages carry only in their markup', () => {
+  const IFRAME_ORDER = 'https://order.toasttab.com/online/harbor-grill';
+  const NOT_FOUND = /was not found on the analyzed pages/;
+  const IN_MARKUP =
+    'This URL was provided for this audit; the analyzed pages carry it only in the page markup, not as a visible link.';
+  const iframe = (src: string) => `${BARE_PAGE}<iframe src="${src}" title="Order online"></iframe>`;
+  const supplied = (url: string, extra: Partial<ProbeResult> = {}) =>
+    reachable(url, 'ordering', { exposedInCustomerJourney: false, suppliedForAudit: true, ...extra });
+  const failed: Partial<ProbeResult> = { ok: false, httpStatus: 404, note: 'HTTP 404', failureKind: 'HTTP' };
+
+  it('the iframe is collected as a markup-only ordering destination (precondition)', () => {
+    const { evidence } = run(iframe(IFRAME_ORDER), []);
+    expect(evidence.some((e) => e.evidenceType === 'ORDERING_PATH' && /embedded widget/.test(e.fact))).toBe(true);
+  });
+
+  it('reachable, same address as the iframe: says it is in the page markup, never "not found"', () => {
+    const { evidence } = run(iframe(IFRAME_ORDER), [supplied(IFRAME_ORDER)]);
+    const record = probeRecord(evidence, IFRAME_ORDER)!;
+    expect(record.evidenceType).toBe('ORDERING_PATH');
+    expect(record.fact).toMatch(/^The ordering URL provided for this audit is reachable/);
+    expect(record.supportingContext).not.toMatch(NOT_FOUND);
+    expect(record.supportingContext).toContain(IN_MARKUP);
+  });
+
+  it('service unavailable, same address as the iframe: same correction, journey clause kept', () => {
+    const { evidence } = run(iframe(IFRAME_ORDER), [supplied(IFRAME_ORDER, { disabledSignal: '"Online ordering is closed"' })]);
+    const record = probeRecord(evidence, IFRAME_ORDER)!;
+    expect(record.fact).toMatch(/states the service is unavailable/);
+    expect(record.supportingContext).not.toMatch(NOT_FOUND);
+    expect(record.supportingContext).toContain(IN_MARKUP);
+  });
+
+  it('failed, same address as the iframe: not a BROKEN_LINK, and the reason names the page markup (unchanged)', () => {
+    const { evidence } = run(iframe(IFRAME_ORDER), [supplied(IFRAME_ORDER, failed)]);
+    expect(evidence.filter((e) => e.evidenceType === 'BROKEN_LINK')).toEqual([]);
+    const record = probeRecord(evidence, IFRAME_ORDER)!;
+    expect(record.fact).toMatch(/could not be verified when tested \(HTTP 404\)/);
+    expect(record.supportingContext).toMatch(/appears only in the page markup/);
+    expect(record.supportingContext).not.toMatch(NOT_FOUND);
+  });
+
+  for (const [label, from, to] of [
+    ['no slash → slash', IFRAME_ORDER, `${IFRAME_ORDER}/`],
+    ['slash → no slash', `${IFRAME_ORDER}/`, IFRAME_ORDER],
+  ] as const) {
+    it(`redirect to the iframe address (${label}): says it is in the page markup, never "not found"`, () => {
+      const { evidence } = run(iframe(to), [supplied(from, { finalUrl: to })]);
+      const record = probeRecord(evidence, from)!;
+      expect(record.fact).not.toMatch(LINKED_CLAIM);
+      expect(record.supportingContext).not.toMatch(NOT_FOUND);
+      expect(record.supportingContext).toContain(IN_MARKUP);
+    });
+
+    it(`no redirect (${label}): different addresses keep their own outcomes and wording`, () => {
+      const outcome = (url: string) => (url === from ? failed : {});
+      const probes = [
+        supplied(from, outcome(from)),
+        reachable(to, 'ordering', { exposedInCustomerJourney: false, suppliedForAudit: false, ...outcome(to) }),
+      ];
+      const { evidence } = run(iframe(to), probes);
+      expect(evidence.filter((e) => e.evidenceType === 'BROKEN_LINK')).toEqual([]);
+      const fromRecord = probeRecord(evidence, from)!;
+      expect(fromRecord.fact).toMatch(/could not be verified when tested \(HTTP 404\)/);
+      // Not on the page as typed: "not found" is accurate for this exact address.
+      expect(fromRecord.supportingContext).toMatch(/provided for this audit and was not found on the analyzed pages/);
+      expect(probeRecord(evidence, to)!.fact).toMatch(/is reachable/);
+    });
+
+    it(`no redirect, reachable (${label}): the supplied address keeps the "not found" sentence`, () => {
+      const { evidence } = run(iframe(to), [supplied(from)]);
+      const record = probeRecord(evidence, from)!;
+      expect(record.supportingContext).toMatch(NOT_FOUND);
+      expect(record.supportingContext).not.toContain(IN_MARKUP);
+    });
+  }
+
+  it('absent from the analyzed pages: keeps "not found on the analyzed pages"', () => {
+    for (const extra of [{}, { disabledSignal: '"Ordering is closed"' }]) {
+      const { evidence } = run(BARE_PAGE, [supplied(SUPPLIED_ORDER, extra)]);
+      const record = probeRecord(evidence, SUPPLIED_ORDER)!;
+      expect(record.supportingContext).toContain('This URL was provided for this audit and was not found on the analyzed pages.');
+      expect(record.supportingContext).not.toContain(IN_MARKUP);
+    }
+  });
+
+  it('the correction changes no evidence type, confidence, stage or score', () => {
+    for (const probes of [[supplied(IFRAME_ORDER)], [supplied(IFRAME_ORDER, failed)], [supplied(IFRAME_ORDER, { disabledSignal: '"closed"' })]]) {
+      const marked = run(iframe(IFRAME_ORDER), probes);
+      const unmarked = run(iframe(IFRAME_ORDER), probes.map(({ suppliedForAudit: _s, ...p }) => p));
+      expect(marked.evidence.map((e) => [e.evidenceType, e.confidence, e.sourceUrl])).toEqual(
+        unmarked.evidence.map((e) => [e.evidenceType, e.confidence, e.sourceUrl]),
+      );
+      expect(marked.journey.map((s) => [s.stage, s.status, s.confidence])).toEqual(unmarked.journey.map((s) => [s.stage, s.status, s.confidence]));
+      expect(marked.categories).toEqual(unmarked.categories);
+      expect(marked.overall).toEqual(unmarked.overall);
+    }
+  });
+});

@@ -892,7 +892,17 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
     if (probe.suppliedForAudit !== undefined) return probe.suppliedForAudit;
     return probe.exposedInCustomerJourney === false && !markupOnly(probe.url) && !markupOnly(probe.finalUrl);
   };
-  const SUPPLIED_NOT_ON_PAGE = ' This URL was provided for this audit and was not found on the analyzed pages.';
+  /**
+   * Where the collected pages put a supplied URL that is not a visible link.
+   * "Not found" is said only when it is true: a URL the page carries as an
+   * iframe or embed — itself, or as the address a redirect landed on — IS on
+   * the page, only not as a link a customer is offered. Exact addresses only:
+   * a trailing-slash variant is a different URL unless a redirect joined them.
+   */
+  const suppliedPlacement = (probe: ProbeResult): string =>
+    markupOnly(probe.url) || markupOnly(probe.finalUrl)
+      ? ' This URL was provided for this audit; the analyzed pages carry it only in the page markup, not as a visible link.'
+      : ' This URL was provided for this audit and was not found on the analyzed pages.';
 
   // Probes (broken links)
   //
@@ -1026,7 +1036,7 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
             `${resolved ? `${probe.url} → resolves to ${resolved}. ` : `${probe.url}. `}` +
             `Signal read from the destination page — ${probe.disabledSignal}. ` +
             'Customers arriving here cannot complete the action.' +
-            `${supplied ? SUPPLIED_NOT_ON_PAGE : ''}`,
+            `${supplied ? suppliedPlacement(probe) : ''}`,
           confidence: 90,
         });
       } else if (probe.category === 'reservation' || probe.category === 'ordering') {
@@ -1055,7 +1065,7 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
             `${resolved ? `${probe.url} → resolves to ${resolved}. ` : `${probe.url}. `}` +
             `The destination responded, which confirms it exists and is reachable. It does not confirm that ${service} ` +
             `being accepted — a page with ${offState} responds identically. Manual validation required.` +
-            `${supplied ? SUPPLIED_NOT_ON_PAGE : ''}`,
+            `${supplied ? suppliedPlacement(probe) : ''}`,
           confidence: 80,
         });
       } else if (probe.category === 'menu' && isAccessRestricted(probe)) {
