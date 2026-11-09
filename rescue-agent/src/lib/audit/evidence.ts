@@ -687,8 +687,15 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
     const orderingProbes: OrderingProbe[] = [];
     for (const probe of probes) {
       if (probe.category !== 'ordering') continue;
+      // A URL supplied on the audit form is never offered to customers by the
+      // audit itself; with no explicit flag it is treated exactly as the
+      // orchestrator marks it (false). Explicit values and unmarked probes are
+      // unchanged.
       const exposed =
-        probe.exposedInCustomerJourney ?? (exposedUrls.has(probe.url) || (probe.finalUrl ? exposedUrls.has(probe.finalUrl) : false));
+        probe.exposedInCustomerJourney ??
+        (probe.suppliedForAudit === true
+          ? false
+          : exposedUrls.has(probe.url) || (probe.finalUrl ? exposedUrls.has(probe.finalUrl) : false));
       if (!exposed && !destinations.some((d) => d.url === probe.url)) {
         destinations.push({
           url: probe.url,
@@ -929,7 +936,12 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
     // Explicit flag wins; otherwise a destination is assumed exposed unless it
     // is demonstrably markup-only. Defaulting to exposed keeps every genuine
     // discovered-link failure reporting exactly as before.
-    const exposed = probe.exposedInCustomerJourney ?? !(markupOnly(probe.url) || markupOnly(probe.finalUrl));
+    // A supplied URL with no explicit flag is not exposed: the orchestrator
+    // always marks one false, and a direct caller that omits the flag must not
+    // turn an operator hint into a verified customer-facing failure.
+    const exposed =
+      probe.exposedInCustomerJourney ??
+      (probe.suppliedForAudit === true ? false : !(markupOnly(probe.url) || markupOnly(probe.finalUrl)));
     const destination = classifyDestination(target);
     const kind = probe.destinationKind ?? destination.kind;
 

@@ -24,7 +24,12 @@ import { normalizeEvidence, type ProbeResult } from '@/lib/audit/evidence';
 import { resolveOrderingChannel, type OrderingDestination } from '@/lib/audit/orderingChannel';
 import { analyzeJourney } from '@/lib/audit/journey';
 import { calculateCategoryScores, calculateOverallScore } from '@/lib/scoring/rescueScore';
-import { presentEvidenceText } from '@/lib/reports/executive';
+import { buildExecutiveReport, presentEvidenceText, type ExecutiveReportInput } from '@/lib/reports/executive';
+import React from 'react';
+import { detectRevenueLeaks } from '@/lib/audit/leaks';
+import { publishAuditObservations } from '@/lib/reports/observationPublication';
+import { generateSalesBrief } from '@/lib/reports/sales';
+import type { RankedOpportunity } from '@/lib/reports/owner';
 
 const SITE = 'https://harborgrill.example/';
 const FILLER = `<footer><p>${'Wood-fired seafood on the harbor since 1987, open daily for lunch and dinner. '.repeat(12)}</p></footer>`;
@@ -314,5 +319,115 @@ describe('a supplied URL the analyzed pages carry only in their markup', () => {
       expect(marked.categories).toEqual(unmarked.categories);
       expect(marked.overall).toEqual(unmarked.overall);
     }
+  });
+});
+
+/**
+ * BLOCKER 2: A SUPPLIED URL WITH NO EXPOSURE FLAG.
+ *
+ * The orchestrator always sets exposedInCustomerJourney (false for a supplied
+ * URL). A direct normalizeEvidence caller that marks a URL supplied but omits
+ * the flag fell through to the "assume exposed" default, and a supplied-only
+ * 404 became "A transaction link on the website is failing", classified
+ * VERIFIED FINDING, in the Executive Report, the PDF and the Sales Brief.
+ *
+ * Rule pinned here: suppliedForAudit === true with no exposure flag behaves
+ * exactly like the orchestrator's explicit false. Explicit true and false win;
+ * unmarked probes keep main's default.
+ */
+describe('a supplied URL whose exposure flag is omitted (direct normalizeEvidence callers)', () => {
+  const ORDER = 'https://order.toasttab.com/online/harbor-grill';
+  const failed: Partial<ProbeResult> = { ok: false, httpStatus: 404, note: 'HTTP 404', failureKind: 'HTTP' };
+  const probe = (extra: Partial<ProbeResult>): ProbeResult => ({ url: ORDER, category: 'ordering', ok: true, httpStatus: 200, note: 'HTTP 200', ...failed, ...extra } as ProbeResult);
+  const ABSENT = BARE_PAGE;
+  const LINKED = `${BARE_PAGE}<a href="${ORDER}">Order Online</a>`;
+  const broken = (r: ReturnType<typeof run>) => r.evidence.filter((e) => e.evidenceType === 'BROKEN_LINK');
+  const channel = (r: ReturnType<typeof run>) => r.evidence.find((e) => e.evidenceType === 'ORDERING_CHANNEL')!.fact;
+  const comparable = (r: ReturnType<typeof run>) => ({
+    evidence: r.evidence.map((e) => [e.evidenceType, e.confidence, e.sourceUrl, e.fact, e.supportingContext]),
+    journey: r.journey.map((s) => [s.stage, s.status, s.confidence, s.finding]),
+    categories: r.categories,
+    overall: r.overall,
+  });
+
+  for (const [label, page] of [['absent from the page', ABSENT], ['also a visible link on the page', LINKED]] as const) {
+    it(`supplied, flag omitted, HTTP 404, ${label}: no BROKEN_LINK`, () => {
+      expect(broken(run(page, [probe({ suppliedForAudit: true })]))).toEqual([]);
+    });
+
+    it(`supplied, flag omitted, ${label}: identical to the orchestrator's explicit false`, () => {
+      for (const outcome of [failed, { ok: true, httpStatus: 200, note: 'HTTP 200', failureKind: undefined }]) {
+        const omitted = run(page, [probe({ suppliedForAudit: true, ...outcome })]);
+        const explicit = run(page, [probe({ suppliedForAudit: true, exposedInCustomerJourney: false, ...outcome })]);
+        expect(comparable(omitted)).toEqual(comparable(explicit));
+      }
+    });
+  }
+
+  it('ordering channel: a supplied URL that is also a visible link is not "confirmed broken" when the flag is omitted', () => {
+    const omitted = run(LINKED, [probe({ suppliedForAudit: true })]);
+    expect(channel(omitted)).not.toMatch(/ONLINE_ORDERING_BROKEN_CONFIRMED/);
+    expect(channel(omitted)).toBe(channel(run(LINKED, [probe({ suppliedForAudit: true, exposedInCustomerJourney: false })])));
+  });
+
+  it('explicit true still wins: a supplied URL marked exposed and failing is a BROKEN_LINK', () => {
+    expect(broken(run(LINKED, [probe({ suppliedForAudit: true, exposedInCustomerJourney: true })])).length).toBe(1);
+  });
+
+  it('explicit false still wins: no BROKEN_LINK', () => {
+    expect(broken(run(LINKED, [probe({ suppliedForAudit: false, exposedInCustomerJourney: false })]))).toEqual([]);
+  });
+
+  it('unmarked probes keep main\'s default: flag omitted, not markup-only, HTTP 404 → BROKEN_LINK', () => {
+    expect(broken(run(ABSENT, [probe({})])).length).toBe(1);
+    expect(broken(run(LINKED, [probe({})])).length).toBe(1);
+  });
+
+  it('a page-found URL (suppliedForAudit false) with the flag omitted keeps main\'s default', () => {
+    expect(broken(run(LINKED, [probe({ suppliedForAudit: false })])).length).toBe(1);
+  });
+
+  it('end to end: a supplied-only failed URL never becomes a VERIFIED broken-link finding in the report, PDF or sales brief', async () => {
+    const pages = [extractPage(SITE, SITE, 200, 'text/html', `<html><body>${ABSENT}${FILLER}</body></html>`)];
+    const ev = normalizeEvidence({ pages, failures: [], probes: [probe({ suppliedForAudit: true })] })
+      .map((e, i) => ({ id: `v${i}`, auditSourceId: 's1', ...e, supportingContext: e.supportingContext ?? null, sourceUrl: e.sourceUrl ?? null }));
+    const journey = analyzeJourney(ev).map((s, i) => ({ id: `j${i}`, ...s }));
+    const scores = calculateCategoryScores(journey, ev);
+    const overall = calculateOverallScore(scores);
+    const opportunities = detectRevenueLeaks({ evidence: ev, journey });
+    const p = publishAuditObservations({
+      evidence: ev, journey, opportunities, scores,
+      context: { sources: [{ id: 's1', url: SITE, pageTitle: 'Harbor Grill', sourceType: 'HOMEPAGE' }], restaurant: { name: 'Harbor Grill', websiteUrl: SITE }, suppliedUrls: [ORDER] },
+    } as never);
+    const dto = buildExecutiveReport({
+      auditId: 'a', restaurantId: 'r', restaurantName: 'Harbor Grill', websiteUrl: SITE, location: null, auditDate: '2026-11-09', auditStatus: 'COMPLETED', demoMode: false,
+      contact: { company: 'Winnersbookmark', consultantName: 'K', phone: '1', email: null, bookingUrl: null, fallbackText: 'x' },
+      bookingQrDataUrl: null, avgTicket: null, overallScore: overall.overallScore, coverageScore: overall.coverageScore, sourcesCollected: 1, sourcesFailed: 0,
+      evidence: p.evidence.map(({ provenance: _p, auditSourceId: _s, ...e }) => e), opportunities: p.opportunities, journey: p.journey,
+      categoryScores: p.scores, storedSummary: null, storedSummaryWasAiEnhanced: false, storedRecommendation: null,
+    } as unknown as ExecutiveReportInput);
+    const strings = (node: unknown, out: string[] = []): string[] => {
+      if (node === null || node === undefined || node === false) return out;
+      if (typeof node === 'string' || typeof node === 'number') { out.push(String(node)); return out; }
+      if (Array.isArray(node)) { for (const c of node) strings(c, out); return out; }
+      const el = node as { type?: unknown; props?: { children?: unknown } };
+      if (typeof el.type === 'function') return strings((el.type as (q: unknown) => unknown)(el.props ?? {}), out);
+      if (el.props && 'children' in el.props) strings(el.props.children, out);
+      return out;
+    };
+    const { ExecutivePdf } = await import('@/lib/pdf/ExecutivePdf');
+    const pdf = strings(React.createElement(ExecutivePdf, { dto })).join('\n');
+    const brief = JSON.stringify(generateSalesBrief({
+      restaurantName: 'Harbor Grill', overallScore: overall.overallScore, coverageScore: overall.coverageScore,
+      topLeaks: [...(p.opportunities as unknown as RankedOpportunity[])].sort((a, b) => b.rescuePriorityScore - a.rescuePriorityScore).slice(0, 3).map((o) => ({ ...o, recommendedSolution: '' })),
+      journey: p.journey as never, evidence: p.evidence as never, recommendedTier: 'AI DISCOVERY AUDIT',
+    }));
+    const FAILURE = /transaction link on the website is failing|linked ordering destination failed/i;
+    expect(ev.filter((e) => e.evidenceType === 'BROKEN_LINK')).toEqual([]);
+    expect(opportunities.map((o) => o.category)).not.toContain('ONLINE ORDERING FAILURE RISK');
+    expect(dto.findings.filter((f) => f.classification === 'VERIFIED FINDING' && FAILURE.test(f.title))).toEqual([]);
+    expect(JSON.stringify(dto)).not.toMatch(FAILURE);
+    expect(pdf).not.toMatch(FAILURE);
+    expect(brief).not.toMatch(FAILURE);
   });
 });
