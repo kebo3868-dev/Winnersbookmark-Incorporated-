@@ -8703,6 +8703,62 @@ export const EVIDENCE_TEMPLATES: readonly EvidenceTemplate[] = [
    "ORDERING_CHANNEL"
   ],
   "field": "supportingContext",
+  "pattern": "Call-to-action text ([^\\n]{0,600}?) resolves to a telephone number \\(a tel: link\\), not to a web destination\\. An ordering destination is also declared in the page markup \\(([^\\n]{0,600}?)\\), but the action a customer is actually offered is the telephone link, so the destination is recorded as context\\. Whether it is reachable for customers requires manual validation\\. An ordering URL provided for this audit \\(([^\\n]{0,600}?)\\) redirected, when tested, to an address the page carries only in its markup \\(([^\\n]{0,600}?)\\); it is not a visible link customers are offered\\. Evidence confidence: INSUFFICIENT_DATA\\."
+ },
+ {
+  "types": [
+   "ORDERING_CHANNEL"
+  ],
+  "field": "supportingContext",
+  "pattern": "Call-to-action text ([^\\n]{0,600}?) resolves to a telephone number \\(a tel: link\\), not to a web destination\\. An ordering destination is also declared in the page markup \\(([^\\n]{0,600}?)\\), but the action a customer is actually offered is the telephone link, so the destination is recorded as context\\. Whether it is reachable for customers requires manual validation\\. An ordering URL provided for this audit \\(([^\\n]{0,600}?)\\) redirected, when tested, to an address the page carries only in its markup \\(([^\\n]{0,600}?)\\); it is not a visible link customers are offered\\. Evidence confidence: MANUAL_VALIDATION_REQUIRED\\."
+ },
+ {
+  "types": [
+   "ORDERING_CHANNEL"
+  ],
+  "field": "supportingContext",
+  "pattern": "Call-to-action text ([^\\n]{0,600}?) resolves to a telephone number \\(a tel: link\\), not to a web destination\\. An ordering destination is also declared in the page markup \\(([^\\n]{0,600}?)\\), but the action a customer is actually offered is the telephone link, so the destination is recorded as context\\. Whether it is reachable for customers requires manual validation\\. An ordering URL provided for this audit \\(([^\\n]{0,600}?)\\) redirected, when tested, to an address the page carries only in its markup \\(([^\\n]{0,600}?)\\); it is not a visible link customers are offered\\. Evidence confidence: STRONG_EVIDENCE\\."
+ },
+ {
+  "types": [
+   "ORDERING_CHANNEL"
+  ],
+  "field": "supportingContext",
+  "pattern": "Call-to-action text ([^\\n]{0,600}?) resolves to a telephone number \\(a tel: link\\), not to a web destination\\. An ordering destination is also declared in the page markup \\(([^\\n]{0,600}?)\\), but the action a customer is actually offered is the telephone link, so the destination is recorded as context\\. Whether it is reachable for customers requires manual validation\\. An ordering URL provided for this audit \\(([^\\n]{0,600}?)\\) redirected, when tested, to an address the page carries only in its markup \\(([^\\n]{0,600}?)\\); it is not a visible link customers are offered\\. Evidence confidence: VERIFIED\\."
+ },
+ {
+  "types": [
+   "ORDERING_CHANNEL"
+  ],
+  "field": "supportingContext",
+  "pattern": "Call-to-action text ([^\\n]{0,600}?) resolves to a telephone number \\(a tel: link\\), not to a web destination\\. An ordering destination is also declared in the page markup \\(([^\\n]{0,600}?)\\), but the action a customer is actually offered is the telephone link, so the destination is recorded as context\\. Whether it is reachable for customers requires manual validation\\. An ordering URL provided for this audit \\(([^\\n]{0,600}?)\\) redirected, when tested, to an address the page offers as a visible link \\(([^\\n]{0,600}?)\\)\\. Evidence confidence: INSUFFICIENT_DATA\\."
+ },
+ {
+  "types": [
+   "ORDERING_CHANNEL"
+  ],
+  "field": "supportingContext",
+  "pattern": "Call-to-action text ([^\\n]{0,600}?) resolves to a telephone number \\(a tel: link\\), not to a web destination\\. An ordering destination is also declared in the page markup \\(([^\\n]{0,600}?)\\), but the action a customer is actually offered is the telephone link, so the destination is recorded as context\\. Whether it is reachable for customers requires manual validation\\. An ordering URL provided for this audit \\(([^\\n]{0,600}?)\\) redirected, when tested, to an address the page offers as a visible link \\(([^\\n]{0,600}?)\\)\\. Evidence confidence: MANUAL_VALIDATION_REQUIRED\\."
+ },
+ {
+  "types": [
+   "ORDERING_CHANNEL"
+  ],
+  "field": "supportingContext",
+  "pattern": "Call-to-action text ([^\\n]{0,600}?) resolves to a telephone number \\(a tel: link\\), not to a web destination\\. An ordering destination is also declared in the page markup \\(([^\\n]{0,600}?)\\), but the action a customer is actually offered is the telephone link, so the destination is recorded as context\\. Whether it is reachable for customers requires manual validation\\. An ordering URL provided for this audit \\(([^\\n]{0,600}?)\\) redirected, when tested, to an address the page offers as a visible link \\(([^\\n]{0,600}?)\\)\\. Evidence confidence: STRONG_EVIDENCE\\."
+ },
+ {
+  "types": [
+   "ORDERING_CHANNEL"
+  ],
+  "field": "supportingContext",
+  "pattern": "Call-to-action text ([^\\n]{0,600}?) resolves to a telephone number \\(a tel: link\\), not to a web destination\\. An ordering destination is also declared in the page markup \\(([^\\n]{0,600}?)\\), but the action a customer is actually offered is the telephone link, so the destination is recorded as context\\. Whether it is reachable for customers requires manual validation\\. An ordering URL provided for this audit \\(([^\\n]{0,600}?)\\) redirected, when tested, to an address the page offers as a visible link \\(([^\\n]{0,600}?)\\)\\. Evidence confidence: VERIFIED\\."
+ },
+ {
+  "types": [
+   "ORDERING_CHANNEL"
+  ],
+  "field": "supportingContext",
   "pattern": "Call-to-action text ([^\\n]{0,600}?) resolves to a telephone number \\(a tel: link\\), not to a web destination\\. An ordering destination is also declared in the page markup \\(([^\\n]{0,600}?)\\), but the action a customer is actually offered is the telephone link, so the destination is recorded as context\\. Whether it is reachable for customers requires manual validation\\. An ordering URL provided for this audit \\(([^\\n]{0,600}?)\\) was not found on the analyzed pages, so it says nothing about what the website offers customers\\. Evidence confidence: INSUFFICIENT_DATA\\."
  },
  {
@@ -8815,6 +8871,62 @@ export const EVIDENCE_TEMPLATES: readonly EvidenceTemplate[] = [
    "ORDERING_CHANNEL"
   ],
   "field": "supportingContext",
+  "pattern": "Call-to-action text ([^\\n]{0,600}?) resolves to a telephone number \\(a tel: link\\), not to a web destination\\. An ordering destination is declared in the page markup \\(([^\\n]{0,600}?)\\) but is not linked for customers; the action a customer is offered is the telephone link\\. Whether it works requires manual validation\\. An ordering URL provided for this audit \\(([^\\n]{0,600}?)\\) redirected, when tested, to an address the page carries only in its markup \\(([^\\n]{0,600}?)\\); it is not a visible link customers are offered\\. Evidence confidence: INSUFFICIENT_DATA\\."
+ },
+ {
+  "types": [
+   "ORDERING_CHANNEL"
+  ],
+  "field": "supportingContext",
+  "pattern": "Call-to-action text ([^\\n]{0,600}?) resolves to a telephone number \\(a tel: link\\), not to a web destination\\. An ordering destination is declared in the page markup \\(([^\\n]{0,600}?)\\) but is not linked for customers; the action a customer is offered is the telephone link\\. Whether it works requires manual validation\\. An ordering URL provided for this audit \\(([^\\n]{0,600}?)\\) redirected, when tested, to an address the page carries only in its markup \\(([^\\n]{0,600}?)\\); it is not a visible link customers are offered\\. Evidence confidence: MANUAL_VALIDATION_REQUIRED\\."
+ },
+ {
+  "types": [
+   "ORDERING_CHANNEL"
+  ],
+  "field": "supportingContext",
+  "pattern": "Call-to-action text ([^\\n]{0,600}?) resolves to a telephone number \\(a tel: link\\), not to a web destination\\. An ordering destination is declared in the page markup \\(([^\\n]{0,600}?)\\) but is not linked for customers; the action a customer is offered is the telephone link\\. Whether it works requires manual validation\\. An ordering URL provided for this audit \\(([^\\n]{0,600}?)\\) redirected, when tested, to an address the page carries only in its markup \\(([^\\n]{0,600}?)\\); it is not a visible link customers are offered\\. Evidence confidence: STRONG_EVIDENCE\\."
+ },
+ {
+  "types": [
+   "ORDERING_CHANNEL"
+  ],
+  "field": "supportingContext",
+  "pattern": "Call-to-action text ([^\\n]{0,600}?) resolves to a telephone number \\(a tel: link\\), not to a web destination\\. An ordering destination is declared in the page markup \\(([^\\n]{0,600}?)\\) but is not linked for customers; the action a customer is offered is the telephone link\\. Whether it works requires manual validation\\. An ordering URL provided for this audit \\(([^\\n]{0,600}?)\\) redirected, when tested, to an address the page carries only in its markup \\(([^\\n]{0,600}?)\\); it is not a visible link customers are offered\\. Evidence confidence: VERIFIED\\."
+ },
+ {
+  "types": [
+   "ORDERING_CHANNEL"
+  ],
+  "field": "supportingContext",
+  "pattern": "Call-to-action text ([^\\n]{0,600}?) resolves to a telephone number \\(a tel: link\\), not to a web destination\\. An ordering destination is declared in the page markup \\(([^\\n]{0,600}?)\\) but is not linked for customers; the action a customer is offered is the telephone link\\. Whether it works requires manual validation\\. An ordering URL provided for this audit \\(([^\\n]{0,600}?)\\) redirected, when tested, to an address the page offers as a visible link \\(([^\\n]{0,600}?)\\)\\. Evidence confidence: INSUFFICIENT_DATA\\."
+ },
+ {
+  "types": [
+   "ORDERING_CHANNEL"
+  ],
+  "field": "supportingContext",
+  "pattern": "Call-to-action text ([^\\n]{0,600}?) resolves to a telephone number \\(a tel: link\\), not to a web destination\\. An ordering destination is declared in the page markup \\(([^\\n]{0,600}?)\\) but is not linked for customers; the action a customer is offered is the telephone link\\. Whether it works requires manual validation\\. An ordering URL provided for this audit \\(([^\\n]{0,600}?)\\) redirected, when tested, to an address the page offers as a visible link \\(([^\\n]{0,600}?)\\)\\. Evidence confidence: MANUAL_VALIDATION_REQUIRED\\."
+ },
+ {
+  "types": [
+   "ORDERING_CHANNEL"
+  ],
+  "field": "supportingContext",
+  "pattern": "Call-to-action text ([^\\n]{0,600}?) resolves to a telephone number \\(a tel: link\\), not to a web destination\\. An ordering destination is declared in the page markup \\(([^\\n]{0,600}?)\\) but is not linked for customers; the action a customer is offered is the telephone link\\. Whether it works requires manual validation\\. An ordering URL provided for this audit \\(([^\\n]{0,600}?)\\) redirected, when tested, to an address the page offers as a visible link \\(([^\\n]{0,600}?)\\)\\. Evidence confidence: STRONG_EVIDENCE\\."
+ },
+ {
+  "types": [
+   "ORDERING_CHANNEL"
+  ],
+  "field": "supportingContext",
+  "pattern": "Call-to-action text ([^\\n]{0,600}?) resolves to a telephone number \\(a tel: link\\), not to a web destination\\. An ordering destination is declared in the page markup \\(([^\\n]{0,600}?)\\) but is not linked for customers; the action a customer is offered is the telephone link\\. Whether it works requires manual validation\\. An ordering URL provided for this audit \\(([^\\n]{0,600}?)\\) redirected, when tested, to an address the page offers as a visible link \\(([^\\n]{0,600}?)\\)\\. Evidence confidence: VERIFIED\\."
+ },
+ {
+  "types": [
+   "ORDERING_CHANNEL"
+  ],
+  "field": "supportingContext",
   "pattern": "Call-to-action text ([^\\n]{0,600}?) resolves to a telephone number \\(a tel: link\\), not to a web destination\\. An ordering destination is declared in the page markup \\(([^\\n]{0,600}?)\\) but is not linked for customers; the action a customer is offered is the telephone link\\. Whether it works requires manual validation\\. An ordering URL provided for this audit \\(([^\\n]{0,600}?)\\) was not found on the analyzed pages, so it says nothing about what the website offers customers\\. Evidence confidence: INSUFFICIENT_DATA\\."
  },
  {
@@ -8865,6 +8977,62 @@ export const EVIDENCE_TEMPLATES: readonly EvidenceTemplate[] = [
   ],
   "field": "supportingContext",
   "pattern": "Call-to-action text ([^\\n]{0,600}?) resolves to a telephone number \\(a tel: link\\), not to a web destination\\. An ordering destination is declared in the page markup \\(([^\\n]{0,600}?)\\) but is not linked for customers; the action a customer is offered is the telephone link\\. Whether it works requires manual validation\\. Evidence confidence: VERIFIED\\."
+ },
+ {
+  "types": [
+   "ORDERING_CHANNEL"
+  ],
+  "field": "supportingContext",
+  "pattern": "Call-to-action text ([^\\n]{0,600}?) resolves to a telephone number \\(a tel: link\\), not to a web destination\\. No browser-based ordering destination was found alongside it\\. An ordering URL provided for this audit \\(([^\\n]{0,600}?)\\) redirected, when tested, to an address the page carries only in its markup \\(([^\\n]{0,600}?)\\); it is not a visible link customers are offered\\. Evidence confidence: INSUFFICIENT_DATA\\."
+ },
+ {
+  "types": [
+   "ORDERING_CHANNEL"
+  ],
+  "field": "supportingContext",
+  "pattern": "Call-to-action text ([^\\n]{0,600}?) resolves to a telephone number \\(a tel: link\\), not to a web destination\\. No browser-based ordering destination was found alongside it\\. An ordering URL provided for this audit \\(([^\\n]{0,600}?)\\) redirected, when tested, to an address the page carries only in its markup \\(([^\\n]{0,600}?)\\); it is not a visible link customers are offered\\. Evidence confidence: MANUAL_VALIDATION_REQUIRED\\."
+ },
+ {
+  "types": [
+   "ORDERING_CHANNEL"
+  ],
+  "field": "supportingContext",
+  "pattern": "Call-to-action text ([^\\n]{0,600}?) resolves to a telephone number \\(a tel: link\\), not to a web destination\\. No browser-based ordering destination was found alongside it\\. An ordering URL provided for this audit \\(([^\\n]{0,600}?)\\) redirected, when tested, to an address the page carries only in its markup \\(([^\\n]{0,600}?)\\); it is not a visible link customers are offered\\. Evidence confidence: STRONG_EVIDENCE\\."
+ },
+ {
+  "types": [
+   "ORDERING_CHANNEL"
+  ],
+  "field": "supportingContext",
+  "pattern": "Call-to-action text ([^\\n]{0,600}?) resolves to a telephone number \\(a tel: link\\), not to a web destination\\. No browser-based ordering destination was found alongside it\\. An ordering URL provided for this audit \\(([^\\n]{0,600}?)\\) redirected, when tested, to an address the page carries only in its markup \\(([^\\n]{0,600}?)\\); it is not a visible link customers are offered\\. Evidence confidence: VERIFIED\\."
+ },
+ {
+  "types": [
+   "ORDERING_CHANNEL"
+  ],
+  "field": "supportingContext",
+  "pattern": "Call-to-action text ([^\\n]{0,600}?) resolves to a telephone number \\(a tel: link\\), not to a web destination\\. No browser-based ordering destination was found alongside it\\. An ordering URL provided for this audit \\(([^\\n]{0,600}?)\\) redirected, when tested, to an address the page offers as a visible link \\(([^\\n]{0,600}?)\\)\\. Evidence confidence: INSUFFICIENT_DATA\\."
+ },
+ {
+  "types": [
+   "ORDERING_CHANNEL"
+  ],
+  "field": "supportingContext",
+  "pattern": "Call-to-action text ([^\\n]{0,600}?) resolves to a telephone number \\(a tel: link\\), not to a web destination\\. No browser-based ordering destination was found alongside it\\. An ordering URL provided for this audit \\(([^\\n]{0,600}?)\\) redirected, when tested, to an address the page offers as a visible link \\(([^\\n]{0,600}?)\\)\\. Evidence confidence: MANUAL_VALIDATION_REQUIRED\\."
+ },
+ {
+  "types": [
+   "ORDERING_CHANNEL"
+  ],
+  "field": "supportingContext",
+  "pattern": "Call-to-action text ([^\\n]{0,600}?) resolves to a telephone number \\(a tel: link\\), not to a web destination\\. No browser-based ordering destination was found alongside it\\. An ordering URL provided for this audit \\(([^\\n]{0,600}?)\\) redirected, when tested, to an address the page offers as a visible link \\(([^\\n]{0,600}?)\\)\\. Evidence confidence: STRONG_EVIDENCE\\."
+ },
+ {
+  "types": [
+   "ORDERING_CHANNEL"
+  ],
+  "field": "supportingContext",
+  "pattern": "Call-to-action text ([^\\n]{0,600}?) resolves to a telephone number \\(a tel: link\\), not to a web destination\\. No browser-based ordering destination was found alongside it\\. An ordering URL provided for this audit \\(([^\\n]{0,600}?)\\) redirected, when tested, to an address the page offers as a visible link \\(([^\\n]{0,600}?)\\)\\. Evidence confidence: VERIFIED\\."
  },
  {
   "types": [
@@ -9431,6 +9599,62 @@ export const EVIDENCE_TEMPLATES: readonly EvidenceTemplate[] = [
    "ORDERING_CHANNEL"
   ],
   "field": "supportingContext",
+  "pattern": "Verified in the page markup: call-to-action text ([^\\n]{0,600}?) is presented under \"([^\\n]{0,600}?)\" and resolves to a telephone number \\(a tel: link\\), not to a web destination\\. The automated audit reads links and does not tap buttons; a tap test on a phone is a separate manual check, and no owner confirmation is recorded in this audit\\. An ordering destination is also declared in the page markup \\(([^\\n]{0,600}?)\\), but the action a customer is actually offered is the telephone link, so the destination is recorded as context\\. Whether it is reachable for customers requires manual validation\\. An ordering URL provided for this audit \\(([^\\n]{0,600}?)\\) redirected, when tested, to an address the page carries only in its markup \\(([^\\n]{0,600}?)\\); it is not a visible link customers are offered\\. Evidence confidence: INSUFFICIENT_DATA\\."
+ },
+ {
+  "types": [
+   "ORDERING_CHANNEL"
+  ],
+  "field": "supportingContext",
+  "pattern": "Verified in the page markup: call-to-action text ([^\\n]{0,600}?) is presented under \"([^\\n]{0,600}?)\" and resolves to a telephone number \\(a tel: link\\), not to a web destination\\. The automated audit reads links and does not tap buttons; a tap test on a phone is a separate manual check, and no owner confirmation is recorded in this audit\\. An ordering destination is also declared in the page markup \\(([^\\n]{0,600}?)\\), but the action a customer is actually offered is the telephone link, so the destination is recorded as context\\. Whether it is reachable for customers requires manual validation\\. An ordering URL provided for this audit \\(([^\\n]{0,600}?)\\) redirected, when tested, to an address the page carries only in its markup \\(([^\\n]{0,600}?)\\); it is not a visible link customers are offered\\. Evidence confidence: MANUAL_VALIDATION_REQUIRED\\."
+ },
+ {
+  "types": [
+   "ORDERING_CHANNEL"
+  ],
+  "field": "supportingContext",
+  "pattern": "Verified in the page markup: call-to-action text ([^\\n]{0,600}?) is presented under \"([^\\n]{0,600}?)\" and resolves to a telephone number \\(a tel: link\\), not to a web destination\\. The automated audit reads links and does not tap buttons; a tap test on a phone is a separate manual check, and no owner confirmation is recorded in this audit\\. An ordering destination is also declared in the page markup \\(([^\\n]{0,600}?)\\), but the action a customer is actually offered is the telephone link, so the destination is recorded as context\\. Whether it is reachable for customers requires manual validation\\. An ordering URL provided for this audit \\(([^\\n]{0,600}?)\\) redirected, when tested, to an address the page carries only in its markup \\(([^\\n]{0,600}?)\\); it is not a visible link customers are offered\\. Evidence confidence: STRONG_EVIDENCE\\."
+ },
+ {
+  "types": [
+   "ORDERING_CHANNEL"
+  ],
+  "field": "supportingContext",
+  "pattern": "Verified in the page markup: call-to-action text ([^\\n]{0,600}?) is presented under \"([^\\n]{0,600}?)\" and resolves to a telephone number \\(a tel: link\\), not to a web destination\\. The automated audit reads links and does not tap buttons; a tap test on a phone is a separate manual check, and no owner confirmation is recorded in this audit\\. An ordering destination is also declared in the page markup \\(([^\\n]{0,600}?)\\), but the action a customer is actually offered is the telephone link, so the destination is recorded as context\\. Whether it is reachable for customers requires manual validation\\. An ordering URL provided for this audit \\(([^\\n]{0,600}?)\\) redirected, when tested, to an address the page carries only in its markup \\(([^\\n]{0,600}?)\\); it is not a visible link customers are offered\\. Evidence confidence: VERIFIED\\."
+ },
+ {
+  "types": [
+   "ORDERING_CHANNEL"
+  ],
+  "field": "supportingContext",
+  "pattern": "Verified in the page markup: call-to-action text ([^\\n]{0,600}?) is presented under \"([^\\n]{0,600}?)\" and resolves to a telephone number \\(a tel: link\\), not to a web destination\\. The automated audit reads links and does not tap buttons; a tap test on a phone is a separate manual check, and no owner confirmation is recorded in this audit\\. An ordering destination is also declared in the page markup \\(([^\\n]{0,600}?)\\), but the action a customer is actually offered is the telephone link, so the destination is recorded as context\\. Whether it is reachable for customers requires manual validation\\. An ordering URL provided for this audit \\(([^\\n]{0,600}?)\\) redirected, when tested, to an address the page offers as a visible link \\(([^\\n]{0,600}?)\\)\\. Evidence confidence: INSUFFICIENT_DATA\\."
+ },
+ {
+  "types": [
+   "ORDERING_CHANNEL"
+  ],
+  "field": "supportingContext",
+  "pattern": "Verified in the page markup: call-to-action text ([^\\n]{0,600}?) is presented under \"([^\\n]{0,600}?)\" and resolves to a telephone number \\(a tel: link\\), not to a web destination\\. The automated audit reads links and does not tap buttons; a tap test on a phone is a separate manual check, and no owner confirmation is recorded in this audit\\. An ordering destination is also declared in the page markup \\(([^\\n]{0,600}?)\\), but the action a customer is actually offered is the telephone link, so the destination is recorded as context\\. Whether it is reachable for customers requires manual validation\\. An ordering URL provided for this audit \\(([^\\n]{0,600}?)\\) redirected, when tested, to an address the page offers as a visible link \\(([^\\n]{0,600}?)\\)\\. Evidence confidence: MANUAL_VALIDATION_REQUIRED\\."
+ },
+ {
+  "types": [
+   "ORDERING_CHANNEL"
+  ],
+  "field": "supportingContext",
+  "pattern": "Verified in the page markup: call-to-action text ([^\\n]{0,600}?) is presented under \"([^\\n]{0,600}?)\" and resolves to a telephone number \\(a tel: link\\), not to a web destination\\. The automated audit reads links and does not tap buttons; a tap test on a phone is a separate manual check, and no owner confirmation is recorded in this audit\\. An ordering destination is also declared in the page markup \\(([^\\n]{0,600}?)\\), but the action a customer is actually offered is the telephone link, so the destination is recorded as context\\. Whether it is reachable for customers requires manual validation\\. An ordering URL provided for this audit \\(([^\\n]{0,600}?)\\) redirected, when tested, to an address the page offers as a visible link \\(([^\\n]{0,600}?)\\)\\. Evidence confidence: STRONG_EVIDENCE\\."
+ },
+ {
+  "types": [
+   "ORDERING_CHANNEL"
+  ],
+  "field": "supportingContext",
+  "pattern": "Verified in the page markup: call-to-action text ([^\\n]{0,600}?) is presented under \"([^\\n]{0,600}?)\" and resolves to a telephone number \\(a tel: link\\), not to a web destination\\. The automated audit reads links and does not tap buttons; a tap test on a phone is a separate manual check, and no owner confirmation is recorded in this audit\\. An ordering destination is also declared in the page markup \\(([^\\n]{0,600}?)\\), but the action a customer is actually offered is the telephone link, so the destination is recorded as context\\. Whether it is reachable for customers requires manual validation\\. An ordering URL provided for this audit \\(([^\\n]{0,600}?)\\) redirected, when tested, to an address the page offers as a visible link \\(([^\\n]{0,600}?)\\)\\. Evidence confidence: VERIFIED\\."
+ },
+ {
+  "types": [
+   "ORDERING_CHANNEL"
+  ],
+  "field": "supportingContext",
   "pattern": "Verified in the page markup: call-to-action text ([^\\n]{0,600}?) is presented under \"([^\\n]{0,600}?)\" and resolves to a telephone number \\(a tel: link\\), not to a web destination\\. The automated audit reads links and does not tap buttons; a tap test on a phone is a separate manual check, and no owner confirmation is recorded in this audit\\. An ordering destination is also declared in the page markup \\(([^\\n]{0,600}?)\\), but the action a customer is actually offered is the telephone link, so the destination is recorded as context\\. Whether it is reachable for customers requires manual validation\\. An ordering URL provided for this audit \\(([^\\n]{0,600}?)\\) was not found on the analyzed pages, so it says nothing about what the website offers customers\\. Evidence confidence: INSUFFICIENT_DATA\\."
  },
  {
@@ -9487,6 +9711,62 @@ export const EVIDENCE_TEMPLATES: readonly EvidenceTemplate[] = [
    "ORDERING_CHANNEL"
   ],
   "field": "supportingContext",
+  "pattern": "Verified in the page markup: call-to-action text ([^\\n]{0,600}?) is presented under \"([^\\n]{0,600}?)\" and resolves to a telephone number \\(a tel: link\\), not to a web destination\\. The automated audit reads links and does not tap buttons; a tap test on a phone is a separate manual check, and no owner confirmation is recorded in this audit\\. An ordering destination is declared in the page markup \\(([^\\n]{0,600}?)\\) but is not linked for customers; the action a customer is offered is the telephone link\\. Whether it works requires manual validation\\. An ordering URL provided for this audit \\(([^\\n]{0,600}?)\\) redirected, when tested, to an address the page carries only in its markup \\(([^\\n]{0,600}?)\\); it is not a visible link customers are offered\\. Evidence confidence: INSUFFICIENT_DATA\\."
+ },
+ {
+  "types": [
+   "ORDERING_CHANNEL"
+  ],
+  "field": "supportingContext",
+  "pattern": "Verified in the page markup: call-to-action text ([^\\n]{0,600}?) is presented under \"([^\\n]{0,600}?)\" and resolves to a telephone number \\(a tel: link\\), not to a web destination\\. The automated audit reads links and does not tap buttons; a tap test on a phone is a separate manual check, and no owner confirmation is recorded in this audit\\. An ordering destination is declared in the page markup \\(([^\\n]{0,600}?)\\) but is not linked for customers; the action a customer is offered is the telephone link\\. Whether it works requires manual validation\\. An ordering URL provided for this audit \\(([^\\n]{0,600}?)\\) redirected, when tested, to an address the page carries only in its markup \\(([^\\n]{0,600}?)\\); it is not a visible link customers are offered\\. Evidence confidence: MANUAL_VALIDATION_REQUIRED\\."
+ },
+ {
+  "types": [
+   "ORDERING_CHANNEL"
+  ],
+  "field": "supportingContext",
+  "pattern": "Verified in the page markup: call-to-action text ([^\\n]{0,600}?) is presented under \"([^\\n]{0,600}?)\" and resolves to a telephone number \\(a tel: link\\), not to a web destination\\. The automated audit reads links and does not tap buttons; a tap test on a phone is a separate manual check, and no owner confirmation is recorded in this audit\\. An ordering destination is declared in the page markup \\(([^\\n]{0,600}?)\\) but is not linked for customers; the action a customer is offered is the telephone link\\. Whether it works requires manual validation\\. An ordering URL provided for this audit \\(([^\\n]{0,600}?)\\) redirected, when tested, to an address the page carries only in its markup \\(([^\\n]{0,600}?)\\); it is not a visible link customers are offered\\. Evidence confidence: STRONG_EVIDENCE\\."
+ },
+ {
+  "types": [
+   "ORDERING_CHANNEL"
+  ],
+  "field": "supportingContext",
+  "pattern": "Verified in the page markup: call-to-action text ([^\\n]{0,600}?) is presented under \"([^\\n]{0,600}?)\" and resolves to a telephone number \\(a tel: link\\), not to a web destination\\. The automated audit reads links and does not tap buttons; a tap test on a phone is a separate manual check, and no owner confirmation is recorded in this audit\\. An ordering destination is declared in the page markup \\(([^\\n]{0,600}?)\\) but is not linked for customers; the action a customer is offered is the telephone link\\. Whether it works requires manual validation\\. An ordering URL provided for this audit \\(([^\\n]{0,600}?)\\) redirected, when tested, to an address the page carries only in its markup \\(([^\\n]{0,600}?)\\); it is not a visible link customers are offered\\. Evidence confidence: VERIFIED\\."
+ },
+ {
+  "types": [
+   "ORDERING_CHANNEL"
+  ],
+  "field": "supportingContext",
+  "pattern": "Verified in the page markup: call-to-action text ([^\\n]{0,600}?) is presented under \"([^\\n]{0,600}?)\" and resolves to a telephone number \\(a tel: link\\), not to a web destination\\. The automated audit reads links and does not tap buttons; a tap test on a phone is a separate manual check, and no owner confirmation is recorded in this audit\\. An ordering destination is declared in the page markup \\(([^\\n]{0,600}?)\\) but is not linked for customers; the action a customer is offered is the telephone link\\. Whether it works requires manual validation\\. An ordering URL provided for this audit \\(([^\\n]{0,600}?)\\) redirected, when tested, to an address the page offers as a visible link \\(([^\\n]{0,600}?)\\)\\. Evidence confidence: INSUFFICIENT_DATA\\."
+ },
+ {
+  "types": [
+   "ORDERING_CHANNEL"
+  ],
+  "field": "supportingContext",
+  "pattern": "Verified in the page markup: call-to-action text ([^\\n]{0,600}?) is presented under \"([^\\n]{0,600}?)\" and resolves to a telephone number \\(a tel: link\\), not to a web destination\\. The automated audit reads links and does not tap buttons; a tap test on a phone is a separate manual check, and no owner confirmation is recorded in this audit\\. An ordering destination is declared in the page markup \\(([^\\n]{0,600}?)\\) but is not linked for customers; the action a customer is offered is the telephone link\\. Whether it works requires manual validation\\. An ordering URL provided for this audit \\(([^\\n]{0,600}?)\\) redirected, when tested, to an address the page offers as a visible link \\(([^\\n]{0,600}?)\\)\\. Evidence confidence: MANUAL_VALIDATION_REQUIRED\\."
+ },
+ {
+  "types": [
+   "ORDERING_CHANNEL"
+  ],
+  "field": "supportingContext",
+  "pattern": "Verified in the page markup: call-to-action text ([^\\n]{0,600}?) is presented under \"([^\\n]{0,600}?)\" and resolves to a telephone number \\(a tel: link\\), not to a web destination\\. The automated audit reads links and does not tap buttons; a tap test on a phone is a separate manual check, and no owner confirmation is recorded in this audit\\. An ordering destination is declared in the page markup \\(([^\\n]{0,600}?)\\) but is not linked for customers; the action a customer is offered is the telephone link\\. Whether it works requires manual validation\\. An ordering URL provided for this audit \\(([^\\n]{0,600}?)\\) redirected, when tested, to an address the page offers as a visible link \\(([^\\n]{0,600}?)\\)\\. Evidence confidence: STRONG_EVIDENCE\\."
+ },
+ {
+  "types": [
+   "ORDERING_CHANNEL"
+  ],
+  "field": "supportingContext",
+  "pattern": "Verified in the page markup: call-to-action text ([^\\n]{0,600}?) is presented under \"([^\\n]{0,600}?)\" and resolves to a telephone number \\(a tel: link\\), not to a web destination\\. The automated audit reads links and does not tap buttons; a tap test on a phone is a separate manual check, and no owner confirmation is recorded in this audit\\. An ordering destination is declared in the page markup \\(([^\\n]{0,600}?)\\) but is not linked for customers; the action a customer is offered is the telephone link\\. Whether it works requires manual validation\\. An ordering URL provided for this audit \\(([^\\n]{0,600}?)\\) redirected, when tested, to an address the page offers as a visible link \\(([^\\n]{0,600}?)\\)\\. Evidence confidence: VERIFIED\\."
+ },
+ {
+  "types": [
+   "ORDERING_CHANNEL"
+  ],
+  "field": "supportingContext",
   "pattern": "Verified in the page markup: call-to-action text ([^\\n]{0,600}?) is presented under \"([^\\n]{0,600}?)\" and resolves to a telephone number \\(a tel: link\\), not to a web destination\\. The automated audit reads links and does not tap buttons; a tap test on a phone is a separate manual check, and no owner confirmation is recorded in this audit\\. An ordering destination is declared in the page markup \\(([^\\n]{0,600}?)\\) but is not linked for customers; the action a customer is offered is the telephone link\\. Whether it works requires manual validation\\. An ordering URL provided for this audit \\(([^\\n]{0,600}?)\\) was not found on the analyzed pages, so it says nothing about what the website offers customers\\. Evidence confidence: INSUFFICIENT_DATA\\."
  },
  {
@@ -9537,6 +9817,62 @@ export const EVIDENCE_TEMPLATES: readonly EvidenceTemplate[] = [
   ],
   "field": "supportingContext",
   "pattern": "Verified in the page markup: call-to-action text ([^\\n]{0,600}?) is presented under \"([^\\n]{0,600}?)\" and resolves to a telephone number \\(a tel: link\\), not to a web destination\\. The automated audit reads links and does not tap buttons; a tap test on a phone is a separate manual check, and no owner confirmation is recorded in this audit\\. An ordering destination is declared in the page markup \\(([^\\n]{0,600}?)\\) but is not linked for customers; the action a customer is offered is the telephone link\\. Whether it works requires manual validation\\. Evidence confidence: VERIFIED\\."
+ },
+ {
+  "types": [
+   "ORDERING_CHANNEL"
+  ],
+  "field": "supportingContext",
+  "pattern": "Verified in the page markup: call-to-action text ([^\\n]{0,600}?) is presented under \"([^\\n]{0,600}?)\" and resolves to a telephone number \\(a tel: link\\), not to a web destination\\. The automated audit reads links and does not tap buttons; a tap test on a phone is a separate manual check, and no owner confirmation is recorded in this audit\\. No browser-based ordering destination was found alongside it\\. An ordering URL provided for this audit \\(([^\\n]{0,600}?)\\) redirected, when tested, to an address the page carries only in its markup \\(([^\\n]{0,600}?)\\); it is not a visible link customers are offered\\. Evidence confidence: INSUFFICIENT_DATA\\."
+ },
+ {
+  "types": [
+   "ORDERING_CHANNEL"
+  ],
+  "field": "supportingContext",
+  "pattern": "Verified in the page markup: call-to-action text ([^\\n]{0,600}?) is presented under \"([^\\n]{0,600}?)\" and resolves to a telephone number \\(a tel: link\\), not to a web destination\\. The automated audit reads links and does not tap buttons; a tap test on a phone is a separate manual check, and no owner confirmation is recorded in this audit\\. No browser-based ordering destination was found alongside it\\. An ordering URL provided for this audit \\(([^\\n]{0,600}?)\\) redirected, when tested, to an address the page carries only in its markup \\(([^\\n]{0,600}?)\\); it is not a visible link customers are offered\\. Evidence confidence: MANUAL_VALIDATION_REQUIRED\\."
+ },
+ {
+  "types": [
+   "ORDERING_CHANNEL"
+  ],
+  "field": "supportingContext",
+  "pattern": "Verified in the page markup: call-to-action text ([^\\n]{0,600}?) is presented under \"([^\\n]{0,600}?)\" and resolves to a telephone number \\(a tel: link\\), not to a web destination\\. The automated audit reads links and does not tap buttons; a tap test on a phone is a separate manual check, and no owner confirmation is recorded in this audit\\. No browser-based ordering destination was found alongside it\\. An ordering URL provided for this audit \\(([^\\n]{0,600}?)\\) redirected, when tested, to an address the page carries only in its markup \\(([^\\n]{0,600}?)\\); it is not a visible link customers are offered\\. Evidence confidence: STRONG_EVIDENCE\\."
+ },
+ {
+  "types": [
+   "ORDERING_CHANNEL"
+  ],
+  "field": "supportingContext",
+  "pattern": "Verified in the page markup: call-to-action text ([^\\n]{0,600}?) is presented under \"([^\\n]{0,600}?)\" and resolves to a telephone number \\(a tel: link\\), not to a web destination\\. The automated audit reads links and does not tap buttons; a tap test on a phone is a separate manual check, and no owner confirmation is recorded in this audit\\. No browser-based ordering destination was found alongside it\\. An ordering URL provided for this audit \\(([^\\n]{0,600}?)\\) redirected, when tested, to an address the page carries only in its markup \\(([^\\n]{0,600}?)\\); it is not a visible link customers are offered\\. Evidence confidence: VERIFIED\\."
+ },
+ {
+  "types": [
+   "ORDERING_CHANNEL"
+  ],
+  "field": "supportingContext",
+  "pattern": "Verified in the page markup: call-to-action text ([^\\n]{0,600}?) is presented under \"([^\\n]{0,600}?)\" and resolves to a telephone number \\(a tel: link\\), not to a web destination\\. The automated audit reads links and does not tap buttons; a tap test on a phone is a separate manual check, and no owner confirmation is recorded in this audit\\. No browser-based ordering destination was found alongside it\\. An ordering URL provided for this audit \\(([^\\n]{0,600}?)\\) redirected, when tested, to an address the page offers as a visible link \\(([^\\n]{0,600}?)\\)\\. Evidence confidence: INSUFFICIENT_DATA\\."
+ },
+ {
+  "types": [
+   "ORDERING_CHANNEL"
+  ],
+  "field": "supportingContext",
+  "pattern": "Verified in the page markup: call-to-action text ([^\\n]{0,600}?) is presented under \"([^\\n]{0,600}?)\" and resolves to a telephone number \\(a tel: link\\), not to a web destination\\. The automated audit reads links and does not tap buttons; a tap test on a phone is a separate manual check, and no owner confirmation is recorded in this audit\\. No browser-based ordering destination was found alongside it\\. An ordering URL provided for this audit \\(([^\\n]{0,600}?)\\) redirected, when tested, to an address the page offers as a visible link \\(([^\\n]{0,600}?)\\)\\. Evidence confidence: MANUAL_VALIDATION_REQUIRED\\."
+ },
+ {
+  "types": [
+   "ORDERING_CHANNEL"
+  ],
+  "field": "supportingContext",
+  "pattern": "Verified in the page markup: call-to-action text ([^\\n]{0,600}?) is presented under \"([^\\n]{0,600}?)\" and resolves to a telephone number \\(a tel: link\\), not to a web destination\\. The automated audit reads links and does not tap buttons; a tap test on a phone is a separate manual check, and no owner confirmation is recorded in this audit\\. No browser-based ordering destination was found alongside it\\. An ordering URL provided for this audit \\(([^\\n]{0,600}?)\\) redirected, when tested, to an address the page offers as a visible link \\(([^\\n]{0,600}?)\\)\\. Evidence confidence: STRONG_EVIDENCE\\."
+ },
+ {
+  "types": [
+   "ORDERING_CHANNEL"
+  ],
+  "field": "supportingContext",
+  "pattern": "Verified in the page markup: call-to-action text ([^\\n]{0,600}?) is presented under \"([^\\n]{0,600}?)\" and resolves to a telephone number \\(a tel: link\\), not to a web destination\\. The automated audit reads links and does not tap buttons; a tap test on a phone is a separate manual check, and no owner confirmation is recorded in this audit\\. No browser-based ordering destination was found alongside it\\. An ordering URL provided for this audit \\(([^\\n]{0,600}?)\\) redirected, when tested, to an address the page offers as a visible link \\(([^\\n]{0,600}?)\\)\\. Evidence confidence: VERIFIED\\."
  },
  {
   "types": [

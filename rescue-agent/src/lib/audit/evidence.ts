@@ -701,6 +701,7 @@ export function normalizeEvidence(collection: CollectionSet): EvidenceInput[] {
           url: probe.url,
           exposedInCustomerJourney: false,
           ...(probe.suppliedForAudit === undefined ? {} : { suppliedForAudit: probe.suppliedForAudit }),
+          ...(probe.finalUrl && probe.finalUrl !== probe.url ? { finalUrl: probe.finalUrl } : {}),
           platform: detectPlatform([probe.finalUrl ?? probe.url]),
           host: hostOf(probe.finalUrl ?? probe.url),
         });

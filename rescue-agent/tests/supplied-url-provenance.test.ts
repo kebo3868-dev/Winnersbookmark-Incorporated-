@@ -27,7 +27,7 @@ import { calculateCategoryScores, calculateOverallScore } from '@/lib/scoring/re
 import { buildExecutiveReport, presentEvidenceText, type ExecutiveReportInput } from '@/lib/reports/executive';
 import React from 'react';
 import { detectRevenueLeaks } from '@/lib/audit/leaks';
-import { publishAuditObservations } from '@/lib/reports/observationPublication';
+import { publishAuditObservations, publishEvidenceText } from '@/lib/reports/observationPublication';
 import { generateSalesBrief } from '@/lib/reports/sales';
 import type { RankedOpportunity } from '@/lib/reports/owner';
 
@@ -429,5 +429,110 @@ describe('a supplied URL whose exposure flag is omitted (direct normalizeEvidenc
     expect(JSON.stringify(dto)).not.toMatch(FAILURE);
     expect(pdf).not.toMatch(FAILURE);
     expect(brief).not.toMatch(FAILURE);
+  });
+});
+
+/**
+ * L1: THE ORDERING-CHANNEL NOTE AND THE PROBE RECORD MUST AGREE.
+ *
+ * For a supplied URL that redirected, when tested, to an address the page
+ * carries, the probe record (9e9cde1) said "the analyzed pages carry it only
+ * in the page markup" while the ordering-channel note on the same report said
+ * the supplied URL "was not found on the analyzed pages, so it says nothing
+ * about what the website offers customers". The channel never received the
+ * recorded redirect target, so it could not tell.
+ *
+ * Only a redirect recorded during the audit joins two addresses: a trailing-
+ * slash variant with no recorded redirect is a different address, and keeps
+ * the "not found" wording and its own outcome.
+ */
+describe('the ordering-channel note agrees with the probe record about a supplied URL', () => {
+  const S = 'https://order.toasttab.com/online/harbor-grill';
+  const TEL = '<a href="tel:+17275550100">Call to Order</a>';
+  const NOT_FOUND_S = (url: string) => new RegExp(`provided for this audit \\(${url.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')}\\) was not found on the analyzed pages`);
+  const supplied = (url: string, extra: Partial<ProbeResult> = {}) =>
+    reachable(url, 'ordering', { exposedInCustomerJourney: false, suppliedForAudit: true, ...extra });
+  const channelContext = (r: ReturnType<typeof run>) => r.evidence.find((e) => e.evidenceType === 'ORDERING_CHANNEL')!.supportingContext!;
+
+  for (const [label, from, to] of [['no slash → slash', S, `${S}/`], ['slash → no slash', `${S}/`, S]] as const) {
+    it(`redirect to a markup-only address (${label}): the channel names the redirect and the markup, never "not found"`, () => {
+      const r = run(`${BARE_PAGE}${TEL}<iframe src="${to}" title="Order online"></iframe>`, [supplied(from, { finalUrl: to })]);
+      const ctx = channelContext(r);
+      expect(ctx).not.toMatch(NOT_FOUND_S(from));
+      expect(ctx).toContain(
+        `An ordering URL provided for this audit (${from}) redirected, when tested, to an address the page carries only in its markup (${to}); it is not a visible link customers are offered.`,
+      );
+      // And the probe record says the same thing in its own words.
+      expect(probeRecord(r.evidence, from)!.supportingContext).toContain('the analyzed pages carry it only in the page markup, not as a visible link');
+    });
+
+    it(`redirect to a visible link (${label}): the channel says the page offers it as a visible link, never "not found"`, () => {
+      const r = run(`${BARE_PAGE}${TEL}<a href="${to}">Order Online</a>`, [supplied(from, { finalUrl: to })]);
+      const ctx = channelContext(r);
+      expect(ctx).not.toMatch(NOT_FOUND_S(from));
+      expect(ctx).toContain(
+        `An ordering URL provided for this audit (${from}) redirected, when tested, to an address the page offers as a visible link (${to}).`,
+      );
+      expect(probeRecord(r.evidence, from)!.supportingContext ?? '').not.toMatch(/was not found on the analyzed pages/);
+    });
+
+    it(`no recorded redirect (${label}): a trailing-slash variant is a different address — "not found" is kept, outcomes stay separate`, () => {
+      const r = run(`${BARE_PAGE}${TEL}<iframe src="${to}" title="Order online"></iframe>`, [
+        supplied(from, { ok: false, httpStatus: 404, note: 'HTTP 404', failureKind: 'HTTP' }),
+        reachable(to, 'ordering', { exposedInCustomerJourney: false, suppliedForAudit: false }),
+      ]);
+      expect(channelContext(r)).toMatch(NOT_FOUND_S(from));
+      expect(probeRecord(r.evidence, from)!.fact).toMatch(/could not be verified when tested \(HTTP 404\)/);
+      expect(probeRecord(r.evidence, to)!.fact).toMatch(/is reachable/);
+    });
+  }
+
+  it('redirect to an address that is not on the page: the historical "not found" sentence is kept verbatim', () => {
+    const r = run(`${BARE_PAGE}${TEL}`, [supplied(S, { finalUrl: 'https://order.toasttab.com/online/elsewhere' })]);
+    expect(channelContext(r)).toContain(
+      `An ordering URL provided for this audit (${S}) was not found on the analyzed pages, so it says nothing about what the website offers customers.`,
+    );
+  });
+
+  it('absent from the page, no redirect: the historical "not found" sentence is kept verbatim', () => {
+    const r = run(`${BARE_PAGE}${TEL}`, [supplied(S)]);
+    expect(channelContext(r)).toContain(
+      `An ordering URL provided for this audit (${S}) was not found on the analyzed pages, so it says nothing about what the website offers customers.`,
+    );
+  });
+
+  it('resolveOrderingChannel reads the recorded redirect target directly', () => {
+    const base = { phoneOrderCtas: ['Call to Order'], onlineLabelledPhoneCtas: [], probes: [], widgetVendor: null };
+    const markup: OrderingDestination = { url: `${S}/`, exposedInCustomerJourney: false, platform: 'Toast', host: 'order.toasttab.com', discoveredVia: 'PAGE_MARKUP', ctaText: null };
+    const sup: OrderingDestination = { url: S, finalUrl: `${S}/`, exposedInCustomerJourney: false, platform: 'Toast', host: 'order.toasttab.com', suppliedForAudit: true };
+    const withRedirect = resolveOrderingChannel({ ...base, destinations: [markup, sup] });
+    expect(withRedirect.detail).toContain(`redirected, when tested, to an address the page carries only in its markup (${S}/)`);
+    const { finalUrl: _f, ...noRedirect } = sup;
+    expect(resolveOrderingChannel({ ...base, destinations: [markup, noRedirect] }).detail).toMatch(NOT_FOUND_S(S));
+  });
+
+  it('every corrected channel note publishes as approved wording in the report (never withheld)', () => {
+    const ctx = { sources: [{ id: 's1', url: SITE, pageTitle: 'Harbor Grill', sourceType: 'HOMEPAGE' }], restaurant: { name: 'Harbor Grill', websiteUrl: SITE }, suppliedUrls: [S] };
+    for (const [body, finalUrl] of [
+      [`${BARE_PAGE}${TEL}<iframe src="${S}/" title="Order online"></iframe>`, `${S}/`],
+      [`${BARE_PAGE}${TEL}<a href="${S}/">Order Online</a>`, `${S}/`],
+      [`${BARE_PAGE}${TEL}`, undefined],
+    ] as const) {
+      const text = channelContext(run(body, [supplied(S, finalUrl ? { finalUrl } : {})]));
+      const published = publishEvidenceText('ORDERING_CHANNEL', 'supportingContext', text, ctx as never);
+      expect(published.provenance, text).toBe('TEMPLATE');
+      expect(published.text).toBe(text);
+    }
+  });
+
+  it('the correction changes no state, evidence type, confidence, stage or score', () => {
+    const page = `${BARE_PAGE}${TEL}<iframe src="${S}/" title="Order online"></iframe>`;
+    const redirected = run(page, [supplied(S, { finalUrl: `${S}/` })]);
+    const notRedirected = run(page, [supplied(S)]);
+    expect(redirected.evidence.map((e) => [e.evidenceType, e.confidence, e.sourceUrl])).toEqual(notRedirected.evidence.map((e) => [e.evidenceType, e.confidence, e.sourceUrl]));
+    expect(redirected.evidence.find((e) => e.evidenceType === 'ORDERING_CHANNEL')!.fact).toBe(notRedirected.evidence.find((e) => e.evidenceType === 'ORDERING_CHANNEL')!.fact);
+    expect(redirected.journey.map((s) => [s.stage, s.status, s.confidence, s.finding])).toEqual(notRedirected.journey.map((s) => [s.stage, s.status, s.confidence, s.finding]));
+    expect(redirected.categories).toEqual(notRedirected.categories);
+    expect(redirected.overall).toEqual(notRedirected.overall);
   });
 });
