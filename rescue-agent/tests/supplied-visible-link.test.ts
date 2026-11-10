@@ -11,14 +11,16 @@
  *
  * Rule pinned here: a supplied URL that the collected pages show as a visible
  * link in the SAME category as the field it was typed into (exact address) is
- * tested as customer-facing, and stays marked supplied. If the page links it
- * under a different category, the page's own link is still tested under that
- * category — so a URL typed into the wrong field can neither create a false
- * failure in that field's category nor hide the page link's real outcome. The audit then reports exactly what it reports for the
- * same site without the URL supplied — so any score change comes from correct
- * evidence, not from a scoring rule. Supplied URLs that are not visible links
- * (absent, embed-only, a trailing-slash variant, reached only by redirect) are
- * unchanged.
+ * tested as customer-facing, and stays marked supplied. For that in-category
+ * case the audit reports exactly what it reports for the same site without the
+ * URL supplied, so the score change comes from correct evidence, not a scoring
+ * rule. If the page links it under a different category, the supplied test
+ * keeps its provenance (not customer-facing) and the page's own link is still
+ * tested under that category. That case is not identical to the unsupplied
+ * site: it adds a supplied "could not be verified" record, which the existing
+ * AI-readiness rule (#85) counts, and can change which links fill the two
+ * per-category test slots. Supplied URLs that are not visible links (absent,
+ * embed-only, a trailing-slash variant, reached only by redirect) are unchanged.
  */
 import React from 'react';
 import { describe, expect, it } from 'vitest';
@@ -270,6 +272,23 @@ describe('#84 review fix: a supplied URL is customer-facing only in the category
       for (const surface of [supplied.report, supplied.pdf, supplied.brief]) expect(surface).not.toMatch(LINKED_AND_REACHABLE);
     });
   }
+});
+
+describe('#84 review edge cases', () => {
+  it('fields swapped (each URL visible in the other field\'s category), both 404: broken links, channel and journey match the unsupplied site', async () => {
+    const pages = [page(`<a href="${BOOK}">Book a Table</a><a href="${ORDER}">Order Online</a>`)];
+    const supplied = await audit(pages, { reservation: ORDER, ordering: BOOK }, () => E404);
+    const control = await audit(pages, {}, () => E404);
+    expect(broken(supplied).map((e) => e.fact).sort()).toEqual(broken(control).map((e) => e.fact).sort());
+    expect(supplied.evidence.find((e) => e.evidenceType === 'ORDERING_CHANNEL')!.fact).toBe(control.evidence.find((e) => e.evidenceType === 'ORDERING_CHANNEL')!.fact);
+    for (const s of ['ORDERING', 'RESERVATION']) expect(stage(supplied, s).status).toBe(stage(control, s).status);
+  });
+
+  it('a supplied URL that appears only as an embed in another category is not re-tested and not customer-facing', () => {
+    const IFRAME = 'https://order.toasttab.com/online/harbor-grill';
+    const targets = buildProbeTargets({ pages: [page(`<iframe src="${IFRAME}" title="Order online"></iframe>`)], reservationUrl: IFRAME, collectedUrls: new Set() });
+    expect(targets.map((t) => [t.url, t.category, t.exposed, t.supplied])).toEqual([[IFRAME, 'reservation', false, true]]);
+  });
 });
 
 describe('#84 more in-category outcome variations match the unsupplied site', () => {
