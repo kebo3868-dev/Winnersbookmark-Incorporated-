@@ -69,6 +69,19 @@ export interface OrderingDestination {
   ctaText?: string | null;
   /** How the destination was found. Only VISIBLE_LINK proves customer exposure. */
   discoveredVia?: 'VISIBLE_LINK' | 'PAGE_MARKUP';
+  /**
+   * True when the URL was supplied on the audit form; false when it came from
+   * the website. Set by the orchestrator and carried through ProbeResult.
+   * Absent on destinations built by older callers, for which provenance is
+   * still inferred (see `suppliedOnly` in resolveOrderingChannel).
+   */
+  suppliedForAudit?: boolean;
+  /**
+   * Where the destination redirected when the audit tested it, when that
+   * differs from `url`. The only thing that joins two addresses: a trailing-
+   * slash variant with no recorded redirect is a different destination.
+   */
+  finalUrl?: string;
 }
 
 /** The result of testing one ordering destination. */
@@ -374,6 +387,9 @@ export function resolveOrderingChannel(input: OrderingChannelInput): OrderingCha
     const fromMarkup = destinations.filter((d) => d.discoveredVia === 'PAGE_MARKUP');
     const suppliedOnly = destinations.filter((d) => {
       if (d.discoveredVia || d.exposedInCustomerJourney) return false;
+      // Explicit provenance, when the caller recorded it, is the answer.
+      if (d.suppliedForAudit !== undefined) return d.suppliedForAudit;
+      // Otherwise inferred, as before, for destinations built without it.
       const kind = classifyDestination(d.url).kind;
       return kind !== 'API_ENDPOINT' && kind !== 'STATIC_ASSET';
     });
@@ -388,11 +404,27 @@ export function resolveOrderingChannel(input: OrderingChannelInput): OrderingCha
             `An ordering destination is declared in the page markup (${fromMarkup[0].url}) but is not linked for ` +
             'customers; the action a customer is offered is the telephone link. Whether it works requires manual validation.'
           : 'No browser-based ordering destination was found alongside it.';
-    const declared =
-      suppliedOnly.length > 0
-        ? `${onPage} An ordering URL provided for this audit (${suppliedOnly[0].url}) was not found on the analyzed ` +
-          'pages, so it says nothing about what the website offers customers.'
-        : onPage;
+    // Where the supplied URL landed, by its recorded redirect only: a page
+    // destination at exactly that address is either a visible link or markup.
+    // Saying "not found" there contradicted the probe record for the same URL.
+    const supplied = suppliedOnly[0];
+    const landed =
+      supplied?.finalUrl && supplied.finalUrl !== supplied.url
+        ? destinations.find((d) => d !== supplied && d.url === supplied.finalUrl && (d.exposedInCustomerJourney || d.discoveredVia))
+        : undefined;
+    // Built apart from `onPage` and appended, so every combination of the two
+    // stays a fully literal approved-wording template (see evidenceTemplates).
+    const suppliedNote = !supplied
+      ? ''
+      : landed && (landed.exposedInCustomerJourney || landed.discoveredVia === 'VISIBLE_LINK')
+        ? ` An ordering URL provided for this audit (${supplied.url}) redirected, when tested, to an address the ` +
+          `page offers as a visible link (${landed.url}).`
+        : landed
+          ? ` An ordering URL provided for this audit (${supplied.url}) redirected, when tested, to an address the ` +
+            `page carries only in its markup (${landed.url}); it is not a visible link customers are offered.`
+          : ` An ordering URL provided for this audit (${supplied.url}) was not found on the analyzed ` +
+            'pages, so it says nothing about what the website offers customers.';
+    const declared = `${onPage}${suppliedNote}`;
     // "ONLY" IS AN EXCLUSIVITY CLAIM, AND THE SCOPE HAS TO EARN IT.
     //
     // This read "Ordering is by telephone only". The audit reads a bounded

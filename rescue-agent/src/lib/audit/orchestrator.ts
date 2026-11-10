@@ -332,7 +332,9 @@ export async function runAudit(auditId: string): Promise<void> {
     // in the served markup. An owner-supplied hint is not: a URL nobody is shown
     // cannot demonstrate anything about the customer journey, and treating one
     // as proof is how a discovered 404 became a reported ordering failure.
-    const probeTargets: { url: string; category: ProbeResult['category']; exposed: boolean }[] = [];
+    // `supplied` records that the URL came from the audit form, not the website.
+    // It is carried on the ProbeResult so provenance is stated, never inferred.
+    const probeTargets: { url: string; category: ProbeResult['category']; exposed: boolean; supplied: boolean }[] = [];
     const seenProbe = new Set<string>();
     // Owner-supplied pathway URLs are probed first so they are never dropped.
     for (const [url, category] of [
@@ -341,7 +343,7 @@ export async function runAudit(auditId: string): Promise<void> {
     ] as const) {
       if (url && !seenProbe.has(url)) {
         seenProbe.add(url);
-        probeTargets.push({ url, category, exposed: false });
+        probeTargets.push({ url, category, exposed: false, supplied: true });
       }
     }
     for (const [category, key] of [
@@ -357,7 +359,7 @@ export async function runAudit(auditId: string): Promise<void> {
           // Only a visible anchor proves a customer is offered this destination.
           // An `embed` source was read out of markup or widget config, which is
           // not the same thing — see the exposure note in evidence.ts.
-          probeTargets.push({ url: link.href, category, exposed: link.source === 'anchor' });
+          probeTargets.push({ url: link.href, category, exposed: link.source === 'anchor', supplied: false });
         }
       }
     }
@@ -368,7 +370,13 @@ export async function runAudit(auditId: string): Promise<void> {
         continue;
       }
       const result = await probeLink(target.url, { timeoutMs: probeTimeout, deadline: budget.deadline });
-      probes.push({ url: target.url, category: target.category, exposedInCustomerJourney: target.exposed, ...result });
+      probes.push({
+        url: target.url,
+        category: target.category,
+        exposedInCustomerJourney: target.exposed,
+        suppliedForAudit: target.supplied,
+        ...result,
+      });
     }
     if (skippedForBudget > 0) {
       await log(
