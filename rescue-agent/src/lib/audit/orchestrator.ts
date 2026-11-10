@@ -5,6 +5,7 @@ import { resolveRestaurantName, shouldReplaceStoredName } from '@/lib/audit/rest
 import { fetchPage, probeLink, type PageExtract } from '@/lib/web/collector';
 import { discoverRelevantPages } from '@/lib/web/discovery';
 import { normalizeEvidence, type CollectionSet, type ProbeResult } from '@/lib/audit/evidence';
+import { buildProbeTargets } from '@/lib/audit/probeTargets';
 import { analyzeJourney } from '@/lib/audit/journey';
 import { detectRevenueLeaks } from '@/lib/audit/leaks';
 import { rankOpportunities } from '@/lib/scoring/priority';
@@ -328,41 +329,14 @@ export async function runAudit(auditId: string): Promise<void> {
 
     // ---- PROBE KEY TRANSACTIONAL LINKS ----
     const probes: ProbeResult[] = [];
-    // `exposed` records whether a customer is actually OFFERED this destination
-    // in the served markup. An owner-supplied hint is not: a URL nobody is shown
-    // cannot demonstrate anything about the customer journey, and treating one
-    // as proof is how a discovered 404 became a reported ordering failure.
-    // `supplied` records that the URL came from the audit form, not the website.
-    // It is carried on the ProbeResult so provenance is stated, never inferred.
-    const probeTargets: { url: string; category: ProbeResult['category']; exposed: boolean; supplied: boolean }[] = [];
-    const seenProbe = new Set<string>();
-    // Owner-supplied pathway URLs are probed first so they are never dropped.
-    for (const [url, category] of [
-      [audit.reservationUrlInput, 'reservation'],
-      [audit.orderingUrlInput, 'ordering'],
-    ] as const) {
-      if (url && !seenProbe.has(url)) {
-        seenProbe.add(url);
-        probeTargets.push({ url, category, exposed: false, supplied: true });
-      }
-    }
-    for (const [category, key] of [
-      ['reservation', 'reservation'],
-      ['ordering', 'ordering'],
-      ['menu', 'menu'],
-    ] as const) {
-      for (const page of pages) {
-        for (const link of page.categorizedLinks[key] ?? []) {
-          if (probeTargets.filter((p) => p.category === category).length >= 2) break;
-          if (seenProbe.has(link.href) || sourceIdByUrl.has(link.href)) continue;
-          seenProbe.add(link.href);
-          // Only a visible anchor proves a customer is offered this destination.
-          // An `embed` source was read out of markup or widget config, which is
-          // not the same thing — see the exposure note in evidence.ts.
-          probeTargets.push({ url: link.href, category, exposed: link.source === 'anchor', supplied: false });
-        }
-      }
-    }
+    // Which URLs to test, with provenance (`supplied`) and customer exposure
+    // (`exposed`): see probeTargets.ts.
+    const probeTargets = buildProbeTargets({
+      pages,
+      reservationUrl: audit.reservationUrlInput,
+      orderingUrl: audit.orderingUrlInput,
+      collectedUrls: sourceIdByUrl,
+    });
     for (const target of probeTargets.slice(0, 8)) {
       const probeTimeout = budget.timeoutFor(PROBE_TIMEOUT_MS);
       if (probeTimeout === null) {

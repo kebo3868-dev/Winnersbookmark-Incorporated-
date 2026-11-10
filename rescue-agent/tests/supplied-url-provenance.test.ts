@@ -22,6 +22,7 @@ import { describe, expect, it } from 'vitest';
 import { extractPage } from '@/lib/web/collector';
 import { normalizeEvidence, type ProbeResult } from '@/lib/audit/evidence';
 import { resolveOrderingChannel, type OrderingDestination } from '@/lib/audit/orderingChannel';
+import { buildProbeTargets } from '@/lib/audit/probeTargets';
 import { analyzeJourney } from '@/lib/audit/journey';
 import { calculateCategoryScores, calculateOverallScore } from '@/lib/scoring/rescueScore';
 import { buildExecutiveReport, presentEvidenceText, type ExecutiveReportInput } from '@/lib/reports/executive';
@@ -200,8 +201,11 @@ describe('the orchestrator sets the marker where the supplied URL enters the pip
   const src = fs.readFileSync(path.resolve(__dirname, '../src/lib/audit/orchestrator.ts'), 'utf8');
 
   it('owner-supplied probe targets are marked supplied; page-found targets are not', () => {
-    expect(src).toMatch(/probeTargets\.push\(\{ url, category, exposed: false, supplied: true \}\)/);
-    expect(src).toMatch(/probeTargets\.push\(\{ url: link\.href, category, exposed: link\.source === 'anchor', supplied: false \}\)/);
+    // Behavioural since the selection moved into buildProbeTargets (#86, L3).
+    const pages = [extractPage(SITE, SITE, 200, 'text/html', `<html><body>${BARE_PAGE}<a href="${PAGE_ORDER}">Order Online</a>${FILLER}</body></html>`)];
+    const targets = buildProbeTargets({ pages, reservationUrl: SUPPLIED_BOOKING, orderingUrl: SUPPLIED_ORDER, collectedUrls: new Set() });
+    expect(targets.map((t) => [t.url, t.supplied])).toEqual([[SUPPLIED_BOOKING, true], [SUPPLIED_ORDER, true], [PAGE_ORDER, false]]);
+    expect(src).toMatch(/buildProbeTargets\(\{/);
   });
 
   it('the marker is forwarded onto the ProbeResult', () => {
