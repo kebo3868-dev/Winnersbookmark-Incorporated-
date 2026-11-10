@@ -37,13 +37,21 @@ const PER_CATEGORY = 2;
 export function buildProbeTargets(input: ProbeTargetInput): ProbeTarget[] {
   const targets: ProbeTarget[] = [];
   const seen = new Set<string>();
+  const visible = visibleLinkUrls(input.pages);
   for (const [url, category] of [
     [input.reservationUrl, 'reservation'],
     [input.orderingUrl, 'ordering'],
   ] as const) {
     if (url && !seen.has(url)) {
       seen.add(url);
-      targets.push({ url, category, exposed: false, supplied: true });
+      // Issue #84. Each address is tested once, so a supplied URL that the page
+      // ALSO shows as a visible link is the only test of that link. Queued as
+      // "not offered to customers", a real 404 there became "could not be
+      // verified" while the channel still called the link "linked and
+      // reachable". When the collected pages show this exact address as a
+      // visible link, customers are offered it: it is tested as customer-facing,
+      // and stays marked supplied. Exact address only, as everywhere else.
+      targets.push({ url, category, exposed: visible.has(url), supplied: true });
     }
   }
   for (const [category, key] of [
@@ -64,4 +72,20 @@ export function buildProbeTargets(input: ProbeTargetInput): ProbeTarget[] {
     }
   }
   return targets;
+}
+
+/**
+ * Every address the collected pages show as a visible link (an anchor), in any
+ * link category: a customer can click it whatever the audit files it under.
+ * Embeds are excluded — read out of markup or widget config, they do not show
+ * that a customer is offered the destination.
+ */
+function visibleLinkUrls(pages: PageExtract[]): Set<string> {
+  const urls = new Set<string>();
+  for (const page of pages) {
+    for (const links of Object.values(page.categorizedLinks)) {
+      for (const link of links ?? []) if (link.source === 'anchor') urls.add(link.href);
+    }
+  }
+  return urls;
 }
