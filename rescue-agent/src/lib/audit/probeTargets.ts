@@ -36,22 +36,27 @@ const PER_CATEGORY = 2;
  */
 export function buildProbeTargets(input: ProbeTargetInput): ProbeTarget[] {
   const targets: ProbeTarget[] = [];
-  const seen = new Set<string>();
-  const visible = visibleLinkUrls(input.pages);
+  /** The target already queued for each address. */
+  const queued = new Map<string, ProbeTarget>();
   for (const [url, category] of [
     [input.reservationUrl, 'reservation'],
     [input.orderingUrl, 'ordering'],
   ] as const) {
-    if (url && !seen.has(url)) {
-      seen.add(url);
+    if (url && !queued.has(url)) {
       // Issue #84. Each address is tested once, so a supplied URL that the page
-      // ALSO shows as a visible link is the only test of that link. Queued as
-      // "not offered to customers", a real 404 there became "could not be
-      // verified" while the channel still called the link "linked and
-      // reachable". When the collected pages show this exact address as a
-      // visible link, customers are offered it: it is tested as customer-facing,
-      // and stays marked supplied. Exact address only, as everywhere else.
-      targets.push({ url, category, exposed: visible.has(url), supplied: true });
+      // ALSO links visibly was the only test of that link. Queued as "not
+      // offered to customers", a real 404 there became "could not be verified"
+      // while the channel still called the link "linked and reachable". When
+      // the collected pages show this exact address as a visible link in the
+      // SAME category as the field it was typed into, customers are offered it
+      // for that purpose: it is tested as customer-facing, and stays supplied.
+      // A visible link in another category (the menu link typed as the ordering
+      // URL, an ordering link typed into the reservation field) does not make
+      // the supplied test customer-facing: that would report a failure in a
+      // category only the form field asserts. See the page loop below.
+      const target: ProbeTarget = { url, category, exposed: visibleIn(input.pages, category, url), supplied: true };
+      queued.set(url, target);
+      targets.push(target);
     }
   }
   for (const [category, key] of [
@@ -62,30 +67,27 @@ export function buildProbeTargets(input: ProbeTargetInput): ProbeTarget[] {
     for (const page of input.pages) {
       for (const link of page.categorizedLinks[key] ?? []) {
         if (targets.filter((p) => p.category === category).length >= PER_CATEGORY) break;
-        if (seen.has(link.href) || input.collectedUrls.has(link.href)) continue;
-        seen.add(link.href);
+        if (input.collectedUrls.has(link.href)) continue;
+        const earlier = queued.get(link.href);
+        // Each address once — except a visible page link whose address was only
+        // queued as a supplied URL in a different category and not as
+        // customer-facing. That test says nothing about this link as the page
+        // offers it, so the link is tested here, under its own category, exactly
+        // as it would be had the URL not been supplied (#84 review).
+        if (earlier && !(earlier.supplied && !earlier.exposed && earlier.category !== category && link.source === 'anchor')) continue;
+        const target: ProbeTarget = { url: link.href, category, exposed: link.source === 'anchor', supplied: false };
         // Only a visible anchor proves a customer is offered this destination.
         // An `embed` source was read out of markup or widget config, which is
         // not the same thing — see the exposure note in evidence.ts.
-        targets.push({ url: link.href, category, exposed: link.source === 'anchor', supplied: false });
+        queued.set(link.href, target);
+        targets.push(target);
       }
     }
   }
   return targets;
 }
 
-/**
- * Every address the collected pages show as a visible link (an anchor), in any
- * link category: a customer can click it whatever the audit files it under.
- * Embeds are excluded — read out of markup or widget config, they do not show
- * that a customer is offered the destination.
- */
-function visibleLinkUrls(pages: PageExtract[]): Set<string> {
-  const urls = new Set<string>();
-  for (const page of pages) {
-    for (const links of Object.values(page.categorizedLinks)) {
-      for (const link of links ?? []) if (link.source === 'anchor') urls.add(link.href);
-    }
-  }
-  return urls;
+/** Whether the collected pages show this exact address as a visible link (an anchor) in this category. */
+function visibleIn(pages: PageExtract[], category: ProbeTarget['category'], url: string): boolean {
+  return pages.some((page) => (page.categorizedLinks[category] ?? []).some((link) => link.source === 'anchor' && link.href === url));
 }

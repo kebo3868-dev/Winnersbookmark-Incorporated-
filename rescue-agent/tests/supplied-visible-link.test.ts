@@ -10,8 +10,11 @@
  * site with the URL not supplied.
  *
  * Rule pinned here: a supplied URL that the collected pages show as a visible
- * link (exact address, any link category) is tested as customer-facing, and
- * stays marked supplied. The audit then reports exactly what it reports for the
+ * link in the SAME category as the field it was typed into (exact address) is
+ * tested as customer-facing, and stays marked supplied. If the page links it
+ * under a different category, the page's own link is still tested under that
+ * category — so a URL typed into the wrong field can neither create a false
+ * failure in that field's category nor hide the page link's real outcome. The audit then reports exactly what it reports for the
  * same site without the URL supplied — so any score change comes from correct
  * evidence, not from a scoring rule. Supplied URLs that are not visible links
  * (absent, embed-only, a trailing-slash variant, reached only by redirect) are
@@ -223,10 +226,70 @@ describe('#84 does not widen exposure: supplied URLs that are not visible links 
   });
 });
 
-describe('#84 decision (a): a visible link in another category counts as customer-facing', () => {
-  it('supplied ordering URL = the page\'s visible menu link: tested as customer-facing, a 404 is a BROKEN_LINK', async () => {
-    const r = await audit([page(`<a href="${MENU}">Menu</a>`)], { ordering: MENU }, () => E404);
-    expect(r.targets.filter((t) => t.url === MENU).map((t) => [t.category, t.exposed, t.supplied])).toEqual([['ordering', true, true]]);
-    expect(broken(r).map((e) => e.sourceUrl)).toEqual([MENU]);
+describe('#84 review fix: a supplied URL is customer-facing only in the category of the field it was typed into', () => {
+  const CATERING = 'https://harborgrill.example/catering';
+  const channelFact = (r: Run) => r.evidence.find((e) => e.evidenceType === 'ORDERING_CHANNEL')!.fact;
+
+  it('the page\'s menu link supplied as the ordering URL, 404: no VERIFIED ordering failure; the menu link fails as a menu link, as on the unsupplied site', async () => {
+    const pages = [page(`<a href="${MENU}">Menu</a>`)];
+    const supplied = await audit(pages, { ordering: MENU }, () => E404);
+    const control = await audit(pages, {}, () => E404);
+    // The supplied ordering test keeps its provenance and is not customer-facing;
+    // the page's own menu link is still tested, as customer-facing, under menu.
+    expect(supplied.targets.map((t) => [t.url, t.category, t.exposed, t.supplied])).toEqual([[MENU, 'ordering', false, true], [MENU, 'menu', true, false]]);
+    expect(channelFact(supplied)).not.toMatch(/ONLINE_ORDERING_BROKEN_CONFIRMED/);
+    expect(stage(supplied, 'ORDERING').status).not.toBe('RISK');
+    expect(broken(supplied).map((e) => e.fact)).toEqual(broken(control).map((e) => e.fact));
+    expect(broken(supplied).map((e) => e.fact)).toEqual(['The linked menu destination failed when tested (HTTP 404).']);
+    expect(stage(supplied, 'MENU').status).toBe(stage(control, 'MENU').status);
+    expect(supplied.dto.findings.map((f) => f.title)).not.toContain('A transaction link on the website is failing');
   });
+
+  it('the page\'s catering link supplied as the ordering URL, 404: no BROKEN_LINK and no VERIFIED ordering failure', async () => {
+    const supplied = await audit([page(`<a href="${CATERING}">Catering</a>`)], { ordering: CATERING }, () => E404);
+    expect(supplied.targets.map((t) => [t.url, t.category, t.exposed, t.supplied])).toEqual([[CATERING, 'ordering', false, true]]);
+    expect(broken(supplied)).toEqual([]);
+    expect(channelFact(supplied)).not.toMatch(/ONLINE_ORDERING_BROKEN_CONFIRMED/);
+    expect(stage(supplied, 'ORDERING').status).not.toBe('RISK');
+    expect(supplied.report).not.toMatch(/transaction link on the website is failing/i);
+  });
+
+  for (const [label, fields] of [
+    ['ordering URL typed into the reservation field', { reservation: ORDER }],
+    ['the same URL typed into both fields', { reservation: ORDER, ordering: ORDER }],
+  ] as const) {
+    it(`${label}, 404: the ordering link still fails as ordering, no false reservation BROKEN_LINK, no "linked and reachable"`, async () => {
+      const pages = [page(`<a href="${ORDER}">Order Online</a>`)];
+      const supplied = await audit(pages, fields, () => E404);
+      const control = await audit(pages, {}, () => E404);
+      expect(supplied.targets.map((t) => [t.url, t.category, t.exposed, t.supplied])).toEqual([[ORDER, 'reservation', false, true], [ORDER, 'ordering', true, false]]);
+      expect(broken(supplied).map((e) => e.fact)).toEqual(['The linked ordering destination failed when tested (HTTP 404).']);
+      expect(channelFact(supplied)).toMatch(/ONLINE_ORDERING_BROKEN_CONFIRMED/);
+      expect(stage(supplied, 'ORDERING').status).toBe(stage(control, 'ORDERING').status);
+      expect(stage(supplied, 'RESERVATION').status).not.toBe('RISK');
+      for (const surface of [supplied.report, supplied.pdf, supplied.brief]) expect(surface).not.toMatch(LINKED_AND_REACHABLE);
+    });
+  }
+});
+
+describe('#84 more in-category outcome variations match the unsupplied site', () => {
+  const E401: Outcome = { ok: true, httpStatus: 401, note: 'HTTP 401 (access restricted)' };
+  const E429: Outcome = { ok: true, httpStatus: 429, note: 'HTTP 429 (access restricted)' };
+  const E503: Outcome = { ok: false, httpStatus: 503, note: 'HTTP 503', failureKind: 'HTTP' };
+  const BLOCKED: Outcome = { ok: false, note: 'Rejected by safety policy: private address', failureKind: 'BLOCKED' };
+  const cases: [string, (u: string) => Outcome][] = [
+    ['redirect, then 404', () => ({ ...E404, finalUrl: 'https://harborgrill.example/order-moved' })],
+    ['redirect, then 200', () => ({ ...OK, finalUrl: 'https://harborgrill.example/order-moved' })],
+    ['HTTP 401', () => E401], ['HTTP 429', () => E429], ['HTTP 503', () => E503], ['blocked by safety policy', () => BLOCKED],
+  ];
+  for (const [label, outcome] of cases) {
+    it(`ordering, ${label}`, async () => {
+      const pages = [page(`<a href="${ORDER}">Order Online</a>`)];
+      expect(visible(await audit(pages, { ordering: ORDER }, outcome))).toEqual(visible(await audit(pages, {}, outcome)));
+    });
+    it(`reservation, ${label}`, async () => {
+      const pages = [page(`<a href="${BOOK}">Book a Table</a>`)];
+      expect(visible(await audit(pages, { reservation: BOOK }, outcome))).toEqual(visible(await audit(pages, {}, outcome)));
+    });
+  }
 });
